@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
@@ -72,7 +72,7 @@ import {
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
-import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber } from "@/lib/booking-list";
+import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
 function BookingCardSkeleton() {
@@ -108,6 +108,11 @@ function BookingCardSkeleton() {
 }
 
 type QuickFilterType = 'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days';
+
+type RescheduleSlotAvailRow = {
+  slotIndex: number; label: string; startTimeISO: string;
+  count: number; max: number; isCancelled: boolean; spotsLeft: number;
+};
 type ModalTabType = 'overview' | 'clinical' | 'notes' | 'actions' | 'billing';
 
 interface BookingsPanelProps {
@@ -158,8 +163,8 @@ export default function BookingsPanel({
   setTabBadges,
 }: BookingsPanelProps) {
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [filterRowOpen, setFilterRowOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(true);
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
     if (!clinic?.id) return;
@@ -203,8 +208,10 @@ export default function BookingsPanel({
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
   const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
-  const [legendCollapsed, setLegendCollapsed] = useState(false);
+  const [legendCollapsed, setLegendCollapsed] = useState(true);
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const [bookingPatientSearch, setBookingPatientSearch] = useState("");
   const [bookingPatientResults, setBookingPatientResults] = useState<Patient[]>([]);
@@ -238,54 +245,80 @@ export default function BookingsPanel({
   const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
   const dates = useMemo(() => Array.from({ length: 14 }, (_, idx) => addDays(startOfToday(), idx)), []);
 
-  const { data: bookings, isLoading: bookingsLoading, isError: bookingsError, error: bookingsErrorDetails, refetch: refetchBookings } = useQuery<BookingWithSlot[]>({
-    queryKey: ['/api/auth/clinic/bookings'],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/auth/clinic/bookings');
+  const bookingsQueryKey = ['/api/auth/clinic/bookings', {
+    filter: quickFilter,
+    dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
+    dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
+    patientId: activePatientFilter?.id,
+  }];
+
+  const {
+    data: bookingsInfiniteData,
+    isLoading: bookingsLoading,
+    isError: bookingsError,
+    error: bookingsErrorDetails,
+    refetch: refetchBookings,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<BookingsPagedResponse>({
+    queryKey: bookingsQueryKey,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
+      if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
+      if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
+      if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
+      const res = await apiRequest('GET', `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
     },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     enabled: isAuthenticated,
     refetchOnMount: true,
-    refetchInterval: 30_000,
-    staleTime: 30_000,
+    refetchInterval: quickFilter === 'today' ? 30_000 : false,
+    staleTime: quickFilter === 'today' ? 30_000 : 5 * 60_000,
   });
+
+  const bookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+  const bookingStats = bookingsInfiniteData?.pages[0]?.stats;
+  const bookingsTotal = bookingsInfiniteData?.pages[0]?.total ?? 0;
 
   const { data: allDoctorLeaves = [] } = useQuery<{ doctorEmail?: string; doctorName?: string; leaveDate: string; reason?: string | null }[]>({
     queryKey: ['/api/clinic/doctor-leaves/all'],
     enabled: isAuthenticated,
   });
 
-  const todaysBookingsCount = bookings?.filter(b => {
-    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
-    return bookingDateStr === todayStr;
-  }).length || 0;
+  const { data: rescheduleSlotAvailability, isFetching: rescheduleAvailFetching } = useQuery<RescheduleSlotAvailRow[]>({
+    queryKey: ['reschedule-slot-availability', clinic?.id, format(rescheduleDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!clinic?.id) return [];
+      const payload = {
+        clinicId: clinic.id,
+        slots: slotTimings.map((slot, idx) => {
+          const t = new Date(rescheduleDate);
+          t.setHours(slot.startHour, slot.startMinute, 0, 0);
+          return { slotIndex: idx, label: slot.label, startTimeISO: t.toISOString() };
+        }),
+      };
+      const res = await apiRequest('POST', '/api/public/slot-availability', payload);
+      if (!res.ok) throw new Error('Failed to fetch slot availability');
+      return res.json();
+    },
+    enabled: !!clinic?.id && rescheduleBookingId !== null,
+    staleTime: 30_000,
+  });
 
-  const futureBookingsCount = bookings?.filter(b => {
-    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
-    return bookingDateStr > todayStr &&
-      b.visitStatus !== 'completed' &&
-      b.visitStatus !== 'patient_left_early';
-  }).length || 0;
+  // Chip badge counts come from the server stats (across all pages)
+  const todaysBookingsCount = bookingStats?.todayCount ?? 0;
+  const futureBookingsCount = bookingStats?.upcomingCount ?? 0;
+  const pastBookingsCount   = bookingStats?.pastCount ?? 0;
+  const thisWeekCount       = bookingStats?.thisWeekCount ?? 0;
+  const nextWeekCount       = bookingStats?.nextWeekCount ?? 0;
 
-  const pastBookingsCount = bookings?.filter(b => {
-    const bookingDate = new Date(b.slot.startTime);
-    return bookingDate < todayStart;
-  }).length || 0;
-
-  const thisWeekCount = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= thisWeekStart && d <= thisWeekEnd;
-  }).length || 0;
-
-  const nextWeekCount = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= nextWeekStart && d <= nextWeekEnd;
-  }).length || 0;
-
-  const activePatientBookings = activePatientFilter && bookings
-    ? bookings.filter(booking => (booking as any).patientId === activePatientFilter.id)
-    : [];
+  // Patient-context bookings for smart empty-state hints
+  // When a patient filter is active, `bookings` already only contains that patient's bookings
+  const activePatientBookings = activePatientFilter && bookings ? bookings : [];
 
   const patientPastBk = activePatientBookings.filter(booking => {
     const bookingDate = new Date(booking.slot.startTime);
@@ -309,23 +342,7 @@ export default function BookingsPanel({
     return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
   });
 
-  const filteredBookings = useMemo(() => {
-    if (!bookings) return [];
-    return filterAndSortBookings({
-      bookings,
-      quickFilter,
-      activePatientFilter,
-      filterDate,
-      filterEndDate,
-      todayStart,
-      todayStr,
-      thisWeekStart,
-      thisWeekEnd,
-      nextWeekStart,
-      nextWeekEnd,
-      statNext7DaysEnd,
-    });
-  }, [bookings, quickFilter, activePatientFilter, filterDate, filterEndDate, todayStart, todayStr, thisWeekStart, thisWeekEnd, nextWeekStart, nextWeekEnd, statNext7DaysEnd]);
+  const filteredBookings = bookings;
 
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
@@ -486,8 +503,8 @@ export default function BookingsPanel({
   // ─────────────────────────────────────────────────────────────────────────
 
   const bookingNumber = (booking: BookingWithSlot) => {
-    if (!bookings) return "0";
-    return getBookingNumber({ booking, bookings });
+    if (!filteredBookings.length) return "0";
+    return getBookingNumber({ booking, bookings: filteredBookings });
   };
 
   const statusGroup = (booking: BookingWithSlot) => {
@@ -591,7 +608,7 @@ export default function BookingsPanel({
     );
     const allPaid = bills.every(b => b.paymentStatus === "paid");
     const anyPartial = bills.some(b => b.paymentStatus === "partial");
-    setBillingDetails({
+    const details: BillingDetails = {
       patientName: booking.customerName,
       patientPhone: booking.customerPhone,
       patientEmail: booking.customerEmail || "",
@@ -612,8 +629,8 @@ export default function BookingsPanel({
       printOnly: true,
       visitId: String(booking.id),
       doctorName: (booking as any).assignedDoctor || "",
-    });
-    setIsBillingOpen(true);
+    };
+    generateReceiptPDF(details);
   };
 
   const addServiceRow = () => {
@@ -720,7 +737,7 @@ export default function BookingsPanel({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Booking cancelled");
       setCancellingBookingId(null);
       setCancelReason("");
@@ -738,7 +755,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Doctor assigned");
     },
     onError: (error: any) => { notify.apiError(error, "Failed to assign doctor"); },
@@ -751,7 +768,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       setRescheduleBookingId(null);
       setRescheduleSlot(null);
       notify.success("Booking rescheduled");
@@ -760,13 +777,13 @@ export default function BookingsPanel({
   });
 
   const updateClinicalStatusMutation = useMutation({
-    mutationFn: async ({ bookingId, clinicalStatus }: { bookingId: number; clinicalStatus: string }) => {
+    mutationFn: async ({ bookingId, clinicalStatus }: { bookingId: number; clinicalStatus: string | null }) => {
       const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/clinical-status`, { clinicalStatus });
       if (!response.ok) throw new Error('Failed to update clinical status');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Clinical status updated");
     },
     onError: (error: any) => { notify.apiError(error, "Failed to update clinical status"); },
@@ -779,7 +796,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: (_data, { undo }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success(undo ? "Check-in undone" : "Patient marked as arrived");
     },
     onError: (error: any) => notify.apiError(error, "Failed to update check-in"),
@@ -792,7 +809,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Visit marked as complete");
     },
     onError: (error: any) => notify.apiError(error, "Failed to complete visit"),
@@ -805,7 +822,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Marked as no-show");
     },
     onError: (error: any) => notify.apiError(error, "Failed to mark no-show"),
@@ -828,7 +845,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Visit marked as complete (override)");
     },
     onError: (error: any) => notify.apiError(error, "Failed to override complete"),
@@ -841,7 +858,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Recorded — patient left before completion");
     },
     onError: (error: any) => notify.apiError(error, "Failed to record early departure"),
@@ -858,7 +875,7 @@ export default function BookingsPanel({
     },
     onSuccess: (data, bookingId) => {
       setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
     },
     onError: (error: any) => { notify.apiError(error, "Failed to send consent request"); },
@@ -874,30 +891,31 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Booking Confirmed", { description: "A confirmation email has been sent to the patient." });
     },
     onError: (error: any) => { notify.apiError(error, "Failed to confirm booking"); },
   });
 
-  const next7DaysEnd = addDays(todayStart, 7);
-  const todayConfirmedCount = bookings?.filter(b =>
-    format(new Date(b.slot.startTime), 'yyyy-MM-dd') === todayStr &&
-    (b.verificationStatus === 'confirmed' || !!b.confirmedBy)
-  ).length ?? 0;
-  const pendingNext7Count = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd &&
-      b.verificationStatus !== 'confirmed' && !b.confirmedBy;
-  }).length ?? 0;
-  const totalPendingCount = bookings?.filter(b =>
-    b.verificationStatus !== 'confirmed' && !b.confirmedBy
-  ).length ?? 0;
-  const confirmedNext7Count = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd &&
-      (b.verificationStatus === 'confirmed' || !!b.confirmedBy);
-  }).length ?? 0;
+  const todayConfirmedCount = bookingStats?.todayConfirmedCount ?? 0;
+  const pendingNext7Count   = bookingStats?.pendingNext7Count ?? 0;
+  const totalPendingCount   = bookingStats?.totalPendingCount ?? 0;
+  const confirmedNext7Count = bookingStats?.confirmedNext7Count ?? 0;
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
           <div className="space-y-5" ref={bookingsSectionRef}>
@@ -991,7 +1009,7 @@ export default function BookingsPanel({
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
               quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-            }`}>{bookings?.length || 0}</span>
+            }`}>{bookingStats?.totalAllCount ?? 0}</span>
           </button>
 
           {/* Search slot — magnifier, expanded input, or active-patient chip */}
@@ -1023,59 +1041,89 @@ export default function BookingsPanel({
                 </button>
               </div>
             ) : searchOpen ? (
-              /* Expanded search input */
-              <div className={`flex items-center gap-2.5 bg-card border rounded-xl px-3 min-h-[44px] shadow-sm transition-all duration-150 ${
-                patientSearchFocused
-                  ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
-                  : 'border-border/50 hover:border-border'
-              }`}>
-                {bookingPatientResultsLoading
-                  ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
-                  : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                }
-                <input
-                  ref={patientSearchInputRef}
-                  type="text"
-                  value={bookingPatientSearch}
-                  onChange={e => handleBookingPatientSearchInput(e.target.value)}
-                  onFocus={() => setPatientSearchFocused(true)}
-                  onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
-                  onKeyDown={e => {
-                    if (e.key === 'ArrowDown') {
+              /* Expanded search input + filter/legend icons when collapsed */
+              <div className="flex items-center gap-1.5">
+                <div className={`flex-1 flex items-center gap-2.5 bg-card border rounded-xl px-3 min-h-[44px] shadow-sm transition-all duration-150 ${
+                  patientSearchFocused
+                    ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
+                    : 'border-border/50 hover:border-border'
+                }`}>
+                  {bookingPatientResultsLoading
+                    ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
+                    : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  }
+                  <input
+                    ref={patientSearchInputRef}
+                    type="text"
+                    value={bookingPatientSearch}
+                    onChange={e => handleBookingPatientSearchInput(e.target.value)}
+                    onFocus={() => setPatientSearchFocused(true)}
+                    onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
+                    onKeyDown={e => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
+                      } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
+                        e.preventDefault();
+                        applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
+                      } else if (e.key === 'Escape') {
+                        setBookingPatientSearch("");
+                        setBookingPatientResults([]);
+                        setPatientSearchFocused(false);
+                        setSearchOpen(false);
+                        patientSearchInputRef.current?.blur();
+                      }
+                    }}
+                    placeholder="Search patient — name, PAT code, phone or email…"
+                    className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
+                    data-testid="input-booking-patient-search"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    onMouseDown={e => {
                       e.preventDefault();
-                      setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
-                    } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
-                      e.preventDefault();
-                      applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
-                    } else if (e.key === 'Escape') {
                       setBookingPatientSearch("");
                       setBookingPatientResults([]);
-                      setPatientSearchFocused(false);
                       setSearchOpen(false);
-                      patientSearchInputRef.current?.blur();
-                    }
-                  }}
-                  placeholder="Search patient — name, PAT code, phone or email…"
-                  className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
-                  data-testid="input-booking-patient-search"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <button
-                  onMouseDown={e => {
-                    e.preventDefault();
-                    setBookingPatientSearch("");
-                    setBookingPatientResults([]);
-                    setSearchOpen(false);
-                  }}
-                  className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                  title="Close search"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                    }}
+                    className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    title="Close search"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                {!filterRowOpen && (
+                  <button
+                    onClick={() => setFilterRowOpen(true)}
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
+                    data-testid="button-open-filter-row"
+                    title="Show date & week filters"
+                  >
+                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+                {legendCollapsed && (
+                  <button
+                    onClick={() => setLegendCollapsed(false)}
+                    title="Show colour legend"
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex flex-col items-center justify-center gap-[5px] hover:border-primary/40 hover:bg-muted/80 transition-all active:scale-[0.97] shrink-0"
+                  >
+                    <div className="flex items-center gap-[3px]">
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-sky-400 shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-primary shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
+                    </div>
+                    <div className="flex items-end gap-[3px]">
+                      <span className="h-[9px] w-[5px] rounded-sm bg-emerald-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-amber-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-rose-400 shrink-0" />
+                    </div>
+                  </button>
+                )}
               </div>
             ) : (
               /* Collapsed — magnifier + optional filter icon + legend toggle */
@@ -1357,10 +1405,10 @@ export default function BookingsPanel({
         )}
 
         {/* Bookings Section */}
-        <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">
 
           {/* Bookings header */}
-          <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between shrink-0">
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight">
                 {quickFilter === 'today' ? "Today's Bookings"
@@ -1410,10 +1458,17 @@ export default function BookingsPanel({
             <div className="grid grid-cols-[46px_1fr_1fr_1fr] gap-x-2 gap-y-1.5 items-center sm:hidden">
               {/* STATUS row 1: label | Confirmed | Pending | Cancelled */}
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">Status</span>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
-                <span className="text-xs font-medium text-emerald-500 truncate">Confirmed</span>
-              </div>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                      <span className="text-xs font-medium text-emerald-500 truncate">Confirmed</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">Confirmed · Visit Completed</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <div className="flex items-center gap-1 min-w-0">
                 <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
                 <span className="text-xs font-medium text-amber-500 truncate">Pending</span>
@@ -1424,70 +1479,114 @@ export default function BookingsPanel({
               </div>
               {/* STATUS row 2: empty | No Show | In Consult | empty */}
               <span />
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">No Show</span>
-              </div>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-teal-400" />
-                <span className="text-xs font-medium text-teal-600 dark:text-teal-400 truncate">In Consult</span>
-              </div>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">No Show</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">No Show · Left Early</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      {/* Ring swatch — matches full-border card treatment for active visit states */}
+                      <span className="h-4 w-4 rounded-sm shrink-0 border-2 border-violet-500 bg-transparent" />
+                      <span className="text-xs font-medium text-violet-600 dark:text-violet-400 truncate">In Consult</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <span />
-              {/* WHEN row: only when showing all bookings without a date filter */}
-              {quickFilter === 'all' && !filterDate && (
-                <>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">When</span>
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-sky-400" />
-                    <span className="text-xs font-medium text-sky-500 truncate">Today</span>
-                  </div>
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-primary" />
-                    <span className="text-xs font-medium text-primary truncate">Upcoming</span>
-                  </div>
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-slate-300 dark:bg-slate-500" />
-                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate">Past</span>
-                  </div>
-                </>
-              )}
+              {/* WHEN row — always visible so top-bar colour is explained on every filter */}
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">When</span>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-sky-400" />
+                <span className="text-xs font-medium text-sky-500 truncate">Today</span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-primary" />
+                <span className="text-xs font-medium text-primary truncate">Upcoming</span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-slate-300 dark:bg-slate-500" />
+                <span className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate">Past</span>
+              </div>
             </div>
 
             {/* ── Desktop layout: single flex row ── */}
             <div className="hidden sm:flex sm:items-center sm:gap-x-3 group">
               <div className="flex items-center gap-x-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">Status</span>
-                {([
-                  { color: "bg-emerald-400", label: "Confirmed",  text: "text-emerald-500"                  },
-                  { color: "bg-amber-400",   label: "Pending",    text: "text-amber-500"                    },
-                  { color: "bg-rose-400",    label: "Cancelled",  text: "text-rose-500"                     },
-                  { color: "bg-slate-400",   label: "No Show",    text: "text-slate-500 dark:text-slate-400"},
-                  { color: "bg-teal-400",    label: "In Consult", text: "text-teal-600 dark:text-teal-400"  },
-                ] as const).map(({ color, label, text }) => (
-                  <div key={label} className="flex items-center gap-1 shrink-0">
-                    <span className={`h-4 w-[4px] rounded-sm shrink-0 ${color}`} />
-                    <span className={`text-xs font-medium ${text}`}>{label}</span>
-                  </div>
-                ))}
-              </div>
-              {quickFilter === 'all' && !filterDate && (
-                <>
-                  <span className="h-3.5 w-px bg-border/60 shrink-0" />
-                  <div className="flex items-center gap-x-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">When</span>
-                    {([
-                      { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
-                      { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
-                      { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
-                    ] as const).map(({ color, label, text }) => (
-                      <div key={label} className="flex items-center gap-1 shrink-0">
-                        <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
-                        <span className={`text-xs font-medium ${text}`}>{label}</span>
+                {/* Confirmed — merges Visit Completed */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                        <span className="text-xs font-medium text-emerald-500">Confirmed</span>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">Confirmed · Visit Completed</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {/* Pending */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
+                  <span className="text-xs font-medium text-amber-500">Pending</span>
+                </div>
+                {/* Cancelled */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-rose-400" />
+                  <span className="text-xs font-medium text-rose-500">Cancelled</span>
+                </div>
+                {/* No Show — merges Left Early */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">No Show</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">No Show · Left Early</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {/* In Consult — ring swatch, merges Checked In + Treatment Completed */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-4 rounded-sm shrink-0 border-2 border-violet-500 bg-transparent" />
+                        <span className="text-xs font-medium text-violet-600 dark:text-violet-400">In Consult</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              {/* WHEN — always visible so the top-bar colour is explained on every filter */}
+              <>
+                <span className="h-3.5 w-px bg-border/60 shrink-0" />
+                <div className="flex items-center gap-x-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">When</span>
+                  {([
+                    { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
+                    { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
+                    { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
+                  ] as const).map(({ color, label, text }) => (
+                    <div key={label} className="flex items-center gap-1 shrink-0">
+                      <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
+                      <span className={`text-xs font-medium ${text}`}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
               <button
                 onClick={() => setLegendCollapsed(true)}
                 title="Hide legend"
@@ -1528,6 +1627,7 @@ export default function BookingsPanel({
             </Button>
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredBookings.length === 0 ? (
               <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
@@ -2008,7 +2108,7 @@ export default function BookingsPanel({
                             <div className="px-4 pt-3 pb-4 space-y-2.5">
 
                               {/* ── Patient info card — matches info grid row pattern ── */}
-                              <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                              <div className="rounded-xl border border-green-800/30 bg-white shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
 
                                 {/* Patient ID */}
                                 <div className="flex items-center gap-1.5 text-xs min-w-0">
@@ -2367,43 +2467,70 @@ export default function BookingsPanel({
                         {getModalTab(booking.id) === 'clinical' && (
                           <div className="p-4 space-y-3">
 
-                            {/* Clinical Status — now interactive for admin */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                <ClipboardCheck className="h-3 w-3 text-primary" />
-                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Status</span>
+                            {/* Clinical Status — single chip + dropdown, editable by admin */}
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2.5 bg-green-800 border-b border-green-900/20 flex items-center gap-1.5">
+                                <ClipboardCheck className="h-3 w-3 text-white" />
+                                <span className="text-xs font-semibold uppercase tracking-wide text-white">Clinical Status</span>
                               </div>
-                              <div className="px-3 py-3 flex flex-wrap gap-2">
-                                {([
-                                  { value: 'follow_up_required', label: 'Follow-up Required', Icon: Clock,         activeClass: 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-200 dark:shadow-amber-900/30' },
-                                  { value: 'case_closed',        label: 'Case Closed',        Icon: CheckCircle2,  activeClass: 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-200 dark:shadow-emerald-900/30' },
-                                ] as const).map(({ value, label, Icon, activeClass }) => {
-                                  const isActive = booking.clinicalStatus === value;
+                              <div className="px-3 py-3">
+                                {(() => {
+                                  const CLINICAL_STATUS_OPTIONS = [
+                                    { value: 'follow_up_required', label: 'Follow-up Required', dotClass: 'bg-amber-500' },
+                                    { value: 'case_closed',        label: 'Case Closed',        dotClass: 'bg-emerald-500' },
+                                  ] as const;
+                                  const current = CLINICAL_STATUS_OPTIONS.find(o => o.value === booking.clinicalStatus);
+                                  const chipCls = current
+                                    ? (OVERVIEW_CLINICAL_STATUS[current.value]?.cls ?? '')
+                                    : 'bg-green-50 text-green-800 border-green-800/30';
                                   return (
-                                    <button
-                                      key={value}
-                                      onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: value })}
-                                      disabled={updateClinicalStatusMutation.isPending}
-                                      className={`inline-flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-sm font-semibold border transition-all active:scale-[0.97] ${
-                                        isActive
-                                          ? activeClass
-                                          : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground hover:bg-muted/30'
-                                      }`}
-                                      data-testid={`clinical-status-${value}-${booking.id}`}
-                                    >
-                                      <Icon className="h-4 w-4 shrink-0" />
-                                      {label}
-                                    </button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button
+                                          disabled={updateClinicalStatusMutation.isPending}
+                                          className={`inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[44px] rounded-full text-sm font-semibold border transition-all active:scale-[0.97] ${chipCls}`}
+                                          data-testid={`clinical-status-trigger-${booking.id}`}
+                                        >
+                                          <span className={`h-2 w-2 rounded-full shrink-0 ${current ? current.dotClass : 'bg-muted-foreground/40'}`} />
+                                          {current ? current.label : 'Not set'}
+                                          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="start" className="w-56">
+                                        {CLINICAL_STATUS_OPTIONS.map(({ value, label, dotClass }) => (
+                                          <DropdownMenuItem
+                                            key={value}
+                                            onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: value })}
+                                            className="gap-2 min-h-[44px]"
+                                            data-testid={`clinical-status-${value}-${booking.id}`}
+                                          >
+                                            <span className={`h-2 w-2 rounded-full shrink-0 ${dotClass}`} />
+                                            {label}
+                                            {booking.clinicalStatus === value && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-primary" />}
+                                          </DropdownMenuItem>
+                                        ))}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: null })}
+                                          disabled={!booking.clinicalStatus}
+                                          className="gap-2 min-h-[44px] text-muted-foreground"
+                                          data-testid={`clinical-status-clear-${booking.id}`}
+                                        >
+                                          <X className="h-3.5 w-3.5 shrink-0" />
+                                          Clear status
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   );
-                                })}
+                                })()}
                               </div>
                             </div>
 
                             {/* Clinical Records */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                <ClipboardList className="h-3 w-3 text-primary" />
-                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Records</span>
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2.5 bg-green-50 border-b border-green-800/30 flex items-center gap-1.5">
+                                <ClipboardList className="h-3 w-3 text-green-800" />
+                                <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Clinical Records</span>
                               </div>
                               <div className="p-3">
                                 <ClinicalRecordsTab
@@ -2433,11 +2560,11 @@ export default function BookingsPanel({
                           <div className="p-4 space-y-3">
 
                             {/* Reschedule */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5">
-                                  <CalendarDays className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reschedule Appointment</span>
+                                  <CalendarDays className="h-3 w-3 text-green-800" />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Reschedule Appointment</span>
                                 </div>
                                 {rescheduleBookingId === booking.id ? (
                                   <button
@@ -2491,18 +2618,20 @@ export default function BookingsPanel({
                                     </ScrollArea>
                                   </div>
                                   <div className="space-y-1.5">
-                                    <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                      {rescheduleAvailFetching && (
+                                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                      )}
+                                    </div>
                                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-                                      {slotTimings.map((slot) => {
-                                        const slotTime = new Date(rescheduleDate);
-                                        slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                                        const isoString = slotTime.toISOString();
-                                        const currentBookings = bookings?.filter(b =>
-                                          new Date(b.slot.startTime).toISOString() === isoString && b.id !== booking.id
-                                        ).length || 0;
-                                        const slotMaxBookings = bookings?.find(b => new Date(b.slot.startTime).toISOString() === isoString)?.slot.maxBookings ?? DEFAULT_SECTION_CAPACITY[slot.id] ?? 3;
-                                        const isFull = currentBookings >= slotMaxBookings;
+                                      {slotTimings.map((slot, slotIdx) => {
+                                        const avail = rescheduleSlotAvailability?.find(a => a.slotIndex === slotIdx);
+                                        const isSlotCancelled = avail?.isCancelled ?? false;
+                                        const spotsLeft = avail ? avail.spotsLeft : (DEFAULT_SECTION_CAPACITY[slot.id] ?? 3);
+                                        const isFull = avail ? avail.spotsLeft === 0 : false;
                                         const isSelected = rescheduleSlot === slot.id;
+                                        if (isSlotCancelled) return null;
                                         return (
                                           <button
                                             key={slot.id}
@@ -2519,9 +2648,11 @@ export default function BookingsPanel({
                                           >
                                             <span className="text-xs font-bold leading-tight px-1 text-center">{slot.label}</span>
                                             <span className="text-xs opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
-                                            {isFull && (
-                                              <span className="absolute -top-1.5 -right-1.5 text-xs font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
-                                            )}
+                                            {isFull ? (
+                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
+                                            ) : avail && spotsLeft <= 2 ? (
+                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-amber-500 text-white px-1 rounded-full">{spotsLeft} left</span>
+                                            ) : null}
                                           </button>
                                         );
                                       })}
@@ -2564,11 +2695,11 @@ export default function BookingsPanel({
                             </div>
 
                             {/* Digital Consent */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5">
-                                  <ClipboardCheck className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Request Digital Consent</span>
+                                  <ClipboardCheck className="h-3 w-3 text-green-800" />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Request Digital Consent</span>
                                 </div>
                                 {booking.consentSignedAt ? (
                                   <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
@@ -2648,11 +2779,11 @@ export default function BookingsPanel({
                                   ((email && l.doctorEmail === email) || (name && l.doctorName === name))
                                 )?.reason;
                               return (
-                                <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                                  <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                                <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                                  <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5">
-                                      <Stethoscope className="h-3 w-3 text-primary" />
-                                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assign Doctor</span>
+                                      <Stethoscope className="h-3 w-3 text-green-800" />
+                                      <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Assign Doctor</span>
                                     </div>
                                     <span className="text-xs text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
                                   </div>
@@ -2886,14 +3017,24 @@ export default function BookingsPanel({
                                 >
                                   <CheckCircle2 className="h-4 w-4" />No Dues
                                 </Button>
+                              ) : modalOpenBills > 0 ? (
+                                <Button
+                                  className="w-full gap-1.5 h-11 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 active:scale-[0.98] transition-all"
+                                  variant="outline"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  title="Payment outstanding — tap to settle"
+                                  data-testid={`button-dialog-settle-bill-${booking.id}`}
+                                >
+                                  Payment Pending
+                                </Button>
                               ) : (
                                 <Button
                                   className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
                                   onClick={() => handleOpenBilling(booking)}
+                                  title="Preview or download invoice"
                                   data-testid={`button-dialog-bill-done-${booking.id}`}
                                 >
-                                  <IndianRupee className="h-4 w-4" />
-                                  {modalOpenBills > 0 ? `${modalOpenBills} Unpaid Bill${modalOpenBills > 1 ? 's' : ''} ↓` : "Download Bill ↓"}
+                                  <Download className="h-4 w-4" />Paid
                                 </Button>
                               )}
                               <div className="flex gap-2">
@@ -3082,7 +3223,20 @@ export default function BookingsPanel({
                 });
               })()
             )}
+
           </div>
+          {isFetchingNextPage && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+              {[1,2,3].map(i => <BookingCardSkeleton key={i} />)}
+            </div>
+          )}
+          {!hasNextPage && !bookingsLoading && filteredBookings.length > 0 && (
+            <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
+              All {bookingsTotal} bookings loaded
+            </p>
+          )}
+          <div ref={sentinelRef} className="h-2" />
+          </>
         )}
         </div>
         </div>

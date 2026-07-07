@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format, formatDistanceToNow, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { jsPDF } from "@/lib/jspdf-stub";
-import autoTable from "@/lib/jspdf-stub";
 import {
   Download, FileSpreadsheet, FileText, FileBadge, Lock, Bell, X,
   Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock,
@@ -16,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Clinic, ExportHistory, PatientBill } from "@shared/schema";
 import type { BookingWithSlot } from "@/lib/clinic-constants";
 
-type ExportFormat = "xlsx" | "csv" | "pdf";
+type ExportFormat = "xlsx" | "csv";
 type DatePreset   = "all" | "this-month" | "last-month" | "custom";
 
 interface ScopeOption {
@@ -35,9 +33,8 @@ const SCOPE_OPTIONS: ScopeOption[] = [
 ];
 
 const FORMAT_OPTIONS = [
-  { id: "xlsx" as ExportFormat, label: "Excel",  ext: ".xlsx", desc: "Best for filtering & analysis", icon: FileSpreadsheet, recommended: true  },
-  { id: "csv"  as ExportFormat, label: "CSV",    ext: ".csv",  desc: "Import into other systems",     icon: FileBadge,       recommended: false },
-  { id: "pdf"  as ExportFormat, label: "PDF",    ext: ".pdf",  desc: "Printable summary report",      icon: FileText,        recommended: false },
+  { id: "xlsx" as ExportFormat, label: "Excel", ext: ".xlsx", desc: "Best for filtering & analysis", icon: FileSpreadsheet, recommended: true  },
+  { id: "csv"  as ExportFormat, label: "CSV",   ext: ".csv",  desc: "Import into other systems",     icon: FileBadge,       recommended: false },
 ];
 
 const DATE_PRESETS: { id: DatePreset; label: string }[] = [
@@ -49,7 +46,6 @@ const DATE_PRESETS: { id: DatePreset; label: string }[] = [
 
 interface ExportDataPanelProps {
   clinic: Clinic | null | undefined;
-  bookings: BookingWithSlot[] | undefined;
 }
 
 function getReminderState(): { show: boolean } {
@@ -120,7 +116,7 @@ const clinicalLabel    = (s: string | null | undefined) =>
   !s ? "" : s === "first_visit" ? "First Visit" : s === "revisit" ? "Revisit" :
   s === "follow_up_required" ? "Follow-up Required" : s === "case_closed" ? "Case Closed" : s;
 
-export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelProps) {
+export default function ExportDataPanel({ clinic }: ExportDataPanelProps) {
   const qc = useQueryClient();
 
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("xlsx");
@@ -133,6 +129,17 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
   const [progressLabel, setProgressLabel]   = useState("");
   const [reminderVisible, setReminderVisible] = useState(() => getReminderState().show);
   const [snoozeOpen, setSnoozeOpen]           = useState(false);
+
+  // Fetch all bookings using the legacy flat endpoint (no ?page param) for export purposes
+  const { data: bookings } = useQuery<BookingWithSlot[]>({
+    queryKey: ["/api/auth/clinic/bookings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/auth/clinic/bookings");
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      return res.json();
+    },
+    enabled: selectedScopes.has("patients") || selectedScopes.has("appointments"),
+  });
 
   const { data: history = [], isLoading: historyLoading } = useQuery<ExportHistory[]>({
     queryKey: ["/api/auth/clinic/export-history"],
@@ -382,88 +389,6 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         const buffer = await xlsxRes.arrayBuffer();
         downloadBlob(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 
-      // ── FORMAT: PDF ──
-      } else if (fmt === "pdf") {
-        const DARK    = [8,  80,  65]  as [number, number, number];
-        const PRIMARY = [15, 155, 110] as [number, number, number];
-        const TINT    = [225, 245, 238] as [number, number, number];
-        const WHITE   = [255, 255, 255] as [number, number, number];
-        const TEXT    = [8,   40,  32]  as [number, number, number];
-        const MUTED   = [50, 100,  80]  as [number, number, number];
-
-        const doc   = new jsPDF({ orientation: "landscape" });
-        const pageW = doc.internal.pageSize.getWidth();
-        const pageH = doc.internal.pageSize.getHeight();
-        const margin = 14;
-
-        const drawBands = () => {
-          doc.setFillColor(...DARK);    doc.rect(0, 0, pageW * 0.55, 6, "F");
-          doc.setFillColor(...PRIMARY); doc.rect(pageW * 0.55, 0, pageW, 6, "F");
-          doc.setFillColor(...DARK);    doc.rect(0, pageH - 7, pageW * 0.55, 7, "F");
-          doc.setFillColor(...PRIMARY); doc.rect(pageW * 0.55, pageH - 7, pageW, 7, "F");
-          doc.setFont("helvetica", "normal"); doc.setFontSize(7);
-          doc.setTextColor(...WHITE);
-          doc.text("Powered by BookMySlot", pageW / 2, pageH - 3, { align: "center" });
-        };
-
-        drawBands();
-
-        let y = 14;
-        doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-        doc.setTextColor(...TEXT);
-        doc.text(`${clinic.name} — Patient Data Export`, pageW / 2, y, { align: "center" });
-        y += 6;
-        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-        doc.setTextColor(...MUTED);
-        doc.text(
-          `Generated: ${format(new Date(), "dd MMM yyyy, hh:mm a")}${dateFrom || dateTo ? `  ·  Period: ${dateFrom ?? "Start"} to ${dateTo ?? "Today"}` : ""}`,
-          pageW / 2, y, { align: "center" }
-        );
-        doc.setTextColor(...TEXT);
-        y += 10;
-
-        const headStyles = { fillColor: DARK, textColor: WHITE, fontStyle: "bold" as const, fontSize: 8 };
-        const altStyles  = { fillColor: TINT };
-        const bodyStyles = { fontSize: 7.5, textColor: TEXT };
-
-        if (scope.includes("patients")) {
-          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-          doc.setTextColor(...PRIMARY);
-          doc.text("Patient Profiles", margin, y); y += 4;
-          autoTable(doc, {
-            head: [patientHeaders], body: patientRows as any,
-            startY: y, styles: bodyStyles, headStyles, alternateRowStyles: altStyles,
-            margin: { left: margin, right: margin },
-          });
-          y = (doc as any).lastAutoTable.finalY + 10;
-        }
-
-        if (scope.includes("appointments")) {
-          if (y > pageH - 50) { doc.addPage(); drawBands(); y = 14; }
-          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-          doc.setTextColor(...PRIMARY);
-          doc.text("Appointments", margin, y); y += 4;
-          autoTable(doc, {
-            head: [apptHeaders], body: apptRows as any,
-            startY: y, styles: { fontSize: 6.5, textColor: TEXT }, headStyles, alternateRowStyles: altStyles,
-            margin: { left: margin, right: margin },
-          });
-          y = (doc as any).lastAutoTable.finalY + 10;
-        }
-
-        if (scope.includes("billing") && billRows.length > 0) {
-          if (y > pageH - 50) { doc.addPage(); drawBands(); y = 14; }
-          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-          doc.setTextColor(...PRIMARY);
-          doc.text("Billing History", margin, y); y += 4;
-          autoTable(doc, {
-            head: [billHeaders], body: billRows as any,
-            startY: y, styles: { fontSize: 6.5, textColor: TEXT }, headStyles, alternateRowStyles: altStyles,
-            margin: { left: margin, right: margin },
-          });
-        }
-
-        doc.save(fileName);
       }
 
       await logExportMutation.mutateAsync({

@@ -5,8 +5,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import {
-  Loader2, Plus, Pencil, Trash2, Download, FileText, Stethoscope,
-  ChevronDown, ChevronUp, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
+  Loader2, Plus, Pencil, Trash2, Printer, Eye, FileText, Stethoscope,
+  ChevronDown, ChevronUp, ChevronRight, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { ClinicalRecord, PharmacyStockItem } from "@shared/schema";
+import { printClinicalRecord } from "@/lib/clinic-pdf";
 
 // ─── Medicine row type (JSON-stored in prescription TEXT column) ──────────────
 
@@ -89,203 +90,8 @@ const DIAGNOSIS_TAGS = [
   "Bruxism", "Dry Socket", "Oral Ulcer", "Calculus", "Recession",
 ];
 
-// ─── PDF export (disabled — jsPDF unavailable) ─────────────────────────────────
-
-function generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
-  // eslint-disable-next-line no-console
-  console.warn("PDF export disabled — jspdf is not installed");
-  return;
-}
-
-// ─── Original PDF export (BookMySlot brand template) — disabled ─────────────
-/*
-function _generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
-  Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ]).then(([{ default: jsPDF }, { default: autoTable }]) => {
-    const doc = new jsPDF();
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const margin = 14;
-
-    // ── Colour palette (matches docs/pdf-template.md) ─────────────
-    const indigoDark: [number, number, number] = [8, 80, 65];
-    const magenta: [number, number, number] = [29, 158, 117];
-    const indigoMid: [number, number, number] = [15, 155, 110];
-    const lightBg: [number, number, number] = [225, 245, 238];
-    const metaBg: [number, number, number] = [209, 237, 226];
-    const textDark: [number, number, number] = [8, 40, 32];
-    const textMid: [number, number, number] = [50, 100, 80];
-    const textLight: [number, number, number] = [150, 148, 180];
-    const white: [number, number, number] = [255, 255, 255];
-
-    // ── §3.1 Top Gradient Bar ─────────────────────────────────────
-    doc.setFillColor(...indigoDark);
-    doc.rect(0, 0, pageW * 0.55, 7, "F");
-    doc.setFillColor(...magenta);
-    doc.rect(pageW * 0.55, 0, pageW * 0.45, 7, "F");
-
-    // ── §3.2 Clinic Header ────────────────────────────────────────
-    const cs = 4.5, cw = 1.4;
-    doc.setFillColor(...indigoMid);
-    doc.rect(margin + (cs - cw) / 2, 12, cw, cs, "F");
-    doc.rect(margin, 12 + (cs - cw) / 2, cs, cw, "F");
-
-    const nameX = margin + cs + 3;
-    doc.setFontSize(19); doc.setFont("helvetica", "bold"); doc.setTextColor(...textDark);
-    doc.text(clinicName || "Clinic", nameX, 20);
-    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...indigoMid);
-    doc.text("Caring for Your Smile", nameX, 27);
-
-    const docType = (record.prescription && record.prescription.length > 0)
-      ? "Prescription" : "Diagnosis Record";
-    doc.setFontSize(7.5); doc.setTextColor(...textMid);
-    doc.text(docType, pageW - margin, 15, { align: "right" });
-    doc.text(`Date: ${format(new Date(record.createdAt!), "MMM d, yyyy")}`, pageW - margin, 20, { align: "right" });
-
-    doc.setDrawColor(...indigoDark); doc.setLineWidth(0.5);
-    doc.line(margin, 33, pageW - margin, 33);
-
-    // ── §3.3 Meta Band ────────────────────────────────────────────
-    const metaY = 34;
-    doc.setFillColor(...metaBg);
-    doc.rect(margin, metaY, pageW - margin * 2, 17, "F");
-
-    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...textMid);
-    doc.text(`Ref #: ${String(record.bookingId || "—").padStart(4, "0")}`, margin + 3, metaY + 5.5);
-
-    if (record.doctorName) {
-      doc.text(`Dr. ${record.doctorName}`, pageW / 2, metaY + 5.5, { align: "center" });
-    }
-
-    doc.setFont("helvetica", "bold"); doc.setTextColor(...indigoDark);
-    doc.text(
-      format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
-      pageW - margin - 3, metaY + 5.5, { align: "right" }
-    );
-
-    doc.setFont("helvetica", "normal"); doc.setTextColor(...textMid);
-    doc.text("Type:", margin + 3, metaY + 12.5);
-    doc.setFont("helvetica", "bold"); doc.setTextColor(...indigoDark);
-    doc.text(docType, margin + 16, metaY + 12.5);
-
-    // ── §3.4 Patient Information Table ────────────────────────────
-    const patientRows: [string, string][] = [
-      ["Name", record.patientName || "—"],
-      ["Phone", record.patientPhone || "—"],
-    ];
-    if (record.doctorName) patientRows.push(["Attending Doctor", `Dr. ${record.doctorName}`]);
-    patientRows.push(["Record Date", format(new Date(record.createdAt!), "MMMM d, yyyy · h:mm a")]);
-
-    autoTable(doc, {
-      startY: metaY + 17 + 5,
-      head: [["Patient Information", ""]],
-      body: patientRows,
-      theme: "grid",
-      headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 48, fillColor: lightBg, textColor: textMid, fontSize: 8 },
-        1: { textColor: textMid, fontSize: 8 },
-      },
-      styles: { cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
-      margin: { left: margin, right: margin },
-    });
-    let currentY = (doc as any).lastAutoTable.finalY + 6;
-
-    // ── §3.5-ish Diagnosis Table ──────────────────────────────────
-    if (record.diagnosis && record.diagnosis.length > 0) {
-      const dxBody: [string, string][] = [
-        ["Findings", record.diagnosis.join(" · ")],
-      ];
-      if (record.notes) dxBody.push(["Notes", record.notes]);
-
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Diagnosis", ""]],
-        body: dxBody,
-        theme: "grid",
-        headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 48, fillColor: lightBg, textColor: textMid, fontSize: 8 },
-          1: { textColor: textMid, fontSize: 8 },
-        },
-        styles: { cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
-        margin: { left: margin, right: margin },
-      });
-      currentY = (doc as any).lastAutoTable.finalY + 6;
-    }
-
-    // ── §3.5 Prescription Summary Table ──────────────────────────
-    const rxRows = parsePrescription(record.prescription);
-    if (rxRows && rxRows.length > 0) {
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Medicine", "Dosage", "Qty", "Freq.", "Duration", "Route"]],
-        body: rxRows.map(r => [
-          r.name || "—",
-          r.dosage || "—",
-          r.qty || "—",
-          r.frequency || "—",
-          r.durationNum ? `${r.durationNum} ${r.durationUnit || "days"}` : (r.duration || "—"),
-          r.route || "Oral",
-        ]),
-        theme: "grid",
-        headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-        columnStyles: {
-          0: { textColor: textDark, fontSize: 8 },
-          1: { textColor: textMid, fontSize: 8, cellWidth: 24 },
-          2: { textColor: textMid, fontSize: 8, cellWidth: 14, halign: "center" },
-          3: { textColor: textMid, fontSize: 8, cellWidth: 16, halign: "center" },
-          4: { textColor: textMid, fontSize: 8, cellWidth: 20, halign: "center" },
-          5: { textColor: textMid, fontSize: 8, cellWidth: 22 },
-        },
-        alternateRowStyles: { fillColor: [240, 250, 246] as [number, number, number] },
-        styles: { cellPadding: { top: 2, bottom: 2, left: 4, right: 4 } },
-        margin: { left: margin, right: margin },
-      });
-      currentY = (doc as any).lastAutoTable.finalY + 6;
-    } else if (record.prescription) {
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Prescription", ""]],
-        body: [["Notes", record.prescription]],
-        theme: "grid",
-        headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 48, fillColor: lightBg, textColor: textMid, fontSize: 8 },
-          1: { textColor: textMid, fontSize: 8 },
-        },
-        styles: { cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
-        margin: { left: margin, right: margin },
-      });
-      currentY = (doc as any).lastAutoTable.finalY + 6;
-    }
-
-    // ── §3.9 Thank-You Footer ─────────────────────────────────────
-    const footerY = pageH - 20;
-    doc.setDrawColor(...indigoMid); doc.setLineWidth(0.4);
-    doc.line(margin, footerY, pageW - margin, footerY);
-    doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...indigoMid);
-    doc.text(`Thank you for choosing ${clinicName || "us"}!`, pageW / 2, footerY + 6, { align: "center" });
-    doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...textLight);
-    doc.text("This is a computer generated clinical record. Generated by BookMySlot.", pageW / 2, footerY + 11, { align: "center" });
-
-    // ── §3.10 Bottom Gradient Bar ─────────────────────────────────
-    doc.setFillColor(...indigoDark);
-    doc.rect(0, pageH - 8, pageW * 0.55, 8, "F");
-    doc.setFillColor(...magenta);
-    doc.rect(pageW * 0.55, pageH - 8, pageW * 0.45, 8, "F");
-    doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...white);
-    doc.text("Powered by BookMySlot", pageW / 2, pageH - 3, { align: "center" });
-
-    // ── Save ──────────────────────────────────────────────────────
-    const safeName = record.patientName.replace(/\s+/g, "_");
-    const dateStr = format(new Date(record.createdAt!), "yyyyMMdd");
-    doc.save(`clinical_record_${safeName}_${dateStr}.pdf`);
-  });
-}
-*/
+// ─── Legacy PDF export (jsPDF-based) — removed; see printClinicalRecord() in
+//     @/lib/clinic-pdf.ts for the current window.open + print implementation ──
 
 // ─── Prescription table display ───────────────────────────────────────────────
 
@@ -336,6 +142,10 @@ function PrescriptionDisplay({ prescription }: { prescription: string | null | u
 
 // ─── Medicine autocomplete combobox ───────────────────────────────────────────
 
+function capitalizeFirst(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
 function MedicineCombobox({
   value, onChange, onSelect, catalogue, idx,
 }: {
@@ -348,6 +158,9 @@ function MedicineCombobox({
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0, width: 240 });
+  // Tracks whether the user's pointer is down inside the dropdown — prevents
+  // the input's onBlur from closing the dropdown before the click fires.
+  const clickingDropdownRef = useRef(false);
 
   const matches = catalogue.filter(i =>
     !value.trim() ||
@@ -371,9 +184,14 @@ function MedicineCombobox({
       <Input
         ref={inputRef}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => onChange(capitalizeFirst(e.target.value))}
         onFocus={() => { updatePos(); setOpen(true); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => {
+          // If a dropdown item is being clicked, do not close yet — the click
+          // handler will close it after onSelect fires.
+          if (clickingDropdownRef.current) return;
+          setTimeout(() => setOpen(false), 150);
+        }}
         placeholder="Medicine name"
         className="h-7 text-xs px-2"
         autoComplete="off"
@@ -383,6 +201,8 @@ function MedicineCombobox({
         <div
           style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
           className="bg-popover border border-border/60 rounded-lg shadow-xl overflow-hidden py-0.5"
+          onPointerDown={() => { clickingDropdownRef.current = true; }}
+          onPointerUp={() => { clickingDropdownRef.current = false; }}
         >
           {matches.map(item => {
             const expired = isExpired(item);
@@ -394,8 +214,12 @@ function MedicineCombobox({
                 type="button"
                 className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/60 transition-colors gap-2"
                 onMouseDown={e => {
+                  // Prevent focus from leaving the input so blur does not fire.
                   e.preventDefault();
+                }}
+                onClick={() => {
                   onSelect(item.medicineName, item.dosage || "");
+                  clickingDropdownRef.current = false;
                   setOpen(false);
                 }}
               >
@@ -477,12 +301,22 @@ function HistoryRow({
           {preview && (
             <span className="text-xs text-primary/70 font-semibold truncate">{preview}</span>
           )}
+          {type === "diagnosis" && record.prescription && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold leading-none shrink-0">Rx ✓</span>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button size="sm" variant="ghost"
             className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+            aria-label="Preview record"
             onClick={e => { e.stopPropagation(); onPdf(); }}>
-            <Download className="h-3.5 w-3.5" />
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+            aria-label="Print record"
+            onClick={e => { e.stopPropagation(); onPdf(); }}>
+            <Printer className="h-3.5 w-3.5" />
           </Button>
           {mode === "doctor" && onEdit && (
             <Button size="sm" variant="ghost"
@@ -508,10 +342,19 @@ function HistoryRow({
             <div className="flex flex-wrap gap-1">
               {record.diagnosis.map(d => (
                 <Badge key={d} variant="outline"
-                  className="text-xs px-1.5 py-0 rounded-full border-primary/20 bg-primary/5 text-primary">
+                  className="text-xs px-1.5 py-0 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
                   {d}
                 </Badge>
               ))}
+            </div>
+          )}
+          {type === "diagnosis" && record.prescription && (
+            <div className="pt-1.5 border-t border-border/20 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <Pill className="h-3 w-3 text-primary" />
+                <span className="text-xs font-semibold text-primary">Linked Prescription</span>
+              </div>
+              <PrescriptionDisplay prescription={record.prescription} />
             </div>
           )}
           {type === "prescription" && record.prescription && (
@@ -548,6 +391,8 @@ export default function ClinicalRecordsTab({
   const [rxEditId, setRxEditId] = useState<number | null>(null);
   const [rxRows, setRxRows] = useState<MedicineRow[]>([emptyRow()]);
   const [showRxHistory, setShowRxHistory] = useState(false);
+  // When set, saving the Rx form PATCHes this record id (links Rx to an existing Dx row)
+  const [rxLinkedToDxId, setRxLinkedToDxId] = useState<number | null>(null);
 
 
   // ── Pharmacy catalogue (doctor mode only) — loaded once, used for autocomplete ──
@@ -591,7 +436,9 @@ export default function ClinicalRecordsTab({
 
   // ── Derived record streams ─────────────────────────────────────────────────
   const dxRecords = records.filter(r => r.diagnosis && r.diagnosis.length > 0);
-  const rxRecords = records.filter(r => !!r.prescription);
+  // Records that have BOTH diagnosis + prescription show inside the Dx card (linked).
+  // Standalone prescriptions (no diagnosis on the same row) get their own Rx section.
+  const rxRecords = records.filter(r => !!r.prescription && (!r.diagnosis || r.diagnosis.length === 0));
   const latestDx = dxRecords[0] ?? null;
   const historyDx = dxRecords.slice(1);
   const latestRx = rxRecords[0] ?? null;
@@ -657,7 +504,7 @@ export default function ClinicalRecordsTab({
   // ── Reset all forms ────────────────────────────────────────────────────────
   const resetForms = () => {
     setShowDxForm(false); setDxEditId(null); setDxTags([]); setDxNotes("");
-    setShowRxForm(false); setRxEditId(null); setRxRows([emptyRow()]);
+    setShowRxForm(false); setRxEditId(null); setRxRows([emptyRow()]); setRxLinkedToDxId(null);
   };
 
   // ── Start edit helpers ─────────────────────────────────────────────────────
@@ -719,8 +566,9 @@ export default function ClinicalRecordsTab({
     </div>
   );
 
-  // ── Inline tab bar (hidden when parent controls the tab) ──────────────────
-  const TabBar = !hideTabBar ? (
+  // ── Inline tab bar (hidden when parent controls the tab, or in admin
+  //     read-only mode where both records are shown stacked at once) ─────────
+  const TabBar = !hideTabBar && mode !== "admin" ? (
     <div className="flex rounded-lg overflow-hidden border border-border/60 bg-muted/20 p-0.5 gap-0.5">
       {(["diagnosis", "prescription"] as const).map(tab => {
         const count = tab === "diagnosis" ? dxRecords.length : rxRecords.length;
@@ -758,10 +606,19 @@ export default function ClinicalRecordsTab({
       {TabBar}
 
       {/* ══════════════════════════════════════════════════════════════════
-          DIAGNOSIS TAB
+          DIAGNOSIS TAB — always shown alongside Prescription in admin mode
       ══════════════════════════════════════════════════════════════════ */}
-      {visibleTab === "diagnosis" && (
+      {(mode === "admin" || visibleTab === "diagnosis") && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-left-1 duration-150">
+
+          {/* Section divider — admin mode only (doctor mode uses tab bar) */}
+          {mode === "admin" && (
+            <div className="flex items-center gap-2 px-0.5">
+              <ClipboardList className="h-3 w-3 text-primary shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Diagnosis</span>
+              <div className="h-px flex-1 bg-primary/20" />
+            </div>
+          )}
 
           {/* ── Add / Edit form — floats on top when open ── */}
           {mode === "doctor" && showDxForm && (
@@ -861,21 +718,47 @@ export default function ClinicalRecordsTab({
 
           {/* Latest Diagnosis */}
           {latestDx && !(showDxForm && dxEditId === latestDx.id) ? (
-            <div className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden">
-              <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
+            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+              <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <ClipboardList className="h-3 w-3 text-primary" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest Diagnosis</span>
+                  <ClipboardList className="h-3 w-3 text-green-800" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Latest Diagnosis</span>
                   <span className="text-xs text-muted-foreground/60 font-medium">
                     {format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a")}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button size="sm" variant="outline"
-                    className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => generatePrescriptionPDF(latestDx, clinicName)}
-                    data-testid="button-download-dx-pdf">
-                    <Download className="h-3.5 w-3.5" />
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Preview diagnosis"
+                    onClick={() => printClinicalRecord({
+                      type: "diagnosis",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestDx.doctorName,
+                      date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      diagnosis: latestDx.diagnosis ?? [],
+                      notes: latestDx.notes,
+                    })}
+                    data-testid="button-preview-dx-pdf">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Print diagnosis"
+                    onClick={() => printClinicalRecord({
+                      type: "diagnosis",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestDx.doctorName,
+                      date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      diagnosis: latestDx.diagnosis ?? [],
+                      notes: latestDx.notes,
+                    })}
+                    data-testid="button-print-dx-pdf">
+                    <Printer className="h-3.5 w-3.5" />
                   </Button>
                   {mode === "doctor" && (
                     <>
@@ -905,7 +788,7 @@ export default function ClinicalRecordsTab({
                 <div className="flex flex-wrap gap-1">
                   {latestDx.diagnosis!.map(d => (
                     <Badge key={d} variant="outline"
-                      className="text-xs px-2 py-0.5 rounded-full border-primary/30 bg-primary/8 text-primary font-semibold">
+                      className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
                       {d}
                     </Badge>
                   ))}
@@ -914,6 +797,29 @@ export default function ClinicalRecordsTab({
                   <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-t border-border/30 pt-2">
                     {latestDx.notes}
                   </p>
+                )}
+
+                {/* Linked prescription — shown inline when the Dx record also has a prescription */}
+                {latestDx.prescription && (
+                  <div className="pt-2 border-t border-border/20 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Pill className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-semibold text-primary">Linked Prescription</span>
+                    </div>
+                    <PrescriptionDisplay prescription={latestDx.prescription} />
+                  </div>
+                )}
+
+                {/* Add prescription link — doctor mode only, no Rx yet, form not open */}
+                {mode === "doctor" && !latestDx.prescription && !showRxForm && (
+                  <div className="pt-2 border-t border-border/20">
+                    <button
+                      onClick={() => { setRxLinkedToDxId(latestDx.id); setShowRxForm(true); }}
+                      className="flex items-center gap-1 text-xs text-primary hover:text-primary/70 font-medium transition-colors"
+                      data-testid="button-add-rx-for-dx">
+                      <Pill className="h-3 w-3" /> Add prescription for this diagnosis →
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -932,13 +838,19 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowDxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-dx-history">
-                {showDxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                {showDxHistory ? "Hide" : `Show ${historyDx.length} older`} diagnosis {historyDx.length === 1 ? "entry" : "entries"}
+                {mode === "admin" ? (
+                  <>View all old diagnosis ({historyDx.length + 1}) <ChevronRight className="h-3 w-3" /></>
+                ) : (
+                  <>
+                    {showDxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {showDxHistory ? "Hide" : `Show ${historyDx.length} older`} diagnosis {historyDx.length === 1 ? "entry" : "entries"}
+                  </>
+                )}
               </button>
               {showDxHistory && (
-                <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
+                <div className="rounded-xl border border-border/60 bg-muted/30 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
                   {historyDx.map(record => (
                     <HistoryRow
                       key={record.id}
@@ -946,7 +858,16 @@ export default function ClinicalRecordsTab({
                       type="diagnosis"
                       mode={mode}
                       onEdit={mode === "doctor" ? () => startEditDx(record) : undefined}
-                      onPdf={() => generatePrescriptionPDF(record, clinicName)}
+                      onPdf={() => printClinicalRecord({
+                        type: "diagnosis",
+                        clinicName,
+                        patientName,
+                        patientPhone,
+                        doctorName: record.doctorName,
+                        date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                        diagnosis: record.diagnosis ?? [],
+                        notes: record.notes,
+                      })}
                     />
                   ))}
                 </div>
@@ -957,10 +878,19 @@ export default function ClinicalRecordsTab({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          PRESCRIPTION TAB
+          PRESCRIPTION TAB — always shown alongside Diagnosis in admin mode
       ══════════════════════════════════════════════════════════════════ */}
-      {visibleTab === "prescription" && (
+      {(mode === "admin" || visibleTab === "prescription" || (rxLinkedToDxId !== null && showRxForm)) && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-right-1 duration-150">
+
+          {/* Section divider — admin mode only */}
+          {mode === "admin" && (
+            <div className="flex items-center gap-2 px-0.5 pt-1">
+              <Pill className="h-3 w-3 text-primary shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Prescription</span>
+              <div className="h-px flex-1 bg-primary/20" />
+            </div>
+          )}
 
           {/* ── Add / Edit form — floats on top when open ── */}
           {mode === "doctor" && showRxForm && (
@@ -969,7 +899,7 @@ export default function ClinicalRecordsTab({
                 <div className="flex items-center gap-1.5">
                   <Pill className="h-3 w-3 text-primary" />
                   <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                    {rxEditId ? "Edit Prescription" : "New Prescription"}
+                    {rxEditId ? "Edit Prescription" : rxLinkedToDxId ? "Prescription for this Diagnosis" : "New Prescription"}
                   </span>
                 </div>
                 <button onClick={resetForms} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -988,9 +918,9 @@ export default function ClinicalRecordsTab({
 
                   {/* Column headers */}
                   <div className="overflow-x-auto">
-                    <div className="min-w-[560px]">
-                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
-                        {["Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
+                    <div className="min-w-[664px]">
+                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+                        {["#", "Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
                           <span key={i} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 truncate">{h}</span>
                         ))}
                       </div>
@@ -1003,7 +933,12 @@ export default function ClinicalRecordsTab({
                           <div key={idx} className="space-y-0.5" data-testid={`medicine-row-${idx}`}>
                             <div
                               className="grid gap-x-1 items-center"
-                              style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
+                              style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+
+                            {/* Serial number */}
+                            <span className="text-xs text-muted-foreground/60 font-semibold text-center select-none">
+                              {idx + 1}
+                            </span>
 
                             {mode === "doctor" ? (
                               <MedicineCombobox
@@ -1019,7 +954,7 @@ export default function ClinicalRecordsTab({
                                 idx={idx}
                               />
                             ) : (
-                              <Input value={row.name} onChange={e => updateRxRow(idx, "name", e.target.value)}
+                              <Input value={row.name} onChange={e => updateRxRow(idx, "name", capitalizeFirst(e.target.value))}
                                 placeholder="Medicine name"
                                 className="h-7 text-xs px-2" data-testid={`input-medicine-name-${idx}`} />
                             )}
@@ -1097,6 +1032,7 @@ export default function ClinicalRecordsTab({
                     onClick={() => {
                       const payload = rxPayload();
                       if (rxEditId) updateMutation.mutate({ id: rxEditId, payload: { prescription: payload } });
+                      else if (rxLinkedToDxId) updateMutation.mutate({ id: rxLinkedToDxId, payload: { prescription: payload } });
                       else createMutation.mutate({ prescription: payload });
                     }}
                     disabled={isSaving || !rxRows.some(r => r.name.trim())}
@@ -1123,22 +1059,48 @@ export default function ClinicalRecordsTab({
           )}
 
           {/* Latest Prescription */}
-          {latestRx && !(showRxForm && rxEditId === latestRx.id) ? (
+          {latestRx && !(showRxForm && rxEditId === latestRx.id) && !rxLinkedToDxId ? (
             <div className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden">
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <Pill className="h-3 w-3 text-primary" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest Prescription</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">Latest Prescription</span>
                   <span className="text-xs text-muted-foreground/60 font-medium">
                     {format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a")}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button size="sm" variant="outline"
-                    className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => generatePrescriptionPDF(latestRx, clinicName)}
-                    data-testid="button-download-rx-pdf">
-                    <Download className="h-3.5 w-3.5" />
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Preview prescription"
+                    onClick={() => printClinicalRecord({
+                      type: "prescription",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestRx.doctorName,
+                      date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      medicines: parsePrescription(latestRx.prescription),
+                      rawPrescription: latestRx.prescription,
+                    })}
+                    data-testid="button-preview-rx-pdf">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Print prescription"
+                    onClick={() => printClinicalRecord({
+                      type: "prescription",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestRx.doctorName,
+                      date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      medicines: parsePrescription(latestRx.prescription),
+                      rawPrescription: latestRx.prescription,
+                    })}
+                    data-testid="button-print-rx-pdf">
+                    <Printer className="h-3.5 w-3.5" />
                   </Button>
                   {mode === "doctor" && (
                     <>
@@ -1183,13 +1145,19 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowRxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-rx-history">
-                {showRxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                {showRxHistory ? "Hide" : `Show ${historyRx.length} older`} prescription {historyRx.length === 1 ? "entry" : "entries"}
+                {mode === "admin" ? (
+                  <>View all old prescriptions ({historyRx.length + 1}) <ChevronRight className="h-3 w-3" /></>
+                ) : (
+                  <>
+                    {showRxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {showRxHistory ? "Hide" : `Show ${historyRx.length} older`} prescription {historyRx.length === 1 ? "entry" : "entries"}
+                  </>
+                )}
               </button>
               {showRxHistory && (
-                <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
+                <div className="rounded-xl border border-border/60 bg-muted/30 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
                   {historyRx.map(record => (
                     <HistoryRow
                       key={record.id}
@@ -1197,7 +1165,16 @@ export default function ClinicalRecordsTab({
                       type="prescription"
                       mode={mode}
                       onEdit={mode === "doctor" ? () => startEditRx(record) : undefined}
-                      onPdf={() => generatePrescriptionPDF(record, clinicName)}
+                      onPdf={() => printClinicalRecord({
+                        type: "prescription",
+                        clinicName,
+                        patientName,
+                        patientPhone,
+                        doctorName: record.doctorName,
+                        date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                        medicines: parsePrescription(record.prescription),
+                        rawPrescription: record.prescription,
+                      })}
                     />
                   ))}
                 </div>

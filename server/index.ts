@@ -39,6 +39,7 @@ const FRONTEND_ORIGINS = [
   "https://api.bookmyslot.dental.mossaic.in",
   "https://book-my-slot-client.onrender.com",
   ...FRONTEND_URL_RAW.split(",").map((u) => u.trim()).filter(Boolean),
+  ...(process.env.EXTRA_CORS_ORIGINS || "").split(",").map((u) => u.trim()).filter(Boolean),
 ];
 
 // ------------------ SESSION ------------------
@@ -54,7 +55,7 @@ const sessionSecret = (() => {
 console.log("[Environment]", process.env.NODE_ENV);
 
 const ALLOWED_FRONTEND_ORIGINS = new Set(FRONTEND_ORIGINS);
-const REPLIT_ORIGIN_REGEX = /^https:\/\/[a-z0-9-]+\.replit\.dev$/;
+const REPLIT_ORIGIN_REGEX = /^https:\/\/[a-z0-9.-]+\.replit\.dev$/;
 
 app.use(
   session({
@@ -928,6 +929,24 @@ By signing below, I confirm that I have read and understood the above and volunt
         log("notifications type + booking_id columns ensured", "system");
       } catch (e: any) {
         log(`notifications column migration warning: ${e.message}`, "system");
+      }
+
+      // ── patient_charts table (odontogram — one chart per patient per clinic) ──
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS patient_charts (
+            id          SERIAL PRIMARY KEY,
+            patient_id  INTEGER NOT NULL REFERENCES patients(id),
+            clinic_id   INTEGER NOT NULL REFERENCES clinics(id),
+            chart_data  TEXT NOT NULL DEFAULT '{}',
+            updated_at  TIMESTAMP DEFAULT NOW(),
+            created_at  TIMESTAMP DEFAULT NOW(),
+            UNIQUE(patient_id, clinic_id)
+          );
+        `);
+        log("patient_charts table ensured", "system");
+      } catch (e: any) {
+        log(`patient_charts migration warning: ${e.message}`, "system");
       }
       // ─────────────────────────────────────────────────────────────────────────
 

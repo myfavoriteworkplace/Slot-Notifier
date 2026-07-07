@@ -28,19 +28,20 @@ import {
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
   MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
-  SlidersHorizontal, Maximize2, Minimize2
+  SlidersHorizontal, Maximize2, Minimize2, Layers, Search
 } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
 import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
-import { filterAndSortBookings } from "@/lib/booking-list";
+import { type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
+import OdontogramTab from "@/components/OdontogramTab";
 
-type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
+type QuickFilter = "all" | "owned" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
 
 function isVideo(url: string) {
@@ -96,9 +97,25 @@ export default function DoctorDashboard() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
-  const [filterRowOpen, setFilterRowOpen] = useState(true);
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
+  const [apptSearch, setApptSearch] = useState("");
+  const [apptSearchInput, setApptSearchInput] = useState("");
+  const [searchOpen, setSearchOpen] = useState(true);
+  const apptSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
+    apptSearchDebounceRef.current = setTimeout(() => {
+      setApptSearch(apptSearchInput.trim());
+    }, 300);
+    return () => {
+      if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
+    };
+  }, [apptSearchInput]);
+
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
@@ -121,7 +138,7 @@ export default function DoctorDashboard() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
   const [dialogExpanded, setDialogExpanded] = useState(false);
-  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription'>('overview');
+  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
   const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number } | null>(() => {
     if (typeof window === "undefined") return null;
@@ -139,7 +156,8 @@ export default function DoctorDashboard() {
       return null;
     }
   });
-  const [visibleBookingCount, setVisibleBookingCount] = useState(50);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [openedBooking, setOpenedBooking] = useState<any>(null);
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
   const [editingCert, setEditingCert] = useState<DoctorCertification | null>(null);
@@ -231,17 +249,38 @@ export default function DoctorDashboard() {
     staleTime: 30_000,
   });
 
-  const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
-    queryKey: ["/api/auth/clinic/bookings"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/auth/clinic/bookings");
+  const bookingsQueryKey = ["/api/auth/clinic/bookings", {
+    filter: quickFilter,
+    clinicId: appointmentClinicFilter !== "all" ? appointmentClinicFilter : undefined,
+    dateFrom: filterDate ? format(filterDate, "yyyy-MM-dd") : undefined,
+    dateTo: filterEndDate ? format(filterEndDate, "yyyy-MM-dd") : undefined,
+    search: apptSearch || undefined,
+  }];
+
+  const {
+    data: bookingsInfiniteData,
+    isLoading: isBookingsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<BookingsPagedResponse>({
+    queryKey: bookingsQueryKey,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
+      if (appointmentClinicFilter !== "all") params.set("clinicId", appointmentClinicFilter);
+      if (filterDate) params.set("dateFrom", format(filterDate, "yyyy-MM-dd"));
+      if (filterEndDate) params.set("dateTo", format(filterEndDate, "yyyy-MM-dd"));
+      if (apptSearch) params.set("search", apptSearch);
+      const res = await apiRequest("GET", `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) return [];
+        if (res.status === 401 || res.status === 403) return { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1, stats: { todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0, thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0, totalPendingCount: 0, totalAllCount: 0, awaitingApprovalCount: 0 } };
         throw new Error("Failed to fetch bookings");
       }
       return res.json();
     },
-    enabled: isAuthenticated,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    enabled: isAuthenticated && activeTab === "appointments",
     refetchOnMount: "always",
     staleTime: 30_000,
   });
@@ -265,6 +304,8 @@ export default function DoctorDashboard() {
   const [leaveReason, setLeaveReason] = useState("");
   const [multiMode, setMultiMode] = useState(false);
   const [pendingDates, setPendingDates] = useState<Date[]>([]);
+  const [openLeaveMonth, setOpenLeaveMonth] = useState<string | null>(null);
+  const [chipsExpanded, setChipsExpanded] = useState(false);
 
   const changePwdMutation = useMutation({
     mutationFn: async (data: { currentPassword?: string; newPassword: string; confirmPassword: string }) => {
@@ -565,6 +606,46 @@ export default function DoctorDashboard() {
     });
   }
 
+  const displayBookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+  const bookingStats = bookingsInfiniteData?.pages[0]?.stats;
+
+  const awaitingApprovalCount = bookingStats?.awaitingApprovalCount ?? 0;
+  const todayBookingsCount    = bookingStats?.todayCount ?? 0;
+  const upcomingBookingsCount = bookingStats?.upcomingCount ?? 0;
+  const confirmedAllCount     = bookingStats?.totalAllCount ?? 0;
+  const ownedCount            = bookingStats?.totalOwnedCount ?? 0;
+
+  const todayStr    = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStart  = useMemo(() => startOfDay(new Date()), []);
+  const statNext7DaysEnd = useMemo(() => addDays(todayStart, 7), [todayStart]);
+
+  const pendingNext7Count    = bookingStats?.pendingNext7Count    ?? 0;
+  const confirmedNext7Count  = bookingStats?.confirmedNext7Count  ?? 0;
+  const thisWeekCount        = bookingStats?.thisWeekCount        ?? 0;
+  const nextWeekCount        = bookingStats?.nextWeekCount        ?? 0;
+
+  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const thisWeekEnd   = useMemo(() => endOfWeek(new Date(),   { weekStartsOn: 1 }), []);
+  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
+  const nextWeekEnd   = useMemo(() => endOfWeek(addWeeks(new Date(), 1),   { weekStartsOn: 1 }), []);
+
+  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -613,105 +694,6 @@ export default function DoctorDashboard() {
   }
   if (!doctor) return null;
 
-  const allBookings = useMemo(() => (Array.isArray(bookings) ? bookings : []), [bookings]);
-  const myBookings = useMemo(
-    () => allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any).email),
-    [allBookings, doctor]
-  );
-  const awaitingBookings = useMemo(
-    () => myBookings.filter((b: any) => b.doctorApprovalStatus === 'pending'),
-    [myBookings]
-  );
-  const confirmedBookings = useMemo(
-    () => myBookings.filter((b: any) => b.doctorApprovalStatus !== 'pending' && b.doctorApprovalStatus !== 'declined'),
-    [myBookings]
-  );
-
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
-  const todayStart = useMemo(() => startOfDay(new Date()), []);
-  const statNext7DaysEnd = useMemo(() => addDays(todayStart, 7), [todayStart]);
-
-  const todayBookings = useMemo(
-    () => confirmedBookings.filter((b: any) => {
-      const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
-      return d === todayStr;
-    }),
-    [confirmedBookings, todayStr]
-  );
-
-  const upcomingBookings = useMemo(
-    () => confirmedBookings.filter((b: any) => {
-      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-      return d && d >= new Date() && b.visitStatus !== 'completed';
-    }),
-    [confirmedBookings]
-  );
-
-  const now = useMemo(() => new Date(), []);
-  const next7 = useMemo(() => new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), [now]);
-  const pendingNext7Count = useMemo(
-    () => awaitingBookings.filter((b: any) => {
-      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-      return d && d >= now && d <= next7;
-    }).length,
-    [awaitingBookings, now, next7]
-  );
-  const confirmedNext7Count = useMemo(
-    () => confirmedBookings.filter((b: any) => {
-      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-      return d && d >= now && d <= next7;
-    }).length,
-    [confirmedBookings, now, next7]
-  );
-
-  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
-  const thisWeekEnd = useMemo(() => endOfWeek(new Date(), { weekStartsOn: 1 }), []);
-  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
-  const nextWeekEnd = useMemo(() => endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
-  const thisWeekCount = useMemo(
-    () => confirmedBookings.filter((b: any) => {
-      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-      return d && d >= thisWeekStart && d <= thisWeekEnd;
-    }).length,
-    [confirmedBookings, thisWeekStart, thisWeekEnd]
-  );
-  const nextWeekCount = useMemo(
-    () => confirmedBookings.filter((b: any) => {
-      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-      return d && d >= nextWeekStart && d <= nextWeekEnd;
-    }).length,
-    [confirmedBookings, nextWeekStart, nextWeekEnd]
-  );
-  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
-
-  const filteredBookings = useMemo(() => {
-    const sourceBookings = quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings;
-    const normalizedFilter = quickFilter === "awaiting" ? "all-pending" as QuickFilter : quickFilter;
-    return filterAndSortBookings({
-      bookings: sourceBookings,
-      quickFilter: normalizedFilter,
-      activePatientFilter: undefined,
-      filterDate,
-      filterEndDate,
-      todayStart,
-      todayStr,
-      thisWeekStart,
-      thisWeekEnd,
-      nextWeekStart,
-      nextWeekEnd,
-      statNext7DaysEnd,
-    }).filter((b: any) => appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter));
-  }, [awaitingBookings, confirmedBookings, quickFilter, appointmentClinicFilter, filterDate, filterEndDate, todayStart, todayStr, thisWeekStart, thisWeekEnd, nextWeekStart, nextWeekEnd, statNext7DaysEnd]);
-
-  const visibleBookings = useMemo(
-    () => filteredBookings.slice(0, visibleBookingCount),
-    [filteredBookings, visibleBookingCount]
-  );
-
-  useEffect(() => {
-    setVisibleBookingCount(50);
-  }, [quickFilter, appointmentClinicFilter, filterDate, filterEndDate]);
-
   const greet = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening";
 
   const NAV_ITEMS = [
@@ -743,7 +725,7 @@ export default function DoctorDashboard() {
       )}
 
       {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
-      <div className="max-w-7xl mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-6 lg:pb-8">
+      <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-8">
 
       {/* ═══ DOCTOR HERO BAR ═══ */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
@@ -821,10 +803,10 @@ export default function DoctorDashboard() {
             {!heroStatsCollapsed && (
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: "pending-7days" as QuickFilter, tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",       count: pendingNext7Count,       Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",             count: awaitingBookings.length, Icon: TrendingUp,    text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
+              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookingsCount,       Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,      Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: "pending-7days" as QuickFilter, tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",       count: pendingNext7Count,        Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",             count: awaitingApprovalCount,    Icon: TrendingUp,    text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
             ].map(({ label, shortLabel, subTag, filter, tooltip, count, Icon, text, bg, border }) => (
               <TooltipProvider key={label} delayDuration={700}>
                 <Tooltip>
@@ -892,8 +874,8 @@ export default function DoctorDashboard() {
                     <p className="text-xs text-muted-foreground">{subtitle}</p>
                   </div>
                   {isActive && <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />}
-                  {key === "appointments" && awaitingBookings.length > 0 && !isActive && (
-                    <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
+                  {key === "appointments" && awaitingApprovalCount > 0 && !isActive && (
+                    <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingApprovalCount}</span>
                   )}
                 </button>
               );
@@ -972,14 +954,14 @@ export default function DoctorDashboard() {
               </div>
 
               {/* Awaiting approval banner — shown above stat cards so it's the first thing seen */}
-              {awaitingBookings.length > 0 && (
+              {awaitingApprovalCount > 0 && (
                 <div className="flex items-center gap-3 rounded-2xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 px-4 py-3">
                   <div className="h-8 w-8 rounded-xl bg-amber-400/20 flex items-center justify-center shrink-0">
                     <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 leading-tight">
-                      {awaitingBookings.length} appointment{awaitingBookings.length !== 1 ? "s" : ""} awaiting your approval
+                      {awaitingApprovalCount} appointment{awaitingApprovalCount !== 1 ? "s" : ""} awaiting your approval
                     </p>
                     <p className="text-xs text-amber-600/70 dark:text-amber-500/70 mt-0.5">Review and accept or decline before they expire.</p>
                   </div>
@@ -1012,7 +994,7 @@ export default function DoctorDashboard() {
                   </span>
                   <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
                     quickFilter === "today" ? "bg-sky-500/15 text-sky-700 dark:text-sky-400" : "bg-muted text-muted-foreground"
-                  }`}>{todayBookings.length}</span>
+                  }`}>{todayBookingsCount}</span>
                 </button>
 
                 {/* Upcoming */}
@@ -1031,7 +1013,7 @@ export default function DoctorDashboard() {
                   </span>
                   <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
                     quickFilter === "upcoming" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-                  }`}>{upcomingBookings.length}</span>
+                  }`}>{upcomingBookingsCount}</span>
                 </button>
 
                 {/* Awaiting */}
@@ -1050,10 +1032,10 @@ export default function DoctorDashboard() {
                   </span>
                   <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
                     quickFilter === "awaiting" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"
-                  }`}>{awaitingBookings.length}</span>
+                  }`}>{awaitingApprovalCount}</span>
                 </button>
 
-                {/* All Bookings */}
+                {/* All Appointments */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
                   className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
@@ -1065,12 +1047,79 @@ export default function DoctorDashboard() {
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
                     <ClipboardList className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">All Bookings</span>
+                    <span className="truncate">All Appointments</span>
                   </span>
                   <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
                     quickFilter === "all" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-                  }`}>{confirmedBookings.length}</span>
+                  }`}>{confirmedAllCount}</span>
                 </button>
+
+                {/* All Owned */}
+                <button
+                  onClick={() => { setActiveTab("appointments"); handleQuickFilter("owned"); }}
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                    quickFilter === "owned"
+                      ? "bg-teal-500/10 border-teal-400/50 text-teal-700 dark:text-teal-400"
+                      : "bg-transparent border-teal-400/30 text-muted-foreground hover:bg-teal-500/8 hover:text-teal-700 dark:hover:text-teal-400"
+                  }`}
+                  data-testid="chip-filter-owned"
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">All Owned</span>
+                  </span>
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "owned" ? "bg-teal-500/15 text-teal-700 dark:text-teal-400" : "bg-muted text-muted-foreground"
+                  }`}>{ownedCount}</span>
+                </button>
+
+                {/* Patient search — collapsed magnifier or expanded input */}
+                {searchOpen ? (
+                  <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all flex-1 min-w-[160px]">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={apptSearchInput}
+                      onChange={(e) => setApptSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setApptSearchInput("");
+                          setApptSearch("");
+                          setSearchOpen(false);
+                          searchInputRef.current?.blur();
+                        }
+                      }}
+                      placeholder="Search by patient name, phone or email…"
+                      className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
+                      data-testid="input-appointment-search"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setApptSearchInput("");
+                        setApptSearch("");
+                        setSearchOpen(false);
+                      }}
+                      className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                      title="Close search"
+                      data-testid="button-clear-appointment-search"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
+                    data-testid="button-open-appointment-search"
+                    title="Search patient"
+                  >
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
 
                 {/* Filter row toggle — only visible when row is collapsed */}
                 {!filterRowOpen && (
@@ -1083,17 +1132,6 @@ export default function DoctorDashboard() {
                     <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
                   </button>
                 )}
-
-                {/* All Clinics — always visible, pinned right */}
-                <div className="ml-auto">
-                  <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-                    <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Clinics</SelectItem>
-                      {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               {/* Date range + Quick week — collapsible filter row */}
@@ -1234,6 +1272,20 @@ export default function DoctorDashboard() {
                     </button>
                   )}
 
+                  {/* Desktop-only divider before clinic select */}
+                  <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />
+
+                  {/* All Clinics — moved into filter row */}
+                  <div className="col-span-2 sm:col-span-1">
+                    <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
+                      <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Clinics</SelectItem>
+                        {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Close — desktop only */}
                   <div className="hidden sm:flex sm:ml-auto">
                     <button
@@ -1261,6 +1313,7 @@ export default function DoctorDashboard() {
                         <h2 className="text-sm sm:text-base font-semibold tracking-tight truncate">
                           {quickFilter === "today"             ? "Today's Appointments"
                            : quickFilter === "upcoming"        ? "Upcoming Appointments"
+                           : quickFilter === "owned"           ? "All Owned Appointments"
                            : quickFilter === "awaiting"        ? "All Pending Bookings"
                            : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
                            : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
@@ -1270,10 +1323,11 @@ export default function DoctorDashboard() {
                            : "All Appointments"}
                         </h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          <span className="tabular-nums font-semibold">{filteredBookings.length}</span>{" "}
-                          {filteredBookings.length === 1 ? "appointment" : "appointments"}{" · "}
+                          <span className="tabular-nums font-semibold">{bookingsInfiniteData?.pages[0]?.total ?? 0}</span>{" "}
+                          {(bookingsInfiniteData?.pages[0]?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
                           {quickFilter === "today"             ? "Appointments assigned to you today"
                            : quickFilter === "upcoming"        ? "Future appointments beyond today"
+                           : quickFilter === "owned"           ? "Only appointments you've confirmed or accepted"
                            : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
                            : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
                            : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
@@ -1307,10 +1361,10 @@ export default function DoctorDashboard() {
                     </div>
                   ))}
                 </div>
-              ) : filteredBookings.length > 0 ? (
+              ) : displayBookings.length > 0 ? (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {visibleBookings.map((booking: any) => {
+                    {displayBookings.map((booking: any) => {
                     const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
                     const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
                     const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
@@ -1363,7 +1417,7 @@ export default function DoctorDashboard() {
                         })()}
                         clinicName={clinicName}
                         clinicCity={clinicCity ?? undefined}
-                        onCardClick={() => { setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        onCardClick={() => { setOpenedBooking(booking); setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
                         onApprove={() => approveMutation.mutate(booking.id)}
                         onDecline={() => declineMutation.mutate(booking.id)}
                         onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
@@ -1380,17 +1434,32 @@ export default function DoctorDashboard() {
                     );
                   })}
                 </div>
-                {filteredBookings.length > visibleBookingCount && (
-                  <div className="mt-6 flex items-center justify-center">
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-full border border-border/70 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
-                      onClick={() => setVisibleBookingCount(prev => prev + 50)}
-                    >
-                      Show more appointments ({Math.min(filteredBookings.length - visibleBookingCount, 50)} more)
-                    </button>
+                {isFetchingNextPage && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Skeleton className="h-4 w-28" />
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-3.5 w-36" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <Skeleton className="h-7 flex-1 rounded-md" />
+                          <Skeleton className="h-7 flex-1 rounded-md" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+                {!hasNextPage && displayBookings.length > 0 && (
+                  <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
+                    All {bookingsInfiniteData?.pages[0]?.total ?? displayBookings.length} appointments loaded
+                  </p>
+                )}
+                <div ref={sentinelRef} className="h-2" />
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -1806,14 +1875,14 @@ export default function DoctorDashboard() {
 
           {/* ─────────────── LEAVE MANAGEMENT ─────────────── */}
           {activeTab === "leaves" && (
-            <div className="space-y-5">
-              {/* Panel header */}
+            <div className="space-y-4">
+              {/* Panel header — compact */}
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="flex">
                   <div className="w-1.5 bg-amber-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-amber-500/[0.06] to-transparent flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                      <CalendarOff className="h-[18px] w-[18px] text-amber-600 dark:text-amber-400" />
+                  <div className="flex-1 px-5 py-3 bg-gradient-to-r from-amber-500/[0.06] to-transparent flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                      <CalendarOff className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
                       <h2 className="text-base font-semibold tracking-tight">Leave Management</h2>
@@ -1824,24 +1893,32 @@ export default function DoctorDashboard() {
               </div>
 
               <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
-                {/* Panel header */}
-                <div className="px-5 py-4 bg-amber-100/60 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 flex items-center justify-between rounded-t-2xl">
+                {/* Sub-header — compact with richer subtitle */}
+                <div className="px-5 py-3 bg-amber-100/60 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 flex items-center justify-between rounded-t-2xl">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-amber-200/70 dark:bg-amber-500/20 flex items-center justify-center">
-                      <BriefcaseMedical className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                    <div className="h-7 w-7 rounded-lg bg-amber-200/70 dark:bg-amber-500/20 flex items-center justify-center">
+                      <BriefcaseMedical className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Out of Office / Leave</p>
-                      {!isLeavesLoading && leaves.length > 0 && (
-                        <p className="text-xs text-amber-600/80 dark:text-amber-400/60">{leaves.length} {leaves.length === 1 ? "day" : "days"} marked upcoming</p>
-                      )}
+                      {!isLeavesLoading && (() => {
+                        const todayStr = format(new Date(), 'yyyy-MM-dd');
+                        const upcoming = leaves.filter(l => l.leaveDate >= todayStr).sort((a, b) => a.leaveDate.localeCompare(b.leaveDate));
+                        if (upcoming.length === 0) return null;
+                        const nextLeave = upcoming[0];
+                        return (
+                          <p className="text-xs text-amber-600/80 dark:text-amber-400/60">
+                            {upcoming.length} upcoming {upcoming.length === 1 ? "day" : "days"} · Next: {format(new Date(nextLeave.leaveDate + 'T00:00:00'), 'EEE, MMM d')}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                   {/* Single / Multi toggle */}
                   <div className="flex items-center rounded-lg border border-amber-200 dark:border-amber-500/30 overflow-hidden text-xs font-semibold">
                     <button
                       data-testid="button-single-mode"
-                      onClick={() => { setMultiMode(false); setPendingDates([]); }}
+                      onClick={() => { setMultiMode(false); setPendingDates([]); setChipsExpanded(false); }}
                       className={`min-h-[36px] px-3 py-1.5 transition-colors ${!multiMode ? "bg-amber-500 text-white" : "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/10"}`}
                     >Single</button>
                     <button
@@ -1852,7 +1929,8 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
 
-                <div className="p-5 space-y-5">
+                <div className="p-4 space-y-4">
+                  {/* Instruction text — reduced padding */}
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {multiMode
                       ? <><span className="font-medium text-amber-700 dark:text-amber-400">Multi-select:</span> tap several dates, add an optional reason, then submit them all at once — great for holidays or planned leave blocks.</>
@@ -1861,26 +1939,22 @@ export default function DoctorDashboard() {
                   </p>
 
                   {/* Calendar + reason/submit side by side */}
-                  <div className="flex flex-col sm:flex-row gap-5 items-start">
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
 
-                    {/* Calendar */}
-                    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm pt-1 shrink-0">
+                    {/* Calendar — compact */}
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm shrink-0">
                       {isLeavesLoading ? (
-                        <div className="w-full h-[280px] p-3 space-y-2">
+                        <div className="w-full h-[250px] p-2 space-y-2">
                           <div className="flex justify-between px-1 pb-1">
                             <Skeleton className="h-4 w-4 rounded" />
                             <Skeleton className="h-4 w-28" />
                             <Skeleton className="h-4 w-4 rounded" />
                           </div>
                           <div className="grid grid-cols-7 gap-1">
-                            {Array.from({length: 7}).map((_, i) => (
-                              <Skeleton key={i} className="h-6 w-6 rounded" />
-                            ))}
+                            {Array.from({length: 7}).map((_, i) => <Skeleton key={i} className="h-5 w-7 rounded" />)}
                           </div>
                           <div className="grid grid-cols-7 gap-1">
-                            {Array.from({length: 35}).map((_, i) => (
-                              <Skeleton key={i} className="h-8 w-8 rounded-full" />
-                            ))}
+                            {Array.from({length: 35}).map((_, i) => <Skeleton key={i} className="h-7 w-7 rounded-full" />)}
                           </div>
                         </div>
                       ) : multiMode ? (
@@ -1904,7 +1978,8 @@ export default function DoctorDashboard() {
                           disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
                           modifiers={{ leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')) }}
                           modifiersStyles={{ leave: { backgroundColor: 'rgb(251 191 36 / 0.25)', color: '#92400e', fontWeight: '700', borderRadius: '6px', border: '1.5px solid rgb(251 191 36 / 0.6)' } }}
-                          className="p-3"
+                          classNames={{ month: "space-y-2", row: "flex w-full mt-1" }}
+                          className="p-2"
                           data-testid="calendar-leave-picker-multi"
                         />
                       ) : (
@@ -1921,12 +1996,13 @@ export default function DoctorDashboard() {
                           disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
                           modifiers={{ leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')) }}
                           modifiersStyles={{ leave: { backgroundColor: 'rgb(251 191 36 / 0.25)', color: '#92400e', fontWeight: '700', borderRadius: '6px', border: '1.5px solid rgb(251 191 36 / 0.6)' } }}
-                          className="p-3"
+                          classNames={{ month: "space-y-2", row: "flex w-full mt-1" }}
+                          className="p-2"
                           data-testid="calendar-leave-picker"
                         />
                       )}
-                      {/* Legend */}
-                      <div className="flex items-center gap-4 px-4 pb-4 flex-wrap">
+                      {/* Legend — reduced padding */}
+                      <div className="flex items-center gap-4 px-3 pb-2.5 flex-wrap">
                         <div className="flex items-center gap-1.5">
                           <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
                           <span className="text-xs text-muted-foreground">{multiMode && pendingDates.length > 0 ? `${pendingDates.length} selected` : "Selected"}</span>
@@ -1938,7 +2014,7 @@ export default function DoctorDashboard() {
                       </div>
                     </div>
 
-                    {/* Reason + submit */}
+                    {/* Reason + queued chips + CTA */}
                     <div className="flex flex-col gap-3 flex-1 w-full">
                       <div>
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reason (optional)</Label>
@@ -1959,19 +2035,22 @@ export default function DoctorDashboard() {
 
                       {multiMode ? (
                         <div className="flex flex-col gap-2.5">
-                          {pendingDates.length > 0 && (
-                            <div className="p-3 rounded-xl bg-primary/5 border border-primary/15 space-y-1.5">
-                              <p className="text-xs font-semibold text-primary uppercase tracking-wide">
-                                {pendingDates.length} {pendingDates.length === 1 ? "date" : "dates"} queued:
-                              </p>
-                              <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
-                                {[...pendingDates]
-                                  .sort((a, b) => a.getTime() - b.getTime())
-                                  .map(d => {
+                          {pendingDates.length > 0 && (() => {
+                            const sorted = [...pendingDates].sort((a, b) => a.getTime() - b.getTime());
+                            const CHIP_LIMIT = 5;
+                            const visible = chipsExpanded ? sorted : sorted.slice(0, CHIP_LIMIT);
+                            const overflow = sorted.length - CHIP_LIMIT;
+                            return (
+                              <div className="p-3 rounded-xl bg-primary/5 border border-primary/15 space-y-1.5">
+                                <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+                                  {sorted.length} {sorted.length === 1 ? "date" : "dates"} queued:
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {visible.map(d => {
                                     const ds = format(d, 'yyyy-MM-dd');
                                     return (
                                       <span key={ds} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                                        {format(d, 'EEE, MMM d')}
+                                        {format(d, 'MMM d')}
                                         <button
                                           data-testid={`button-deselect-${ds}`}
                                           onClick={() => setPendingDates(prev => prev.filter(p => format(p, 'yyyy-MM-dd') !== ds))}
@@ -1982,39 +2061,62 @@ export default function DoctorDashboard() {
                                       </span>
                                     );
                                   })}
+                                  {!chipsExpanded && overflow > 0 && (
+                                    <button
+                                      data-testid="button-expand-chips"
+                                      onClick={() => setChipsExpanded(true)}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80 active:scale-95 transition-all"
+                                    >
+                                      +{overflow} more
+                                    </button>
+                                  )}
+                                  {chipsExpanded && overflow > 0 && (
+                                    <button
+                                      data-testid="button-collapse-chips"
+                                      onClick={() => setChipsExpanded(false)}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80 active:scale-95 transition-all"
+                                    >
+                                      show less
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          <Button
-                            data-testid="button-mark-leave-multi"
-                            variant="outline"
-                            className={`min-h-[44px] font-semibold transition-all active:scale-[0.98] ${
-                              pendingDates.length > 0
-                                ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
-                                : "border-border text-muted-foreground"
-                            }`}
-                            disabled={pendingDates.length === 0 || addLeavesBatchMutation.isPending}
-                            onClick={() => {
-                              if (pendingDates.length === 0) return;
-                              addLeavesBatchMutation.mutate({ dates: pendingDates.map(d => format(d, 'yyyy-MM-dd')), reason: leaveReason || undefined });
-                            }}
-                          >
-                            {addLeavesBatchMutation.isPending
-                              ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                              : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
-                            {pendingDates.length > 0
-                              ? `Mark ${pendingDates.length} ${pendingDates.length === 1 ? "day" : "days"} as Out of Office`
-                              : "Select dates on the calendar"}
-                          </Button>
-                          {pendingDates.length > 0 && (
-                            <button
-                              data-testid="button-clear-pending"
-                              onClick={() => setPendingDates([])}
-                              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 text-center transition-colors"
+                            );
+                          })()}
+
+                          {/* CTA + Clear in one row */}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              data-testid="button-mark-leave-multi"
+                              variant="outline"
+                              className={`flex-1 min-h-[44px] font-semibold transition-all active:scale-[0.98] ${
+                                pendingDates.length > 0
+                                  ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
+                                  : "border-border text-muted-foreground"
+                              }`}
+                              disabled={pendingDates.length === 0 || addLeavesBatchMutation.isPending}
+                              onClick={() => {
+                                if (pendingDates.length === 0) return;
+                                addLeavesBatchMutation.mutate({ dates: pendingDates.map(d => format(d, 'yyyy-MM-dd')), reason: leaveReason || undefined });
+                              }}
                             >
-                              Clear all selected dates
-                            </button>
-                          )}
+                              {addLeavesBatchMutation.isPending
+                                ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
+                              {pendingDates.length > 0
+                                ? `Mark ${pendingDates.length} ${pendingDates.length === 1 ? "day" : "days"} as Out of Office`
+                                : "Select dates on the calendar"}
+                            </Button>
+                            {pendingDates.length > 0 && (
+                              <button
+                                data-testid="button-clear-pending"
+                                onClick={() => { setPendingDates([]); setChipsExpanded(false); }}
+                                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 whitespace-nowrap transition-colors px-1"
+                              >
+                                Clear All
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div className="flex flex-col gap-2">
@@ -2049,9 +2151,9 @@ export default function DoctorDashboard() {
                     </div>
                   </div>
 
-                  {/* Marked dates list — grouped by month */}
+                  {/* Marked dates — accordion by month, no gap before */}
                   {isLeavesLoading ? (
-                    <div className="space-y-2 py-1">
+                    <div className="space-y-2 pt-3 border-t border-amber-200 dark:border-amber-500/20">
                       {[1, 2, 3].map(i => (
                         <div key={i} className="flex items-center gap-2">
                           <Skeleton className="h-4 w-4 rounded shrink-0" />
@@ -2062,54 +2164,76 @@ export default function DoctorDashboard() {
                     </div>
                   ) : leaves.length > 0 ? (() => {
                     const grouped = leaves.reduce((acc, l) => {
-                      const month = format(new Date(l.leaveDate + 'T00:00:00'), 'MMMM yyyy');
-                      if (!acc[month]) acc[month] = [];
-                      acc[month].push(l);
+                      const key = format(new Date(l.leaveDate + 'T00:00:00'), 'MMMM yyyy');
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(l);
                       return acc;
                     }, {} as Record<string, DoctorLeave[]>);
+                    const monthKeys = Object.keys(grouped).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+                    const activeMonth = openLeaveMonth ?? monthKeys[0];
                     return (
-                      <div className="space-y-3 pt-2 border-t border-amber-200 dark:border-amber-500/20">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Marked Dates</p>
-                        {Object.entries(grouped).map(([month, monthLeaves]) => (
-                          <div key={month} className="space-y-1.5">
-                            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">{month}</p>
-                            {monthLeaves.map(leave => (
-                              <div
-                                key={leave.id}
-                                data-testid={`leave-item-${leave.id}`}
-                                className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-amber-100/70 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 group hover:bg-amber-200/50 dark:hover:bg-amber-500/15 transition-colors"
+                      <div className="pt-3 border-t border-amber-200 dark:border-amber-500/20 space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Marked Dates</p>
+                        {monthKeys.map(month => {
+                          const monthLeaves = grouped[month];
+                          const isOpen = month === activeMonth;
+                          return (
+                            <div key={month} className="rounded-xl border border-amber-200 dark:border-amber-500/20 overflow-hidden">
+                              <button
+                                data-testid={`button-accordion-${month.replace(/\s/g, '-')}`}
+                                onClick={() => setOpenLeaveMonth(month)}
+                                className="w-full flex items-center justify-between px-3 py-2.5 min-h-[44px] bg-amber-100/60 dark:bg-amber-500/10 hover:bg-amber-100/90 dark:hover:bg-amber-500/15 transition-colors text-left"
                               >
-                                <div className="flex items-center gap-2.5">
-                                  <div className="h-7 w-7 rounded-md bg-amber-200/80 dark:bg-amber-500/20 flex items-center justify-center shrink-0">
-                                    <CalendarDays className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
-                                  </div>
-                                  <div>
-                                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-                                      {format(new Date(leave.leaveDate + 'T00:00:00'), 'EEE, MMM d, yyyy')}
-                                    </span>
-                                    {leave.reason
-                                      ? <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-0.5">{leave.reason}</p>
-                                      : <p className="text-xs text-muted-foreground/50 mt-0.5 italic">No reason given</p>
-                                    }
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">{month}</span>
+                                  <span className="text-xs bg-amber-200/70 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full px-1.5 font-semibold">{monthLeaves.length}</span>
+                                </div>
+                                <ChevronDown className={`h-3.5 w-3.5 text-amber-600 dark:text-amber-400 transition-transform duration-200 ${isOpen ? "rotate-180" : "rotate-0"}`} />
+                              </button>
+                              <div className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                                <div className="min-h-0 overflow-hidden">
+                                  <div className="space-y-0.5 p-1.5">
+                                    {monthLeaves.map(leave => (
+                                      <div
+                                        key={leave.id}
+                                        data-testid={`leave-item-${leave.id}`}
+                                        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-amber-100/70 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 group hover:bg-amber-200/50 dark:hover:bg-amber-500/15 transition-colors"
+                                      >
+                                        <div className="flex items-center gap-2.5">
+                                          <div className="h-6 w-6 rounded-md bg-amber-200/80 dark:bg-amber-500/20 flex items-center justify-center shrink-0">
+                                            <CalendarDays className="h-3 w-3 text-amber-700 dark:text-amber-400" />
+                                          </div>
+                                          <div>
+                                            <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                                              {format(new Date(leave.leaveDate + 'T00:00:00'), 'EEE, MMM d, yyyy')}
+                                            </span>
+                                            {leave.reason
+                                              ? <p className="text-xs text-amber-600/80 dark:text-amber-400/70">{leave.reason}</p>
+                                              : <p className="text-xs text-muted-foreground/50 italic">No reason given</p>
+                                            }
+                                          </div>
+                                        </div>
+                                        <button
+                                          data-testid={`button-remove-leave-${leave.id}`}
+                                          onClick={() => removeLeaveMutation.mutate(leave.id)}
+                                          disabled={removeLeaveMutation.isPending}
+                                          aria-label="Remove this leave"
+                                          className="opacity-0 group-hover:opacity-100 min-h-[36px] px-2 rounded-md text-amber-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 dark:text-amber-400 dark:hover:text-red-400 active:scale-95 transition-all"
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
-                                <button
-                                  data-testid={`button-remove-leave-${leave.id}`}
-                                  onClick={() => removeLeaveMutation.mutate(leave.id)}
-                                  disabled={removeLeaveMutation.isPending}
-                                  className="opacity-0 group-hover:opacity-100 min-h-[36px] px-2 rounded-md text-amber-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 dark:text-amber-400 dark:hover:text-red-400 active:scale-95 transition-all"
-                                  title="Remove this leave"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
                               </div>
-                            ))}
-                          </div>
-                        ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })() : (
-                    <div className="flex items-center gap-2.5 py-3 px-4 rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-dashed border-amber-200 dark:border-amber-500/20">
+                    <div className="flex items-center gap-2.5 py-3 px-4 rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-dashed border-amber-200 dark:border-amber-500/20 mt-1">
                       <CalendarDays className="h-4 w-4 text-amber-400 shrink-0" />
                       <p className="text-xs text-amber-600/70 dark:text-amber-400/60 italic">No leaves marked yet. Select a date on the calendar above.</p>
                     </div>
@@ -2334,8 +2458,8 @@ export default function DoctorDashboard() {
                 {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
                 <Icon className="h-5 w-5" />
                 <span className="text-[10px] font-semibold">{label}</span>
-                {key === "appointments" && awaitingBookings.length > 0 && (
-                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center leading-none">{awaitingBookings.length}</span>
+                {key === "appointments" && awaitingApprovalCount > 0 && (
+                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center leading-none">{awaitingApprovalCount}</span>
                 )}
               </button>
             );
@@ -2457,7 +2581,7 @@ export default function DoctorDashboard() {
           </button>
 
           {patientModalId !== null && (() => {
-            const b = myBookings.find((bk: any) => bk.id === patientModalId);
+            const b = openedBooking?.id === patientModalId ? openedBooking : displayBookings.find((bk: any) => bk.id === patientModalId);
             if (!b) return null;
             const startTime = b.slot?.startTime ? new Date(b.slot.startTime) : null;
             const modalClinicName = b.clinic?.name || b.clinicName || doctorClinics.find((c: any) => c.id === b.clinicId)?.name || "Clinic";
@@ -2509,13 +2633,14 @@ export default function DoctorDashboard() {
                   <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                 </div>
 
-                {/* Tab strip — Overview | Notes | Diagnosis | Prescription */}
+                {/* Tab strip — Overview | Notes | Diagnosis | Prescription | Chart */}
                 <div className="shrink-0 flex border-b border-border/60 bg-card">
                   {([
                     { key: 'overview'     as const, label: 'Overview',    icon: <User className="h-3.5 w-3.5" /> },
                     { key: 'notes'        as const, label: 'Notes',       icon: <FileText className="h-3.5 w-3.5" /> },
                     { key: 'diagnosis'    as const, label: 'Diagnosis',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
-                    { key: 'prescription' as const, label: 'Prescription',icon: <Pill className="h-3.5 w-3.5" /> },
+                    { key: 'prescription' as const, label: 'Rx',          icon: <Pill className="h-3.5 w-3.5" /> },
+                    { key: 'chart'        as const, label: 'Chart',       icon: <Layers className="h-3.5 w-3.5" /> },
                   ]).map(({ key, label, icon }) => {
                     const isActive = patientModalTab === key;
                     return (
@@ -2548,7 +2673,7 @@ export default function DoctorDashboard() {
                       : [];
                     return (
                       <div className="px-4 pt-3 pb-4">
-                        <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        <div className="rounded-xl border border-green-800/30 bg-white shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
 
                           {/* Phone */}
                           <div className="flex items-center gap-1.5 text-xs min-w-0">
@@ -2785,6 +2910,23 @@ export default function DoctorDashboard() {
                       />
                     </div>
                   )}
+
+                  {/* CHART TAB — Odontogram */}
+                  {patientModalTab === 'chart' && (() => {
+                    const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
+                    const bIsVisitCompleted = (b as any).visitStatus === 'completed';
+                    const chartEditable = !bIsTerminal && !bIsVisitCompleted;
+                    const bRef = `REF-${String(b.id).padStart(4, '0')}`;
+                    const bDoctorName = profName || b.assignedDoctor || 'Doctor';
+                    return (
+                      <OdontogramTab
+                        bookingId={b.id}
+                        bookingRef={bRef}
+                        doctorName={bDoctorName}
+                        isEditable={chartEditable}
+                      />
+                    );
+                  })()}
                 </div>
 
                 {/* ── STICKY FOOTER — lifecycle action buttons ── */}

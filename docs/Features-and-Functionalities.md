@@ -1015,4 +1015,69 @@ A reverse-chronological log of significant feature additions and changes. Update
 
 ---
 
-*Document last updated: 27 May 2026 — reflects the current production codebase state.*
+---
+
+## 14. Booking Card Colour System (Clinic Admin — Bookings Panel)
+
+Each booking card encodes two independent dimensions simultaneously using its border colours. The legend in the Bookings panel reflects this two-axis system.
+
+### Two Visual Axes
+
+| Axis | Card element | Shape in legend |
+|---|---|---|
+| **WHEN** — time of appointment | **Top horizontal bar** (gradient strip across the full card width) | Wide flat horizontal swatch (`h-[5px] w-5`) |
+| **STATUS** — verification / visit state | **Left vertical border** (3 px accent stripe); active live states get a **full surrounding border** | Tall thin vertical swatch (`h-4 w-[4px]`); ring swatch for full-border states |
+
+The two axes are always independent: a confirmed booking today shows a sky-blue top bar (Today) **and** an emerald left border (Confirmed) at the same time.
+
+---
+
+### WHEN — Top Bar Colour Reference
+
+| Label | Colour | Tailwind token | Meaning |
+|---|---|---|---|
+| Today | Sky blue | `bg-sky-400 → cyan-400` | Appointment is today |
+| Upcoming | Brand green | `bg-primary → accent` | Future appointment |
+| Past | Grey | `bg-slate-300 → slate-200` | Appointment date has passed |
+
+> **Rule:** The top bar always reflects WHEN, regardless of visit or cancellation status. A cancelled past appointment still shows a grey top bar.
+
+---
+
+### STATUS — Left Border Colour Reference
+
+| Legend label | Colour | Tailwind token | Swatch shape | Merged states (shown on hover tooltip) |
+|---|---|---|---|---|
+| **Confirmed** | Emerald | `emerald-400` | Vertical pip | Confirmed · Visit Completed |
+| **Pending** | Amber | `amber-400` | Vertical pip | Awaiting clinic confirmation |
+| **Cancelled** | Rose | `rose-400` | Vertical pip | Cancelled by clinic or patient |
+| **No Show** | Slate | `slate-400` | Vertical pip | No Show · Left Early |
+| **In Consult** | Violet | `violet-500` | **Ring swatch** (full border) | Checked In · In Consult · Treatment in Progress |
+
+#### Merge rationale
+
+| Merged states | Merged into | Reason |
+|---|---|---|
+| Visit Completed | **Confirmed** (emerald) | Both represent a successfully fulfilled booking; the appointment went to completion |
+| Left Early | **No Show** (slate) | Both are unresolved terminal exits — patient did not complete the normal visit flow |
+| Checked In | **In Consult** (violet) | Patient is physically present and progressing through the visit lifecycle |
+| Treatment Completed | **In Consult** (violet) | Treatment has finished but visit is not yet administratively closed — still an active state |
+
+#### Full-border vs left-border treatment
+
+Cards in the **In Consult** group (Checked In / In Consult / Treatment Completed) render with a **full surrounding border** in violet instead of a left-only stripe. This gives live, actionable visits immediate visual priority over all other states. The legend reflects this with a ring-shaped swatch (hollow square) rather than a vertical pip.
+
+---
+
+### Colour Separation Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| In Consult changed from teal to **violet** | Emerald (Confirmed) and teal-400 are perceptually similar greens. Violet is clearly distinct on any display. |
+| Checked In border changed from sky to **violet** | Sky-400 is the WHEN/Today colour; using it on the STATUS axis caused cross-axis confusion. |
+| Treatment Completed merged with In Consult | Both represent an active in-clinic visit; distinguishing them on the card border added noise without clinical value. |
+| Top bar for terminal states (Cancelled, No Show, Left Early) is **always WHEN colour** | Previously the top bar turned rose/slate for terminal states, losing WHEN information entirely. Now both axes are always independently readable. |
+
+---
+
+*Document last updated: 3 July 2026 — reflects the current production codebase state.*

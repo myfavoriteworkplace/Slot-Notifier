@@ -2,7 +2,7 @@ import { encryptField, decryptField } from "./encryption.js";
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
-  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock,
+  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock, patientCharts,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -27,9 +27,46 @@ import {
   type StockAlert, type InsertStockAlert,
   type LoginEvent, type InsertLoginEvent,
   type PatientBill, type InsertPatientBill,
+  type PatientChart,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne } from "drizzle-orm";
+import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+
+export interface BookingQueryParams {
+  filter?: string;
+  page?: number;
+  pageSize?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  patientId?: number;
+  clinicId?: number;
+}
+
+export interface BookingStats {
+  todayCount: number;
+  todayConfirmedCount: number;
+  upcomingCount: number;
+  pastCount: number;
+  thisWeekCount: number;
+  nextWeekCount: number;
+  pendingNext7Count: number;
+  confirmedNext7Count: number;
+  totalPendingCount: number;
+  totalAllCount: number;
+  totalOwnedCount?: number;
+  awaitingApprovalCount?: number;
+}
+
+export interface BookingsPagedResult {
+  data: (Booking & { slot: Slot; patientCode?: string | null })[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  stats: BookingStats;
+}
 
 export interface IStorage {
   // Login audit
@@ -74,6 +111,9 @@ export interface IStorage {
   configureClinicSlots(clinicId: number, date: string, slots: any[]): Promise<Slot[]>;
   getClinicSlots(clinicId: number, date?: string): Promise<Slot[]>;
   getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult>;
+  getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult>;
+  getClinicBookingStats(clinicId: number): Promise<BookingStats>;
   getBooking(id: number): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
   updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking>;
@@ -119,6 +159,7 @@ export interface IStorage {
   incrementPatientVisit(patientId: number): Promise<Patient>;
   searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
+  getPatientsByClinicPaged(clinicId: number, opts: { q?: string; sort?: string; lastVisitFrom?: string; lastVisitTo?: string; page?: number; pageSize?: number; exportAll?: boolean; }): Promise<{ data: (Patient & { totalBilled: number })[]; total: number; page: number; totalPages: number; stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number; }; }>;
   getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
 
   // Doctor Profile
@@ -202,15 +243,49 @@ export interface IStorage {
   getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
   updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
   deletePatientBill(id: number, clinicId: number): Promise<void>;
+  // Paginated bill listing for Accounts panel (Register view)
+  getPatientBillsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: (PatientBill & { patientCode?: string | null })[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }>;
+  // Paginated patient-group listing for Accounts panel (Ledger view)
+  getPatientBillGroupsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: {
+      key: string; patientId: number | null; patientCode: string | null;
+      name: string; email: string; phone: string;
+      bills: (PatientBill & { patientCode?: string | null })[];
+      totalBilled: number; totalCollected: number; outstanding: number;
+      oldestUnpaidDays: number; hasOverdue: boolean;
+    }[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }>;
 
   // Pharmacy Stock
   getPharmacyStock(clinicId: number): Promise<PharmacyStockItem[]>;
+  getPharmacyStockPaged(clinicId: number, opts: {
+    q?: string; sort?: string; page?: number; pageSize?: number;
+  }): Promise<{
+    data: PharmacyStockItem[]; total: number; page: number; totalPages: number;
+    stats: { total: number; expiringSoon: number; expired: number; lowStock: number };
+  }>;
   createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem>;
   updatePharmacyItem(id: number, clinicId: number, updates: Partial<PharmacyStockItem>): Promise<PharmacyStockItem>;
   deletePharmacyItem(id: number, clinicId: number): Promise<void>;
 
   // Analytics
   getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>>;
+
+  // Patient Charts (Odontogram)
+  getPatientChart(patientId: number, clinicId: number): Promise<PatientChart | null>;
+  upsertPatientChart(patientId: number, clinicId: number, chartData: string): Promise<PatientChart>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -432,6 +507,362 @@ export class DatabaseStorage implements IStorage {
     .where(eq(slots.clinicId, Number(clinicId)));
     
     return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+  }
+
+  async getClinicBookingStats(clinicId: number): Promise<BookingStats> {
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const todayStart = startOfDay(now);
+    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const next7DaysEnd = addDays(todayStart, 7);
+
+    const statRows = await db.select({
+      startTime: slots.startTime,
+      verificationStatus: bookings.verificationStatus,
+      confirmedBy: bookings.confirmedBy,
+      visitStatus: bookings.visitStatus,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(eq(slots.clinicId, Number(clinicId)));
+
+    const stats: BookingStats = {
+      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
+      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
+      totalPendingCount: 0, totalAllCount: statRows.length,
+    };
+    for (const r of statRows) {
+      const d = new Date(r.startTime);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
+      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
+      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
+      if (d >= new Date() && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+      if (d < todayStart) stats.pastCount++;
+      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
+      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
+      if (d >= todayStart && d <= next7DaysEnd) {
+        if (isPending) stats.pendingNext7Count++;
+        if (isConfirmed) stats.confirmedNext7Count++;
+      }
+      if (isPending) stats.totalPendingCount++;
+    }
+    return stats;
+  }
+
+  async getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult> {
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId } = params;
+
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const next7DaysEnd = addDays(todayStart, 7);
+
+    const clinicCondition = eq(slots.clinicId, Number(clinicId));
+
+    // Build filter condition based on quick filter or date range
+    let filterCond;
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
+      const to = dateTo ? endOfDay(new Date(dateTo)) : undefined;
+      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from) filterCond = gte(slots.startTime, from);
+      else if (to) filterCond = lte(slots.startTime, to);
+    } else {
+      switch (filter) {
+        case 'today':
+          filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+          break;
+        case 'upcoming':
+          filterCond = and(gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
+          break;
+        case 'past':
+          filterCond = lt(slots.startTime, todayStart);
+          break;
+        case 'this-week':
+          filterCond = and(gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+          break;
+        case 'next-week':
+          filterCond = and(gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+          break;
+        case 'today-confirmed':
+          filterCond = and(
+            gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd),
+            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+          );
+          break;
+        case 'pending-7days':
+          filterCond = and(
+            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+            ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy),
+            ne(bookings.verificationStatus, 'cancelled'),
+          );
+          break;
+        case 'all-pending':
+          filterCond = and(ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy), ne(bookings.verificationStatus, 'cancelled'));
+          break;
+        case 'confirmed-7days':
+          filterCond = and(
+            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+          );
+          break;
+        default:
+          filterCond = undefined;
+      }
+    }
+
+    // Search condition (patient name, phone, email)
+    let searchCond;
+    if (search && search.trim().length >= 1) {
+      const term = `%${search.trim()}%`;
+      searchCond = or(ilike(bookings.customerName, term), ilike(bookings.customerPhone, term));
+    }
+
+    // Patient filter
+    const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
+
+    const whereClause = and(clinicCondition, filterCond, searchCond, patientCond);
+
+    // Count total matching rows
+    const [countRow] = await db.select({ total: count() })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(whereClause);
+    const total = Number(countRow?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    // Fetch paginated data
+    const results = await db.select({
+      booking: bookings,
+      slot: slots,
+      patientCode: patients.patientCode,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .leftJoin(patients, eq(bookings.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .limit(pageSize)
+    .offset(offset);
+
+    // Lightweight stats across ALL clinic bookings (independent of current filter)
+    const statRows = await db.select({
+      startTime: slots.startTime,
+      verificationStatus: bookings.verificationStatus,
+      confirmedBy: bookings.confirmedBy,
+      visitStatus: bookings.visitStatus,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(clinicCondition);
+
+    const stats: BookingStats = {
+      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
+      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
+      totalPendingCount: 0, totalAllCount: statRows.length,
+    };
+    for (const r of statRows) {
+      const d = new Date(r.startTime);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
+      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
+      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
+      if (d >= now && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+      if (d < todayStart) stats.pastCount++;
+      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
+      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
+      if (d >= todayStart && d <= next7DaysEnd) {
+        if (isPending) stats.pendingNext7Count++;
+        if (isConfirmed) stats.confirmedNext7Count++;
+      }
+      if (isPending) stats.totalPendingCount++;
+    }
+
+    const data = results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+    return { data, total, page: safePage, pageSize, totalPages, stats };
+  }
+
+  async getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult> {
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search } = params;
+
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const next7DaysEnd = addDays(todayStart, 7);
+
+    const emailCond = eq(bookings.assignedDoctorEmail, doctorEmail);
+    const clinicCond = clinicId ? eq(slots.clinicId, clinicId) : undefined;
+
+    // "approved" = not pending AND not declined doctor approval
+    const approvedCond = and(
+      ne(bookings.doctorApprovalStatus, 'pending'),
+      ne(bookings.doctorApprovalStatus, 'declined'),
+    );
+    // "awaiting" = pending doctor approval, slot is today or future, not cancelled/terminal
+    const awaitingCond = and(
+      eq(bookings.doctorApprovalStatus, 'pending'),
+      ne(bookings.verificationStatus, 'cancelled'),
+      ne(bookings.verificationStatus, 'no_show'),
+      ne(bookings.visitStatus, 'completed'),
+      ne(bookings.visitStatus, 'patient_left_early'),
+      ne(bookings.visitStatus, 'treatment_completed'),
+      gte(slots.startTime, todayStart),
+    );
+    // Patient name/phone/email search (plain text columns — no encryption)
+    const searchCond = search
+      ? or(
+          ilike(bookings.customerName, `%${search}%`),
+          ilike(bookings.customerPhone, `%${search}%`),
+          ilike(bookings.customerEmail, `%${search}%`),
+        )
+      : undefined;
+
+    let filterCond;
+    if (dateFrom || dateTo) {
+      // Date-range: show ALL assigned bookings in range (no approval filter)
+      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
+      const to   = dateTo   ? endOfDay(new Date(dateTo))     : undefined;
+      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from)  filterCond = and(gte(slots.startTime, from));
+      else            filterCond = and(lte(slots.startTime, to!));
+    } else {
+      switch (filter) {
+        case 'today':
+          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+          break;
+        case 'upcoming':
+          filterCond = and(approvedCond, gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
+          break;
+        case 'past':
+          filterCond = and(approvedCond, lt(slots.startTime, todayStart));
+          break;
+        case 'this-week':
+          filterCond = and(approvedCond, gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+          break;
+        case 'next-week':
+          filterCond = and(approvedCond, gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+          break;
+        case 'confirmed-7days':
+          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
+          break;
+        case 'awaiting':
+          filterCond = awaitingCond;
+          break;
+        case 'pending-7days':
+          filterCond = and(awaitingCond, lt(slots.startTime, next7DaysEnd));
+          break;
+        case 'owned':
+          // "All Owned" = appointments the doctor has accepted (approved/admin_confirmed), all dates
+          filterCond = approvedCond;
+          break;
+        case 'all':
+          // "All Bookings" = every booking assigned to this doctor, any approval status
+          filterCond = undefined;
+          break;
+        default:
+          filterCond = approvedCond;
+      }
+    }
+
+    const whereClause = and(emailCond, clinicCond, filterCond, searchCond);
+
+    const [countRow] = await db.select({ total: count() })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(whereClause);
+    const total = Number(countRow?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    const results = await db.select({
+      booking: bookings,
+      slot: slots,
+      clinic: clinics,
+      patientCode: patients.patientCode,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .leftJoin(clinics, eq(slots.clinicId, clinics.id))
+    .leftJoin(patients, eq(bookings.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .limit(pageSize)
+    .offset(offset);
+
+    // Stats across ALL bookings assigned to this doctor (independent of filter)
+    const statRows = await db.select({
+      startTime: slots.startTime,
+      verificationStatus: bookings.verificationStatus,
+      confirmedBy: bookings.confirmedBy,
+      visitStatus: bookings.visitStatus,
+      doctorApprovalStatus: bookings.doctorApprovalStatus,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(and(emailCond, clinicCond));
+
+    const stats: BookingStats = {
+      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
+      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
+      totalPendingCount: 0, totalAllCount: statRows.length, totalOwnedCount: 0, awaitingApprovalCount: 0,
+    };
+    for (const r of statRows) {
+      const d = new Date(r.startTime);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const isApproved = r.doctorApprovalStatus !== 'pending' && r.doctorApprovalStatus !== 'declined';
+      const isAwaiting = r.doctorApprovalStatus === 'pending'
+        && r.verificationStatus !== 'cancelled'
+        && r.verificationStatus !== 'no_show'
+        && r.visitStatus !== 'completed'
+        && r.visitStatus !== 'patient_left_early'
+        && r.visitStatus !== 'treatment_completed'
+        && d >= todayStart;
+      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
+      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
+      if (isAwaiting) stats.awaitingApprovalCount!++;
+      if (isApproved) {
+        stats.totalOwnedCount!++;
+        if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
+        // "upcoming" boundary matches the server filter: tomorrowStart (not now), so today's slots don't inflate the count
+        if (d >= tomorrowStart && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+        if (d < todayStart) stats.pastCount++;
+        if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
+        if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
+      }
+      if (d >= todayStart && d < next7DaysEnd) {
+        if (isAwaiting) stats.pendingNext7Count++;
+        if (isApproved && isConfirmed) stats.confirmedNext7Count++;
+      }
+      if (isPending) stats.totalPendingCount++;
+    }
+
+    const data = results.map(r => ({
+      ...this.decryptBooking(r.booking),
+      slot: r.slot,
+      clinic: (r as any).clinic,
+      clinicId: r.slot.clinicId,
+      patientCode: r.patientCode,
+    }));
+    return { data, total, page: safePage, pageSize, totalPages, stats };
   }
 
   async getBooking(id: number): Promise<Booking | undefined> {
@@ -1222,6 +1653,250 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(patientBills.createdAt));
   }
 
+  // ── PAGINATED REGISTER VIEW ──
+  async getPatientBillsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: (PatientBill & { patientCode?: string | null })[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }> {
+    const { q = '', status = 'all', dateFrom, dateTo, sort = 'date', page = 1, pageSize = 25, exportAll = false } = opts;
+    const OVERDUE_DAYS = 3;
+    const nowMs = Date.now();
+    const isBillOverdue = (b: PatientBill) =>
+      (b.paymentStatus === 'pending' || b.paymentStatus === 'partial') &&
+      !!b.createdAt && (nowMs - new Date(b.createdAt).getTime()) > OVERDUE_DAYS * 24 * 60 * 60 * 1000;
+
+    // Base where
+    let whereClause = eq(patientBills.clinicId, clinicId) as any;
+
+    // Search filter
+    if (q.trim()) {
+      const qLike = `%${q.toLowerCase().trim()}%`;
+      whereClause = and(whereClause, sql`(
+        LOWER(${patientBills.patientName}) LIKE ${qLike}
+        OR LOWER(COALESCE(${patientBills.patientEmail}, '')) LIKE ${qLike}
+        OR COALESCE(${patientBills.patientPhone}, '') LIKE ${qLike}
+        OR LOWER(COALESCE(${patientBills.billNumber}, '')) LIKE ${qLike}
+      )`);
+    }
+
+    // Date range
+    if (dateFrom) {
+      whereClause = and(whereClause, gte(patientBills.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      whereClause = and(whereClause, lte(patientBills.createdAt, new Date(dateTo)));
+    }
+
+    // Status filter
+    if (status !== 'all') {
+      if (status === 'overdue') {
+        const cutoff = new Date(nowMs - OVERDUE_DAYS * 24 * 60 * 60 * 1000);
+        whereClause = and(whereClause,
+          or(eq(patientBills.paymentStatus, 'pending'), eq(patientBills.paymentStatus, 'partial')),
+          lte(patientBills.createdAt, cutoff)
+        );
+      } else {
+        whereClause = and(whereClause, eq(patientBills.paymentStatus, status));
+      }
+    }
+
+    // Total count
+    const [countRow] = await db.select({ c: sql<number>`COUNT(*)` }).from(patientBills).where(whereClause);
+    const total = Number(countRow?.c ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const actualPage = exportAll ? 1 : Math.max(1, Math.min(page, totalPages));
+    const offset = exportAll ? 0 : (actualPage - 1) * pageSize;
+    const lim = exportAll ? 10000 : pageSize;
+
+    // Sort
+    const order =
+      sort === 'amount' ? desc(patientBills.total) :
+      sort === 'patient' ? asc(patientBills.patientName) :
+      desc(patientBills.createdAt);
+
+    const rows = await db.select({
+      bill: patientBills,
+      patientCode: patients.patientCode,
+    })
+    .from(patientBills)
+    .leftJoin(patients, eq(patientBills.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(order)
+    .limit(lim)
+    .offset(offset);
+
+    const data = rows.map(r => ({ ...r.bill, patientCode: r.patientCode ?? null }));
+
+    // Stats from ALL clinic bills (unfiltered, for the stat cards)
+    const allBills = await db.select().from(patientBills).where(eq(patientBills.clinicId, clinicId));
+    const totalRevenue = allBills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const pendingAmt = allBills.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const paidCount = allBills.filter(b => b.paymentStatus === 'paid').length;
+    const overdueList = allBills.filter(isBillOverdue);
+    const overdueCount = overdueList.length;
+    const overdueAmt = overdueList.reduce((s, b) => s + (b.total ?? 0), 0);
+
+    return {
+      data,
+      total,
+      page: actualPage,
+      totalPages,
+      stats: { totalRevenue, pendingAmt, paidCount, overdueCount, overdueAmt },
+    };
+  }
+
+  // ── PAGINATED LEDGER VIEW ──
+  async getPatientBillGroupsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: {
+      key: string; patientId: number | null; patientCode: string | null;
+      name: string; email: string; phone: string;
+      bills: (PatientBill & { patientCode?: string | null })[];
+      totalBilled: number; totalCollected: number; outstanding: number;
+      oldestUnpaidDays: number; hasOverdue: boolean;
+    }[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }> {
+    const { q = '', status = 'all', dateFrom, dateTo, sort = 'outstanding', page = 1, pageSize = 25, exportAll = false } = opts;
+    const OVERDUE_DAYS = 3;
+    const nowMs = Date.now();
+    const isBillOverdue = (b: PatientBill) =>
+      (b.paymentStatus === 'pending' || b.paymentStatus === 'partial') &&
+      !!b.createdAt && (nowMs - new Date(b.createdAt).getTime()) > OVERDUE_DAYS * 24 * 60 * 60 * 1000;
+    const daysSince = (bill: PatientBill) =>
+      Math.floor((nowMs - new Date(bill.createdAt!).getTime()) / (24 * 60 * 60 * 1000));
+
+    // Fetch all bills for this clinic, with patientCode join
+    let whereClause = eq(patientBills.clinicId, clinicId) as any;
+    if (dateFrom) {
+      whereClause = and(whereClause, gte(patientBills.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      whereClause = and(whereClause, lte(patientBills.createdAt, new Date(dateTo)));
+    }
+
+    const billRows = await db.select({
+      bill: patientBills,
+      patientCode: patients.patientCode,
+    })
+    .from(patientBills)
+    .leftJoin(patients, eq(patientBills.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(desc(patientBills.createdAt));
+
+    let allBills = billRows.map(r => ({ ...r.bill, patientCode: r.patientCode ?? null }));
+
+    // Build patient groups (same logic as frontend)
+    type RawGroup = {
+      key: string; patientId: number | null; patientCode: string | null;
+      name: string; email: string; phone: string;
+      bills: (PatientBill & { patientCode?: string | null })[];
+      totalBilled: number; totalCollected: number; outstanding: number;
+      oldestUnpaidDays: number; hasOverdue: boolean;
+    };
+    const groupMap = new Map<string, RawGroup>();
+    for (const bill of allBills) {
+      const key = bill.patientId
+        ? `pid:${bill.patientId}`
+        : (bill.patientEmail?.toLowerCase().trim()
+            || bill.patientPhone?.trim()
+            || bill.patientName.toLowerCase().trim());
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          key,
+          patientId: bill.patientId ?? null,
+          patientCode: (bill as any).patientCode ?? null,
+          name: bill.patientName,
+          email: bill.patientEmail ?? '',
+          phone: bill.patientPhone ?? '',
+          bills: [],
+          totalBilled: 0, totalCollected: 0, outstanding: 0,
+          oldestUnpaidDays: 0, hasOverdue: false,
+        });
+      }
+      const g = groupMap.get(key)!;
+      g.bills.push(bill);
+      if ((bill.patientEmail ?? '').length > g.email.length) g.email = bill.patientEmail!;
+      if ((bill.patientPhone ?? '').length > g.phone.length) g.phone = bill.patientPhone!;
+      if (bill.patientName.length > g.name.length) g.name = bill.patientName;
+      if (!g.patientCode && (bill as any).patientCode) g.patientCode = (bill as any).patientCode;
+    }
+
+    let patientGroups = [...groupMap.values()].map(g => {
+      const totalBilled = g.bills.reduce((s, b) => s + (b.total ?? 0), 0);
+      const totalCollected = g.bills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+      const outstanding = totalBilled - totalCollected;
+      const unpaidBills = g.bills.filter(b => b.paymentStatus !== 'paid' && b.createdAt);
+      const oldestUnpaidDays = unpaidBills.length > 0 ? Math.max(...unpaidBills.map(b => daysSince(b))) : 0;
+      const hasOverdue = unpaidBills.some(b => isBillOverdue(b));
+      return { ...g, totalBilled, totalCollected, outstanding, oldestUnpaidDays, hasOverdue };
+    });
+
+    // Search filter (on groups)
+    if (q.trim()) {
+      const ql = q.toLowerCase().trim();
+      patientGroups = patientGroups.filter(g =>
+        g.name.toLowerCase().includes(ql) ||
+        g.email.toLowerCase().includes(ql) ||
+        g.phone.includes(q) ||
+        (g.patientCode ?? '').toLowerCase().includes(ql)
+      );
+    }
+
+    // Status filter (on groups)
+    if (status !== 'all') {
+      if (status === 'overdue') {
+        patientGroups = patientGroups.filter(g => g.hasOverdue);
+      } else if (status === 'paid') {
+        patientGroups = patientGroups.filter(g => g.outstanding === 0 && g.totalBilled > 0);
+      } else if (status === 'pending' || status === 'partial') {
+        patientGroups = patientGroups.filter(g => g.outstanding > 0);
+      }
+    }
+
+    // Sort
+    const sorted = patientGroups.sort((a, b) => {
+      if (sort === 'outstanding') return b.outstanding - a.outstanding || b.totalBilled - a.totalBilled;
+      if (sort === 'billed') return b.totalBilled - a.totalBilled || b.outstanding - a.outstanding;
+      if (sort === 'patient') return a.name.localeCompare(b.name);
+      if (sort === 'oldest') return b.oldestUnpaidDays - a.oldestUnpaidDays;
+      return b.outstanding - a.outstanding || b.totalBilled - a.totalBilled;
+    });
+
+    // Pagination
+    const total = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const actualPage = exportAll ? 1 : Math.max(1, Math.min(page, totalPages));
+    const offset = exportAll ? 0 : (actualPage - 1) * pageSize;
+    const lim = exportAll ? 10000 : pageSize;
+    const data = sorted.slice(offset, offset + lim);
+
+    // Stats from ALL clinic bills (unfiltered)
+    const fullBillRows = await db.select({ bill: patientBills }).from(patientBills).where(eq(patientBills.clinicId, clinicId));
+    const fullBills = fullBillRows.map(r => r.bill);
+    const totalRevenue = fullBills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const pendingAmt = fullBills.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const paidCount = fullBills.filter(b => b.paymentStatus === 'paid').length;
+    const overdueList = fullBills.filter(isBillOverdue);
+    const overdueCount = overdueList.length;
+    const overdueAmt = overdueList.reduce((s, b) => s + (b.total ?? 0), 0);
+
+    return {
+      data,
+      total,
+      page: actualPage,
+      totalPages,
+      stats: { totalRevenue, pendingAmt, paidCount, overdueCount, overdueAmt },
+    };
+  }
+
   async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
     const normalizedEmail = email.toLowerCase().trim();
     const [existing] = await db.select().from(patients)
@@ -1373,6 +2048,87 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => ({ ...r.patient, totalBilled: Number(r.totalBilled) }));
   }
 
+  async getPatientsByClinicPaged(clinicId: number, opts: {
+    q?: string;
+    sort?: string;
+    lastVisitFrom?: string;
+    lastVisitTo?: string;
+    page?: number;
+    pageSize?: number;
+    exportAll?: boolean;
+  }): Promise<{
+    data: (Patient & { totalBilled: number })[];
+    total: number;
+    page: number;
+    totalPages: number;
+    stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number };
+  }> {
+    const { q = '', sort = 'recent', lastVisitFrom, lastVisitTo, page = 1, pageSize = 25, exportAll = false } = opts;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Stats — always unfiltered, clinic-wide totals
+    const [statsRow] = await db.select({
+      totalAll: sql<number>`COUNT(DISTINCT ${patients.id})`,
+      activeThisMonth: sql<number>`COUNT(DISTINCT CASE WHEN ${patients.lastVisitAt} >= ${thirtyDaysAgo} THEN ${patients.id} END)`,
+      newThisMonth: sql<number>`COUNT(DISTINCT CASE WHEN ${patients.createdAt} >= ${thirtyDaysAgo} THEN ${patients.id} END)`,
+      totalRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0)`,
+    })
+    .from(patients)
+    .leftJoin(patientBills, eq(patientBills.patientId, patients.id))
+    .where(and(eq(patients.clinicId, clinicId), sql`${patients.patientCode} IS NOT NULL`));
+
+    // Build dynamic WHERE
+    let whereClause = and(eq(patients.clinicId, clinicId), sql`${patients.patientCode} IS NOT NULL`);
+    if (q.trim()) {
+      const qLike = `%${q.toLowerCase().trim()}%`;
+      whereClause = and(whereClause, sql`(
+        LOWER(${patients.name}) LIKE ${qLike}
+        OR LOWER(COALESCE(${patients.email}, '')) LIKE ${qLike}
+        OR COALESCE(${patients.phone}, '') LIKE ${qLike}
+        OR LOWER(COALESCE(${patients.patientCode}, '')) LIKE ${qLike}
+      )`);
+    }
+    if (lastVisitFrom) whereClause = and(whereClause, gte(patients.lastVisitAt, new Date(lastVisitFrom)));
+    if (lastVisitTo)   whereClause = and(whereClause, lte(patients.lastVisitAt, new Date(lastVisitTo)));
+
+    // Total count (no join needed — filters are on patients columns only)
+    const [countRow] = await db.select({ c: sql<number>`COUNT(*)` }).from(patients).where(whereClause);
+    const total = Number(countRow?.c ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const actualPage = exportAll ? 1 : Math.max(1, Math.min(page, totalPages));
+    const offset = exportAll ? 0 : (actualPage - 1) * pageSize;
+    const lim = exportAll ? 10000 : pageSize;
+
+    // Data rows — branched by sort to keep Drizzle types clean
+    const base = () => db.select({
+      patient: patients,
+      totalBilled: sql<number>`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0)`,
+    })
+    .from(patients)
+    .leftJoin(patientBills, eq(patientBills.patientId, patients.id))
+    .where(whereClause)
+    .groupBy(patients.id);
+
+    const rows = await (
+      sort === 'visits' ? base().orderBy(desc(patients.visitCount), desc(patients.lastVisitAt)) :
+      sort === 'billed' ? base().orderBy(sql`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0) DESC`, desc(patients.lastVisitAt)) :
+      base().orderBy(desc(patients.lastVisitAt))
+    ).limit(lim).offset(offset);
+
+    return {
+      data: rows.map(r => ({ ...r.patient, totalBilled: Number(r.totalBilled) })),
+      total,
+      page: actualPage,
+      totalPages,
+      stats: {
+        totalAll:       Number(statsRow?.totalAll ?? 0),
+        activeThisMonth: Number(statsRow?.activeThisMonth ?? 0),
+        newThisMonth:   Number(statsRow?.newThisMonth ?? 0),
+        totalRevenue:   Number(statsRow?.totalRevenue ?? 0),
+      },
+    };
+  }
+
   async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {
     const [bookingRows, bills, records] = await Promise.all([
       db.select({ booking: bookings, slot: slots })
@@ -1413,6 +2169,72 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(pharmacyStock)
       .where(eq(pharmacyStock.clinicId, clinicId))
       .orderBy(pharmacyStock.medicineName);
+  }
+
+  async getPharmacyStockPaged(clinicId: number, opts: {
+    q?: string; sort?: string; page?: number; pageSize?: number;
+  }) {
+    const page = Math.max(1, opts.page ?? 1);
+    const pageSize = Math.max(1, Math.min(100, opts.pageSize ?? 10));
+    const q = opts.q?.trim();
+    const sort = opts.sort ?? 'name';
+
+    // Search filter
+    const searchCond = q
+      ? or(
+          ilike(pharmacyStock.medicineName, `%${q}%`),
+          ilike(pharmacyStock.dosage, `%${q}%`)
+        )
+      : undefined;
+
+    const whereClause = and(
+      eq(pharmacyStock.clinicId, clinicId),
+      searchCond
+    );
+
+    // Total count
+    const [{ total }] = await db.select({ total: sql<number>`count(*)` })
+      .from(pharmacyStock)
+      .where(whereClause);
+
+    // Stats from ALL clinic items (unfiltered)
+    const allItems = await db.select().from(pharmacyStock)
+      .where(eq(pharmacyStock.clinicId, clinicId));
+    const now = Date.now();
+    const stats = {
+      total: allItems.length,
+      expiringSoon: allItems.filter(i => {
+        if (!i.expiryDate) return false;
+        const d = new Date(i.expiryDate).getTime();
+        const diff = (d - now) / (1000 * 60 * 60 * 24);
+        return diff < 30 && diff >= 0;
+      }).length,
+      expired: allItems.filter(i => {
+        if (!i.expiryDate) return false;
+        return new Date(i.expiryDate).getTime() < now;
+      }).length,
+      lowStock: allItems.filter(i => i.availableQty <= 5).length,
+    };
+
+    // Sorting
+    const orderByClause =
+      sort === 'price-asc' ? asc(pharmacyStock.unitPrice) :
+      sort === 'price-desc' ? desc(pharmacyStock.unitPrice) :
+      sort === 'qty-asc' ? asc(pharmacyStock.availableQty) :
+      sort === 'qty-desc' ? desc(pharmacyStock.availableQty) :
+      sort === 'expiry' ? asc(pharmacyStock.expiryDate) :
+      asc(pharmacyStock.medicineName);
+
+    // Data
+    const data = await db.select().from(pharmacyStock)
+      .where(whereClause)
+      .orderBy(orderByClause)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    return { data, total, page, totalPages, stats };
   }
 
   async createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem> {
@@ -1591,6 +2413,34 @@ export class DatabaseStorage implements IStorage {
       patients: { total: totalPatients, newPatients, repeatPatients, growthByMonth },
       compliance: { consentRate, signedCount, totalWithConsent: totalBookings, inventoryAlerts: alertRows.length, lowStockItems, expiringItems, loginSuccess, loginFail },
     };
+  }
+
+  // ── Patient Charts (Odontogram) ─────────────────────────────────────────────
+
+  async getPatientChart(patientId: number, clinicId: number): Promise<PatientChart | null> {
+    const [chart] = await db
+      .select()
+      .from(patientCharts)
+      .where(and(eq(patientCharts.patientId, patientId), eq(patientCharts.clinicId, clinicId)))
+      .limit(1);
+    return chart ?? null;
+  }
+
+  async upsertPatientChart(patientId: number, clinicId: number, chartData: string): Promise<PatientChart> {
+    const existing = await this.getPatientChart(patientId, clinicId);
+    if (existing) {
+      const [updated] = await db
+        .update(patientCharts)
+        .set({ chartData, updatedAt: new Date() })
+        .where(and(eq(patientCharts.patientId, patientId), eq(patientCharts.clinicId, clinicId)))
+        .returning();
+      return updated;
+    }
+    const [chart] = await db
+      .insert(patientCharts)
+      .values({ patientId, clinicId, chartData })
+      .returning();
+    return chart;
   }
 }
 

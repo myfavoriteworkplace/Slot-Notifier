@@ -6,7 +6,7 @@ import {
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
-  LogOut, AlertTriangle, ChevronDown,
+  LogOut, AlertTriangle, ChevronDown, Download,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -203,6 +203,11 @@ export function AppointmentCard({
   const hasUnpaidBill = isVisitCompleted && openBillsCount > 0;
   const noBill        = isVisitCompleted && totalBillsCount === 0;
 
+  // Auto No-Show: confirmed, slot date has fully passed, patient never progressed — visual-only flag
+  const isAutoNoShow = isPast && isConfirmed
+    && !isCheckedIn && !isInConsultation
+    && !isTreatmentCompleted && !isVisitCompleted && !isTerminal;
+
   // Past-due: slot time has passed but visit still unresolved (no terminal or active state)
   const slotAgeMs    = Date.now() - startTime.getTime();
   const isPastDue    = slotAgeMs > 2 * 60 * 60 * 1000
@@ -225,51 +230,44 @@ export function AppointmentCard({
     : "booked";
 
   // ── Visual classes ──
-  const accentBar = isNoShowState
-    ? "bg-gradient-to-r from-slate-400 to-slate-300"
-    : isCancelled
-    ? "bg-gradient-to-r from-rose-400 to-rose-300"
-    : isLeftEarlyState
-    ? "bg-gradient-to-r from-amber-400 to-orange-300"
-    : isVisitCompleted
-    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
-    : isTreatmentCompleted
-    ? "bg-gradient-to-r from-amber-400 to-yellow-300"
-    : isToday
+  // Top bar encodes WHEN only — status is always on the left/full border.
+  const accentBar = isToday
     ? "bg-gradient-to-r from-sky-400 to-cyan-400"
     : isPast
     ? "bg-gradient-to-r from-slate-300 to-slate-200"
     : "bg-gradient-to-r from-primary to-accent";
 
-  // Full-border for active live states; left-border accent for everything else
+  // Left border = STATUS dimension.
+  // In Consult group (checked-in → in consult → treatment done) → violet full/left border.
+  // Visit Completed merges with Confirmed → emerald.
+  // Left Early merges with No Show → slate.
   const cardBorderClass = isInConsultation
-    ? "border-2 border-teal-400/70 shadow-sm shadow-teal-400/10"
+    ? "border-2 border-violet-500/70 shadow-sm shadow-violet-500/10"
     : role === "doctor" && isCheckedIn
-    ? "border-2 border-primary/60 shadow-sm shadow-primary/10"
+    ? "border-2 border-violet-500/60 shadow-sm shadow-violet-500/10"
     : isCheckedIn
-    ? "border-l-[3px] border-l-sky-400 dark:border-l-sky-500"
+    ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
     : isCancelled
     ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
     : isNoShowState
     ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
     : isLeftEarlyState
-    ? "border-l-[3px] border-l-amber-400 dark:border-l-amber-500"
+    ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
     : isVisitCompleted
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : isTreatmentCompleted
-    ? "border-l-[3px] border-l-amber-400 dark:border-l-amber-500"
+    ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
     : isConfirmed
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : "border-l-[3px] border-l-amber-400 dark:border-l-amber-500";
 
-  const headerBg = isNoShowState || isCancelled || isLeftEarlyState
+  // Header tint follows WHEN; terminal states are muted regardless of date.
+  const headerBg = (isNoShowState || isCancelled || isLeftEarlyState)
     ? "bg-muted/30"
-    : isVisitCompleted
-    ? "bg-gradient-to-r from-emerald-500/5 to-teal-500/5"
-    : isTreatmentCompleted
-    ? "bg-gradient-to-r from-amber-500/5 to-yellow-500/5"
     : isToday
     ? "bg-gradient-to-r from-sky-500/10 to-cyan-500/5"
+    : isPast
+    ? "bg-muted/20"
     : "bg-gradient-to-r from-primary/5 to-accent/5";
 
 
@@ -339,6 +337,11 @@ export function AppointmentCard({
         </span>Awaiting Dr
       </span>
     );
+    if (isAutoNoShow) return (
+      <span className="text-xs font-bold text-orange-500 dark:text-orange-400 flex items-center gap-1">
+        <UserX className="h-2.5 w-2.5" />No Show
+      </span>
+    );
     if (isConfirmed) return (
       <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
         <CheckCircle2 className="h-2.5 w-2.5" />Confirmed
@@ -359,6 +362,8 @@ export function AppointmentCard({
     ? "Appointment cancelled"
     : isNoShowState
     ? "Patient did not arrive"
+    : isAutoNoShow
+    ? "Booking confirmed but patient did not show up — mark No Show to close"
     : isLeftEarlyState
     ? "Patient left before the visit was completed"
     : isVisitCompleted
@@ -1100,8 +1105,7 @@ export function AppointmentCard({
           onClick={(e) => { e.stopPropagation(); onBill?.(); }}
           data-testid={`banner-unpaid-bill-${booking.id}`}
         >
-          <IndianRupee className="h-3 w-3 shrink-0" />
-          <span className="truncate min-w-0 flex-1">{openBillsCount} unpaid bill{openBillsCount > 1 ? 's' : ''} — tap to settle</span>
+          <span className="truncate min-w-0 flex-1">Payment Pending</span>
         </div>
       )}
 
@@ -1261,13 +1265,24 @@ export function AppointmentCard({
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />No Dues
               </Button>
+            ) : openBillsCount > 0 ? (
+              <Button
+                className="w-full h-10 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 gap-2 active:scale-[0.98] transition-all"
+                variant="outline"
+                onClick={() => onBill?.()}
+                title="Payment outstanding — tap to settle"
+                data-testid={`button-settle-bill-${booking.id}`}
+              >
+                Payment Pending
+              </Button>
             ) : (
               <Button
                 className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onBill?.()}
+                title="Preview or download invoice"
                 data-testid={`button-bill-complete-${booking.id}`}
               >
-                <IndianRupee className="h-3.5 w-3.5" />{openBillsCount > 0 ? `${openBillsCount} Unpaid Bill${openBillsCount > 1 ? 's' : ''} ↓` : "Download Bill ↓"}
+                <Download className="h-3.5 w-3.5" />Paid
               </Button>
             )
           )}

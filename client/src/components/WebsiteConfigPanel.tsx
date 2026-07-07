@@ -201,122 +201,146 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     dot: "green" | "gray" | "amber";
     editable: boolean;
     accent: string;
+    autoNote?: string;
   }[] = [
     {
       id: "theme", icon: Palette, label: "Theme",
-      status: `${themeLabel} theme active`,
+      status: `${themeLabel} style · active`,
       dot: "green", editable: true, accent: "bg-primary",
     },
     {
-      id: "hero", icon: Image, label: "Hero Section",
-      status: taglineL1 ? `"${taglineL1.slice(0, 20)}${taglineL1.length > 20 ? "…" : ""}"` : "Using default tagline",
+      id: "hero", icon: Image, label: "Hero",
+      status: taglineL1 ? `"${taglineL1.slice(0, 18)}${taglineL1.length > 18 ? "…" : ""}" · ready` : "Add your tagline",
       dot: taglineL1 ? "green" : "gray", editable: true, accent: "bg-primary",
     },
     {
       id: "about", icon: Layers, label: "About & Values",
-      status: aboutDescription ? "Story configured" : "Using default copy",
+      status: aboutDescription ? "Story written · ready" : "Add your clinic story",
       dot: aboutDescription ? "green" : "gray", editable: true, accent: "bg-blue-400",
     },
     {
       id: "features", icon: Sparkles, label: "Why Choose Us",
-      status: `${liveFeatures.length} feature${liveFeatures.length !== 1 ? "s" : ""} shown`,
+      status: `${liveFeatures.length} highlight${liveFeatures.length !== 1 ? "s" : ""} · live`,
       dot: "green", editable: true, accent: "bg-violet-400",
     },
     {
       id: "stats", icon: BarChart2, label: "Stats Bar",
-      status: liveStats.length > 0 ? `${liveStats.length} stat${liveStats.length !== 1 ? "s" : ""} showing` : "Hidden — add stats to show",
+      status: liveStats.length > 0 ? `${liveStats.length} stat${liveStats.length !== 1 ? "s" : ""} · showing` : "Add stats to activate",
       dot: liveStats.length > 0 ? "green" : "amber", editable: true, accent: "bg-amber-500",
     },
     {
       id: "services", icon: Layers, label: "Services",
-      status: liveServices.length > 0 ? `${liveServices.length} service${liveServices.length !== 1 ? "s" : ""}` : "No services added",
+      status: liveServices.length > 0 ? `${liveServices.length} service${liveServices.length !== 1 ? "s" : ""} listed` : "No services yet",
       dot: liveServices.length > 0 ? "green" : "gray", editable: true, accent: "bg-teal-500",
     },
     {
       id: "doctors", icon: Users, label: "Doctors",
-      status: "Auto-pulled from clinic profile",
+      status: "Auto from Manage Doctors",
       dot: "green", editable: false, accent: "bg-sky-400",
+      autoNote: "Cards built automatically from doctors you've added in Manage Doctors.",
     },
     {
       id: "gallery", icon: Image, label: "Photo Gallery",
-      status: liveGallery.length > 0 ? `${liveGallery.length} photo${liveGallery.length !== 1 ? "s" : ""}` : "Hidden — upload photos to show",
+      status: liveGallery.length > 0 ? `${liveGallery.length} photo${liveGallery.length !== 1 ? "s" : ""} · gallery live` : "Upload photos to activate",
       dot: liveGallery.length > 0 ? "green" : "amber", editable: true, accent: "bg-rose-400",
     },
     {
       id: "testimonials", icon: Star, label: "Patient Reviews",
-      status: liveTestimonials.length > 0 ? `${liveTestimonials.length} review${liveTestimonials.length !== 1 ? "s" : ""}` : "Hidden — add reviews to show",
+      status: liveTestimonials.length > 0 ? `${liveTestimonials.length} review${liveTestimonials.length !== 1 ? "s" : ""} · showing` : "Add reviews to activate",
       dot: liveTestimonials.length > 0 ? "green" : "amber", editable: true, accent: "bg-amber-400",
     },
     {
       id: "hours", icon: Clock, label: "Clinic Hours",
-      status: `${hours.length} time slot${hours.length !== 1 ? "s" : ""}`,
+      status: `${hours.length} time slot${hours.length !== 1 ? "s" : ""} · visible`,
       dot: "green", editable: true, accent: "bg-slate-400",
     },
     {
       id: "social", icon: Share2, label: "Social Links",
-      status: socialCount > 0 ? `${socialCount} link${socialCount !== 1 ? "s" : ""} set` : "No links added",
+      status: socialCount > 0 ? `${socialCount} link${socialCount !== 1 ? "s" : ""} connected` : "No links added yet",
       dot: socialCount > 0 ? "green" : "gray", editable: true, accent: "bg-pink-400",
     },
     {
       id: "footer", icon: Globe, label: "Footer",
-      status: "Auto-generated from clinic data",
+      status: "Auto from clinic profile",
       dot: "green", editable: false, accent: "bg-primary/60",
+      autoNote: "Built automatically from your clinic name, address, and contact details.",
     },
   ];
 
+  const configuredCount = MAP_ROWS.filter(r => r.dot === "green").length;
+  const needsAttentionCount = MAP_ROWS.filter(r => r.dot === "amber").length;
+
   const activeRow = MAP_ROWS.find(r => r.id === openSection);
 
-  /* ── Mini preview pane (top of right panel) ──────── */
+  /* ── Content preview pane (top of right panel) ──────── */
   const PreviewPane = () => {
+    const activeRowIdx = MAP_ROWS.findIndex(r => r.id === openSection);
+
+    const SectionHeader = ({
+      icon: Icon, title, status, statusCls = "text-muted-foreground",
+    }: { icon: React.ElementType; title: string; status: string; statusCls?: string }) => (
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/30 shrink-0">
+        <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+        <span className="text-xs font-semibold text-muted-foreground truncate min-w-0">
+          {title} · Section {activeRowIdx + 1} of {MAP_ROWS.length}
+        </span>
+        <span className={`ml-auto text-xs font-semibold shrink-0 ${statusCls}`}>{status}</span>
+      </div>
+    );
+
     switch (openSection) {
       case "theme":
         return (
-          <div className="p-4 flex gap-3 h-full items-center bg-muted/20">
-            {THEME_OPTIONS.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={`flex-1 rounded-xl overflow-hidden border-2 transition-all text-left ${theme === t.id ? "border-primary shadow-md" : "border-border/40 hover:border-primary/40"}`}
-                data-testid={`theme-preview-${t.id}`}
-              >
-                <div className={`h-10 w-full ${t.preview} flex items-end p-1.5`}>
-                  <div className="bg-white/10 rounded px-1.5 py-0.5 backdrop-blur-sm flex gap-1">
-                    <div className="h-1 w-7 bg-white/60 rounded" />
-                    <div className="h-1 w-4 bg-white/40 rounded" />
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Palette} title="Visual Style" status={`${themeLabel} active`} statusCls="text-primary" />
+            <div className="flex-1 p-3 flex gap-2 items-center bg-muted/10 overflow-hidden">
+              {THEME_OPTIONS.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  className={`flex-1 rounded-xl overflow-hidden border-2 transition-all text-left ${theme === t.id ? "border-primary shadow-md" : "border-border/40 hover:border-primary/40"}`}
+                  data-testid={`theme-preview-${t.id}`}
+                >
+                  <div className={`h-12 w-full ${t.preview} flex items-end p-1.5`}>
+                    <div className="bg-white/10 rounded px-1.5 py-0.5 backdrop-blur-sm flex gap-1">
+                      <div className="h-1 w-6 bg-white/60 rounded" />
+                      <div className="h-1 w-4 bg-white/40 rounded" />
+                    </div>
                   </div>
-                </div>
-                <div className="px-2 py-1.5 flex items-center justify-between bg-background">
-                  <span className="text-[10px] font-bold">{t.label}</span>
-                  {theme === t.id && <span className="text-[9px] text-primary font-semibold">Active</span>}
-                </div>
-              </button>
-            ))}
+                  <div className="px-2 py-1.5 flex items-center justify-between bg-background">
+                    <span className="text-xs font-bold">{t.label}</span>
+                    {theme === t.id && <span className="text-xs text-primary font-semibold">Active</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         );
 
       case "hero":
         return (
           <div className="h-full flex flex-col">
-            <div className="bg-[#0A3D2E] flex-1 p-4 flex flex-col justify-between">
+            <SectionHeader icon={Image} title="Hero — First Impression" status={taglineL1 ? "Tagline set" : "Using placeholder"} statusCls={taglineL1 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 bg-[#0A3D2E] p-4 flex flex-col justify-between overflow-hidden">
               <div>
-                <p className="text-white/40 text-[8px] uppercase tracking-widest mb-1">{clinic?.city || "Dental Care"}</p>
-                <p className="text-white font-bold leading-tight text-sm" style={{ fontFamily: "Georgia, serif" }}>
-                  {taglineL1 || "Your Smile,"}
+                <p className="text-white/50 text-xs uppercase tracking-widest mb-1">{clinic?.city || "Your City"}</p>
+                <p className="text-white font-bold text-sm leading-snug" style={{ fontFamily: "Georgia, serif" }}>
+                  {taglineL1 || <span className="opacity-30 italic">Your tagline line 1…</span>}
                 </p>
-                <p className="text-[#6DCFAC] font-bold leading-tight text-sm mb-2" style={{ fontFamily: "Georgia, serif" }}>
-                  {taglineL2 || "Our Passion."}
+                <p className="text-[#6DCFAC] font-bold text-sm leading-snug mb-1.5" style={{ fontFamily: "Georgia, serif" }}>
+                  {taglineL2 || <span className="text-white/20 italic">Your tagline line 2…</span>}
                 </p>
-                <p className="text-white/50 text-[10px] leading-relaxed line-clamp-2">
-                  {heroDescription || `At ${clinic?.name || "your clinic"}, we combine modern dentistry with compassionate care.`}
-                </p>
+                {heroDescription && (
+                  <p className="text-white/50 text-xs leading-relaxed line-clamp-2">{heroDescription}</p>
+                )}
               </div>
-              <div className="flex items-center justify-between mt-3">
-                <div className="inline-block bg-[#0F9B6E] text-white text-[9px] font-bold px-3 py-1 rounded-full">Book Appointment</div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="bg-[#0F9B6E] text-white text-xs font-bold px-3 py-1.5 rounded-full shrink-0">Book Appointment</div>
                 {heroImageUrl ? (
-                  <img src={heroImageUrl} alt="" className="h-12 w-14 object-cover rounded-lg shadow-lg" />
+                  <img src={heroImageUrl} alt="" className="h-10 w-12 object-cover rounded-lg shadow-lg ml-auto" />
                 ) : (
-                  <div className="h-12 w-14 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                    <span className="text-xl opacity-20">🦷</span>
+                  <div className="h-10 w-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center ml-auto">
+                    <span className="text-lg opacity-20">🦷</span>
                   </div>
                 )}
               </div>
@@ -326,19 +350,21 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
 
       case "about":
         return (
-          <div className="p-4 space-y-2 bg-white h-full">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">About your clinic</p>
-            <p className="text-[10px] text-gray-700 leading-relaxed line-clamp-3">
-              {aboutDescription || `At ${clinic?.name || "your clinic"}, we believe great dental care is about more than just teeth — it's about building trust.`}
-            </p>
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <div className="p-2 rounded-lg bg-[#F4F8F6] border border-[#DCE9E3]">
-                <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1">Our Vision</p>
-                <p className="text-[10px] text-gray-600 leading-relaxed line-clamp-2">{vision || "Add your vision statement…"}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-[#F4F8F6] border border-[#DCE9E3]">
-                <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1">Our Values</p>
-                <p className="text-[10px] text-gray-600 leading-relaxed line-clamp-2">{values || "Add the values that guide you…"}</p>
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Layers} title="About & Values" status={aboutDescription ? "Story written" : "Using placeholder"} statusCls={aboutDescription ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <p className="text-xs text-gray-600 dark:text-muted-foreground leading-relaxed line-clamp-3 mb-2">
+                {aboutDescription || `At ${clinic?.name || "your clinic"}, we believe great dental care is about more than just teeth — it's about building trust.`}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2 rounded-lg bg-[#F4F8F6] dark:bg-muted/30 border border-[#DCE9E3] dark:border-border/50">
+                  <p className="text-xs font-bold text-[#0A3D2E] dark:text-primary uppercase tracking-wider mb-1">Vision</p>
+                  <p className="text-xs text-gray-600 dark:text-muted-foreground leading-relaxed line-clamp-2">{vision || "Add your vision…"}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-[#F4F8F6] dark:bg-muted/30 border border-[#DCE9E3] dark:border-border/50">
+                  <p className="text-xs font-bold text-[#0A3D2E] dark:text-primary uppercase tracking-wider mb-1">Values</p>
+                  <p className="text-xs text-gray-600 dark:text-muted-foreground leading-relaxed line-clamp-2">{values || "Add your values…"}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -346,17 +372,19 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
 
       case "features":
         return (
-          <div className="p-4 bg-[#F4F8F6] h-full">
-            <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-2">Why Choose Us</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {features.slice(0, 4).map((f, i) => (
-                <div key={i} className="bg-white rounded-lg p-2 border border-[#DCE9E3] flex flex-col items-center text-center gap-1.5">
-                  <div className="h-7 w-7 rounded-full bg-[#0F9B6E]/10 border border-[#0F9B6E]/20 flex items-center justify-center text-sm">
-                    {FEATURE_EMOJI[f.icon] || "✦"}
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Sparkles} title="Why Choose Us" status={`${liveFeatures.length} of 4 set`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 p-4 bg-[#F4F8F6] dark:bg-muted/20 overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(liveFeatures.length > 0 ? liveFeatures : features).slice(0, 4).map((f, i) => (
+                  <div key={i} className="bg-white dark:bg-card rounded-lg p-2 border border-[#DCE9E3] dark:border-border/50 flex flex-col items-center text-center gap-1">
+                    <div className="h-7 w-7 rounded-full bg-[#0F9B6E]/10 border border-[#0F9B6E]/20 flex items-center justify-center text-sm">
+                      {FEATURE_EMOJI[f.icon] || "✦"}
+                    </div>
+                    <p className="text-xs font-semibold text-[#0A3D2E] dark:text-foreground leading-tight line-clamp-2">{f.title || "Feature title…"}</p>
                   </div>
-                  <p className="text-[9px] font-semibold text-[#0A3D2E] leading-tight line-clamp-2">{f.title || "Feature title…"}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -364,23 +392,28 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "stats":
         if (liveStats.length === 0) {
           return (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
-              <BarChart2 className="h-7 w-7 text-amber-400" />
-              <p className="text-xs font-semibold">Stats section is hidden</p>
-              <p className="text-[10px] text-muted-foreground">Add at least one stat below to show this section.</p>
+            <div className="h-full flex flex-col">
+              <SectionHeader icon={BarChart2} title="Stats Bar" status="Hidden — no stats added" statusCls="text-amber-600 dark:text-amber-400" />
+              <div className="flex-1 flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
+                <BarChart2 className="h-7 w-7 text-amber-400" />
+                <p className="text-xs font-semibold text-foreground">Stats section is hidden</p>
+                <p className="text-xs text-muted-foreground">Add at least one stat below to show this section on your page.</p>
+              </div>
             </div>
           );
         }
         return (
-          <div className="h-full bg-[#0A3D2E] p-4">
-            <p className="text-white/40 text-[8px] uppercase tracking-widest mb-3">Our Achievements</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {liveStats.slice(0, 4).map((s, i) => (
-                <div key={i} className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                  <p className="text-white font-black text-sm leading-none">{s.value}</p>
-                  <p className="text-white/50 text-[9px] mt-0.5 leading-tight">{s.label}</p>
-                </div>
-              ))}
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={BarChart2} title="Stats Bar" status={`${liveStats.length} stats · live`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 bg-[#0A3D2E] p-4 overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {liveStats.slice(0, 4).map((s, i) => (
+                  <div key={i} className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                    <p className="text-white font-black text-sm leading-none">{s.value}</p>
+                    <p className="text-white/50 text-xs mt-1 leading-tight">{s.label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -388,29 +421,34 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "services":
         if (liveServices.length === 0) {
           return (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
-              <Layers className="h-7 w-7 text-teal-400" />
-              <p className="text-xs font-semibold">No services added yet</p>
-              <p className="text-[10px] text-muted-foreground">Add services below — they appear as a carousel on your page.</p>
+            <div className="h-full flex flex-col">
+              <SectionHeader icon={Layers} title="Services" status="Hidden — no services added" statusCls="text-muted-foreground" />
+              <div className="flex-1 flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
+                <Layers className="h-7 w-7 text-teal-400" />
+                <p className="text-xs font-semibold text-foreground">No services added yet</p>
+                <p className="text-xs text-muted-foreground">Add services below — they appear as a card grid on your page.</p>
+              </div>
             </div>
           );
         }
         return (
-          <div className="p-4 bg-white h-full">
-            <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-2">Our Services</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {liveServices.slice(0, 4).map((s, i) => (
-                <div key={i} className="rounded-lg bg-[#F4F8F6] border border-[#DCE9E3] overflow-hidden">
-                  {s.imageUrl ? (
-                    <img src={s.imageUrl} alt="" className="w-full h-10 object-cover" />
-                  ) : (
-                    <div className="w-full h-1 bg-[#0F9B6E]" />
-                  )}
-                  <div className="p-1.5">
-                    <p className="text-[9px] font-bold text-[#0A3D2E] leading-tight line-clamp-2">{s.name}</p>
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Layers} title="Services" status={`${liveServices.length} services · live`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {liveServices.slice(0, 4).map((s, i) => (
+                  <div key={i} className="rounded-lg bg-[#F4F8F6] dark:bg-muted/30 border border-[#DCE9E3] dark:border-border/50 overflow-hidden">
+                    {s.imageUrl ? (
+                      <img src={s.imageUrl} alt="" className="w-full h-10 object-cover" />
+                    ) : (
+                      <div className="w-full h-1.5 bg-[#0F9B6E]" />
+                    )}
+                    <div className="p-2">
+                      <p className="text-xs font-bold text-[#0A3D2E] dark:text-foreground leading-tight line-clamp-2">{s.name}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -418,22 +456,27 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "gallery":
         if (liveGallery.length === 0) {
           return (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
-              <Image className="h-7 w-7 text-rose-400" />
-              <p className="text-xs font-semibold">Gallery section is hidden</p>
-              <p className="text-[10px] text-muted-foreground">Upload clinic photos below to show this section.</p>
+            <div className="h-full flex flex-col">
+              <SectionHeader icon={Image} title="Photo Gallery" status="Hidden — no photos" statusCls="text-amber-600 dark:text-amber-400" />
+              <div className="flex-1 flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
+                <Image className="h-7 w-7 text-rose-400" />
+                <p className="text-xs font-semibold text-foreground">Gallery section is hidden</p>
+                <p className="text-xs text-muted-foreground">Upload clinic photos below to show this section on your page.</p>
+              </div>
             </div>
           );
         }
         return (
-          <div className="bg-[#0A3D2E] h-full p-4">
-            <p className="text-white/40 text-[8px] uppercase tracking-widest mb-2">Photo Gallery</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {liveGallery.slice(0, 4).map((g, i) => (
-                <div key={i} className="rounded-lg overflow-hidden aspect-video shadow-md">
-                  <img src={g.url} alt={g.caption || ""} className="w-full h-full object-cover" />
-                </div>
-              ))}
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Image} title="Photo Gallery" status={`${liveGallery.length} photos · live`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 bg-[#0A3D2E] p-4 overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {liveGallery.slice(0, 4).map((g, i) => (
+                  <div key={i} className="rounded-lg overflow-hidden aspect-video shadow-md">
+                    <img src={g.url} alt={g.caption || ""} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -441,78 +484,87 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "testimonials":
         if (liveTestimonials.length === 0) {
           return (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
-              <Star className="h-7 w-7 text-amber-400" />
-              <p className="text-xs font-semibold">Reviews section is hidden</p>
-              <p className="text-[10px] text-muted-foreground">Add at least one review below to show this section.</p>
+            <div className="h-full flex flex-col">
+              <SectionHeader icon={Star} title="Patient Reviews" status="Hidden — no reviews" statusCls="text-amber-600 dark:text-amber-400" />
+              <div className="flex-1 flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
+                <Star className="h-7 w-7 text-amber-400" />
+                <p className="text-xs font-semibold text-foreground">Reviews section is hidden</p>
+                <p className="text-xs text-muted-foreground">Add at least one review below to show this section.</p>
+              </div>
             </div>
           );
         }
         return (
-          <div className="p-4 bg-white h-full space-y-2">
-            <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider">Patient Reviews</p>
-            {liveTestimonials.slice(0, 2).map((t, i) => (
-              <div key={i} className="p-2 rounded-lg bg-[#F4F8F6] border border-[#DCE9E3]">
-                <div className="flex gap-0.5 mb-1">
-                  {[1,2,3,4,5].map(n => (
-                    <span key={n} className={`text-[10px] ${n <= t.rating ? "text-amber-400" : "text-gray-200"}`}>★</span>
-                  ))}
-                </div>
-                <p className="text-[10px] text-gray-600 italic leading-relaxed line-clamp-2">"{t.quote}"</p>
-                <p className="text-[9px] font-bold text-[#0A3D2E] mt-1">— {t.patientName}</p>
-              </div>
-            ))}
-          </div>
-        );
-
-      case "hours":
-        return (
-          <div className="p-4 bg-white h-full">
-            <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-2">Clinic Hours</p>
-            <div className="divide-y divide-gray-50 rounded-lg border border-[#DCE9E3] overflow-hidden">
-              {hours.map((h, i) => (
-                <div key={i} className="flex justify-between items-center px-2.5 py-1.5 bg-[#F4F8F6]">
-                  <span className="text-[10px] font-semibold text-gray-700">{h.day || "—"}</span>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${h.closed ? "bg-red-50 text-red-500" : "bg-[#0F9B6E]/10 text-[#0F9B6E]"}`}>
-                    {h.closed ? "Closed" : h.open && h.close ? `${h.open} – ${h.close}` : "—"}
-                  </span>
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Star} title="Patient Reviews" status={`${liveTestimonials.length} reviews · showing`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden space-y-2">
+              {liveTestimonials.slice(0, 2).map((t, i) => (
+                <div key={i} className="p-2 rounded-lg bg-[#F4F8F6] dark:bg-muted/30 border border-[#DCE9E3] dark:border-border/50">
+                  <div className="flex gap-0.5 mb-1">
+                    {[1,2,3,4,5].map(n => (
+                      <span key={n} className={`text-xs ${n <= t.rating ? "text-amber-400" : "text-gray-200 dark:text-gray-700"}`}>★</span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-muted-foreground italic leading-relaxed line-clamp-2">"{t.quote}"</p>
+                  <p className="text-xs font-bold text-[#0A3D2E] dark:text-foreground mt-1">— {t.patientName}</p>
                 </div>
               ))}
             </div>
           </div>
         );
 
+      case "hours":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Clock} title="Clinic Hours" status={`${hours.length} slots · visible`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="divide-y divide-gray-50 dark:divide-border/30 rounded-lg border border-[#DCE9E3] dark:border-border/50 overflow-hidden">
+                {hours.map((h, i) => (
+                  <div key={i} className="flex justify-between items-center px-2.5 py-1.5 bg-[#F4F8F6] dark:bg-muted/20">
+                    <span className="text-xs font-semibold text-gray-700 dark:text-foreground">{h.day || "—"}</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${h.closed ? "bg-red-50 dark:bg-rose-950/30 text-red-500 dark:text-rose-400" : "bg-[#0F9B6E]/10 text-[#0F9B6E]"}`}>
+                      {h.closed ? "Closed" : h.open && h.close ? `${h.open} – ${h.close}` : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
       case "social":
         return (
-          <div className="p-4 bg-white h-full">
-            <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-2">Social Links</p>
-            {socialCount > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                {socialLinks.instagram && (
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200/70">
-                    <Instagram className="h-3 w-3 text-purple-600 shrink-0" />
-                    <span className="text-[10px] text-purple-700 font-semibold truncate">{socialLinks.instagram}</span>
-                  </div>
-                )}
-                {socialLinks.facebook && (
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200/70">
-                    <Facebook className="h-3 w-3 text-blue-600 shrink-0" />
-                    <span className="text-[10px] text-blue-700 font-semibold truncate">{socialLinks.facebook}</span>
-                  </div>
-                )}
-                {socialLinks.youtube && (
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200/70">
-                    <Youtube className="h-3 w-3 text-red-600 shrink-0" />
-                    <span className="text-[10px] text-red-700 font-semibold truncate">{socialLinks.youtube}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-4 text-center gap-2">
-                <Share2 className="h-6 w-6 text-pink-300" />
-                <p className="text-[10px] text-muted-foreground">No social links added yet.</p>
-              </div>
-            )}
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Share2} title="Social Links" status={socialCount > 0 ? `${socialCount} connected` : "None added"} statusCls={socialCount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              {socialCount > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {socialLinks.instagram && (
+                    <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border border-purple-200/70 dark:border-purple-500/20">
+                      <Instagram className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <span className="text-xs text-purple-700 dark:text-purple-400 font-semibold truncate">{socialLinks.instagram}</span>
+                    </div>
+                  )}
+                  {socialLinks.facebook && (
+                    <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-500/20">
+                      <Facebook className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span className="text-xs text-blue-700 dark:text-blue-400 font-semibold truncate">{socialLinks.facebook}</span>
+                    </div>
+                  )}
+                  {socialLinks.youtube && (
+                    <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200/70 dark:border-red-500/20">
+                      <Youtube className="h-3.5 w-3.5 text-red-600 dark:text-red-400 shrink-0" />
+                      <span className="text-xs text-red-700 dark:text-red-400 font-semibold truncate">{socialLinks.youtube}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+                  <Share2 className="h-6 w-6 text-pink-300" />
+                  <p className="text-xs text-muted-foreground">No social links added yet.</p>
+                </div>
+              )}
+            </div>
           </div>
         );
 
@@ -869,13 +921,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       ══════════════════════════════════════════════ */}
       <div className="rounded-2xl border border-border/60 overflow-hidden shadow-sm">
 
-        {/* Panel header bar */}
+        {/* E — Panel header with completion counter */}
         <div className="flex items-center justify-between px-5 py-3.5 bg-muted/40 border-b border-border/50">
-          <div className="flex items-center gap-2.5">
-            <Layout className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Layout className="h-4 w-4 text-primary shrink-0" />
             <span className="font-semibold text-sm text-foreground">Website Structure</span>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {themeLabel} theme · {liveServices.length} services · {liveGallery.length} photos
+              {configuredCount} of {MAP_ROWS.length} sections set up
+              {needsAttentionCount > 0 && ` · ${needsAttentionCount} need content`}
             </span>
           </div>
           {previewUrl && (
@@ -883,21 +936,55 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline active:underline active:opacity-70"
+              className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline active:underline active:opacity-70 shrink-0"
             >
               Open live page <ExternalLink className="h-2.5 w-2.5" />
             </a>
           )}
         </div>
 
+        {/* A — Page-order section map: shows sections as a horizontal ordered strip */}
+        <div className="border-b border-border/40 bg-gradient-to-r from-muted/40 to-transparent overflow-x-auto shrink-0" style={{ scrollbarWidth: "none" }}>
+          <div className="flex items-center gap-1 px-4 py-2 min-w-max">
+            <span className="text-xs font-semibold text-muted-foreground/60 mr-2 shrink-0 uppercase tracking-wide">Page top → bottom</span>
+            {MAP_ROWS.map((row, idx) => {
+              const Icon = row.icon;
+              const isMapActive = openSection === row.id;
+              const mapDotCls = row.dot === "green" ? "bg-emerald-500" : row.dot === "amber" ? "bg-amber-400" : "bg-muted-foreground/25";
+              return (
+                <button
+                  key={row.id}
+                  onClick={() => row.editable ? setOpenSection(row.id as Section) : undefined}
+                  disabled={!row.editable}
+                  title={`${row.label} — ${row.status}`}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all shrink-0 min-h-[44px] ${
+                    isMapActive
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : row.editable
+                        ? "border-border/40 text-muted-foreground hover:bg-muted/50 hover:border-border active:scale-[0.97]"
+                        : "border-border/20 text-muted-foreground/40 cursor-default"
+                  }`}
+                  data-testid={`section-map-${row.id}`}
+                >
+                  <span className="text-xs font-mono opacity-50">{idx + 1}</span>
+                  <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${mapDotCls}`} />
+                  <Icon className="h-3 w-3" />
+                  <span className="hidden sm:inline">{row.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* 2-pane body */}
         <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(400px, 60vh, 600px)" }}>
 
-          {/* ── Mobile: horizontal tab strip (hidden on desktop) ── */}
+          {/* ── Mobile: horizontal tab strip with status dots (hidden on desktop) ── */}
           <div className="lg:hidden flex overflow-x-auto gap-1 p-2 border-b border-border/40" style={{ scrollbarWidth: "none" }}>
-            {MAP_ROWS.map((row) => {
+            {MAP_ROWS.map((row, idx) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
+              const dotCls = row.dot === "green" ? "bg-emerald-500" : row.dot === "amber" ? "bg-amber-400" : "bg-muted-foreground/20";
               return (
                 <button
                   key={row.id}
@@ -907,9 +994,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                     isActive
                       ? "bg-primary/10 border-primary/30 text-primary"
                       : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97]"
-                  } ${!row.editable ? "opacity-50 cursor-default" : ""}`}
+                  } ${!row.editable ? "opacity-40 cursor-default" : ""}`}
                   data-testid={`mobile-tab-${row.id}`}
                 >
+                  <span className="text-xs font-mono opacity-40">{idx + 1}</span>
+                  <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   {row.label}
                 </button>
@@ -917,33 +1006,35 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             })}
           </div>
 
-          {/* ── Left: section navigator (desktop only) ── */}
-          <div className="hidden lg:flex lg:flex-col w-52 shrink-0 border-r border-border/40 divide-y divide-border/30 overflow-y-auto">
-            {MAP_ROWS.map((row) => {
+          {/* B — Left: redesigned section navigator (desktop only) */}
+          <div className="hidden lg:flex lg:flex-col w-60 shrink-0 border-r border-border/40 overflow-y-auto">
+            {MAP_ROWS.map((row, idx) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
               const dotCls =
                 row.dot === "green" ? "bg-emerald-500" :
                 row.dot === "amber" ? "bg-amber-400" :
                 "bg-muted-foreground/25";
+              const statusCls =
+                row.dot === "amber" ? "text-amber-600 dark:text-amber-400" :
+                row.dot === "green" ? "text-emerald-600 dark:text-emerald-400" :
+                "text-muted-foreground";
 
               if (!row.editable) {
                 return (
                   <div
                     key={row.id}
-                    className="flex items-center gap-2.5 px-3 py-2.5 opacity-50"
+                    className="flex items-start gap-3 px-3 py-3 border-b border-border/20 bg-muted/10"
                   >
-                    <div className={`w-0.5 h-5 rounded-full shrink-0 ${row.accent}`} />
-                    <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
-                      <Icon className="h-2.5 w-2.5 text-muted-foreground" />
+                    <span className="text-xs font-mono text-muted-foreground/30 mt-1.5 w-4 text-right shrink-0">{idx + 1}</span>
+                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Icon className="h-4 w-4 text-muted-foreground/50" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground leading-none truncate">{row.label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 italic flex items-center gap-1">
-                        <Lock className="h-2 w-2" /> auto
-                      </p>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <p className="text-xs font-semibold text-muted-foreground/70 leading-none truncate">{row.label}</p>
+                      <p className="text-xs text-muted-foreground/50 mt-1 leading-tight line-clamp-2">{row.autoNote || row.status}</p>
                     </div>
-                    <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
+                    <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${dotCls}`} />
                   </div>
                 );
               }
@@ -952,22 +1043,22 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <button
                   key={row.id}
                   onClick={() => setOpenSection(row.id as Section)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all group ${
+                  className={`w-full flex items-start gap-3 px-3 py-3 text-left transition-all group min-h-[52px] border-b border-border/20 ${
                     isActive
-                      ? "bg-primary/8 border-l-2 border-primary"
-                      : "hover:bg-muted/50 active:bg-muted/70 border-l-2 border-transparent"
+                      ? "bg-primary/8 border-l-[3px] border-l-primary"
+                      : "hover:bg-muted/50 active:bg-muted/70 border-l-[3px] border-l-transparent"
                   }`}
                   data-testid={`map-row-${row.id}`}
                 >
-                  <div className={`w-0.5 h-5 rounded-full shrink-0 ${row.accent} ${isActive ? "opacity-100" : "opacity-40 group-hover:opacity-70"}`} />
-                  <div className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-primary/10" : "bg-muted"}`}>
-                    <Icon className={`h-2.5 w-2.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={`text-xs font-mono mt-1.5 w-4 text-right shrink-0 ${isActive ? "text-primary/50" : "text-muted-foreground/30"}`}>{idx + 1}</span>
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? "bg-primary/10" : "bg-muted group-hover:bg-muted/70"}`}>
+                    <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pt-0.5">
                     <p className={`text-xs font-semibold leading-none truncate ${isActive ? "text-primary" : "text-foreground"}`}>{row.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{row.status}</p>
+                    <p className={`text-xs mt-1 truncate ${statusCls}`}>{row.status}</p>
                   </div>
-                  <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
+                  <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${dotCls}`} />
                 </button>
               );
             })}
@@ -976,19 +1067,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           {/* ── Right: preview + editor ── */}
           <div className="flex-1 flex flex-col overflow-hidden">
 
-            {/* Section label bar */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-muted/20 shrink-0">
-              <div className="flex items-center gap-2">
-                <Eye className="h-3 w-3 text-primary" />
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  {activeRow?.label ?? "Preview"}
-                </span>
-              </div>
-              <span className="text-xs text-muted-foreground/60 italic">updates as you type</span>
-            </div>
-
-            {/* Mini preview strip */}
-            <div className="h-44 shrink-0 border-b border-border/40 overflow-hidden">
+            {/* C — Content preview strip (SectionHeader rendered inside each PreviewPane case) */}
+            <div className="h-52 shrink-0 border-b border-border/40 overflow-hidden">
               {PreviewPane()}
             </div>
 

@@ -23,7 +23,7 @@ import { wakeAndAnalyse } from "./aiService";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
-const TEST_EMAIL = 'itsmyfavoriteworkplace@gmail.com';
+const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmail.com';
 
 const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
   ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
@@ -2835,17 +2835,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // GET /api/auth/clinic/bookings/stats — lightweight stats object for hero cards
+  app.get("/api/auth/clinic/bookings/stats", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic session required" });
+    try {
+      const stats = await storage.getClinicBookingStats(sess.clinicId);
+      return res.json(stats);
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to fetch booking stats" });
+    }
+  });
+
   app.get("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (sess.role === 'doctor') {
       const email = sess.doctorEmail;
+      // Paginated path (when ?page is provided — used by DoctorDashboard appointments)
+      if (req.query.page !== undefined) {
+        const parseResult = z.object({
+          filter:   z.string().optional().default('all'),
+          page:     z.coerce.number().min(1).optional().default(1),
+          pageSize: z.coerce.number().min(1).max(500).optional().default(20),
+          dateFrom: z.string().optional(),
+          dateTo:   z.string().optional(),
+          clinicId: z.coerce.number().optional(),
+          search:   z.string().optional(),
+        }).safeParse(req.query);
+        if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
+        const paged = await storage.getDoctorBookingsPaged(email, parseResult.data);
+        return res.json(paged);
+      }
+      // Legacy flat path (no ?page — kept for backward compatibility)
       const doctorId = sess.doctorId;
-      // Get the clinic IDs this doctor is linked to via the authoritative join table
       const clinicLinks = await db.select({ clinicId: clinicDoctors.clinicId })
         .from(clinicDoctors)
         .where(eq(clinicDoctors.doctorId, doctorId));
       if (!clinicLinks.length) return res.json([]);
-      // Return all bookings assigned to this doctor by email
       const results = await db.select({ booking: bookings, slot: slots, clinic: clinics })
         .from(bookings)
         .innerJoin(slots, eq(bookings.slotId, slots.id))
@@ -2854,6 +2880,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.json(results.map(r => ({ ...r.booking, clinicId: r.slot.clinicId, slot: r.slot, clinic: r.clinic })));
     }
     if (sess.clinicId) {
+      // Paginated path (when ?page is provided)
+      if (req.query.page !== undefined) {
+        const parseResult = z.object({
+          filter:   z.string().optional().default('all'),
+          page:     z.coerce.number().min(1).optional().default(1),
+          pageSize: z.coerce.number().min(1).max(500).optional().default(20),
+          dateFrom: z.string().optional(),
+          dateTo:   z.string().optional(),
+          search:   z.string().optional(),
+          patientId: z.coerce.number().optional(),
+        }).safeParse(req.query);
+        if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
+        const paged = await storage.getClinicBookingsPaged(sess.clinicId, parseResult.data);
+        return res.json(paged);
+      }
+      // Legacy flat path (no page param — used by ExportDataPanel / AccountsPanel)
       const b = await storage.getClinicBookings(sess.clinicId);
       return res.json(b);
     }
@@ -4859,6 +4901,57 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── GET /api/doctor/bookings/:id/chart — fetch patient odontogram ──────────
+  app.get("/api/doctor/bookings/:id/chart", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.status(404).json({ message: "Patient record not linked to this booking — chart unavailable" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found for this booking" });
+      const clinicId = slot.clinicId;
+      const chart = await storage.getPatientChart(patientId, clinicId);
+      return res.json({
+        patientId,
+        clinicId,
+        chartData: chart ? JSON.parse(chart.chartData) : {},
+        updatedAt: chart?.updatedAt ?? null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PUT /api/doctor/bookings/:id/chart — save patient odontogram ────────────
+  app.put("/api/doctor/bookings/:id/chart", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    const parsed = z.object({ chartData: z.record(z.string(), z.any()) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid chart data" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.status(400).json({ message: "Patient record not linked — chart cannot be saved" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(400).json({ message: "Clinic not found for this booking — chart cannot be saved" });
+      const clinicId = slot.clinicId;
+      const chart = await storage.upsertPatientChart(patientId, clinicId, JSON.stringify(parsed.data.chartData));
+      return res.json({ chartData: JSON.parse(chart.chartData), updatedAt: chart.updatedAt });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // POST /api/doctor/bookings/:id/request-consent
   // Doctor-authenticated endpoint — generates / refreshes consent token and sends WhatsApp link
   app.post("/api/doctor/bookings/:id/request-consent", isAuthenticated, async (req, res) => {
@@ -5298,13 +5391,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── PHARMACY STOCK ─────────────────────────────────────────────────────────
 
-  // GET /api/auth/clinic/pharmacy — list all catalog items
+  // GET /api/auth/clinic/pharmacy — list all catalog items (for doctor autocomplete)
   app.get("/api/auth/clinic/pharmacy", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
       const items = await storage.getPharmacyStock(clinicId);
       res.json(items);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/auth/clinic/pharmacy/paged — paginated + search + sort + stats
+  app.get("/api/auth/clinic/pharmacy/paged", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const q = typeof req.query.q === 'string' ? req.query.q : undefined;
+      const sort = typeof req.query.sort === 'string' ? req.query.sort : 'name';
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 10;
+      const result = await storage.getPharmacyStockPaged(clinicId, { q, sort, page, pageSize });
+      res.json(result);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
@@ -5361,6 +5468,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // GET /api/auth/clinic/bills/paged — paginated accounts data (Register or Ledger view)
+  app.get("/api/auth/clinic/bills/paged", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { view, page, pageSize, q, status, dateFrom, dateTo, sort, exportAll } = req.query;
+      const opts = {
+        page: page ? parseInt(page as string) : 1,
+        pageSize: pageSize ? Math.min(parseInt(pageSize as string), 100) : 25,
+        q: typeof q === 'string' ? q : '',
+        status: typeof status === 'string' ? status : 'all',
+        dateFrom: typeof dateFrom === 'string' ? dateFrom : undefined,
+        dateTo: typeof dateTo === 'string' ? dateTo : undefined,
+        sort: typeof sort === 'string' ? sort : undefined,
+        exportAll: exportAll === 'true',
+      };
+      const result = view === 'ledger'
+        ? await storage.getPatientBillGroupsByClinicIdPaged(clinicId, opts)
+        : await storage.getPatientBillsByClinicIdPaged(clinicId, opts);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/auth/clinic/bills/patient/:phone — all bills for a patient by phone across all bookings
   app.get("/api/auth/clinic/bills/patient/:phone", isAuthenticated, async (req, res) => {
     try {
@@ -5385,13 +5515,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  // GET /api/auth/clinic/patients — all patient profiles for this clinic
+  // GET /api/auth/clinic/patients — paginated patient directory for this clinic
   app.get("/api/auth/clinic/patients", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
-      const patientList = await storage.getPatientsByClinic(clinicId);
-      res.json(patientList);
+      const { q, sort, lastVisitFrom, lastVisitTo, page, pageSize, exportAll } = req.query;
+      const result = await storage.getPatientsByClinicPaged(clinicId, {
+        q: typeof q === 'string' ? q : undefined,
+        sort: typeof sort === 'string' ? sort : undefined,
+        lastVisitFrom: typeof lastVisitFrom === 'string' ? lastVisitFrom : undefined,
+        lastVisitTo: typeof lastVisitTo === 'string' ? lastVisitTo : undefined,
+        page: page ? parseInt(page as string) : 1,
+        pageSize: pageSize ? Math.min(parseInt(pageSize as string), 100) : 25,
+        exportAll: exportAll === 'true',
+      });
+      res.json(result);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 

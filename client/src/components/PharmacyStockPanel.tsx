@@ -1,21 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
-import { format } from "date-fns";
+import type { PharmacyStockItem } from "@shared/schema";
 import {
   Pill, Plus, Pencil, Trash2, Loader2, X, Search, Package,
-  AlertTriangle, Check,
+  AlertTriangle, Check, SlidersHorizontal, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { PharmacyStockItem } from "@shared/schema";
 
 interface PharmacyStockPanelProps {
   clinicId: number;
@@ -28,6 +28,17 @@ interface FormState {
   availableQty: string;
   expiryDate: string;
 }
+
+type PharmacyResponse = {
+  data: PharmacyStockItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+  stats: { total: number; expiringSoon: number; expired: number; lowStock: number };
+};
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const EMPTY_RESPONSE: PharmacyResponse = { data: [], total: 0, page: 1, totalPages: 1, stats: { total: 0, expiringSoon: 0, expired: 0, lowStock: 0 } };
 
 const emptyForm = (): FormState => ({
   medicineName: "",
@@ -43,17 +54,42 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
   const [form, setForm] = useState<FormState>(emptyForm());
   const [editForm, setEditForm] = useState<FormState>(emptyForm());
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(10);
+  const [sort, setSort] = useState<string>('name');
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const { data: items = [], isLoading } = useQuery<PharmacyStockItem[]>({
-    queryKey: ["/api/auth/clinic/pharmacy"],
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset page on sort/pageSize change
+  useEffect(() => { setPage(1); }, [sort, pageSize]);
+
+  const buildParams = useCallback(() => {
+    const p = new URLSearchParams({
+      page: String(page), pageSize: String(pageSize), sort,
+    });
+    if (debouncedSearch) p.set('q', debouncedSearch);
+    return p.toString();
+  }, [page, pageSize, sort, debouncedSearch]);
+
+  const { data: response = EMPTY_RESPONSE, isLoading } = useQuery<PharmacyResponse>({
+    queryKey: ['/api/auth/clinic/pharmacy/paged', debouncedSearch, sort, page, pageSize],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/auth/clinic/pharmacy");
+      const res = await apiRequest('GET', `/api/auth/clinic/pharmacy/paged?${buildParams()}`);
       if (!res.ok) throw new Error("Failed to load pharmacy catalog");
       return res.json();
     },
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/pharmacy"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/pharmacy/paged'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/pharmacy'] });
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: FormState) => {
@@ -122,10 +158,12 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
     updateMutation.mutate({ id, data: editForm });
   };
 
-  const filtered = items.filter(i =>
-    i.medicineName.toLowerCase().includes(search.toLowerCase()) ||
-    (i.dosage || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const items = response.data;
+  const total = response.total;
+  const totalPages = response.totalPages;
+  const stats = response.stats;
+  const pageStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const pageEnd = Math.min(page * pageSize, total);
 
   const isExpiringSoon = (expiry: string | null | undefined) => {
     if (!expiry) return false;
@@ -143,11 +181,19 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
 
   const inputCls = "h-7 text-xs px-2 border-border/60 focus:border-orange-400";
 
-  return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+  const sortOptions = [
+    { value: 'name', label: 'Name A–Z' },
+    { value: 'price-asc', label: 'Price (low)' },
+    { value: 'price-desc', label: 'Price (high)' },
+    { value: 'qty-asc', label: 'Qty (low)' },
+    { value: 'qty-desc', label: 'Qty (high)' },
+    { value: 'expiry', label: 'Expiry soonest' },
+  ];
 
-        {/* Panel header */}
+  return (
+    <div className="space-y-5">
+      {/* Panel header */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="flex border-b border-border/50">
           <div className="w-1.5 bg-orange-500/60 shrink-0" />
           <div className="flex-1 px-5 py-4 bg-gradient-to-r from-orange-500/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
@@ -158,7 +204,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
               <div>
                 <h2 className="text-base font-semibold tracking-tight">Pharmacy Stock Catalog</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {items.length} medicine{items.length !== 1 ? "s" : ""} · pricing source for billing
+                  {isLoading ? 'Loading…' : `${stats.total} medicine${stats.total !== 1 ? 's' : ''} · pricing source for billing`}
                 </p>
               </div>
             </div>
@@ -173,20 +219,107 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Search */}
-        <div className="px-5 py-3 border-b border-border/30">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search medicines…"
-              className="pl-8 h-8 text-xs"
-              data-testid="input-pharmacy-search"
-            />
-          </div>
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Medicines', value: isLoading ? null : stats.total, icon: Package, color: 'orange', subtitle: isLoading ? null : 'in catalog' },
+          { label: 'Expiring Soon', value: isLoading ? null : stats.expiringSoon, icon: AlertTriangle, color: 'amber', subtitle: isLoading ? null : 'within 30 days' },
+          { label: 'Expired', value: isLoading ? null : stats.expired, icon: X, color: 'red', subtitle: isLoading ? null : 'past expiry' },
+          { label: 'Low Stock', value: isLoading ? null : stats.lowStock, icon: AlertTriangle, color: 'amber', subtitle: isLoading ? null : 'qty ≤ 5' },
+        ].map(({ label, value, icon: Icon, color, subtitle }) => {
+          const bgCls = color === 'orange' ? 'bg-orange-500/10' : color === 'amber' ? 'bg-amber-500/10' : 'bg-red-500/10';
+          const textCls = color === 'orange' ? 'text-orange-600' : color === 'amber' ? 'text-amber-600' : 'text-red-600';
+          return (
+            <div key={label} className="rounded-xl border border-border/50 bg-card p-3 sm:p-4">
+              {isLoading ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Skeleton className="h-5 w-5 rounded-md" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-6 w-12" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className={`h-5 w-5 rounded-md flex items-center justify-center ${bgCls}`}>
+                      <Icon className={`h-3 w-3 ${textCls}`} />
+                    </div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
+                  </div>
+                  <p className="text-xl font-bold text-foreground">{value}</p>
+                  {subtitle && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{subtitle}</p>}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search medicines by name or dosage…"
+            className="pl-8 pr-8 h-9 text-sm"
+            data-testid="input-pharmacy-search"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              data-testid="button-clear-pharmacy-search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
+        <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className={`h-9 px-3 rounded-lg border text-sm font-semibold flex items-center gap-2 transition-all ${
+                filterOpen || sort !== 'name'
+                  ? 'bg-orange-500/10 border-orange-400/40 text-orange-600'
+                  : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
+              }`}
+              data-testid="button-pharmacy-filters"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filters
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-4 space-y-4" align="end">
+            {/* Sort */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort by</p>
+              <div className="flex flex-wrap gap-1.5">
+                {sortOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setSort(o.value)}
+                    data-testid={`button-pharmacy-sort-${o.value}`}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
+                      sort === o.value
+                        ? 'bg-orange-500/10 text-orange-600 border-orange-400/50'
+                        : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Table container */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
 
         {/* Table */}
         {isLoading ? (
@@ -332,7 +465,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 )}
 
                 {/* Empty state */}
-                {filtered.length === 0 && !showAddRow && (
+                {items.length === 0 && !showAddRow && (
                   <tr>
                     <td colSpan={7}>
                       <div className="py-12 text-center">
@@ -340,9 +473,9 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                           <Package className="h-6 w-6 text-muted-foreground/40" />
                         </div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          {search ? "No medicines match your search" : "No medicines in catalog yet"}
+                          {debouncedSearch ? "No medicines match your search" : "No medicines in catalog yet"}
                         </p>
-                        {!search && (
+                        {!debouncedSearch && (
                           <p className="text-xs text-muted-foreground/60 mt-1">
                             Click "Add Medicine" to get started
                           </p>
@@ -353,16 +486,17 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 )}
 
                 {/* Data rows */}
-                {filtered.map((item, idx) => {
+                {items.map((item, idx) => {
                   const expiring = isExpiringSoon(item.expiryDate);
                   const expired = isExpired(item.expiryDate);
                   const lowStock = item.availableQty <= 5;
                   const isEditing = editingId === item.id;
+                  const rowNum = (page - 1) * pageSize + idx + 1;
 
                   if (isEditing) {
                     return (
                       <tr key={item.id} className="bg-orange-50/40 dark:bg-orange-950/10 border-b border-orange-200/40 dark:border-orange-900/30">
-                        <td className="px-3 py-2 text-center text-muted-foreground/40 font-mono text-xs select-none">{idx + 1}</td>
+                        <td className="px-3 py-2 text-center text-muted-foreground/40 font-mono text-xs select-none">{rowNum}</td>
                         <td className="px-3 py-2">
                           <Input
                             autoFocus
@@ -448,7 +582,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                       className={`group hover:bg-muted/20 transition-colors ${expired ? "opacity-60" : ""}`}
                       data-testid={`pharmacy-row-${item.id}`}
                     >
-                      <td className="px-3 py-2.5 text-center font-mono text-muted-foreground/50 text-xs select-none">{idx + 1}</td>
+                      <td className="px-3 py-2.5 text-center font-mono text-muted-foreground/50 text-xs select-none">{rowNum}</td>
                       <td className="px-4 py-2.5">
                         <span className="font-semibold text-foreground">{item.medicineName}</span>
                       </td>
@@ -519,29 +653,50 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
           </div>
         )}
 
-        {/* Footer stats */}
-        {items.length > 0 && (
-          <div className="px-4 py-2.5 border-t border-border/30 bg-muted/10 flex items-center gap-4 flex-wrap">
-            <span className="text-[11px] text-muted-foreground">
-              <span className="font-semibold text-foreground">{items.length}</span> medicines
-            </span>
-            {items.filter(i => isExpiringSoon(i.expiryDate)).length > 0 && (
-              <span className="text-[11px] text-amber-600 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                {items.filter(i => isExpiringSoon(i.expiryDate)).length} expiring soon
+        {/* Pagination footer */}
+        {!isLoading && total > 0 && (
+          <div className="px-4 py-2.5 bg-muted/30 border-t border-border/50 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Rows per page:</span>
+                <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background p-0.5">
+                  {PAGE_SIZE_OPTIONS.map(n => (
+                    <button
+                      key={n}
+                      onClick={() => { setPageSize(n); setPage(1); }}
+                      data-testid={`button-pagesize-${n}`}
+                      className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${pageSize === n ? 'bg-orange-500/10 text-orange-600' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {total === 0 ? 'No medicines' : `Showing ${pageStart}–${pageEnd} of ${total} medicine${total !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => p - 1)}
+                disabled={page <= 1}
+                data-testid="button-pharmacy-prev-page"
+                className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="text-xs text-muted-foreground tabular-nums min-w-[72px] text-center">
+                Page {page} of {totalPages}
               </span>
-            )}
-            {items.filter(i => isExpired(i.expiryDate)).length > 0 && (
-              <span className="text-[11px] text-red-500 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                {items.filter(i => isExpired(i.expiryDate)).length} expired
-              </span>
-            )}
-            {items.filter(i => i.availableQty <= 5).length > 0 && (
-              <span className="text-[11px] text-amber-600">
-                {items.filter(i => i.availableQty <= 5).length} low stock
-              </span>
-            )}
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={page >= totalPages}
+                data-testid="button-pharmacy-next-page"
+                className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>

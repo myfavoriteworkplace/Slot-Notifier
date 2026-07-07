@@ -56,10 +56,10 @@ export function BookingNotesThread({ bookingId, authorType }: BookingNotesThread
   };
 
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden flex flex-col">
-      <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5 shrink-0">
-        <MessageSquare className="h-3 w-3 text-primary" />
-        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden flex flex-col">
+      <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center gap-1.5 shrink-0">
+        <MessageSquare className="h-3 w-3 text-green-800" />
+        <span className="text-xs font-bold uppercase tracking-wider text-green-800">
           Notes & Messages
         </span>
       </div>

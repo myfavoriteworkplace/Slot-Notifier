@@ -7,7 +7,7 @@ import {
   IndianRupee, FileText, Trash2, Loader2, Plus, CheckCircle2,
   Clock, AlertCircle, Check, ChevronDown, ChevronUp, X, History,
   Pill, Stethoscope, Receipt, Bell, CreditCard, User, Lock,
-  Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer,
+  Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -249,7 +249,7 @@ function InvoicePreviewModal({
             <span className="text-muted-foreground">{bills.length} bill{bills.length !== 1 ? "s" : ""}</span>
             {allSettled && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                <CheckCircle2 className="h-2.5 w-2.5" /> Fully Settled
+                <CheckCircle2 className="h-2.5 w-2.5" /> All Bills Paid
               </span>
             )}
           </div>
@@ -332,7 +332,7 @@ function InvoicePreviewModal({
               {allSettled ? (
                 <>
                   <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Fully Settled
+                    <CheckCircle2 className="h-3 w-3" /> All Bills Paid
                   </span>
                   <span className="font-bold tabular-nums text-base text-emerald-600">₹{grandTotal.toFixed(0)}</span>
                 </>
@@ -368,7 +368,10 @@ export function BillingHistoryPanel({
   const [auditExpanded, setAuditExpanded] = useState(false);
   const [cashierForm, setCashierForm] = useState<CashierForm | null>(null);
   const [loadingPrescription, setLoadingPrescription] = useState(false);
+  const [rxPickerOpen, setRxPickerOpen] = useState(false);
+  const [rxPickerRecords, setRxPickerRecords] = useState<ClinicalRecord[]>([]);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewBill, setPreviewBill] = useState<PatientBill | null>(null);
   const [showOlderBills, setShowOlderBills] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<number, Set<string>>>({});
 
@@ -671,109 +674,113 @@ export function BillingHistoryPanel({
 
   // ── Load Prescription Items ───────────────────────────────────────────────
 
-  const handleLoadPrescription = async (fromRecord?: ClinicalRecord) => {
-    setLoadingPrescription(true);
-    try {
-      let record: ClinicalRecord | null = null;
+  // Core loader — called after a specific record has been chosen (by picker or auto-select)
+  const doLoadPrescription = async (record: ClinicalRecord) => {
+    const rows = parsePrescription(record.prescription);
+    if (!rows || rows.length === 0) {
+      notify.warning("Prescription is empty");
+      return;
+    }
 
-      if (fromRecord) {
-        record = fromRecord;
-      } else {
-        const res = await apiRequest("GET", `/api/clinical-records/booking/${bookingId}`);
-        if (res.ok) {
-          const records: ClinicalRecord[] = await res.json();
-          record = records?.[0] ?? null;
-        }
+    const newServices: ServiceItem[] = rows
+      .filter(r => r.name?.trim())
+      .map(r => {
+        const qty = parseInt(r.qty) || 1;
+        const match = pharmacy.find(p =>
+          p.medicineName.toLowerCase().trim() === r.name.toLowerCase().trim()
+        );
+        const unitPrice = match ? (match.unitPrice ?? 0) : 0;
+        const amount = qty * unitPrice;
+        const durationStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '');
+        return {
+          description: [r.name.trim(), `×${qty}`, r.frequency, durationStr].filter(Boolean).join(" "),
+          category: "Pharmacy",
+          amount, paid: false, qty, unitPrice,
+          medicineName: r.name.trim(),
+          dosage: r.dosage || undefined,
+          frequency: r.frequency || undefined,
+          duration: durationStr || undefined,
+          route: r.route || undefined,
+          remarks: r.remarks || undefined,
+        };
+      });
+
+    if (newServices.length === 0) {
+      notify.warning("No valid prescription items found");
+      return;
+    }
+
+    const activeBill = findActiveBill();
+
+    if (activeBill) {
+      const existing = (activeBill.services ?? []) as ServiceItem[];
+      const existingKeys = new Set(
+        existing.filter(s => s.category === "Pharmacy").map(s => (s.medicineName || s.description.split(" ")[0]).toLowerCase())
+      );
+      const unique = newServices.filter(s => !existingKeys.has((s.medicineName || s.description.split(" ")[0]).toLowerCase()));
+
+      if (unique.length === 0) {
+        notify.warning("Already loaded", { description: "All prescription items are already in this bill." });
+        return;
       }
 
-      if (!record?.prescription) {
+      const combined = [...existing, ...unique];
+      const { subtotal, total } = computeTotals(combined, activeBill.discountPct ?? 0, activeBill.taxPct ?? 0);
+      const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${activeBill.id}`, {
+        services: combined, subtotal, total,
+        paymentStatus: activeBill.paymentStatus === "draft" ? "draft" : computeStatus(combined),
+      });
+      if (!res.ok) throw new Error("Failed to update bill");
+      await logAudit("prescription_loaded", { count: unique.length, recordId: record.id }, activeBill.id);
+    } else {
+      const { subtotal, total } = computeTotals(newServices, 0, 0);
+      const res = await apiRequest("POST", "/api/auth/clinic/bills", {
+        bookingId,
+        patientId: patientId || null,
+        billNumber: uniqueBillNumber(bookingId),
+        patientName: patientName || "Patient",
+        patientPhone: patientPhone || "",
+        patientEmail: patientEmail || "",
+        services: newServices,
+        subtotal, total,
+        paymentStatus: "draft",
+      });
+      if (!res.ok) throw new Error("Failed to create bill");
+      const newBill = await res.json();
+      await logAudit("prescription_loaded", { count: newServices.length, recordId: record.id, newDraft: true }, newBill.id);
+    }
+
+    invalidate();
+    const matched = newServices.filter(s => (s.unitPrice ?? 0) > 0).length;
+    const unmatched = newServices.length - matched;
+    notify.success(`${newServices.length} prescription item${newServices.length !== 1 ? "s" : ""} loaded`, {
+      description: matched > 0
+        ? `${matched} auto-priced from catalog${unmatched > 0 ? ` · ${unmatched} need manual pricing` : ""}`
+        : `${unmatched} item${unmatched !== 1 ? "s" : ""} added — please set prices below`,
+    });
+  };
+
+  // Entry point — fetches all records for this booking, filters to those with a prescription,
+  // auto-loads if exactly one exists, or opens the picker when there are multiple choices.
+  const handleLoadPrescription = async () => {
+    setLoadingPrescription(true);
+    try {
+      const res = await apiRequest("GET", `/api/clinical-records/booking/${bookingId}`);
+      if (!res.ok) throw new Error("Failed to fetch clinical records");
+      const all: ClinicalRecord[] = await res.json();
+      const withRx = all.filter(r => !!r.prescription);
+
+      if (withRx.length === 0) {
         notify.warning("No prescription found", { description: "Add a prescription in the Clinical tab first." });
         return;
       }
-
-      const rows = parsePrescription(record.prescription);
-      if (!rows || rows.length === 0) {
-        notify.warning("Prescription is empty");
+      if (withRx.length === 1) {
+        await doLoadPrescription(withRx[0]);
         return;
       }
-
-      const newServices: ServiceItem[] = rows
-        .filter(r => r.name?.trim())
-        .map(r => {
-          const qty = parseInt(r.qty) || 1;
-          const match = pharmacy.find(p =>
-            p.medicineName.toLowerCase().trim() === r.name.toLowerCase().trim()
-          );
-          const unitPrice = match ? (match.unitPrice ?? 0) : 0;
-          const amount = qty * unitPrice;
-          const durationStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '');
-          return {
-            description: [r.name.trim(), `×${qty}`, r.frequency, durationStr].filter(Boolean).join(" "),
-            category: "Pharmacy",
-            amount, paid: false, qty, unitPrice,
-            // Structured fields for clean display in billing tables
-            medicineName: r.name.trim(),
-            dosage: r.dosage || undefined,
-            frequency: r.frequency || undefined,
-            duration: durationStr || undefined,
-            route: r.route || undefined,
-            remarks: r.remarks || undefined,
-          };
-        });
-
-      if (newServices.length === 0) {
-        notify.warning("No valid prescription items found");
-        return;
-      }
-
-      const activeBill = findActiveBill();
-
-      if (activeBill) {
-        const existing = (activeBill.services ?? []) as ServiceItem[];
-        const existingKeys = new Set(
-          existing.filter(s => s.category === "Pharmacy").map(s => (s.medicineName || s.description.split(" ")[0]).toLowerCase())
-        );
-        const unique = newServices.filter(s => !existingKeys.has((s.medicineName || s.description.split(" ")[0]).toLowerCase()));
-
-        if (unique.length === 0) {
-          notify.warning("Already loaded", { description: "All prescription items are already in this bill." });
-          return;
-        }
-
-        const combined = [...existing, ...unique];
-        const { subtotal, total } = computeTotals(combined, activeBill.discountPct ?? 0, activeBill.taxPct ?? 0);
-        const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${activeBill.id}`, {
-          services: combined, subtotal, total,
-          paymentStatus: activeBill.paymentStatus === "draft" ? "draft" : computeStatus(combined),
-        });
-        if (!res.ok) throw new Error("Failed to update bill");
-        await logAudit("prescription_loaded", { count: unique.length, recordId: record.id }, activeBill.id);
-      } else {
-        const { subtotal, total } = computeTotals(newServices, 0, 0);
-        const res = await apiRequest("POST", "/api/auth/clinic/bills", {
-          bookingId,
-          patientId: patientId || null,
-          billNumber: uniqueBillNumber(bookingId),
-          patientName: patientName || "Patient",
-          patientPhone: patientPhone || "",
-          patientEmail: patientEmail || "",
-          services: newServices,
-          subtotal, total,
-          paymentStatus: "draft",
-        });
-        if (!res.ok) throw new Error("Failed to create bill");
-        const newBill = await res.json();
-        await logAudit("prescription_loaded", { count: newServices.length, recordId: record.id, newDraft: true }, newBill.id);
-      }
-
-      invalidate();
-      const matched = newServices.filter(s => (s.unitPrice ?? 0) > 0).length;
-      const unmatched = newServices.length - matched;
-      notify.success(`${newServices.length} prescription item${newServices.length !== 1 ? "s" : ""} loaded`, {
-        description: matched > 0
-          ? `${matched} auto-priced from catalog${unmatched > 0 ? ` · ${unmatched} need manual pricing` : ""}`
-          : `${unmatched} item${unmatched !== 1 ? "s" : ""} added — please set prices below`,
-      });
+      // Multiple prescriptions — let the user pick
+      setRxPickerRecords(withRx);
+      setRxPickerOpen(true);
     } catch {
       notify.error("Could not load prescription items");
     } finally {
@@ -922,7 +929,7 @@ export function BillingHistoryPanel({
 
     return (
       <div key={bill.id}
-        className={`rounded-xl border overflow-hidden ${isActiveBill && !isBillPaid ? "border-primary/40" : "border-border/50 bg-background/50"}`}
+        className={`rounded-xl border overflow-hidden shadow-sm ${isActiveBill && !isBillPaid ? "border-primary/40 bg-primary/[0.02]" : "border-border/50 bg-card"}`}
         data-testid={`billing-card-${bill.id}`}>
 
         {/* ── HEADER ── */}
@@ -948,6 +955,14 @@ export function BillingHistoryPanel({
             </div>
           </button>
           <span className="text-sm font-bold text-primary shrink-0">₹{totalAmt.toFixed(0)}</span>
+          <button
+            onClick={() => { setPreviewBill(bill); setPreviewModalOpen(true); }}
+            className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
+            title="Preview bill"
+            aria-label="Preview bill"
+            data-testid={`button-preview-bill-${bill.id}`}>
+            <Eye className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={() => onPrintBill(bill)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
@@ -1026,17 +1041,18 @@ export function BillingHistoryPanel({
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-                {/* Single-row input strip — wraps on very small screens */}
-                <div className="flex flex-wrap items-center gap-1.5">
+                {/* Description on its own row, controls on second row */}
+                <div className="space-y-1.5">
                   <Input
                     value={addForm.description}
                     onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
                     placeholder="Description…"
-                    className="h-8 text-xs flex-[3] min-w-[120px]"
+                    className="h-8 text-xs w-full"
                     data-testid="input-entry-description"
                   />
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
-                    <SelectTrigger className="h-8 text-xs flex-[2] min-w-[90px]" data-testid="select-entry-category">
+                    <SelectTrigger className="h-8 text-xs flex-1 min-w-[90px]" data-testid="select-entry-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -1074,6 +1090,7 @@ export function BillingHistoryPanel({
                     Add
                   </Button>
                 </div>
+                </div>
               </div>
             )}
 
@@ -1101,100 +1118,122 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("consultation")}
-                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-green-50 flex items-center gap-1.5 hover:bg-green-100 transition-colors text-left"
                       data-testid={`button-section-consultation-${bill.id}`}
                     >
-                      <Stethoscope className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Consultation &amp; Procedures</span>
-                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
+                      <Stethoscope className="h-3 w-3 text-green-800 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 flex-1">Consultation &amp; Procedures</span>
+                      <ChevronDown className={`h-3 w-3 text-green-800 ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
                     </button>
                     {consultOpen && (
-                      <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                      <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
-                          <table className="w-full text-xs table-fixed min-w-[400px]">
+                          {/* 8-col grid: #(4%) | Description spans cols2-4(43%+9%+9%) | ₹/Unit(9%) | Qty(9%) | Total(9%) | Actions(8%) */}
+                          <div className="max-h-[10.5rem] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
+                            <table className="w-full text-xs table-fixed min-w-[500px]">
+                              <colgroup>
+                                <col style={{ width: "4%" }} />
+                                <col style={{ width: "43%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "8%" }} />
+                              </colgroup>
+                              <thead className="sticky top-0 z-10">
+                                <tr className="border-b border-border/50 bg-muted/60">
+                                  <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
+                                  <th colSpan={3} className="text-left py-1 px-2 font-semibold text-muted-foreground">Description</th>
+                                  <th className="text-right py-1 px-2 font-semibold text-muted-foreground">₹/Unit</th>
+                                  <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
+                                  <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/30">
+                                {consultItems.map(({ svc, origIdx }, rowIdx) => {
+                                  const itemKey = `${bill.id}-${origIdx}`;
+                                  const isEditing = editingKey === itemKey;
+                                  const isItemPaid = svc.paid || isBillPaid;
+                                  return (
+                                    <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card hover:bg-muted/20"}`}
+                                      data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                                      <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
+                                      <td colSpan={3} className="py-1 px-2 text-foreground">
+                                        <span className="flex items-center gap-1 min-w-0">
+                                          {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                          <span className="truncate">{svc.description}</span>
+                                        </span>
+                                      </td>
+                                      <td className="py-1 px-2 text-right tabular-nums text-muted-foreground">
+                                        {svc.unitPrice ? `₹${Number(svc.unitPrice).toFixed(0)}` : "—"}
+                                      </td>
+                                      <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                      <td className="py-1 px-2 text-right tabular-nums">
+                                        {isEditing ? (
+                                          <div className="relative inline-block">
+                                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                            <Input type="number" min="0" value={editingAmount}
+                                              onChange={e => setEditingAmount(e.target.value)}
+                                              onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                              onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                              className="h-6 w-20 pl-4 text-xs" autoFocus
+                                              data-testid={`input-item-amount-${itemKey}`} />
+                                          </div>
+                                        ) : isItemPaid ? (
+                                          <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                            <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                          </span>
+                                        ) : (
+                                          <span className="tabular-nums text-foreground">₹{svc.amount.toFixed(0)}</span>
+                                        )}
+                                      </td>
+                                      <td className="py-1 px-1">
+                                        {isItemPaid ? (
+                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
+                                        ) : (
+                                          <div className="flex items-center justify-center gap-0.5">
+                                            <button
+                                              onClick={() => startEditAmount(makeItemMeta(svc, origIdx))}
+                                              aria-label="Edit amount"
+                                              title="Edit amount"
+                                              className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                                              data-testid={`button-edit-amount-${itemKey}`}>
+                                              <Pencil className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                              onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                              disabled={deleteItemMutation.isPending}
+                                              aria-label="Remove item"
+                                              className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                                              data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                              <X className="h-3 w-3" />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          {/* Pinned footer — stays visible while body scrolls */}
+                          <table className="w-full text-xs table-fixed min-w-[500px]">
                             <colgroup>
-                              <col style={{ width: "32px" }} />
-                              <col />
-                              <col style={{ width: "76px" }} />
-                              <col style={{ width: "52px" }} />
-                              <col style={{ width: "80px" }} />
-                              <col style={{ width: "28px" }} />
+                              <col style={{ width: "4%" }} />
+                              <col style={{ width: "43%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "8%" }} />
                             </colgroup>
-                            <thead>
-                              <tr className="border-b border-border/40 bg-muted/40">
-                                <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
-                                <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Description</th>
-                                <th className="text-right py-1 px-2 font-semibold text-muted-foreground">₹/Unit</th>
-                                <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
-                                <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
-                                <th></th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/30">
-                              {consultItems.map(({ svc, origIdx }, rowIdx) => {
-                                const itemKey = `${bill.id}-${origIdx}`;
-                                const isEditing = editingKey === itemKey;
-                                const isItemPaid = svc.paid || isBillPaid;
-                                return (
-                                  <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
-                                    data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                    <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
-                                    <td className="py-1 px-2 text-foreground">
-                                      <span className="flex items-center gap-1 min-w-0">
-                                        {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
-                                        <span className="truncate">{svc.description}</span>
-                                      </span>
-                                    </td>
-                                    <td className="py-1 px-2 text-right tabular-nums text-muted-foreground">
-                                      {svc.unitPrice ? `₹${Number(svc.unitPrice).toFixed(0)}` : "—"}
-                                    </td>
-                                    <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                    <td className="py-1 px-2 text-right tabular-nums font-semibold">
-                                      {isItemPaid ? (
-                                        <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                          <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
-                                        </span>
-                                      ) : isEditing ? (
-                                        <div className="relative inline-block">
-                                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                          <Input type="number" min="0" value={editingAmount}
-                                            onChange={e => setEditingAmount(e.target.value)}
-                                            onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
-                                            onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
-                                            className="h-6 w-20 pl-4 text-xs" autoFocus
-                                            data-testid={`input-item-amount-${itemKey}`} />
-                                        </div>
-                                      ) : (
-                                        <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                          className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
-                                          data-testid={`amount-${itemKey}`}>
-                                          ₹{svc.amount.toFixed(0)}
-                                          <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
-                                        </button>
-                                      )}
-                                    </td>
-                                    <td className="py-1 pr-2">
-                                      {isItemPaid ? (
-                                        <span title="Paid — cannot remove" className="h-3 w-3 block mx-auto">
-                                          <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
-                                        </span>
-                                      ) : (
-                                        <button
-                                          onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
-                                          disabled={deleteItemMutation.isPending}
-                                          className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
-                                          data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
-                                          <X className="h-3 w-3" />
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
                             <tfoot>
                               <tr className="bg-primary/5 border-t border-border/40">
-                                <td colSpan={3} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
                                   {consultItems.length} service{consultItems.length !== 1 ? "s" : ""}
                                 </td>
                                 <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
@@ -1218,35 +1257,36 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("pharmacy")}
-                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-green-50 flex items-center gap-1.5 hover:bg-green-100 transition-colors text-left"
                       data-testid={`button-section-pharmacy-${bill.id}`}
                     >
-                      <Pill className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Pharmacy</span>
-                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
+                      <Pill className="h-3 w-3 text-green-800 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 flex-1">Pharmacy</span>
+                      <ChevronDown className={`h-3 w-3 text-green-800 ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
                     </button>
                     {pharmacyOpen && (
-                      <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                      <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
-                          <div className="max-h-[10.5rem] overflow-y-auto">
-                            <table className="w-full text-xs table-fixed min-w-[480px]">
+                          {/* 8-col grid: #(4%) | Medicine(43%) | Dos.(9%) | Freq.(9%) | Dur.(9%) | Qty(9%) | Total(9%) | Actions(8%) */}
+                          <div className="max-h-[10.5rem] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
+                            <table className="w-full text-xs table-fixed min-w-[500px]">
                               <colgroup>
-                                <col style={{ width: "32px" }} />
-                                <col />
-                                <col style={{ width: "72px" }} />
-                                <col style={{ width: "80px" }} />
-                                <col style={{ width: "72px" }} />
-                                <col style={{ width: "52px" }} />
-                                <col style={{ width: "80px" }} />
-                                <col style={{ width: "28px" }} />
+                                <col style={{ width: "4%" }} />
+                                <col style={{ width: "43%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "8%" }} />
                               </colgroup>
                               <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-border/40 bg-muted/40">
+                                <tr className="border-b border-border/50 bg-muted/60">
                                   <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Medicine</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dosage</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Frequency</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Duration</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dos.</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Freq.</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dur.</th>
                                   <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
                                   <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
                                   <th></th>
@@ -1261,7 +1301,7 @@ export function BillingHistoryPanel({
                                   const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
                                   return (
                                     <tr key={origIdx}
-                                      className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
+                                      className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : isUnpriced ? "bg-amber-50/60 dark:bg-amber-950/15 hover:bg-amber-50/80" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
                                       <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
                                       <td className="py-1 px-2 font-medium text-foreground">
@@ -1274,12 +1314,8 @@ export function BillingHistoryPanel({
                                       <td className="py-1 px-2 text-muted-foreground truncate">{frequency || "—"}</td>
                                       <td className="py-1 px-2 text-muted-foreground truncate">{duration || "—"}</td>
                                       <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                      <td className="py-1 pl-2 pr-1 text-right tabular-nums font-semibold">
-                                        {isItemPaid ? (
-                                          <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                            <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
-                                          </span>
-                                        ) : isEditing ? (
+                                      <td className="py-1 px-2 text-right tabular-nums">
+                                        {isEditing ? (
                                           <div className="relative inline-block">
                                             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
                                             <Input type="number" min="0" value={editingAmount}
@@ -1289,28 +1325,38 @@ export function BillingHistoryPanel({
                                               className={`h-6 w-20 pl-4 text-xs ${isUnpriced ? "border-amber-400" : ""}`} autoFocus
                                               data-testid={`input-item-amount-${itemKey}`} />
                                           </div>
-                                        ) : (
-                                          <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                            className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
-                                            data-testid={`amount-${itemKey}`}>
-                                            ₹{svc.amount.toFixed(0)}
-                                            <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
-                                          </button>
-                                        )}
-                                      </td>
-                                      <td className="py-1 pr-2">
-                                        {isItemPaid ? (
-                                          <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
-                                            <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
+                                        ) : isItemPaid ? (
+                                          <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                            <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
                                           </span>
                                         ) : (
-                                          <button
-                                            onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
-                                            disabled={deleteItemMutation.isPending}
-                                            className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
-                                            data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
-                                            <X className="h-3 w-3" />
-                                          </button>
+                                          <span className={`tabular-nums ${isUnpriced ? "text-amber-600" : "text-foreground"}`}>
+                                            ₹{svc.amount.toFixed(0)}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-1 px-1">
+                                        {isItemPaid ? (
+                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
+                                        ) : (
+                                          <div className="flex items-center justify-center gap-0.5">
+                                            <button
+                                              onClick={() => startEditAmount(makeItemMeta(svc, origIdx))}
+                                              aria-label="Edit amount"
+                                              title="Edit amount"
+                                              className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                                              data-testid={`button-edit-amount-${itemKey}`}>
+                                              <Pencil className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                              onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                              disabled={deleteItemMutation.isPending}
+                                              aria-label="Remove item"
+                                              className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                                              data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                              <X className="h-3 w-3" />
+                                            </button>
+                                          </div>
                                         )}
                                       </td>
                                     </tr>
@@ -1319,16 +1365,17 @@ export function BillingHistoryPanel({
                               </tbody>
                             </table>
                           </div>
-                          <table className="w-full text-xs table-fixed min-w-[480px]">
+                          {/* Pinned footer — stays visible while body scrolls */}
+                          <table className="w-full text-xs table-fixed min-w-[500px]">
                             <colgroup>
-                              <col style={{ width: "32px" }} />
-                              <col />
-                              <col style={{ width: "72px" }} />
-                              <col style={{ width: "80px" }} />
-                              <col style={{ width: "72px" }} />
-                              <col style={{ width: "52px" }} />
-                              <col style={{ width: "80px" }} />
-                              <col style={{ width: "28px" }} />
+                              <col style={{ width: "4%" }} />
+                              <col style={{ width: "43%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "8%" }} />
                             </colgroup>
                             <tfoot>
                               <tr className="bg-primary/5 border-t border-border/40">
@@ -1356,19 +1403,19 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("other")}
-                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-green-50 flex items-center gap-1.5 hover:bg-green-100 transition-colors text-left"
                       data-testid={`button-section-other-${bill.id}`}
                     >
-                      <ClipboardList className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Other</span>
-                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
+                      <ClipboardList className="h-3 w-3 text-green-800 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 flex-1">Other</span>
+                      <ChevronDown className={`h-3 w-3 text-green-800 ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
                     </button>
                     {otherOpen && otherItems.map(({ svc, origIdx }) => {
                       const itemKey = `${bill.id}-${origIdx}`;
                       const isEditing = editingKey === itemKey;
                       const isItemPaid = svc.paid || isBillPaid;
                       return (
-                        <div key={origIdx} className={`flex items-center gap-2 px-3 py-1.5 group/row border-b border-border/10 last:border-0 ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "hover:bg-muted/10"}`}
+                        <div key={origIdx} className={`flex items-center gap-2 px-3 py-1.5 group/row border-b border-border/10 last:border-0 ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "hover:bg-muted/20"}`}
                           data-testid={`billing-item-${bill.id}-${origIdx}`}>
                           <span className="flex-1 text-xs min-w-0 truncate text-foreground flex items-center gap-1">
                             {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
@@ -1532,27 +1579,27 @@ export function BillingHistoryPanel({
                       <FileText className="h-3 w-3" /> This draft will be confirmed &amp; marked paid in one step.
                     </p>
                   )}
-                  {/* Compact inline row */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <div className="relative shrink-0 w-24">
+                  {/* 2-column grid — responsive on all screen sizes */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="relative">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
                       <Input type="number" min="0"
                         value={cashierForm!.amountReceived}
                         onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
-                        className="pl-5 h-8 text-xs" data-testid="input-cashier-amount" />
+                        className="pl-5 h-8 text-xs w-full" data-testid="input-cashier-amount" />
                     </div>
                     <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
-                      <SelectTrigger className="h-8 text-xs w-24 shrink-0" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs w-full" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
                       <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                     </Select>
                     <Input value={cashierForm!.cashierName}
                       onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
                       placeholder="Cashier name…"
-                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-name" />
+                      className="h-8 text-xs w-full" data-testid="input-cashier-name" />
                     <Input value={cashierForm!.notes}
                       onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
                       placeholder="Notes (optional)…"
-                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-notes" />
+                      className="h-8 text-xs w-full" data-testid="input-cashier-notes" />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-7 px-2 text-xs" disabled={markPaidMutation.isPending}>
@@ -1611,13 +1658,17 @@ export function BillingHistoryPanel({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Settled</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">All Bills Paid</span>
                 <span className="text-xs font-semibold text-foreground tabular-nums">₹{consolidatedTotal.toFixed(0)}</span>
                 <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">{bills[0]?.paymentMethod ?? "Cash"}</span>
-                {(bills[0] as PatientBill & { cashierId?: string })?.cashierId && (
+                <span className="text-xs text-muted-foreground">
+                  {bills.length > 1 && bills.some(b => b.paymentMethod !== sortedBills[0]?.paymentMethod)
+                    ? "Multiple methods"
+                    : (sortedBills[0]?.paymentMethod ?? "Cash")}
+                </span>
+                {bills.length === 1 && (sortedBills[0] as PatientBill & { cashierId?: string })?.cashierId && (
                   <><span className="text-xs text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">by {(bills[0] as PatientBill & { cashierId?: string }).cashierId}</span></>
+                  <span className="text-xs text-muted-foreground">by {(sortedBills[0] as PatientBill & { cashierId?: string }).cashierId}</span></>
                 )}
               </div>
               <p className="text-xs text-muted-foreground/70 mt-0.5">
@@ -1736,11 +1787,11 @@ export function BillingHistoryPanel({
           <div className="h-px flex-1 bg-border/40" />
           <div className="flex items-center gap-1.5 shrink-0">
             <IndianRupee className="h-3 w-3 text-muted-foreground/60" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70">
               {bills.length} Bill{bills.length !== 1 ? "s" : ""}
             </span>
             {bills.length > 1 && (
-              <span className="text-[10px] text-muted-foreground/60">· ₹{consolidatedTotal.toFixed(0)}</span>
+              <span className="text-xs text-muted-foreground/60">· ₹{consolidatedTotal.toFixed(0)}</span>
             )}
           </div>
           <div className="h-px flex-1 bg-border/40" />
@@ -1770,25 +1821,33 @@ export function BillingHistoryPanel({
         </div>
       ) : (
         <div className="space-y-2">
+          {latestBill && olderBills.length > 0 && (
+            <div className="flex items-center gap-2 px-0.5 pb-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Latest Bill</span>
+              <div className="h-px flex-1 bg-primary/20" />
+            </div>
+          )}
           {latestBill && renderBillCard(latestBill)}
           {olderBills.length > 0 && (
             <>
+              {/* Older Bills section label — matches "Latest Bill" left-label style */}
+              <div className="flex items-center gap-2 px-0.5 pt-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-primary">Older Bills</span>
+                <div className="h-px flex-1 bg-primary/20" />
+              </div>
               <button
                 onClick={() => setShowOlderBills(v => !v)}
-                className="w-full flex items-center gap-2 px-1 py-1.5 text-left group"
+                className="w-full flex items-center gap-2 px-1 py-1 text-left"
                 data-testid="button-toggle-older-bills">
-                <div className="flex items-center gap-1.5">
-                  <History className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                    {showOlderBills ? "Hide" : "Load"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
+                <span className="text-xs text-primary hover:text-primary/70 font-medium transition-colors flex-1">
+                  {showOlderBills ? "Hide" : "Show"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
+                </span>
                 {showOlderBills
-                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                  ? <ChevronUp className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-primary/70 shrink-0" />}
               </button>
               {showOlderBills && (
-                <>
+                <div className="rounded-xl border border-border/50 bg-muted/50 dark:bg-muted/20 p-2.5 space-y-2">
                   {Array.from(groupByDate(olderBills)).map(([dateLabel, dateBills]) => (
                     <div key={dateLabel} className="space-y-1.5">
                       <div className="flex items-center gap-2">
@@ -1801,7 +1860,7 @@ export function BillingHistoryPanel({
                       ))}
                     </div>
                   ))}
-                </>
+                </div>
               )}
             </>
           )}
@@ -1898,11 +1957,77 @@ export function BillingHistoryPanel({
         )}
       </div>
 
+      {/* ── PRESCRIPTION PICKER DIALOG ────────────────────────────────── */}
+      <Dialog open={rxPickerOpen} onOpenChange={open => { if (!open) setRxPickerOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Pill className="h-4 w-4 text-primary" /> Choose a Prescription to Load
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-1">
+            {rxPickerRecords.length} prescriptions found for this appointment — select one to import into the bill.
+          </p>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {rxPickerRecords.map(record => {
+              const meds = parsePrescription(record.prescription) ?? [];
+              const preview = meds.slice(0, 2).map(m => m.name).filter(Boolean).join(", ") + (meds.length > 2 ? `… +${meds.length - 2}` : "");
+              const hasLinkedDx = !!(record.diagnosis && record.diagnosis.length > 0);
+              return (
+                <button
+                  key={record.id}
+                  onClick={async () => {
+                    setRxPickerOpen(false);
+                    setLoadingPrescription(true);
+                    try {
+                      await doLoadPrescription(record);
+                    } catch {
+                      notify.error("Could not load prescription items");
+                    } finally {
+                      setLoadingPrescription(false);
+                    }
+                  }}
+                  className="w-full text-left rounded-xl border border-border/60 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 px-3 py-2.5 space-y-1 transition-colors"
+                  data-testid={`button-rx-picker-${record.id}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-foreground">
+                      {record.createdAt ? format(new Date(record.createdAt), "d MMM yyyy · h:mm a") : "Unknown date"}
+                    </span>
+                    {hasLinkedDx && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold leading-none shrink-0">
+                        Rx ✓ Linked to Dx
+                      </span>
+                    )}
+                  </div>
+                  {record.doctorName && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Stethoscope className="h-3 w-3" /> Dr. {record.doctorName}
+                    </p>
+                  )}
+                  {hasLinkedDx && (
+                    <div className="flex flex-wrap gap-1">
+                      {(record.diagnosis ?? []).slice(0, 3).map(d => (
+                        <span key={d} className="text-[10px] px-1.5 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-primary font-medium">{d}</span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground/80 flex items-center gap-1">
+                    <Pill className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{preview || `${meds.length} medicine${meds.length !== 1 ? "s" : ""}`}</span>
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── INVOICE PREVIEW MODAL ─────────────────────────────────────── */}
       <InvoicePreviewModal
         open={previewModalOpen}
-        onClose={() => setPreviewModalOpen(false)}
-        bills={bills}
+        onClose={() => { setPreviewModalOpen(false); setPreviewBill(null); }}
+        bills={previewBill ? [previewBill] : bills}
         patientName={patientName}
         patientCode={patientCode}
       />
