@@ -1820,7 +1820,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                           digit
                                             ? "border-primary/35 bg-primary/8 text-foreground shadow-primary/10"
                                             : "border-border/60 bg-background text-foreground"
-                                        } focus:border-primary/70 focus:bg-white focus:ring-4 focus:ring-primary/15 focus:shadow-lg focus:shadow-primary/15 disabled:opacity-60`}
+                                        } focus:border-primary/70 focus:bg-white dark:focus:bg-card focus:ring-4 focus:ring-primary/15 focus:shadow-lg focus:shadow-primary/15 disabled:opacity-60`}
                                         data-testid={`input-otp-digit-${index}`}
                                         aria-label={`OTP digit ${index + 1}`}
                                       />
