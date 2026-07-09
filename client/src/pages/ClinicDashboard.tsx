@@ -208,7 +208,8 @@ export default function ClinicDashboard() {
     if (detail.panel) {
       setActivePanel(detail.panel as any);
     } else if (detail.bookingId) {
-      setActivePanel("bookings");
+      // Do NOT switch panels — BookingsPanel is mounted hidden when needed so the
+      // dialog portal can open over whatever panel the user is currently viewing.
       setOpenBookingId(detail.bookingId);
       if (detail.notifType && tabMap[detail.notifType]) {
         const tab = tabMap[detail.notifType];
@@ -1285,31 +1286,38 @@ export default function ClinicDashboard() {
         {/* ===== MAIN CONTENT ===== */}
         <div className="flex-1 min-w-0">
 
-          {/* BOOKINGS PANEL */}
-          {activePanel === 'bookings' && (
-            <BookingsPanel
-              clinic={clinic}
-              isAuthenticated={isAuthenticated}
-              slotTimings={slotTimings}
-              formatTime={formatTime}
-              allBills={allBills}
-              notifHighlight={notifHighlight}
-              tabBadges={tabBadges}
-              setTabBadges={setTabBadges}
-              onNavigate={(panel) => setActivePanel(panel as any)}
-              onViewPatient={handleViewPatient}
-              quickFilter={quickFilter}
-              setQuickFilter={setQuickFilter}
-              filterDate={filterDate}
-              setFilterDate={setFilterDate}
-              filterEndDate={filterEndDate}
-              setFilterEndDate={setFilterEndDate}
-              bookingsSectionRef={bookingsSectionRef}
-              openBookingId={openBookingId}
-              setOpenBookingId={setOpenBookingId}
-              modalTabs={modalTabs}
-              setModalTabs={setModalTabs}
-            />
+          {/* BOOKINGS PANEL
+              Mounted when: (a) bookings is the active panel, OR
+              (b) a notification has set openBookingId while the user is on another panel.
+              In case (b) the panel is hidden via `display:none` — the Radix Dialog portal
+              still renders to document.body, so the booking detail dialog appears over
+              whatever panel the user is currently viewing without a panel switch. */}
+          {(activePanel === 'bookings' || openBookingId !== null) && (
+            <div className={activePanel !== 'bookings' ? 'hidden' : ''}>
+              <BookingsPanel
+                clinic={clinic}
+                isAuthenticated={isAuthenticated}
+                slotTimings={slotTimings}
+                formatTime={formatTime}
+                allBills={allBills}
+                notifHighlight={notifHighlight}
+                tabBadges={tabBadges}
+                setTabBadges={setTabBadges}
+                onNavigate={(panel) => setActivePanel(panel as any)}
+                onViewPatient={handleViewPatient}
+                quickFilter={quickFilter}
+                setQuickFilter={setQuickFilter}
+                filterDate={filterDate}
+                setFilterDate={setFilterDate}
+                filterEndDate={filterEndDate}
+                setFilterEndDate={setFilterEndDate}
+                bookingsSectionRef={bookingsSectionRef}
+                openBookingId={openBookingId}
+                setOpenBookingId={setOpenBookingId}
+                modalTabs={modalTabs}
+                setModalTabs={setModalTabs}
+              />
+            </div>
           )}
           {/* CONFIGURE SLOTS PANEL */}
           {activePanel === 'configure-slots' && (

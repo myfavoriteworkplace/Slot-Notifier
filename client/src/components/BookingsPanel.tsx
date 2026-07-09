@@ -344,6 +344,29 @@ export default function BookingsPanel({
 
   const filteredBookings = bookings;
 
+  // ── Focus booking — fetch when openBookingId is set but not in the current filtered list ──────
+  // This allows the booking detail dialog to open from a notification even when the user is on
+  // another panel (BookingsPanel is mounted hidden) and the booking isn't in the active filter.
+  const isFocusBookingInList = useMemo(
+    () => filteredBookings.some(b => b.id === openBookingId),
+    [filteredBookings, openBookingId],
+  );
+  const { data: focusBookingData } = useQuery<BookingWithSlot | null>({
+    queryKey: ['/api/auth/clinic/bookings', openBookingId, 'focus'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/auth/clinic/bookings/${openBookingId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!openBookingId && isAuthenticated && !isFocusBookingInList,
+    staleTime: 60_000,
+  });
+  // bookingsForDialog = regular list + the focus booking prepended if it isn't already present
+  const bookingsForDialog = useMemo(() => {
+    if (!openBookingId || isFocusBookingInList || !focusBookingData) return filteredBookings;
+    return [focusBookingData, ...filteredBookings];
+  }, [filteredBookings, openBookingId, isFocusBookingInList, focusBookingData]);
+
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
     activePatientBookingsCount: activePatientBookings.length,
@@ -1742,7 +1765,7 @@ export default function BookingsPanel({
                   { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
                 ];
                 let lastGroup = -1;
-                return filteredBookings?.flatMap((booking) => {
+                return bookingsForDialog?.flatMap((booking) => {
                 const bookingDateTime = new Date(booking.slot.startTime);
                 const bookingDateStr = format(bookingDateTime, 'yyyy-MM-dd');
                 const isBookingToday = bookingDateStr === todayStr;

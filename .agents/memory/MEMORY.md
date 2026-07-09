@@ -5,3 +5,5 @@
 - [completeVisitMutation signature](visit-completion-note.md) — ClinicDashboard mutation takes { bookingId, note? }, not bare bookingId; all call sites must use object form.
 - [noBill vs hasUnpaidBill in progress strip](booking-progress-strip.md) — noBill (zero bills) shows green dashed border; hasUnpaidBill (bills exist but unpaid) shows amber. Both derive from totalBillsCount/openBillsCount props; openBillsCount uses paymentStatus !== 'paid' filter.
 - [Notification deep-link pattern](notif-deeplink.md) — 28 triggers need type+bookingId in notifications table; leaves navigate to manage-doctors panel; bookings open card+tab via URL params on dashboard mount.
+- [multer esbuild bundling](multer-esbuild.md) — multer v2.x cannot be bundled by esbuild; must be in the externals list (NOT in the allowlist in script/build.ts).
+- [Notification global overlay pattern](notif-overlay.md) — BookingsPanel is mounted hidden (display:none) when openBookingId != null and activePanel != bookings; Radix Dialog portal escapes display:none to document.body; focus booking fetched via separate query if not in current filter list.

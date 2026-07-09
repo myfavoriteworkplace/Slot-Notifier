@@ -21,7 +21,6 @@ const allowlist = [
   "jspdf-autotable",
   "lucide-react",
   "memorystore",
-  "multer",
   "nanoid",
   "nodemailer",
   "openai",

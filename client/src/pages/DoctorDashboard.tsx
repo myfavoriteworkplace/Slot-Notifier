@@ -193,7 +193,8 @@ export default function DoctorDashboard() {
   // ── Notification deep-link helpers ────────────────────────────────────────
   const applyDoctorNotifNav = (detail: { bookingId?: number }) => {
     if (detail.bookingId) {
-      setActiveTab("appointments");
+      // The patient modal is at the top level of DoctorDashboard so it opens
+      // regardless of which tab is active — no tab switch needed.
       setPatientModalId(detail.bookingId);
     }
   };
