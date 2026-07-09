@@ -948,6 +948,13 @@ By signing below, I confirm that I have read and understood the above and volunt
       } catch (e: any) {
         log(`patient_charts migration warning: ${e.message}`, "system");
       }
+      // ── Add unit_price column to inventory_items ──────────────────────────
+      try {
+        await db.execute(sql`ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS unit_price REAL;`);
+        log("inventory_items unit_price column ensured", "system");
+      } catch (e: any) {
+        log(`inventory_items unit_price migration warning: ${e.message}`, "system");
+      }
       // ─────────────────────────────────────────────────────────────────────────
 
     } catch (dbErr: any) {

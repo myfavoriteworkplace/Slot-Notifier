@@ -5243,6 +5243,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // PATCH /api/clinic/inventory/categories/:id
+  app.patch("/api/clinic/inventory/categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { name } = req.body;
+      if (!name || !name.trim()) return res.status(400).json({ message: "Name required" });
+      const cat = await storage.updateInventoryCategory(id, clinicId, name.trim());
+      res.json(cat);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // DELETE /api/clinic/inventory/categories/:id
+  app.delete("/api/clinic/inventory/categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deleteInventoryCategory(id, clinicId);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/clinic/inventory/items
   app.get("/api/clinic/inventory/items", isAuthenticated, async (req, res) => {
     try {

@@ -562,6 +562,7 @@ export const inventoryItems = pgTable("inventory_items", {
   currentQty: integer("current_qty").notNull().default(0),
   reorderLevel: integer("reorder_level"),
   criticalLevel: integer("critical_level"),
+  unitPrice: real("unit_price"),
   expiryDate: timestamp("expiry_date"),
   warrantyExpiry: timestamp("warranty_expiry"),
   nextServiceDate: timestamp("next_service_date"),

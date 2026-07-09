@@ -223,6 +223,8 @@ export interface IStorage {
   // Inventory
   getInventoryCategories(clinicId: number): Promise<InventoryCategory[]>;
   createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory>;
+  updateInventoryCategory(id: number, clinicId: number, name: string): Promise<InventoryCategory>;
+  deleteInventoryCategory(id: number, clinicId: number): Promise<void>;
   getInventoryItems(clinicId: number): Promise<InventoryItem[]>;
   createInventoryItem(data: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryItem(id: number, clinicId: number, updates: Partial<InventoryItem>): Promise<InventoryItem>;
@@ -1532,6 +1534,20 @@ export class DatabaseStorage implements IStorage {
   async createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory> {
     const [cat] = await db.insert(inventoryCategories).values(data).returning();
     return cat;
+  }
+
+  async updateInventoryCategory(id: number, clinicId: number, name: string): Promise<InventoryCategory> {
+    const [cat] = await db.update(inventoryCategories)
+      .set({ name })
+      .where(and(eq(inventoryCategories.id, id), eq(inventoryCategories.clinicId, clinicId)))
+      .returning();
+    if (!cat) throw new Error("Category not found");
+    return cat;
+  }
+
+  async deleteInventoryCategory(id: number, clinicId: number): Promise<void> {
+    await db.delete(inventoryCategories)
+      .where(and(eq(inventoryCategories.id, id), eq(inventoryCategories.clinicId, clinicId)));
   }
 
   async getInventoryItems(clinicId: number): Promise<InventoryItem[]> {
