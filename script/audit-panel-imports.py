@@ -7,7 +7,7 @@ Usage:
     python3 script/audit-panel-imports.py
 
 Add new panel files to the PANELS list as more panels are extracted.
-See docs/panel-import-audit.md for full documentation.
+See docs/development/panel-import-audit.md for full documentation.
 """
 
 import re

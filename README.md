@@ -22,13 +22,13 @@ A full-stack appointment booking application for dental clinics. Features role-b
 ### Database
 - **PostgreSQL** hosted on **Supabase** (migrated from Render PostgreSQL, May 2026)
 - Schema managed via Drizzle Kit
-- See [`docs/supabase-database-setup.md`](./docs/supabase-database-setup.md)
+- See [`docs/development/supabase-database-setup.md`](./docs/development/supabase-database-setup.md)
 
 ---
 
 ## Quick Start (Local Development)
 
-For the full guide see **[`docs/local-development-setup.md`](./docs/local-development-setup.md)**.
+For the full guide see **[`docs/development/local-development-setup.md`](./docs/development/local-development-setup.md)**.
 
 ```bash
 # 1. Install dependencies
@@ -76,7 +76,7 @@ The app is deployed on Render with a custom domain:
 - **Start command**: `node dist/index.cjs`
 - **Database**: Supabase PostgreSQL via connection pooler (port `6543`)
 
-Full environment variable reference: [`docs/render-environment-setup.md`](./docs/render-environment-setup.md)
+Full environment variable reference: [`docs/development/render-environment-setup.md`](./docs/development/render-environment-setup.md)
 
 ---
 
@@ -84,13 +84,13 @@ Full environment variable reference: [`docs/render-environment-setup.md`](./docs
 
 | Document | What it covers |
 |---|---|
-| [`docs/local-development-setup.md`](./docs/local-development-setup.md) | Running the app locally — all modes, env setup, troubleshooting |
-| [`docs/supabase-database-setup.md`](./docs/supabase-database-setup.md) | Supabase setup, SSL configuration, connection pooler, migration from Render |
-| [`docs/render-environment-setup.md`](./docs/render-environment-setup.md) | All environment variables for Render production deployment |
-| [`docs/domain-migration.md`](./docs/domain-migration.md) | Custom domain setup, DNS records, CORS configuration |
-| [`docs/resend-email-production-setup.md`](./docs/resend-email-production-setup.md) | Email setup — sandbox to production via Resend |
-| [`docs/payment-and-subscription-guide.md`](./docs/payment-and-subscription-guide.md) | Razorpay subscription plans, clinic billing, admin approval flow |
-| [`docs/demo-guide.md`](./docs/demo-guide.md) | Demo accounts, pre-loaded data, what to explore |
+| [`docs/development/local-development-setup.md`](./docs/development/local-development-setup.md) | Running the app locally — all modes, env setup, troubleshooting |
+| [`docs/development/supabase-database-setup.md`](./docs/development/supabase-database-setup.md) | Supabase setup, SSL configuration, connection pooler, migration from Render |
+| [`docs/development/render-environment-setup.md`](./docs/development/render-environment-setup.md) | All environment variables for Render production deployment |
+| [`docs/domain-configuration-checklist/domain-migration.md`](./docs/domain-configuration-checklist/domain-migration.md) | Custom domain setup, DNS records, CORS configuration |
+| [`docs/notifications/resend-email-production-setup.md`](./docs/notifications/resend-email-production-setup.md) | Email setup — sandbox to production via Resend |
+| [`docs/features/payment-and-subscription-guide.md`](./docs/features/payment-and-subscription-guide.md) | Razorpay subscription plans, clinic billing, admin approval flow |
+| [`docs/development/demo-guide.md`](./docs/development/demo-guide.md) | Demo accounts, pre-loaded data, what to explore |
 
 ---
 

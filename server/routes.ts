@@ -55,7 +55,7 @@ function makeGoogleCalLink(title: string, start: Date, location?: string | null)
 
 // ─── EMAIL DESIGN SYSTEM ──────────────────────────────────────────────────────
 // All 17 emails share one structural shell. Only the 4-px accent bar colour
-// and the inner body HTML differ per template. See docs/email-design-system.md.
+// and the inner body HTML differ per template. See docs/notifications/email-design-system.md.
 //
 // Helpers:
 //   logoBlock(onDark)              — "bookMySlot DENTAL" mark
