@@ -179,7 +179,7 @@ async countVerifiedBookingsForClinicTime(
 
 ### 7.2 Admin Booking (Clinic staff)
 
-`POST /api/auth/clinic/admin-book`
+`POST /api/auth/clinic/bookings`
 
 **Request body:**
 
@@ -288,7 +288,7 @@ Slot picker: fetch /api/auth/clinic/availability
 Staff picks a bracket (e.g. "Late Morning" — 10:00 AM)
         │
         ▼
-POST /api/auth/clinic/admin-book
+POST /api/auth/clinic/bookings
   { startTime, endTime, slotCost: 2, ... }
         │
         ▼

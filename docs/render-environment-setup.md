@@ -137,11 +137,11 @@ What breaks if missing: The entire app fails to start. Nothing works.
 ---
 
 ### SESSION_SECRET
-**Required — unsafe fallback exists, must be overridden in production.**
+**Required in production — the server refuses to start without it.**
 
 When a clinic admin or doctor logs in, the app remembers them by storing a session token in the user's browser. The `SESSION_SECRET` is the key used to sign (encrypt) that token.
 
-If this is not set, the app falls back to `"book-my-slot-secret"` — which is publicly visible in the code. Anyone who knows this fallback could potentially forge a login session.
+**Verified in `server/index.ts`:** when `NODE_ENV === "production"`, the server throws `Error("SESSION_SECRET must be set in production")` and crashes on boot if this variable is missing — there is no silent fallback in production. The `"book-my-slot-secret"` fallback only applies in local development (`NODE_ENV !== "production"`), so it never puts a live Render deployment at risk — but you must still set a real value on Render or the deploy will fail to boot.
 
 **How to generate a strong, safe value:**
 ```
@@ -150,7 +150,7 @@ openssl rand -base64 32
 
 > **Important:** Once set, never change this value unless absolutely necessary. Changing it instantly logs out every currently logged-in user (admins, doctors).
 
-What breaks if missing: Sessions are insecure. Admin and doctor logins are vulnerable.
+What breaks if missing: In production, the server does not boot at all (throws on startup). In local dev, sessions fall back to an insecure hardcoded secret.
 
 ---
 

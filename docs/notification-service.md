@@ -66,16 +66,18 @@ The `userId` stored in each notification row depends on who the notification is 
 
 | Role | `userId` value | Example |
 |---|---|---|
+| Doctor | `String(doctor.id)` | `"12"` |
 | Clinic Admin | `String(clinic.id)` | `"5"` |
-| Doctor | `String(doctor.id)` or `doctor.email` | `"12"` or `"dr.priya@clinic.com"` |
 | Super Admin | `"superuser"` | `"superuser"` |
 
-The GET `/api/notifications` route derives the userId the same way:
+The GET `/api/notifications` route derives the userId the same way (verified against `server/routes.ts`):
 
 ```typescript
 // server/routes.ts — GET /api/notifications
-const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+const userId = String(sess.doctorId || sess.clinicId || "superuser");
 ```
+
+**Note:** The lookup only checks `doctorId` and `clinicId` — it does **not** fall back to `doctorEmail` or `adminEmail`. A doctor or admin session that only has an email (no numeric ID) set will resolve to `"superuser"`.
 
 **Rule:** Always compute `userId` using this same expression when creating a notification, or the notification will not appear for the intended user.
 
@@ -114,11 +116,17 @@ Returns all notifications for the currently logged-in user. Returns `[]` for una
 app.get("/api/notifications", async (req, res) => {
   const sess = req.session as any;
   if (!sess?.adminLoggedIn && !sess?.doctorLoggedIn) return res.json([]);
-  const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+  const userId = String(sess.doctorId || sess.clinicId || "superuser");
   const userNotifications = await storage.getNotifications(userId);
   res.json(userNotifications);
 });
 ```
+
+**Also implemented but not previously documented:**
+```typescript
+// PATCH /api/notifications/read-all — marks every notification for the resolved userId as read
+```
+This route exists in `server/routes.ts` alongside the single-notification `markNotificationRead` route and should be used by any "mark all as read" UI action.
 
 ### `PATCH /api/notifications/:id/read`
 
