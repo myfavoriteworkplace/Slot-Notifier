@@ -961,6 +961,7 @@ Every panel in the Clinic Dashboard and Doctor Dashboard **must** use this heade
 | Configure Slots | blue | `bg-blue-500/60` | `from-blue-500/[0.06]` | `text-blue-600 dark:text-blue-400` |
 | Manage Doctors | teal | `bg-teal-500/60` | `from-teal-500/[0.06]` | `text-teal-600 dark:text-teal-400` |
 | Inventory | emerald | `bg-emerald-500/60` | `from-emerald-500/[0.06]` | `text-emerald-600 dark:text-emerald-400` |
+| Pharmacy | orange | `bg-orange-500/60` | `from-orange-500/[0.06]` | `text-orange-600 dark:text-orange-400` |
 | Clinic Website | sky | `bg-sky-500/60` | `from-sky-500/[0.06]` | `text-sky-600 dark:text-sky-400` |
 | Accounts | primary | `bg-primary/60` | `from-primary/[0.06]` | `text-primary` |
 | Patients | rose | `bg-rose-500/60` | `from-rose-500/[0.06]` | `text-rose-500` |

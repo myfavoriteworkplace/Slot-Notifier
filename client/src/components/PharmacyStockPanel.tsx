@@ -79,6 +79,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
 
   const { data: response = EMPTY_RESPONSE, isLoading } = useQuery<PharmacyResponse>({
     queryKey: ['/api/auth/clinic/pharmacy/paged', debouncedSearch, sort, page, pageSize],
+    enabled: !!clinicId,
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/auth/clinic/pharmacy/paged?${buildParams()}`);
       if (!res.ok) throw new Error("Failed to load pharmacy catalog");
@@ -179,7 +180,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
     try { return new Date(expiry).getTime() < Date.now(); } catch { return false; }
   };
 
-  const inputCls = "h-7 text-xs px-2 border-border/60 focus:border-orange-400";
+  const inputCls = "h-7 text-base sm:text-xs px-2 border-border/60 focus-visible:outline-none focus-visible:border-orange-400";
 
   const sortOptions = [
     { value: 'name', label: 'Name A–Z' },
@@ -199,19 +200,17 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
           <div className="flex-1 px-5 py-4 bg-gradient-to-r from-orange-500/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
-                <Pill className="h-[18px] w-[18px] text-orange-600 dark:text-orange-400" />
+                <Pill className="h-[18px] w-[18px] text-orange-600 dark:text-orange-400" aria-hidden="true" />
               </div>
               <div>
                 <h2 className="text-base font-semibold tracking-tight">Pharmacy Stock Catalog</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {isLoading ? 'Loading…' : `${stats.total} medicine${stats.total !== 1 ? 's' : ''} · pricing source for billing`}
-                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">Manage medicines, pricing and stock levels</p>
               </div>
             </div>
             <Button
               size="sm"
               onClick={() => { cancelEdit(); setForm(emptyForm()); setShowAddRow(v => !v); }}
-              className={`h-8 gap-1.5 text-xs border-0 shrink-0 ${showAddRow ? "bg-muted text-foreground hover:bg-muted/80" : "bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white"}`}
+              className={`h-9 min-h-[44px] gap-1.5 text-xs border-0 shrink-0 ${showAddRow ? "bg-muted text-foreground hover:bg-muted/80" : "bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white"}`}
               data-testid="button-add-medicine"
             >
               {showAddRow ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
@@ -245,12 +244,12 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 <>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <div className={`h-5 w-5 rounded-md flex items-center justify-center ${bgCls}`}>
-                      <Icon className={`h-3 w-3 ${textCls}`} />
+                      <Icon className={`h-3 w-3 ${textCls}`} aria-hidden="true" />
                     </div>
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
                   </div>
                   <p className="text-xl font-bold text-foreground">{value}</p>
-                  {subtitle && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{subtitle}</p>}
+                  {subtitle && <p className="text-xs text-muted-foreground/70 mt-0.5">{subtitle}</p>}
                 </>
               )}
             </div>
@@ -266,30 +265,32 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search medicines by name or dosage…"
-            className="pl-8 pr-8 h-9 text-sm"
+            className="pl-8 pr-8 h-9 text-base sm:text-sm"
             data-testid="input-pharmacy-search"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
               data-testid="button-clear-pharmacy-search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              aria-label="Clear search"
             >
-              <X className="h-3 w-3" />
+              <X className="h-3 w-3" aria-hidden="true" />
             </button>
           )}
         </div>
         <Popover open={filterOpen} onOpenChange={setFilterOpen}>
           <PopoverTrigger asChild>
             <button
-              className={`h-9 px-3 rounded-lg border text-sm font-semibold flex items-center gap-2 transition-all ${
+              className={`h-9 px-3 rounded-lg border text-sm font-semibold flex items-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 ${
                 filterOpen || sort !== 'name'
                   ? 'bg-orange-500/10 border-orange-400/40 text-orange-600'
                   : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
               }`}
               data-testid="button-pharmacy-filters"
+              aria-label="Sort and filter"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               Filters
             </button>
           </PopoverTrigger>
@@ -303,7 +304,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                     key={o.value}
                     onClick={() => setSort(o.value)}
                     data-testid={`button-pharmacy-sort-${o.value}`}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 ${
                       sort === o.value
                         ? 'bg-orange-500/10 text-orange-600 border-orange-400/50'
                         : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
@@ -386,7 +387,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         autoFocus
                         value={form.medicineName}
                         onChange={e => setForm(f => ({ ...f, medicineName: e.target.value }))}
-                        onKeyDown={e => e.key === "Enter" && handleAdd()}
+                        onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") { setShowAddRow(false); setForm(emptyForm()); } }}
                         placeholder="Medicine name *"
                         className={inputCls}
                         data-testid="input-medicine-name"
@@ -396,7 +397,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                       <Input
                         value={form.dosage}
                         onChange={e => setForm(f => ({ ...f, dosage: e.target.value }))}
-                        onKeyDown={e => e.key === "Enter" && handleAdd()}
+                        onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") { setShowAddRow(false); setForm(emptyForm()); } }}
                         placeholder="500mg"
                         className={inputCls}
                         data-testid="input-medicine-dosage"
@@ -411,7 +412,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                           step="0.01"
                           value={form.unitPrice}
                           onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
-                          onKeyDown={e => e.key === "Enter" && handleAdd()}
+                          onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") { setShowAddRow(false); setForm(emptyForm()); } }}
                           placeholder="0.00"
                           className={`${inputCls} pl-5 text-right`}
                           data-testid="input-medicine-price"
@@ -424,7 +425,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         min="0"
                         value={form.availableQty}
                         onChange={e => setForm(f => ({ ...f, availableQty: e.target.value }))}
-                        onKeyDown={e => e.key === "Enter" && handleAdd()}
+                        onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") { setShowAddRow(false); setForm(emptyForm()); } }}
                         placeholder="0"
                         className={`${inputCls} text-right`}
                         data-testid="input-medicine-qty"
@@ -435,6 +436,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         type="date"
                         value={form.expiryDate}
                         onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))}
+                        onKeyDown={e => { if (e.key === "Escape") { setShowAddRow(false); setForm(emptyForm()); } }}
                         className={inputCls}
                         data-testid="input-medicine-expiry"
                       />
@@ -444,20 +446,21 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         <button
                           onClick={handleAdd}
                           disabled={createMutation.isPending}
-                          className="p-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors"
-                          title="Save"
+                          className="p-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+                          aria-label="Save medicine"
                           data-testid="button-save-medicine"
                         >
                           {createMutation.isPending
-                            ? <Loader2 className="h-3 w-3 animate-spin" />
-                            : <Check className="h-3 w-3" />}
+                            ? <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
+                            : <Check className="h-3 w-3" aria-hidden="true" />}
                         </button>
                         <button
                           onClick={() => { setShowAddRow(false); setForm(emptyForm()); }}
-                          className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground transition-colors"
-                          title="Cancel"
+                          className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                          aria-label="Cancel add"
+                          data-testid="button-cancel-add-medicine"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3 w-3" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
@@ -502,18 +505,20 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                             autoFocus
                             value={editForm.medicineName}
                             onChange={e => setEditForm(f => ({ ...f, medicineName: e.target.value }))}
-                            onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                            onKeyDown={e => { if (e.key === "Enter") handleUpdate(item.id); if (e.key === "Escape") cancelEdit(); }}
                             placeholder="Medicine name *"
                             className={inputCls}
+                            data-testid={`input-edit-medicine-name-${item.id}`}
                           />
                         </td>
                         <td className="px-2 py-2">
                           <Input
                             value={editForm.dosage}
                             onChange={e => setEditForm(f => ({ ...f, dosage: e.target.value }))}
-                            onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                            onKeyDown={e => { if (e.key === "Enter") handleUpdate(item.id); if (e.key === "Escape") cancelEdit(); }}
                             placeholder="500mg"
                             className={inputCls}
+                            data-testid={`input-edit-medicine-dosage-${item.id}`}
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -525,9 +530,10 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                               step="0.01"
                               value={editForm.unitPrice}
                               onChange={e => setEditForm(f => ({ ...f, unitPrice: e.target.value }))}
-                              onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                              onKeyDown={e => { if (e.key === "Enter") handleUpdate(item.id); if (e.key === "Escape") cancelEdit(); }}
                               placeholder="0.00"
                               className={`${inputCls} pl-5 text-right`}
+                              data-testid={`input-edit-medicine-price-${item.id}`}
                             />
                           </div>
                         </td>
@@ -537,9 +543,10 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                             min="0"
                             value={editForm.availableQty}
                             onChange={e => setEditForm(f => ({ ...f, availableQty: e.target.value }))}
-                            onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                            onKeyDown={e => { if (e.key === "Enter") handleUpdate(item.id); if (e.key === "Escape") cancelEdit(); }}
                             placeholder="0"
                             className={`${inputCls} text-right`}
+                            data-testid={`input-edit-medicine-qty-${item.id}`}
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -547,7 +554,9 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                             type="date"
                             value={editForm.expiryDate}
                             onChange={e => setEditForm(f => ({ ...f, expiryDate: e.target.value }))}
+                            onKeyDown={e => { if (e.key === "Escape") cancelEdit(); }}
                             className={inputCls}
+                            data-testid={`input-edit-medicine-expiry-${item.id}`}
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -555,18 +564,19 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                             <button
                               onClick={() => handleUpdate(item.id)}
                               disabled={updateMutation.isPending}
-                              className="p-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors"
-                              title="Save"
+                              className="p-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+                              aria-label={`Save changes to ${item.medicineName}`}
                               data-testid={`button-save-edit-medicine-${item.id}`}
                             >
                               {updateMutation.isPending
-                                ? <Loader2 className="h-3 w-3 animate-spin" />
-                                : <Check className="h-3 w-3" />}
+                                ? <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
+                                : <Check className="h-3 w-3" aria-hidden="true" />}
                             </button>
                             <button
                               onClick={cancelEdit}
-                              className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground transition-colors"
-                              title="Cancel"
+                              className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                              aria-label="Cancel edit"
+                              data-testid={`button-cancel-edit-medicine-${item.id}`}
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -591,7 +601,8 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         ₹{(item.unitPrice ?? 0).toFixed(2)}
                       </td>
                       <td className="px-3 py-2.5 text-right">
-                        <span className={`font-medium ${lowStock && item.availableQty > 0 ? "text-amber-600" : item.availableQty === 0 ? "text-red-500" : "text-foreground"}`}>
+                        <span className={`inline-flex items-center justify-end gap-1 font-medium ${lowStock && item.availableQty > 0 ? "text-amber-600" : item.availableQty === 0 ? "text-red-500" : "text-foreground"}`}>
+                          {(item.availableQty === 0 || lowStock) && <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />}
                           {item.availableQty}
                         </span>
                       </td>
@@ -606,23 +617,23 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         )}
                       </td>
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity justify-end">
+                        <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity justify-end">
                           <button
                             onClick={() => startEdit(item)}
-                            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-                            title="Edit"
+                            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            aria-label={`Edit ${item.medicineName}`}
                             data-testid={`button-edit-medicine-${item.id}`}
                           >
-                            <Pencil className="h-3 w-3" />
+                            <Pencil className="h-3 w-3" aria-hidden="true" />
                           </button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <button
-                                className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500"
-                                title="Delete"
+                                className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40"
+                                aria-label={`Delete ${item.medicineName}`}
                                 data-testid={`button-delete-medicine-${item.id}`}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-3 w-3" aria-hidden="true" />
                               </button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
@@ -665,7 +676,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                       key={n}
                       onClick={() => { setPageSize(n); setPage(1); }}
                       data-testid={`button-pagesize-${n}`}
-                      className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${pageSize === n ? 'bg-orange-500/10 text-orange-600' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 ${pageSize === n ? 'bg-orange-500/10 text-orange-600' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       {n}
                     </button>
@@ -681,9 +692,10 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 onClick={() => setPage(p => p - 1)}
                 disabled={page <= 1}
                 data-testid="button-pharmacy-prev-page"
-                className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+                aria-label="Previous page"
+                className="h-8 w-8 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
               <span className="text-xs text-muted-foreground tabular-nums min-w-[72px] text-center">
                 Page {page} of {totalPages}
@@ -692,9 +704,10 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 onClick={() => setPage(p => p + 1)}
                 disabled={page >= totalPages}
                 data-testid="button-pharmacy-next-page"
-                className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+                aria-label="Next page"
+                className="h-8 w-8 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
           </div>
