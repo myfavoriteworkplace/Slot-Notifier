@@ -1851,13 +1851,12 @@ export default function BookingsPanel({
                       </button>
                     </div>
                   ) : null,
-                  collapsedGroups[group] ? null : (
                 <Dialog
                   key={booking.id}
                   open={openBookingId === booking.id}
                   onOpenChange={(open) => { if (!open) { setOpenBookingId(null); setDialogExpanded(false); } }}
                 >
-                  <AppointmentCard
+                  {!collapsedGroups[group] && <AppointmentCard
                     role="clinic"
                     booking={booking}
                     bookingNumber={bookingNumber(booking)}
@@ -1906,7 +1905,7 @@ export default function BookingsPanel({
                     checkInPending={checkInMutation.isPending}
                     completeVisitPending={completeVisitMutation.isPending}
                     cancelPending={cancelBookingMutation.isPending}
-                  />
+                  />}
                     <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} rounded-2xl p-0 overflow-hidden h-[90vh] flex flex-col transition-[max-width] duration-200`}>
 
                       {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
@@ -3241,7 +3240,6 @@ export default function BookingsPanel({
 
                     </DialogContent>
                 </Dialog>
-                  )
                 ].filter(Boolean) as React.ReactNode[];
                 });
               })()

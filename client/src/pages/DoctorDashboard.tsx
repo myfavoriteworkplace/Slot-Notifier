@@ -608,6 +608,25 @@ export default function DoctorDashboard() {
   }
 
   const displayBookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+
+  // ── Focus-fetch: load the specific booking from a notification when it isn't
+  //    in the currently-filtered displayBookings list (e.g. doctor is on "Today"
+  //    filter but notification is for a past/upcoming booking).
+  const isDoctorFocusInList = useMemo(
+    () => displayBookings.some((b: any) => b.id === patientModalId),
+    [displayBookings, patientModalId],
+  );
+  const { data: doctorFocusBooking = null } = useQuery<any>({
+    queryKey: ["/api/auth/clinic/bookings", patientModalId, "doctor-focus"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/auth/clinic/bookings/${patientModalId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!patientModalId && isAuthenticated && !isDoctorFocusInList,
+    staleTime: 60_000,
+  });
+
   const bookingStats = bookingsInfiniteData?.pages[0]?.stats;
 
   const awaitingApprovalCount = bookingStats?.awaitingApprovalCount ?? 0;
@@ -2582,8 +2601,17 @@ export default function DoctorDashboard() {
           </button>
 
           {patientModalId !== null && (() => {
-            const b = openedBooking?.id === patientModalId ? openedBooking : displayBookings.find((bk: any) => bk.id === patientModalId);
-            if (!b) return null;
+            const b = openedBooking?.id === patientModalId
+              ? openedBooking
+              : (displayBookings.find((bk: any) => bk.id === patientModalId) ?? doctorFocusBooking ?? null);
+            if (!b) return (
+              <div className="flex flex-col items-center justify-center flex-1 gap-3 p-8 text-muted-foreground">
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                  <Search className="h-5 w-5 opacity-40" />
+                </div>
+                <p className="text-sm font-medium">Loading patient details…</p>
+              </div>
+            );
             const startTime = b.slot?.startTime ? new Date(b.slot.startTime) : null;
             const modalClinicName = b.clinic?.name || b.clinicName || doctorClinics.find((c: any) => c.id === b.clinicId)?.name || "Clinic";
             return (
