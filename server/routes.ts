@@ -2847,6 +2847,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // GET /api/auth/clinic/bookings/:id — fetch a single booking (with slot) for the notification-click focus flow
+  // Shared by clinic-owner and doctor sessions (DoctorDashboard also focus-fetches via this same path).
+  app.get("/api/auth/clinic/bookings/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "Invalid booking id" });
+    try {
+      let booking;
+      if (sess.role === 'doctor' && sess.doctorEmail) {
+        booking = await storage.getDoctorBookingByIdWithSlot(id, sess.doctorEmail);
+      } else if (sess.clinicId) {
+        booking = await storage.getClinicBookingByIdWithSlot(id, sess.clinicId);
+      } else {
+        return res.status(403).json({ message: "Clinic or doctor session required" });
+      }
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      return res.json(booking);
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
   app.get("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (sess.role === 'doctor') {

@@ -90,6 +90,8 @@ export interface IStorage {
   getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]>;
   getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
   getBookingById(id: number): Promise<Booking | undefined>;
+  getClinicBookingByIdWithSlot(id: number, clinicId: number): Promise<(Booking & { slot: Slot }) | undefined>;
+  getDoctorBookingByIdWithSlot(id: number, doctorEmail: string): Promise<(Booking & { slot: Slot }) | undefined>;
   createPublicBooking(data: {
     slotId: number;
     customerName: string;
@@ -441,6 +443,38 @@ export class DatabaseStorage implements IStorage {
   async getBookingById(id: number): Promise<Booking | undefined> {
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
     return booking ? this.decryptBooking(booking) : undefined;
+  }
+
+  async getClinicBookingByIdWithSlot(id: number, clinicId: number): Promise<(Booking & { slot: Slot }) | undefined> {
+    const [result] = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(eq(bookings.id, id));
+
+    if (!result) return undefined;
+
+    const clinic = await this.getClinic(clinicId);
+    const belongsToClinic = result.slot.clinicId === clinicId ||
+      (result.slot.clinicId === null && clinic && result.slot.clinicName === clinic.name);
+    if (!belongsToClinic) return undefined;
+
+    return { ...this.decryptBooking(result.booking), slot: result.slot };
+  }
+
+  async getDoctorBookingByIdWithSlot(id: number, doctorEmail: string): Promise<(Booking & { slot: Slot }) | undefined> {
+    const [result] = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(and(eq(bookings.id, id), eq(bookings.assignedDoctorEmail, doctorEmail)));
+
+    if (!result) return undefined;
+    return { ...this.decryptBooking(result.booking), slot: result.slot };
   }
 
   // Implementation for missing methods identified by LSP errors
