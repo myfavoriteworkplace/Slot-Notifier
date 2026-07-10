@@ -257,29 +257,42 @@ export default function ClinicAnalyticsPanel() {
   return (
     <div className="space-y-7 animate-in fade-in duration-200">
 
-      {/* -- Simple header: title inline with range pills -- */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h2 className="text-xl font-semibold tracking-tight">Analytics</h2>
-        <div
-          className="flex items-center gap-1 p-1 rounded-xl border border-border/50 bg-muted/30 shrink-0"
-          role="group"
-          aria-label="Date range"
-        >
-          {PRESET_RANGES.map(r => (
-            <button
-              key={r.key}
-              data-testid={`range-${r.key}`}
-              onClick={() => setRange(r.key)}
-              aria-pressed={range === r.key}
-              className={`min-h-[36px] px-3 py-1 text-xs font-semibold rounded-lg transition-all active:scale-[0.97] ${
-                range === r.key
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-              }`}
+      {/* Header — card with icon + title + range pills (matches Inventory / other panels) */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        <div className="flex">
+          <div className="w-1.5 bg-violet-500/60 shrink-0" />
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                <BarChart2 className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold tracking-tight">Analytics</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Clinic performance</p>
+              </div>
+            </div>
+            <div
+              className="flex items-center gap-1 p-1 rounded-xl border border-border/50 bg-muted/30 shrink-0"
+              role="group"
+              aria-label="Date range"
             >
-              {r.label}
-            </button>
-          ))}
+              {PRESET_RANGES.map(r => (
+                <button
+                  key={r.key}
+                  data-testid={`range-${r.key}`}
+                  onClick={() => setRange(r.key)}
+                  aria-pressed={range === r.key}
+                  className={`min-h-[36px] px-3 py-1 text-xs font-semibold rounded-lg transition-all active:scale-[0.97] ${
+                    range === r.key
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
