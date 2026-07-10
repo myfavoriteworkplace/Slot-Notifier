@@ -845,7 +845,7 @@ function QtyStepper({
 
 // ─── Item Detail Dialog (merged: detail + stock update + edit) ────────────────
 
-type DetailMode = "detail" | "stock" | "edit";
+type DetailMode = "detail" | "stock";
 
 function ItemDetailDialog({
   item,
@@ -863,6 +863,7 @@ function ItemDetailDialog({
   initialMode?: DetailMode;
 }) {
   const [mode, setMode] = useState<DetailMode>(initialMode);
+  const [isEditing, setIsEditing] = useState(false);
   const [stockType, setStockType] = useState<"add" | "deduct" | "adjust">("deduct");
   const [stockQty, setStockQty] = useState("");
   const [stockReason, setStockReason] = useState("");
@@ -872,6 +873,7 @@ function ItemDetailDialog({
   useEffect(() => {
     if (!item) return;
     setMode(initialMode);
+    setIsEditing(false);
     setStockQty("");
     setStockReason("");
     setStockType("deduct");
@@ -917,7 +919,7 @@ function ItemDetailDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/items"] });
       notify.success("Item updated");
-      setMode("detail");
+      setIsEditing(false);
     },
     onError: () => notify.error("Failed to update item"),
   });
@@ -974,9 +976,8 @@ function ItemDetailDialog({
   const setEditSelect = (k: keyof ItemFormState) => (v: string) => setEditForm(f => ({ ...f, [k]: v }));
 
   const titles: Record<DetailMode, string> = {
-    detail: item.name,
+    detail: isEditing ? "Edit Item" : item.name,
     stock: "Update Stock",
-    edit: "Edit Item",
   };
 
   return (
@@ -1006,56 +1007,148 @@ function ItemDetailDialog({
           )}
         </DialogHeader>
 
-        {/* ── DETAIL MODE ── */}
+        {/* ── DETAIL / INLINE EDIT MODE ── */}
         {mode === "detail" && (
-          <div className="space-y-3 mt-1">
+          <form id="edit-form" onSubmit={handleEditSubmit} className="space-y-3 mt-1">
+            {isEditing && (
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Item Name *</Label>
+                <Input data-testid="input-edit-name" value={editForm.name || ""} onChange={setEdit("name")} required />
+              </div>
+            )}
+
             {!isAsset && (
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label: "Current", value: item.currentQty, cls: col.text },
-                  { label: "Reorder", value: item.reorderLevel ?? "—", cls: "text-yellow-600" },
-                  { label: "Critical", value: item.criticalLevel ?? "—", cls: "text-red-600" },
+                  { label: "Current Stock", key: "currentQty" as const, value: item.currentQty, cls: col.text, editable: false },
+                  { label: "Reorder At", key: "reorderLevel" as const, value: item.reorderLevel ?? "—", cls: "text-yellow-600", editable: true },
+                  { label: "Critical At", key: "criticalLevel" as const, value: item.criticalLevel ?? "—", cls: "text-red-600", editable: true },
                 ].map(cell => (
                   <div key={cell.label} className="rounded-xl border border-green-800/30 bg-green-50 dark:bg-green-950/20 shadow-sm overflow-hidden">
                     <div className="px-3 py-1.5 bg-green-50 dark:bg-green-950/30 border-b border-green-800/20">
                       <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-400">{cell.label}</span>
                     </div>
-                    <div className={`text-2xl font-extrabold text-center py-3 ${cell.cls}`}>{cell.value}</div>
+                    {isEditing && cell.editable ? (
+                      <Input
+                        data-testid={`input-edit-${cell.key}`}
+                        type="number"
+                        min={0}
+                        className="border-0 rounded-none text-center text-lg font-extrabold h-12 focus-visible:ring-0"
+                        value={(editForm as any)[cell.key] || ""}
+                        onChange={setEdit(cell.key)}
+                      />
+                    ) : (
+                      <div className={`text-2xl font-extrabold text-center py-3 ${cell.cls}`}>{cell.value}</div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
 
-            {item.unitPrice != null && (
-              <div className="flex items-center gap-2 text-sm bg-emerald-50 dark:bg-emerald-950/20 border border-green-800/20 rounded-lg px-3 py-2">
-                <span className="text-muted-foreground">Unit price:</span>
-                <span className="font-semibold text-foreground">₹{item.unitPrice}</span>
-                {!isAsset && <span className="text-muted-foreground ml-auto text-xs">Total value: ₹{(item.unitPrice * item.currentQty).toFixed(2)}</span>}
+            {isAsset && (
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
+                {isEditing ? (
+                  <Input data-testid="input-edit-price-asset" type="number" min={0} step="0.01" placeholder="e.g. 50000" value={editForm.unitPrice || ""} onChange={setEdit("unitPrice")} />
+                ) : (
+                  item.unitPrice != null && <div className="font-semibold">₹{item.unitPrice}</div>
+                )}
               </div>
             )}
 
-            {item.expiryDate && (
-              <div className="flex items-center gap-2 text-sm">
-                <CalendarClock className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground">Expiry:</span>
-                <span className="font-semibold">{format(new Date(item.expiryDate), "dd MMM yyyy")}</span>
+            {(isEditing || item.unitPrice != null) && !isAsset && (
+              isEditing ? (
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
+                  <Input data-testid="input-edit-price" type="number" min={0} step="0.01" placeholder="e.g. 150" value={editForm.unitPrice || ""} onChange={setEdit("unitPrice")} />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm bg-emerald-50 dark:bg-emerald-950/20 border border-green-800/20 rounded-lg px-3 py-2">
+                  <span className="text-muted-foreground">Unit price:</span>
+                  <span className="font-semibold text-foreground">₹{item.unitPrice}</span>
+                  <span className="text-muted-foreground ml-auto text-xs">Total value: ₹{((item.unitPrice ?? 0) * item.currentQty).toFixed(2)}</span>
+                </div>
+              )
+            )}
+
+            {isEditing && (
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Category</Label>
+                <Select value={editForm.categoryId || ""} onValueChange={setEditSelect("categoryId")}>
+                  <SelectTrigger data-testid="select-edit-category">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {categories.map(c => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
-            {item.warrantyExpiry && (
-              <div className="flex items-center gap-2 text-sm">
-                <Info className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground">Warranty:</span>
-                <span className="font-semibold">{format(new Date(item.warrantyExpiry), "dd MMM yyyy")}</span>
+            {isEditing && !isAsset && (
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Unit</Label>
+                <Select value={editForm.unit || "units"} onValueChange={setEditSelect("unit")}>
+                  <SelectTrigger data-testid="select-edit-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UNIT_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             )}
-            {item.nextServiceDate && (
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground">Next Service:</span>
-                <span className="font-semibold">{format(new Date(item.nextServiceDate), "dd MMM yyyy")}</span>
-              </div>
+
+            {(isEditing || item.expiryDate) && (item.trackingType === "consumable" || item.trackingType === "perishable") && (
+              isEditing ? (
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">Expiry Date</Label>
+                  <Input data-testid="input-edit-expiry" type="date" value={editForm.expiryDate || ""} onChange={setEdit("expiryDate")} />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm">
+                  <CalendarClock className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">Expiry:</span>
+                  <span className="font-semibold">{format(new Date(item.expiryDate!), "dd MMM yyyy")}</span>
+                </div>
+              )
             )}
-            {(item.sku || item.barcode || item.manufacturer || item.supplierName || item.location || item.batchNumber || item.purchasePrice != null || item.lastPurchasedDate) && (
+
+            {(isEditing || item.warrantyExpiry || item.nextServiceDate) && isAsset && (
+              isEditing ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Warranty Expiry</Label>
+                    <Input data-testid="input-edit-warranty" type="date" value={editForm.warrantyExpiry || ""} onChange={setEdit("warrantyExpiry")} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Next Service</Label>
+                    <Input data-testid="input-edit-service" type="date" value={editForm.nextServiceDate || ""} onChange={setEdit("nextServiceDate")} />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {item.warrantyExpiry && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-muted-foreground">Warranty:</span>
+                      <span className="font-semibold">{format(new Date(item.warrantyExpiry), "dd MMM yyyy")}</span>
+                    </div>
+                  )}
+                  {item.nextServiceDate && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-muted-foreground">Next Service:</span>
+                      <span className="font-semibold">{format(new Date(item.nextServiceDate), "dd MMM yyyy")}</span>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+
+            {!isEditing && (item.sku || item.barcode || item.manufacturer || item.supplierName || item.location || item.batchNumber || item.purchasePrice != null || item.lastPurchasedDate) && (
               <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1.5 text-sm">
                 {item.sku && <div className="flex justify-between gap-2"><span className="text-muted-foreground">SKU</span><span className="font-semibold" data-testid="text-detail-sku">{item.sku}</span></div>}
                 {item.barcode && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Barcode</span><span className="font-semibold" data-testid="text-detail-barcode">{item.barcode}</span></div>}
@@ -1068,18 +1161,74 @@ function ItemDetailDialog({
               </div>
             )}
 
-            {item.notes && (
-              <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-3">{item.notes}</div>
+            {isEditing && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">SKU</Label>
+                    <Input data-testid="input-edit-sku" placeholder="e.g. CON-001" value={editForm.sku || ""} onChange={setEdit("sku")} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Barcode</Label>
+                    <Input data-testid="input-edit-barcode" placeholder="Scan or type barcode" value={editForm.barcode || ""} onChange={setEdit("barcode")} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">Manufacturer</Label>
+                  <Input data-testid="input-edit-manufacturer" placeholder="e.g. 3M, Dentsply" value={editForm.manufacturer || ""} onChange={setEdit("manufacturer")} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Supplier</Label>
+                    <Input data-testid="input-edit-supplier-name" placeholder="e.g. MedSupply Co." value={editForm.supplierName || ""} onChange={setEdit("supplierName")} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Supplier Contact</Label>
+                    <Input data-testid="input-edit-supplier-contact" placeholder="Phone or email" value={editForm.supplierContact || ""} onChange={setEdit("supplierContact")} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Purchase Price (₹)</Label>
+                    <Input data-testid="input-edit-purchase-price" type="number" min={0} step="0.01" placeholder="e.g. 120" value={editForm.purchasePrice || ""} onChange={setEdit("purchasePrice")} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Last Purchased</Label>
+                    <Input data-testid="input-edit-last-purchased" type="date" value={editForm.lastPurchasedDate || ""} onChange={setEdit("lastPurchasedDate")} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Storage Location</Label>
+                    <Input data-testid="input-edit-location" placeholder="e.g. Cabinet 3, Shelf B" value={editForm.location || ""} onChange={setEdit("location")} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold mb-1 block">Batch / Lot No.</Label>
+                    <Input data-testid="input-edit-batch" placeholder="e.g. LOT-2026-04" value={editForm.batchNumber || ""} onChange={setEdit("batchNumber")} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {(isEditing || item.notes) && (
+              isEditing ? (
+                <div>
+                  <Label className="text-xs font-semibold mb-1 block">Notes</Label>
+                  <Textarea data-testid="input-edit-notes" placeholder="e.g. Store in cool, dry place" value={editForm.notes || ""} onChange={setEdit("notes")} rows={2} />
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-3">{item.notes}</div>
+              )
             )}
 
             {/* Per-item history */}
-            {itemHistory.length > 0 && (
+            {!isEditing && itemHistory.length > 0 && (
               <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
                 <div className="px-3 py-2 bg-green-50 dark:bg-green-950/30 border-b border-green-800/20 flex items-center gap-1.5">
                   <History className="h-3 w-3 text-green-800 dark:text-green-400" />
                   <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-400">Recent Movements</span>
                 </div>
-                <div className="divide-y divide-border/40">
+                <div className="divide-y divide-border/40 max-h-48 overflow-y-auto">
                   {itemHistory.map(tx => {
                     const dotCls = tx.type === "add" ? "bg-emerald-500" : tx.type === "deduct" ? "bg-red-500" : "bg-blue-500";
                     const numCls = tx.type === "add" ? "text-emerald-600" : tx.type === "deduct" ? "text-red-600" : "text-blue-600";
@@ -1101,7 +1250,7 @@ function ItemDetailDialog({
                 </div>
               </div>
             )}
-          </div>
+          </form>
         )}
 
         {/* ── STOCK MODE ── */}
@@ -1141,140 +1290,8 @@ function ItemDetailDialog({
           </form>
         )}
 
-        {/* ── EDIT MODE ── */}
-        {mode === "edit" && (
-          <form id="edit-form" onSubmit={handleEditSubmit} className="space-y-4 mt-2">
-            <div>
-              <Label className="text-xs font-semibold mb-1 block">Item Name *</Label>
-              <Input
-                data-testid="input-edit-name"
-                value={editForm.name || ""}
-                onChange={setEdit("name")}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Category</Label>
-                <Select value={editForm.categoryId || ""} onValueChange={setEditSelect("categoryId")}>
-                  <SelectTrigger data-testid="select-edit-category">
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {categories.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {!isAsset && (
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">Unit</Label>
-                  <Select value={editForm.unit || "units"} onValueChange={setEditSelect("unit")}>
-                    <SelectTrigger data-testid="select-edit-unit">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UNIT_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-            {!isAsset && (
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block text-yellow-600">Reorder At</Label>
-                  <Input data-testid="input-edit-reorder" type="number" min={0} placeholder="e.g. 20" value={editForm.reorderLevel || ""} onChange={setEdit("reorderLevel")} />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block text-red-600">Critical At</Label>
-                  <Input data-testid="input-edit-critical" type="number" min={0} placeholder="e.g. 5" value={editForm.criticalLevel || ""} onChange={setEdit("criticalLevel")} />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
-                  <Input data-testid="input-edit-price" type="number" min={0} step="0.01" placeholder="e.g. 150" value={editForm.unitPrice || ""} onChange={setEdit("unitPrice")} />
-                </div>
-              </div>
-            )}
-            {isAsset && (
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
-                <Input data-testid="input-edit-price-asset" type="number" min={0} step="0.01" placeholder="e.g. 50000" value={editForm.unitPrice || ""} onChange={setEdit("unitPrice")} />
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">SKU</Label>
-                <Input data-testid="input-edit-sku" placeholder="e.g. CON-001" value={editForm.sku || ""} onChange={setEdit("sku")} />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Barcode</Label>
-                <Input data-testid="input-edit-barcode" placeholder="Scan or type barcode" value={editForm.barcode || ""} onChange={setEdit("barcode")} />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1 block">Manufacturer</Label>
-              <Input data-testid="input-edit-manufacturer" placeholder="e.g. 3M, Dentsply" value={editForm.manufacturer || ""} onChange={setEdit("manufacturer")} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Supplier</Label>
-                <Input data-testid="input-edit-supplier-name" placeholder="e.g. MedSupply Co." value={editForm.supplierName || ""} onChange={setEdit("supplierName")} />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Supplier Contact</Label>
-                <Input data-testid="input-edit-supplier-contact" placeholder="Phone or email" value={editForm.supplierContact || ""} onChange={setEdit("supplierContact")} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Purchase Price (₹)</Label>
-                <Input data-testid="input-edit-purchase-price" type="number" min={0} step="0.01" placeholder="e.g. 120" value={editForm.purchasePrice || ""} onChange={setEdit("purchasePrice")} />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Last Purchased</Label>
-                <Input data-testid="input-edit-last-purchased" type="date" value={editForm.lastPurchasedDate || ""} onChange={setEdit("lastPurchasedDate")} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Storage Location</Label>
-                <Input data-testid="input-edit-location" placeholder="e.g. Cabinet 3, Shelf B" value={editForm.location || ""} onChange={setEdit("location")} />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Batch / Lot No.</Label>
-                <Input data-testid="input-edit-batch" placeholder="e.g. LOT-2026-04" value={editForm.batchNumber || ""} onChange={setEdit("batchNumber")} />
-              </div>
-            </div>
-            {(item.trackingType === "consumable" || item.trackingType === "perishable") && (
-              <div>
-                <Label className="text-xs font-semibold mb-1 block">Expiry Date</Label>
-                <Input data-testid="input-edit-expiry" type="date" value={editForm.expiryDate || ""} onChange={setEdit("expiryDate")} />
-              </div>
-            )}
-            {isAsset && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">Warranty Expiry</Label>
-                  <Input data-testid="input-edit-warranty" type="date" value={editForm.warrantyExpiry || ""} onChange={setEdit("warrantyExpiry")} />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold mb-1 block">Next Service</Label>
-                  <Input data-testid="input-edit-service" type="date" value={editForm.nextServiceDate || ""} onChange={setEdit("nextServiceDate")} />
-                </div>
-              </div>
-            )}
-            <div>
-              <Label className="text-xs font-semibold mb-1 block">Notes</Label>
-              <Textarea data-testid="input-edit-notes" placeholder="e.g. Store in cool, dry place" value={editForm.notes || ""} onChange={setEdit("notes")} rows={2} />
-            </div>
-          </form>
-        )}
-
         <DialogFooter className="flex-col gap-2 sm:flex-row mt-4">
-          {mode === "detail" && (
+          {mode === "detail" && !isEditing && (
             <>
               {!isAsset && (
                 <Button
@@ -1288,7 +1305,7 @@ function ItemDetailDialog({
               <Button
                 data-testid="btn-detail-edit"
                 variant="outline"
-                onClick={() => setMode("edit")}
+                onClick={() => setIsEditing(true)}
                 className="flex-1"
               >
                 <Pencil className="h-4 w-4 mr-1" /> Edit
@@ -1325,6 +1342,20 @@ function ItemDetailDialog({
               </AlertDialog>
             </>
           )}
+          {mode === "detail" && isEditing && (
+            <>
+              <Button variant="outline" onClick={() => setIsEditing(false)} className="flex-1">Cancel</Button>
+              <Button
+                type="submit"
+                form="edit-form"
+                data-testid="btn-edit-submit"
+                disabled={editMutation.isPending || !editForm.name?.trim()}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {editMutation.isPending ? "Saving..." : <><Check className="h-4 w-4 mr-1" /> Save Changes</>}
+              </Button>
+            </>
+          )}
           {mode === "stock" && (
             <>
               <Button variant="outline" onClick={() => setMode("detail")} className="flex-1">Cancel</Button>
@@ -1336,20 +1367,6 @@ function ItemDetailDialog({
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {stockMutation.isPending ? "Saving..." : <><Check className="h-4 w-4 mr-1" /> Save</>}
-              </Button>
-            </>
-          )}
-          {mode === "edit" && (
-            <>
-              <Button variant="outline" onClick={() => setMode("detail")} className="flex-1">Cancel</Button>
-              <Button
-                type="submit"
-                form="edit-form"
-                data-testid="btn-edit-submit"
-                disabled={editMutation.isPending || !editForm.name?.trim()}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {editMutation.isPending ? "Saving..." : <><Check className="h-4 w-4 mr-1" /> Save Changes</>}
               </Button>
             </>
           )}
