@@ -118,7 +118,15 @@ export default function DoctorDashboard() {
 
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
+  const [heroCompact, setHeroCompact] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
+
+  /* Sticky compact hero (mobile only) */
+  useEffect(() => {
+    const onScroll = () => setHeroCompact(window.scrollY > 80);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const [profName, setProfName] = useState("");
   const [profSpecialization, setProfSpecialization] = useState("");
@@ -762,58 +770,82 @@ export default function DoctorDashboard() {
       {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
       <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-8">
 
-      {/* ═══ DOCTOR HERO BAR ═══ */}
-      <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
+      {/* ═══ COMPACT HERO + STATS ═══ */}
 
-        {/* Top neon accent bar */}
+      {/* Sticky compact bar (mobile, after scroll) */}
+      <div className={`lg:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${heroCompact ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+        <div className="mx-2 mt-2 rounded-xl border border-white/10 bg-gradient-to-r from-[#052B22] via-[#085041] to-[#0A5540] shadow-lg px-3 py-2 flex items-center gap-2.5">
+          <div className="shrink-0 h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-white font-bold text-xs">
+            {(doctor as any).name?.charAt(0) || "D"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-white truncate">Dr. {(doctor as any).name}</p>
+          </div>
+          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+            </span>
+            Live
+          </span>
+        </div>
+      </div>
+
+      {/* Hero card */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-4 py-2.5 sm:px-7 sm:py-6 overflow-hidden">
 
-        {/* Main hero band */}
-        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-4 py-4 sm:px-7 sm:py-6 overflow-hidden">
-
-          {/* Grid texture overlay */}
+          {/* Grid texture — reduced on mobile */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-[0.04]"
+            className="absolute inset-0 pointer-events-none opacity-[0.02] sm:opacity-[0.04]"
             style={{
               backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
               backgroundSize: "32px 32px",
             }}
           />
-          {/* Ambient glow orbs — decorative only */}
           <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
           <div className="absolute -bottom-16 -right-8 w-60 h-60 rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
-          {/* Radial highlight */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07)_0%,transparent_60%)] pointer-events-none" />
 
-          {/* ── Row 1: Identity + Sign Out ── */}
-          <div className="relative flex items-start justify-between gap-4">
+          {/* Mobile: row, left-aligned. Desktop: row, space-between. */}
+          <div className="relative flex flex-row items-start justify-between gap-3 sm:gap-4">
 
-            {/* Left: avatar + identity */}
-            <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-              <Avatar className="h-12 w-12 sm:h-16 sm:w-16 ring-2 ring-white/30 shadow-md shrink-0">
+            {/* Identity: avatar + name + badges */}
+            <div className="flex items-center gap-2.5 sm:gap-5 min-w-0 flex-1">
+              {/* Avatar — slightly smaller on mobile */}
+              <Avatar className="h-10 w-10 sm:h-16 sm:w-16 ring-2 ring-white/30 shadow-md shrink-0">
                 <AvatarImage src={(doctor as any).imageUrl || undefined} />
-                <AvatarFallback className="bg-white/20 text-white font-bold text-lg sm:text-xl">
+                <AvatarFallback className="bg-white/20 text-white font-bold text-sm sm:text-xl">
                   {(doctor as any).name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-xs text-white/50 font-medium mb-0.5">Good {greet},</p>
-                <h1 className="text-base sm:text-3xl font-extrabold text-white tracking-tight leading-tight truncate">
+                {/* Hide greeting on mobile, show on sm+ */}
+                <p className="hidden sm:block text-xs text-white/50 font-medium mb-0.5">Good {greet},</p>
+                <h1 className="text-sm sm:text-3xl font-extrabold text-white tracking-tight leading-tight truncate">
                   Dr. {(doctor as any).name}
                 </h1>
-                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                {/* Compact metadata row on mobile */}
+                <div className="flex items-center gap-1.5 mt-1 sm:mt-2.5 flex-wrap">
                   {(doctor as any).specialization && (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
+                    <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
                       <Stethoscope className="h-3 w-3" />
                       {(doctor as any).specialization}
                     </span>
                   )}
-                  {(doctor as any).degree && (
-                    <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/50 bg-white/[0.06] border border-white/15 px-2.5 py-1 rounded-full">
-                      {(doctor as any).degree}
+                  <span className="sm:hidden inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-1.5 py-px rounded-full">
+                    <Stethoscope className="h-2.5 w-2.5" />
+                    {(doctor as any).specialization || "Doctor"}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-1.5 sm:px-2.5 py-px sm:py-1 rounded-full">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                     </span>
-                  )}
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/50 bg-white/[0.06] border border-white/15 px-2.5 py-1 rounded-full">
+                    Live
+                  </span>
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/50 bg-white/[0.06] border border-white/15 px-2.5 py-1 rounded-full">
                     <Building2 className="h-3 w-3" />
                     {(doctor as any).clinicName}
                   </span>
@@ -821,33 +853,45 @@ export default function DoctorDashboard() {
               </div>
             </div>
 
+            {/* Sign out — desktop only inside hero */}
+            <button
+              onClick={async () => { await logout(); setLocation("/clinic-login?tab=doctor"); }}
+              disabled={isLoggingOut}
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/60 hover:text-white/90 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] shrink-0"
+            >
+              {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+              Sign Out
+            </button>
           </div>
+        </div>
+        <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
+      </div>
 
-          {/* ── Row 2: Live stats ── */}
-          <div className="relative mt-5">
-            <div className="flex items-center gap-2 pt-4">
-              <div className="flex-1 h-px bg-white/10" />
-              <button
-                onClick={() => setHeroStatsCollapsed(s => !s)}
-                className="h-7 w-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/10 active:bg-white/15 transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
-                title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
-              >
-                <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
-              </button>
-            </div>
-            {!heroStatsCollapsed && (
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* ═══ COMPACT STATS CARDS (white, outside hero) ═══ */}
+      <div className="mb-5 sm:mb-8">
+        <div className="flex items-center justify-between mb-2 px-0.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
+          <button
+            onClick={() => setHeroStatsCollapsed(s => !s)}
+            className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
+            title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
+          </button>
+        </div>
+        {!heroStatsCollapsed && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookingsCount,       Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,      Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: "pending-7days" as QuickFilter, tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",       count: pendingNext7Count,        Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",             count: awaitingApprovalCount,    Icon: TrendingUp,    text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
-            ].map(({ label, shortLabel, subTag, filter, tooltip, count, Icon, text, bg, border }) => (
+              { label: "Today",         subTag: null,          filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookingsCount,       Icon: Calendar,      text: "text-sky-600",      bg: "bg-sky-50",      border: "border-sky-200",      darkText: "dark:text-sky-400", darkBg: "dark:bg-sky-950/20", darkBorder: "dark:border-sky-800" },
+              { label: "Confirmed",     subTag: "7 Days",      filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,      Icon: CheckCircle2,  text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200",  darkText: "dark:text-emerald-400", darkBg: "dark:bg-emerald-950/20", darkBorder: "dark:border-emerald-800" },
+              { label: "Pending",       subTag: "7 Days",      filter: "pending-7days" as QuickFilter, tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",       count: pendingNext7Count,        Icon: Clock,         text: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",    darkText: "dark:text-amber-400", darkBg: "dark:bg-amber-950/20", darkBorder: "dark:border-amber-800" },
+              { label: "All Pending",   subTag: null,          filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",             count: awaitingApprovalCount,    Icon: TrendingUp,    text: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-200",     darkText: "dark:text-rose-400", darkBg: "dark:bg-rose-950/20", darkBorder: "dark:border-rose-800" },
+            ].map(({ label, subTag, filter, tooltip, count, Icon, text, bg, border, darkText, darkBg, darkBorder }) => (
               <TooltipProvider key={label} delayDuration={700}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
-                      className={`flex items-start gap-2 px-2.5 py-3 rounded-xl border bg-white/[0.04] ${border} cursor-pointer transition-all hover:bg-white/[0.09] hover:scale-[1.02] active:scale-[0.98] min-h-[44px] ${quickFilter === filter ? 'ring-1 ring-white/50 bg-white/[0.09]' : ''}`}
+                      className={`flex flex-col items-start gap-1.5 px-3 py-2.5 rounded-xl border bg-card ${border} ${darkBorder} cursor-pointer transition-all hover:bg-muted/40 hover:scale-[1.02] active:scale-[0.98] min-h-[80px] sm:min-h-[90px] ${quickFilter === filter ? 'ring-1 ring-primary/30 bg-primary/5' : ''}`}
                       onClick={() => {
                         setActiveTab("appointments");
                         handleQuickFilter(filter);
@@ -855,17 +899,19 @@ export default function DoctorDashboard() {
                       }}
                       data-testid={`stat-card-${filter}`}
                     >
-                      <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg mt-0.5`}>
-                        <Icon className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-2 w-full">
+                        <div className={`shrink-0 ${text} ${darkText} ${bg} ${darkBg} p-1 rounded-md`}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0 ml-auto`} />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-lg sm:text-xl font-extrabold text-white leading-none tabular-nums">{count}</p>
-                        <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
+                      <div className="min-w-0">
+                        <p className="text-xl font-extrabold text-foreground leading-none tabular-nums">{count}</p>
+                        <p className={`text-xs font-semibold mt-0.5 ${text} ${darkText}`}>{label}</p>
                         {subTag && (
-                          <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
+                          <span className="text-[10px] font-medium text-muted-foreground">{subTag}</span>
                         )}
                       </div>
-                      <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 mt-1`} />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
@@ -874,13 +920,8 @@ export default function DoctorDashboard() {
                 </Tooltip>
               </TooltipProvider>
             ))}
-            </div>
-            )}
           </div>
-        </div>
-
-        {/* Bottom accent line */}
-        <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
+        )}
       </div>
 
       {/* Two-column layout */}
