@@ -2355,7 +2355,7 @@ export class DatabaseStorage implements IStorage {
 
         db.select().from(patients).where(eq(patients.clinicId, clinicId)),
 
-        db.select({ diagnosis: clinicalRecords.diagnosis, category: clinicalRecords.category, doctorName: clinicalRecords.doctorName })
+        db.select({ diagnosis: clinicalRecords.diagnosis, doctorName: clinicalRecords.doctorName })
           .from(clinicalRecords)
           .where(and(
             eq(clinicalRecords.clinicId, clinicId),
@@ -2467,22 +2467,15 @@ export class DatabaseStorage implements IStorage {
       .map(([doctor, count]) => ({ doctor, count }))
       .sort((a, b) => b.count - a.count).slice(0, 8);
 
-    // Procedures & categories
+    // Procedures
     const procMap = new Map<string, number>();
-    const catRevMap = new Map<string, number>();
     for (const r of clinicalRows) {
       for (const d of ((r.diagnosis ?? []) as string[])) {
         if (d) procMap.set(d, (procMap.get(d) ?? 0) + 1);
       }
-      const cat = r.category ?? 'General';
-      catRevMap.set(cat, (catRevMap.get(cat) ?? 0) + 1);
     }
     const topProcedures = Array.from(procMap.entries())
       .map(([procedure, count]) => ({ procedure, count }))
-      .sort((a, b) => b.count - a.count).slice(0, 6);
-
-    const categoryBreakdown = Array.from(catRevMap.entries())
-      .map(([category, count]) => ({ category, count }))
       .sort((a, b) => b.count - a.count).slice(0, 6);
 
     // Conversion funnel counts
@@ -2568,7 +2561,7 @@ export class DatabaseStorage implements IStorage {
         statusBreakdown,
         doctorWorkload,
         topProcedures,
-        categoryBreakdown,
+        categoryBreakdown: [],
         funnel: {
           booked: totalBookings,
           confirmed: confirmedCount,
