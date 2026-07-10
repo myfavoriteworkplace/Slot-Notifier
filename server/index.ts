@@ -955,6 +955,24 @@ By signing below, I confirm that I have read and understood the above and volunt
       } catch (e: any) {
         log(`inventory_items unit_price migration warning: ${e.message}`, "system");
       }
+      // ── Add supplier/barcode/location/batch columns to inventory_items ────
+      try {
+        await db.execute(sql`
+          ALTER TABLE inventory_items
+            ADD COLUMN IF NOT EXISTS sku VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS barcode VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS supplier_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS supplier_contact VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS purchase_price REAL,
+            ADD COLUMN IF NOT EXISTS last_purchased_date TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS location VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS batch_number VARCHAR(100);
+        `);
+        log("inventory_items supplier/barcode/location/batch columns ensured", "system");
+      } catch (e: any) {
+        log(`inventory_items supplier/barcode/location/batch migration warning: ${e.message}`, "system");
+      }
       // ─────────────────────────────────────────────────────────────────────────
 
     } catch (dbErr: any) {

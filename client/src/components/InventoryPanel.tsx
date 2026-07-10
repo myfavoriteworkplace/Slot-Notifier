@@ -9,7 +9,7 @@ import {
   Wrench, FlaskConical, Stethoscope, Box, TrendingDown, TrendingUp,
   ArrowUpDown, ShieldAlert, CalendarClock, Info, Pencil, Download,
   FolderPlus, MoreHorizontal, ChevronLeft, Check, History, Settings2,
-  RefreshCw, XCircle, LayoutGrid,
+  RefreshCw, XCircle, LayoutGrid, BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -543,12 +543,18 @@ type ItemFormState = {
   currentQty: string; reorderLevel: string; criticalLevel: string;
   expiryDate: string; warrantyExpiry: string; nextServiceDate: string;
   notes: string; unitPrice: string;
+  sku: string; barcode: string; manufacturer: string;
+  supplierName: string; supplierContact: string; purchasePrice: string;
+  lastPurchasedDate: string; location: string; batchNumber: string;
 };
 
 const BLANK_FORM: ItemFormState = {
   name: "", trackingType: "consumable", unit: "units", categoryId: "",
   currentQty: "", reorderLevel: "", criticalLevel: "",
   expiryDate: "", warrantyExpiry: "", nextServiceDate: "", notes: "", unitPrice: "",
+  sku: "", barcode: "", manufacturer: "",
+  supplierName: "", supplierContact: "", purchasePrice: "",
+  lastPurchasedDate: "", location: "", batchNumber: "",
 };
 
 function AddItemSheet({
@@ -594,6 +600,15 @@ function AddItemSheet({
       warrantyExpiry: form.warrantyExpiry || null,
       nextServiceDate: form.nextServiceDate || null,
       notes: form.notes || null,
+      sku: form.sku.trim() || null,
+      barcode: form.barcode.trim() || null,
+      manufacturer: form.manufacturer.trim() || null,
+      supplierName: form.supplierName.trim() || null,
+      supplierContact: form.supplierContact.trim() || null,
+      purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : null,
+      lastPurchasedDate: form.lastPurchasedDate || null,
+      location: form.location.trim() || null,
+      batchNumber: form.batchNumber.trim() || null,
     });
   }
 
@@ -694,6 +709,55 @@ function AddItemSheet({
           <div>
             <Label htmlFor="inv-unit-price" className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
             <Input id="inv-unit-price" data-testid="input-unit-price" type="number" min={0} step="0.01" placeholder="e.g. 150" value={form.unitPrice} onChange={onChange("unitPrice")} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="inv-sku" className="text-xs font-semibold mb-1 block">SKU</Label>
+              <Input id="inv-sku" data-testid="input-sku" placeholder="e.g. CON-001" value={form.sku} onChange={onChange("sku")} />
+            </div>
+            <div>
+              <Label htmlFor="inv-barcode" className="text-xs font-semibold mb-1 block">Barcode</Label>
+              <Input id="inv-barcode" data-testid="input-barcode" placeholder="Scan or type barcode" value={form.barcode} onChange={onChange("barcode")} />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="inv-manufacturer" className="text-xs font-semibold mb-1 block">Manufacturer</Label>
+            <Input id="inv-manufacturer" data-testid="input-manufacturer" placeholder="e.g. 3M, Dentsply" value={form.manufacturer} onChange={onChange("manufacturer")} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="inv-supplier-name" className="text-xs font-semibold mb-1 block">Supplier</Label>
+              <Input id="inv-supplier-name" data-testid="input-supplier-name" placeholder="e.g. MedSupply Co." value={form.supplierName} onChange={onChange("supplierName")} />
+            </div>
+            <div>
+              <Label htmlFor="inv-supplier-contact" className="text-xs font-semibold mb-1 block">Supplier Contact</Label>
+              <Input id="inv-supplier-contact" data-testid="input-supplier-contact" placeholder="Phone or email" value={form.supplierContact} onChange={onChange("supplierContact")} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="inv-purchase-price" className="text-xs font-semibold mb-1 block">Purchase Price (₹)</Label>
+              <Input id="inv-purchase-price" data-testid="input-purchase-price" type="number" min={0} step="0.01" placeholder="e.g. 120" value={form.purchasePrice} onChange={onChange("purchasePrice")} />
+            </div>
+            <div>
+              <Label htmlFor="inv-last-purchased" className="text-xs font-semibold mb-1 block">Last Purchased</Label>
+              <Input id="inv-last-purchased" data-testid="input-last-purchased" type="date" value={form.lastPurchasedDate} onChange={onChange("lastPurchasedDate")} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="inv-location" className="text-xs font-semibold mb-1 block">Storage Location</Label>
+              <Input id="inv-location" data-testid="input-location" placeholder="e.g. Cabinet 3, Shelf B" value={form.location} onChange={onChange("location")} />
+            </div>
+            <div>
+              <Label htmlFor="inv-batch" className="text-xs font-semibold mb-1 block">Batch / Lot No.</Label>
+              <Input id="inv-batch" data-testid="input-batch" placeholder="e.g. LOT-2026-04" value={form.batchNumber} onChange={onChange("batchNumber")} />
+            </div>
           </div>
 
           {(form.trackingType === "consumable" || form.trackingType === "perishable") && (
@@ -822,6 +886,15 @@ function ItemDetailDialog({
       warrantyExpiry: item.warrantyExpiry ? format(new Date(item.warrantyExpiry), "yyyy-MM-dd") : "",
       nextServiceDate: item.nextServiceDate ? format(new Date(item.nextServiceDate), "yyyy-MM-dd") : "",
       notes: item.notes || "",
+      sku: item.sku || "",
+      barcode: item.barcode || "",
+      manufacturer: item.manufacturer || "",
+      supplierName: item.supplierName || "",
+      supplierContact: item.supplierContact || "",
+      purchasePrice: item.purchasePrice != null ? String(item.purchasePrice) : "",
+      lastPurchasedDate: item.lastPurchasedDate ? format(new Date(item.lastPurchasedDate), "yyyy-MM-dd") : "",
+      location: item.location || "",
+      batchNumber: item.batchNumber || "",
     });
   }, [item?.id]);
 
@@ -884,6 +957,15 @@ function ItemDetailDialog({
       warrantyExpiry: editForm.warrantyExpiry || null,
       nextServiceDate: editForm.nextServiceDate || null,
       notes: editForm.notes || null,
+      sku: editForm.sku?.trim() || null,
+      barcode: editForm.barcode?.trim() || null,
+      manufacturer: editForm.manufacturer?.trim() || null,
+      supplierName: editForm.supplierName?.trim() || null,
+      supplierContact: editForm.supplierContact?.trim() || null,
+      purchasePrice: editForm.purchasePrice ? Number(editForm.purchasePrice) : null,
+      lastPurchasedDate: editForm.lastPurchasedDate || null,
+      location: editForm.location?.trim() || null,
+      batchNumber: editForm.batchNumber?.trim() || null,
     });
   }
 
@@ -973,6 +1055,19 @@ function ItemDetailDialog({
                 <span className="font-semibold">{format(new Date(item.nextServiceDate), "dd MMM yyyy")}</span>
               </div>
             )}
+            {(item.sku || item.barcode || item.manufacturer || item.supplierName || item.location || item.batchNumber || item.purchasePrice != null || item.lastPurchasedDate) && (
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1.5 text-sm">
+                {item.sku && <div className="flex justify-between gap-2"><span className="text-muted-foreground">SKU</span><span className="font-semibold" data-testid="text-detail-sku">{item.sku}</span></div>}
+                {item.barcode && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Barcode</span><span className="font-semibold" data-testid="text-detail-barcode">{item.barcode}</span></div>}
+                {item.manufacturer && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Manufacturer</span><span className="font-semibold">{item.manufacturer}</span></div>}
+                {item.supplierName && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Supplier</span><span className="font-semibold">{item.supplierName}{item.supplierContact ? ` · ${item.supplierContact}` : ""}</span></div>}
+                {item.purchasePrice != null && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Purchase Price</span><span className="font-semibold">₹{item.purchasePrice}</span></div>}
+                {item.lastPurchasedDate && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Last Purchased</span><span className="font-semibold">{format(new Date(item.lastPurchasedDate), "dd MMM yyyy")}</span></div>}
+                {item.location && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Location</span><span className="font-semibold">{item.location}</span></div>}
+                {item.batchNumber && <div className="flex justify-between gap-2"><span className="text-muted-foreground">Batch / Lot</span><span className="font-semibold">{item.batchNumber}</span></div>}
+              </div>
+            )}
+
             {item.notes && (
               <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-3">{item.notes}</div>
             )}
@@ -1109,6 +1204,50 @@ function ItemDetailDialog({
                 <Input data-testid="input-edit-price-asset" type="number" min={0} step="0.01" placeholder="e.g. 50000" value={editForm.unitPrice || ""} onChange={setEdit("unitPrice")} />
               </div>
             )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">SKU</Label>
+                <Input data-testid="input-edit-sku" placeholder="e.g. CON-001" value={editForm.sku || ""} onChange={setEdit("sku")} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Barcode</Label>
+                <Input data-testid="input-edit-barcode" placeholder="Scan or type barcode" value={editForm.barcode || ""} onChange={setEdit("barcode")} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">Manufacturer</Label>
+              <Input data-testid="input-edit-manufacturer" placeholder="e.g. 3M, Dentsply" value={editForm.manufacturer || ""} onChange={setEdit("manufacturer")} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Supplier</Label>
+                <Input data-testid="input-edit-supplier-name" placeholder="e.g. MedSupply Co." value={editForm.supplierName || ""} onChange={setEdit("supplierName")} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Supplier Contact</Label>
+                <Input data-testid="input-edit-supplier-contact" placeholder="Phone or email" value={editForm.supplierContact || ""} onChange={setEdit("supplierContact")} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Purchase Price (₹)</Label>
+                <Input data-testid="input-edit-purchase-price" type="number" min={0} step="0.01" placeholder="e.g. 120" value={editForm.purchasePrice || ""} onChange={setEdit("purchasePrice")} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Last Purchased</Label>
+                <Input data-testid="input-edit-last-purchased" type="date" value={editForm.lastPurchasedDate || ""} onChange={setEdit("lastPurchasedDate")} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Storage Location</Label>
+                <Input data-testid="input-edit-location" placeholder="e.g. Cabinet 3, Shelf B" value={editForm.location || ""} onChange={setEdit("location")} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold mb-1 block">Batch / Lot No.</Label>
+                <Input data-testid="input-edit-batch" placeholder="e.g. LOT-2026-04" value={editForm.batchNumber || ""} onChange={setEdit("batchNumber")} />
+              </div>
+            </div>
             {(item.trackingType === "consumable" || item.trackingType === "perishable") && (
               <div>
                 <Label className="text-xs font-semibold mb-1 block">Expiry Date</Label>
@@ -1502,7 +1641,15 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
 
   function filterItems(list: InventoryItem[]) {
     return list.filter(i => {
-      const matchSearch = !search || i.name.toLowerCase().includes(search.toLowerCase());
+      const q = search.toLowerCase();
+      const matchSearch = !search ||
+        i.name.toLowerCase().includes(q) ||
+        i.sku?.toLowerCase().includes(q) ||
+        i.barcode?.toLowerCase().includes(q) ||
+        i.manufacturer?.toLowerCase().includes(q) ||
+        i.supplierName?.toLowerCase().includes(q) ||
+        i.batchNumber?.toLowerCase().includes(q) ||
+        i.location?.toLowerCase().includes(q);
       const matchCat = categoryFilter === "all" || String(i.categoryId) === categoryFilter;
       let matchQuick = true;
       if (quickFilter !== "all") {
@@ -1566,6 +1713,19 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
     return sum;
   }, 0);
 
+  // Today's usage & monthly consumption (based on "deduct" transactions)
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const todaysUsage = transactions.reduce((sum, tx) => {
+    if (tx.type !== "deduct" || !tx.performedAt) return sum;
+    return new Date(tx.performedAt) >= startOfToday ? sum + Math.abs(tx.qtyChange) : sum;
+  }, 0);
+  const monthlyConsumption = transactions.reduce((sum, tx) => {
+    if (tx.type !== "deduct" || !tx.performedAt) return sum;
+    return new Date(tx.performedAt) >= startOfMonth ? sum + Math.abs(tx.qtyChange) : sum;
+  }, 0);
+
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-5 h-full">
@@ -1594,6 +1754,18 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
               >
                 <Plus className="h-4 w-4" /> Add Item
               </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-border/50 border-t border-border/50">
+            <div className="px-5 py-2.5 flex items-center gap-2" data-testid="kpi-todays-usage">
+              <TrendingDown className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+              <span className="text-xs text-muted-foreground">Today's Usage:</span>
+              <span className="text-xs font-bold text-foreground">{todaysUsage} units</span>
+            </div>
+            <div className="px-5 py-2.5 flex items-center gap-2" data-testid="kpi-monthly-consumption">
+              <BarChart3 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+              <span className="text-xs text-muted-foreground">This Month:</span>
+              <span className="text-xs font-bold text-foreground">{monthlyConsumption} units consumed</span>
             </div>
           </div>
         </div>
@@ -1640,7 +1812,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
                 <input
                   data-testid="input-search-items"
                   className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  placeholder="Search items..."
+                  placeholder="Search by name, SKU, barcode, supplier..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />

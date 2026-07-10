@@ -567,6 +567,15 @@ export const inventoryItems = pgTable("inventory_items", {
   warrantyExpiry: timestamp("warranty_expiry"),
   nextServiceDate: timestamp("next_service_date"),
   notes: text("notes"),
+  sku: varchar("sku", { length: 100 }),
+  barcode: varchar("barcode", { length: 100 }),
+  manufacturer: varchar("manufacturer", { length: 255 }),
+  supplierName: varchar("supplier_name", { length: 255 }),
+  supplierContact: varchar("supplier_contact", { length: 255 }),
+  purchasePrice: real("purchase_price"),
+  lastPurchasedDate: timestamp("last_purchased_date"),
+  location: varchar("location", { length: 255 }),
+  batchNumber: varchar("batch_number", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

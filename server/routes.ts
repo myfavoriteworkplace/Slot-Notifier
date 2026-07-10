@@ -5307,7 +5307,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
       const { name, trackingType, unit, currentQty, reorderLevel, criticalLevel,
-              expiryDate, warrantyExpiry, nextServiceDate, notes, categoryId } = req.body;
+              expiryDate, warrantyExpiry, nextServiceDate, notes, categoryId, unitPrice,
+              sku, barcode, manufacturer, supplierName, supplierContact, purchasePrice,
+              lastPurchasedDate, location, batchNumber } = req.body;
       if (!name) return res.status(400).json({ message: "Name required" });
       const item = await storage.createInventoryItem({
         clinicId, name,
@@ -5316,11 +5318,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         currentQty: currentQty ?? 0,
         reorderLevel: reorderLevel ?? null,
         criticalLevel: criticalLevel ?? null,
+        unitPrice: unitPrice ?? null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null,
         nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
         notes: notes || null,
         categoryId: categoryId || null,
+        sku: sku || null,
+        barcode: barcode || null,
+        manufacturer: manufacturer || null,
+        supplierName: supplierName || null,
+        supplierContact: supplierContact || null,
+        purchasePrice: purchasePrice ?? null,
+        lastPurchasedDate: lastPurchasedDate ? new Date(lastPurchasedDate) : null,
+        location: location || null,
+        batchNumber: batchNumber || null,
       });
       // Record initial stock transaction if qty > 0
       if (item.currentQty > 0) {
@@ -5348,6 +5360,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (updates.expiryDate) updates.expiryDate = new Date(updates.expiryDate);
       if (updates.warrantyExpiry) updates.warrantyExpiry = new Date(updates.warrantyExpiry);
       if (updates.nextServiceDate) updates.nextServiceDate = new Date(updates.nextServiceDate);
+      if (updates.lastPurchasedDate) updates.lastPurchasedDate = new Date(updates.lastPurchasedDate);
       const item = await storage.updateInventoryItem(id, clinicId, updates);
       res.json(item);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
