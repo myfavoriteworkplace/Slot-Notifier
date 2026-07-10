@@ -2137,6 +2137,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
         onClose={handleDetailClose}
         onDelete={(id) => deleteMutation.mutate(id)}
         transactions={allTransactions}
+        initialMode={detailOpenInStock ? "stock" : "detail"}
       />
     </TooltipProvider>
   );
