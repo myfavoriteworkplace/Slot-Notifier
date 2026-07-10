@@ -226,35 +226,12 @@ export default function ClinicDashboard() {
         });
       }
 
-      // Root-cause fix: notification clicks previously only ever opened the single-
-      // appointment Booking Detail dialog above. The full Patient Directory card
-      // (cross-visit history) was never wired up at all. Resolve the patient behind
-      // this booking and open their Patient Directory card alongside the dialog —
-      // works from any panel/tab since it doesn't depend on the currently loaded list.
-      resolveNotifPatientId(detail.bookingId);
-    }
-  };
-
-  const resolveNotifPatientId = async (bookingId: number) => {
-    try {
-      const cached = queryClient.getQueryData<{ id: number; patientId?: number | null }[]>(["/api/auth/clinic/bookings"]);
-      const cachedMatch = cached?.find((b) => b.id === bookingId);
-      let patientId = cachedMatch?.patientId ?? undefined;
-
-      if (!patientId) {
-        const res = await apiRequest("GET", `/api/auth/clinic/bookings/${bookingId}`);
-        if (res.ok) {
-          const booking = await res.json();
-          patientId = booking?.patientId ?? undefined;
-        }
-      }
-
-      if (patientId) {
-        setActivePanel("patients");
-        setSelectedPatientId(patientId);
-      }
-    } catch {
-      // Non-fatal — the Booking Detail dialog above already opened successfully.
+      // Notification clicks open the single-appointment Booking Detail dialog
+      // (setOpenBookingId above) — the same popup used in the Bookings panel and
+      // in the Doctor dashboard. We intentionally do NOT switch to the Patient
+      // Directory panel here: doing so previously replaced the Booking Detail
+      // dialog with the patient's aggregate, all-visits card, which showed the
+      // wrong visit and didn't match the notification's specific booking.
     }
   };
 
