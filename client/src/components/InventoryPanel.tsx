@@ -5,7 +5,7 @@ import { notify } from "@/lib/notify";
 import { format, differenceInDays, isToday, isYesterday, isThisWeek } from "date-fns";
 import {
   Package, Plus, Search, AlertTriangle, CheckCircle2, Clock,
-  Trash2, Minus, PackagePlus, ClipboardList, X,
+  Trash2, PackagePlus, ClipboardList, X,
   Wrench, FlaskConical, Stethoscope, Box, TrendingDown, TrendingUp,
   ArrowUpDown, ShieldAlert, CalendarClock, Info, Pencil, Download,
   FolderPlus, MoreHorizontal, ChevronLeft, Check, History, Settings2,
@@ -266,10 +266,11 @@ function ConsumableCard({
   const expiryLabel = () => {
     if (!item.expiryDate) return null;
     const days = differenceInDays(new Date(item.expiryDate), new Date());
+    const exactDate = format(new Date(item.expiryDate), "dd MMM yyyy");
     if (days < 0) return { text: "Expired", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
-    if (days <= 7) return { text: `Exp ${days}d`, cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
-    if (days <= 30) return { text: `Exp ${days}d`, cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" };
-    return { text: format(new Date(item.expiryDate), "dd MMM yy"), cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" };
+    if (days <= 7) return { text: `Exp ${days}d · ${exactDate}`, cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
+    if (days <= 30) return { text: `Exp ${days}d · ${exactDate}`, cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" };
+    return { text: exactDate, cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" };
   };
 
   const exp = expiryLabel();
@@ -305,13 +306,13 @@ function ConsumableCard({
         )}
       </div>
 
-      <div className="flex items-baseline gap-1.5 mb-2">
+      <div className="flex items-baseline gap-1.5 mb-0.5">
         <span className={`text-3xl font-extrabold tracking-tight leading-none ${col.text}`}>{item.currentQty}</span>
-        {item.unit && <span className="text-xs text-muted-foreground font-medium">{item.unit}</span>}
-        {item.reorderLevel !== null && (
-          <span className="ml-auto text-xs text-muted-foreground">min {item.reorderLevel}</span>
-        )}
+        <span className="text-xs text-muted-foreground font-medium">{item.unit || "units"} left</span>
       </div>
+      {item.reorderLevel !== null && (
+        <div className="text-xs text-muted-foreground text-right mb-2">Reorder at {item.reorderLevel}</div>
+      )}
 
       <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-3">
         <div className={`h-full rounded-full transition-all ${col.bar}`} style={{ width: `${pct}%` }} />
@@ -328,10 +329,11 @@ function ConsumableCard({
         </div>
         <button
           data-testid={`deduct-btn-${item.id}`}
+          aria-label="Update stock"
           onClick={(e) => { e.stopPropagation(); onDeduct(item); }}
-          className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground min-h-[32px]"
+          className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground min-h-[44px]"
         >
-          <Minus className="h-3 w-3" /> Deduct
+          <ArrowUpDown className="h-3 w-3" /> Update Stock
         </button>
       </div>
     </div>
@@ -798,51 +800,6 @@ function AddItemSheet({
   );
 }
 
-// ─── Qty Stepper ─────────────────────────────────────────────────────────────
-
-function QtyStepper({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  function step(delta: number) {
-    const current = Number(value) || 0;
-    onChange(String(Math.max(0, current + delta)));
-  }
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        data-testid="btn-qty-minus"
-        onClick={() => step(-1)}
-        className="h-10 w-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors shrink-0"
-      >
-        <Minus className="h-4 w-4" />
-      </button>
-      <Input
-        data-testid="input-stock-qty"
-        type="number"
-        min={0}
-        placeholder="0"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="text-center"
-        required
-      />
-      <button
-        type="button"
-        data-testid="btn-qty-plus"
-        onClick={() => step(1)}
-        className="h-10 w-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors shrink-0"
-      >
-        <Plus className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
 // ─── Item Detail Dialog (merged: detail + stock update + edit) ────────────────
 
 type DetailMode = "detail" | "stock";
@@ -1255,28 +1212,41 @@ function ItemDetailDialog({
 
         {/* ── STOCK MODE ── */}
         {mode === "stock" && (
-          <form id="stock-form" onSubmit={handleStockSubmit} className="space-y-4 mt-2">
+          <form id="stock-form" onSubmit={handleStockSubmit} className="space-y-3 mt-1">
             <div className="text-sm text-muted-foreground">
               Current: <strong>{item.currentQty} {item.unit || "units"}</strong>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {(["add", "deduct", "adjust"] as const).map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setStockType(t)}
-                  className={`py-3 rounded-lg text-xs font-bold capitalize border transition-all min-h-[44px] ${stockType === t ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-muted-foreground/50"}`}
-                >
-                  {t === "add" ? <TrendingUp className="h-3.5 w-3.5 mx-auto mb-0.5" /> : t === "deduct" ? <TrendingDown className="h-3.5 w-3.5 mx-auto mb-0.5" /> : <RefreshCw className="h-3.5 w-3.5 mx-auto mb-0.5" />}
-                  {t === "adjust" ? "Set to" : t}
-                </button>
-              ))}
             </div>
             <div>
               <Label className="text-xs font-semibold mb-1 block">
                 {stockType === "adjust" ? "Set quantity to" : `Quantity to ${stockType}`}
               </Label>
-              <QtyStepper value={stockQty} onChange={setStockQty} />
+              <div className="flex items-stretch gap-2">
+                <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+                  {(["add", "deduct", "adjust"] as const).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      data-testid={`btn-stock-type-${t}`}
+                      onClick={() => setStockType(t)}
+                      aria-label={t === "adjust" ? "Set to" : t}
+                      className={`px-2.5 flex items-center justify-center min-h-[44px] transition-colors ${stockType === t ? "bg-emerald-600 text-white" : "bg-transparent text-muted-foreground hover:bg-muted"} ${t !== "add" ? "border-l border-border" : ""}`}
+                    >
+                      {t === "add" ? <TrendingUp className="h-4 w-4" /> : t === "deduct" ? <TrendingDown className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                    </button>
+                  ))}
+                </div>
+                <Input
+                  data-testid="input-stock-qty"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="0"
+                  value={stockQty}
+                  onChange={e => setStockQty(e.target.value)}
+                  className="flex-1"
+                  required
+                />
+              </div>
             </div>
             <div>
               <Label className="text-xs font-semibold mb-1 block">Reason</Label>
@@ -1293,15 +1263,6 @@ function ItemDetailDialog({
         <DialogFooter className="flex-col gap-2 sm:flex-row mt-4">
           {mode === "detail" && !isEditing && (
             <>
-              {!isAsset && (
-                <Button
-                  data-testid="btn-detail-stock"
-                  onClick={() => setMode("stock")}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <ArrowUpDown className="h-4 w-4 mr-1" /> Update Stock
-                </Button>
-              )}
               <Button
                 data-testid="btn-detail-edit"
                 variant="outline"
@@ -1366,7 +1327,7 @@ function ItemDetailDialog({
                 disabled={stockMutation.isPending || !stockQty}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {stockMutation.isPending ? "Saving..." : <><Check className="h-4 w-4 mr-1" /> Save</>}
+                {stockMutation.isPending ? "Updating..." : <><Check className="h-4 w-4 mr-1" /> Update</>}
               </Button>
             </>
           )}
