@@ -925,7 +925,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="px-3 pb-3 flex flex-col items-center gap-3">
               {/* QR Code */}
-              <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner w-full flex items-center justify-center">
+              <div className="relative rounded-2xl overflow-hidden bg-white dark:bg-muted/20 p-3 border border-border/40 shadow-inner w-full flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
                 <QRCode
                   value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
@@ -1808,7 +1808,7 @@ export default function DoctorDashboard() {
                       </p>
                     </div>
                     <div className="px-5 py-4 flex flex-col sm:flex-row gap-4 items-center">
-                      <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner shrink-0 flex items-center justify-center">
+                      <div className="relative rounded-2xl overflow-hidden bg-white dark:bg-muted/20 p-3 border border-border/40 shadow-inner shrink-0 flex items-center justify-center">
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
                         <QRCode
                           value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
@@ -2562,7 +2562,7 @@ export default function DoctorDashboard() {
             </button>
             {doctor && (
               <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border/50 bg-muted/20">
-                <div className="rounded-xl overflow-hidden bg-white p-2 border border-border/40 shadow-inner shrink-0">
+                <div className="rounded-xl overflow-hidden bg-white dark:bg-muted/20 p-2 border border-border/40 shadow-inner shrink-0">
                   <QRCode
                     value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
                     size={64}

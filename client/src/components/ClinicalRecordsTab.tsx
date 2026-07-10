@@ -342,7 +342,7 @@ function HistoryRow({
             <div className="flex flex-wrap gap-1">
               {record.diagnosis.map(d => (
                 <Badge key={d} variant="outline"
-                  className="text-xs px-1.5 py-0 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
+                  className="text-xs px-1.5 py-0 rounded-full border-green-800/30 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 dark:border-green-700/50 font-semibold">
                   {d}
                 </Badge>
               ))}
@@ -718,11 +718,11 @@ export default function ClinicalRecordsTab({
 
           {/* Latest Diagnosis */}
           {latestDx && !(showDxForm && dxEditId === latestDx.id) ? (
-            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
-              <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
+            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
+              <div className="px-3 py-2 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
-                  <ClipboardList className="h-3 w-3 text-green-800" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Latest Diagnosis</span>
+                  <ClipboardList className="h-3 w-3 text-green-800 dark:text-green-300" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Latest Diagnosis</span>
                   <span className="text-xs text-muted-foreground/60 font-medium">
                     {format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a")}
                   </span>
@@ -788,7 +788,7 @@ export default function ClinicalRecordsTab({
                 <div className="flex flex-wrap gap-1">
                   {latestDx.diagnosis!.map(d => (
                     <Badge key={d} variant="outline"
-                      className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
+                      className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 dark:border-green-700/50 font-semibold">
                       {d}
                     </Badge>
                   ))}

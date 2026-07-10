@@ -494,19 +494,19 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
 
   // ── Condition picker (shown when tooth selected) ─────────────────────────────
   const conditionPicker = selectedTooth && (
-    <div className="mx-3 mb-2 rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+    <div className="mx-3 mb-2 rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
+      <div className="px-3 py-2 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-bold text-green-800">Tooth {selectedTooth}</span>
-          <span className="text-xs text-green-700 truncate">— {TOOTH_NAMES[selectedTooth]}</span>
+          <span className="text-xs font-bold text-green-800 dark:text-green-300">Tooth {selectedTooth}</span>
+          <span className="text-xs text-green-700 dark:text-green-400 truncate">— {TOOTH_NAMES[selectedTooth]}</span>
           {isNewThisVisit(selectedTooth) && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-600 text-white">Edited</span>
           )}
         </div>
         <button
           onClick={() => setSelectedTooth(null)}
-          className="h-5 w-5 rounded flex items-center justify-center text-green-700 hover:bg-green-100 transition-colors shrink-0"
+          className="h-5 w-5 rounded flex items-center justify-center text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors shrink-0"
           aria-label="Close tooth detail"
         >
           <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
@@ -655,7 +655,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
           </span>
         )}
         {isEditable && (
-          <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/50 px-2 py-0.5 rounded-full">
             Click a tooth to chart
           </span>
         )}

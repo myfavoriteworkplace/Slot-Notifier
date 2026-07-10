@@ -1118,12 +1118,12 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("consultation")}
-                      className="w-full px-3 py-2 bg-green-50 flex items-center gap-1.5 hover:bg-green-100 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-green-50 dark:bg-green-900/30 flex items-center gap-1.5 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-left"
                       data-testid={`button-section-consultation-${bill.id}`}
                     >
-                      <Stethoscope className="h-3 w-3 text-green-800 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 flex-1">Consultation &amp; Procedures</span>
-                      <ChevronDown className={`h-3 w-3 text-green-800 ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
+                      <Stethoscope className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300 flex-1">Consultation &amp; Procedures</span>
+                      <ChevronDown className={`h-3 w-3 text-green-800 dark:text-green-300 ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
                     </button>
                     {consultOpen && (
                       <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
@@ -1257,12 +1257,12 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("pharmacy")}
-                      className="w-full px-3 py-2 bg-green-50 flex items-center gap-1.5 hover:bg-green-100 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-green-50 dark:bg-green-900/30 flex items-center gap-1.5 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-left"
                       data-testid={`button-section-pharmacy-${bill.id}`}
                     >
-                      <Pill className="h-3 w-3 text-green-800 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 flex-1">Pharmacy</span>
-                      <ChevronDown className={`h-3 w-3 text-green-800 ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
+                      <Pill className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300 flex-1">Pharmacy</span>
+                      <ChevronDown className={`h-3 w-3 text-green-800 dark:text-green-300 ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
                     </button>
                     {pharmacyOpen && (
                       <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
@@ -1403,12 +1403,12 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("other")}
-                      className="w-full px-3 py-2 bg-green-50 flex items-center gap-1.5 hover:bg-green-100 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-green-50 dark:bg-green-900/30 flex items-center gap-1.5 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-left"
                       data-testid={`button-section-other-${bill.id}`}
                     >
-                      <ClipboardList className="h-3 w-3 text-green-800 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 flex-1">Other</span>
-                      <ChevronDown className={`h-3 w-3 text-green-800 ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
+                      <ClipboardList className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300 flex-1">Other</span>
+                      <ChevronDown className={`h-3 w-3 text-green-800 dark:text-green-300 ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
                     </button>
                     {otherOpen && otherItems.map(({ svc, origIdx }) => {
                       const itemKey = `${bill.id}-${origIdx}`;
