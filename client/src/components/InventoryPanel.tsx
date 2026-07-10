@@ -9,7 +9,7 @@ import {
   Wrench, FlaskConical, Stethoscope, Box, TrendingDown, TrendingUp,
   ArrowUpDown, ShieldAlert, CalendarClock, Info, Pencil, Download,
   FolderPlus, MoreHorizontal, ChevronLeft, Check, History, Settings2,
-  RefreshCw,
+  RefreshCw, XCircle, LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,6 +124,59 @@ const TRACKING_ICONS: Record<string, typeof Package> = {
 
 const UNIT_OPTIONS = ["units", "pcs", "boxes", "packs", "bottles", "vials", "pairs", "rolls", "sheets", "ml", "mg", "g", "kg"];
 
+// ─── Status badge (bigger, glanceable badge shown alongside the existing border/dot treatment) ──
+
+type StatusBadgeInfo = { label: string; icon: typeof ShieldAlert; cls: string };
+
+function getStatusBadge(item: InventoryItem, status: ItemStatus): StatusBadgeInfo | null {
+  const isAsset = item.trackingType === "equipment" || item.trackingType === "instrument";
+  if (!isAsset && item.currentQty <= 0) {
+    return {
+      label: "OUT OF STOCK",
+      icon: XCircle,
+      cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+    };
+  }
+  switch (status) {
+    case "critical":
+      return {
+        label: "CRITICAL",
+        icon: ShieldAlert,
+        cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+      };
+    case "low":
+      return {
+        label: "LOW STOCK",
+        icon: TrendingDown,
+        cls: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
+      };
+    case "expiry":
+      return {
+        label: isAsset ? "SERVICE DUE" : "EXPIRING",
+        icon: CalendarClock,
+        cls: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
+      };
+    default:
+      return null;
+  }
+}
+
+// ─── Quick filter chips (kept alongside the category dropdown — chips for common cuts, dropdown for full category list) ──
+
+type QuickFilter = "all" | "consumable" | "perishable" | "equipment" | "instrument" | "critical" | "low" | "expiry" | "outofstock";
+
+const QUICK_FILTERS: { value: QuickFilter; label: string; icon: typeof Package }[] = [
+  { value: "all", label: "All", icon: LayoutGrid },
+  { value: "consumable", label: "Consumables", icon: Package },
+  { value: "perishable", label: "Perishables", icon: FlaskConical },
+  { value: "equipment", label: "Equipment", icon: Wrench },
+  { value: "instrument", label: "Instruments", icon: Stethoscope },
+  { value: "critical", label: "Critical", icon: ShieldAlert },
+  { value: "low", label: "Low Stock", icon: TrendingDown },
+  { value: "expiry", label: "Expiring", icon: CalendarClock },
+  { value: "outofstock", label: "Out of Stock", icon: XCircle },
+];
+
 // ─── AlertStrip ──────────────────────────────────────────────────────────────
 
 function AlertStrip({
@@ -208,6 +261,7 @@ function ConsumableCard({
   const pct = getStockPercent(item);
   const cat = categories.find(c => c.id === item.categoryId);
   const Icon = TRACKING_ICONS[item.trackingType] ?? Package;
+  const badge = getStatusBadge(item, status);
 
   const expiryLabel = () => {
     if (!item.expiryDate) return null;
@@ -228,7 +282,7 @@ function ConsumableCard({
     >
       <div className={`absolute top-0 left-0 right-0 h-[3px] rounded-t-xl ${col.bar}`} />
 
-      <div className="flex items-start justify-between mb-2 mt-1">
+      <div className="flex items-start justify-between gap-2 mb-2 mt-1">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${col.dot}`} />
@@ -240,6 +294,15 @@ function ConsumableCard({
             {cat && <><span>·</span><span>{cat.name}</span></>}
           </div>
         </div>
+        {badge && (
+          <span
+            data-testid={`status-badge-${item.id}`}
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-1 rounded-md border shrink-0 whitespace-nowrap ${badge.cls}`}
+          >
+            <badge.icon className="h-3 w-3 shrink-0" />
+            {badge.label}
+          </span>
+        )}
       </div>
 
       <div className="flex items-baseline gap-1.5 mb-2">
@@ -288,6 +351,8 @@ function AssetRow({
 }) {
   const cat = categories.find(c => c.id === item.categoryId);
   const Icon = TRACKING_ICONS[item.trackingType] ?? Wrench;
+  const status = getItemStatus(item);
+  const badge = getStatusBadge(item, status);
 
   const serviceStatus = () => {
     if (!item.nextServiceDate) return null;
@@ -325,6 +390,15 @@ function AssetRow({
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
+        {badge && (
+          <span
+            data-testid={`status-badge-${item.id}`}
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-1 rounded-md border shrink-0 whitespace-nowrap ${badge.cls}`}
+          >
+            <badge.icon className="h-3 w-3 shrink-0" />
+            {badge.label}
+          </span>
+        )}
         {svc && <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${svc.cls}`}>{svc.text}</span>}
         {wty && <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${wty.cls}`}>{wty.text}</span>}
         {!svc && !wty && <span className="text-xs text-muted-foreground italic">No service/warranty set</span>}
@@ -1341,6 +1415,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
   const [alertFilter, setAlertFilter] = useState<ItemStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [logSearch, setLogSearch] = useState("");
   const [logTypeFilter, setLogTypeFilter] = useState<"all" | "add" | "deduct" | "adjust">("all");
   const [showAddItem, setShowAddItem] = useState(false);
@@ -1429,13 +1504,29 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
     return list.filter(i => {
       const matchSearch = !search || i.name.toLowerCase().includes(search.toLowerCase());
       const matchCat = categoryFilter === "all" || String(i.categoryId) === categoryFilter;
-      return matchSearch && matchCat;
+      let matchQuick = true;
+      if (quickFilter !== "all") {
+        if (quickFilter === "consumable" || quickFilter === "perishable" || quickFilter === "equipment" || quickFilter === "instrument") {
+          matchQuick = i.trackingType === quickFilter;
+        } else if (quickFilter === "outofstock") {
+          matchQuick = i.currentQty <= 0;
+        } else {
+          matchQuick = getItemStatus(i) === quickFilter;
+        }
+      }
+      return matchSearch && matchCat && matchQuick;
     });
   }
 
   const filteredConsumables = filterItems(consumables);
   const filteredAssets = filterItems(assets);
-  const hasActiveFilters = search || categoryFilter !== "all";
+  const hasActiveFilters = !!search || categoryFilter !== "all" || quickFilter !== "all";
+
+  function clearAllFilters() {
+    setSearch("");
+    setCategoryFilter("all");
+    setQuickFilter("all");
+  }
 
   // Filtered alerts
   const filteredAlerts = alertFilter === "all"
@@ -1587,6 +1678,25 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
               </Tooltip>
             </div>
 
+            {/* Quick filter chips — kept alongside the category dropdown above (chips = common cuts, dropdown = full category list) */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {QUICK_FILTERS.map(({ value, label, icon: ChipIcon }) => (
+                <button
+                  key={value}
+                  data-testid={`quick-filter-${value}`}
+                  onClick={() => setQuickFilter(value)}
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all min-h-[32px] ${
+                    quickFilter === value
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "border-border text-muted-foreground hover:border-muted-foreground/50"
+                  }`}
+                >
+                  <ChipIcon className="h-3.5 w-3.5 shrink-0" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)}
@@ -1644,7 +1754,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
                         data-testid="btn-clear-filters"
                         variant="outline"
                         className="mt-4"
-                        onClick={() => { setSearch(""); setCategoryFilter("all"); }}
+                        onClick={clearAllFilters}
                       >
                         <X className="h-3.5 w-3.5 mr-1.5" /> Clear Filters
                       </Button>
