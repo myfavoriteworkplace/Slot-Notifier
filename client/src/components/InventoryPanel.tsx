@@ -88,30 +88,38 @@ function exportInventoryCSV(items: InventoryItem[], categories: InventoryCategor
   URL.revokeObjectURL(url);
 }
 
-const STATUS_COLORS: Record<ItemStatus, { dot: string; bar: string; card: string; text: string }> = {
+const STATUS_COLORS: Record<ItemStatus, { dot: string; bar: string; card: string; text: string; highlight: string; iconBg: string }> = {
   critical: {
     dot: "bg-red-500 animate-pulse",
     bar: "bg-red-500",
     card: "border-red-200 dark:border-red-900/50",
     text: "text-red-600 dark:text-red-400",
+    highlight: "bg-red-50 dark:bg-red-950/30",
+    iconBg: "bg-red-100 dark:bg-red-900/40",
   },
   low: {
     dot: "bg-yellow-500",
     bar: "bg-yellow-500",
     card: "border-yellow-200 dark:border-yellow-900/50",
     text: "text-yellow-600 dark:text-yellow-500",
+    highlight: "bg-yellow-50 dark:bg-yellow-950/30",
+    iconBg: "bg-yellow-100 dark:bg-yellow-900/40",
   },
   expiry: {
     dot: "bg-orange-500 animate-pulse",
     bar: "bg-orange-500",
     card: "border-orange-200 dark:border-orange-900/50",
     text: "text-orange-600 dark:text-orange-400",
+    highlight: "bg-orange-50 dark:bg-orange-950/30",
+    iconBg: "bg-orange-100 dark:bg-orange-900/40",
   },
   ok: {
     dot: "bg-emerald-500",
     bar: "bg-emerald-500",
     card: "border-border",
     text: "text-emerald-600 dark:text-emerald-400",
+    highlight: "bg-emerald-50 dark:bg-emerald-950/30",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
   },
 };
 
@@ -1227,14 +1235,21 @@ function ItemDetailDialog({
           <form id="stock-form" onSubmit={handleStockSubmit} className="space-y-4 mt-1">
             <div
               data-testid="text-current-qty"
-              className={`flex items-center justify-between rounded-xl border-2 ${col.card} px-4 py-2.5`}
+              className={`flex items-center justify-between rounded-xl border ${col.card} ${col.highlight} px-4 py-3`}
             >
-              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Current Stock</span>
-              <span className={`text-xl font-extrabold ${col.text}`}>{item.currentQty} <span className="text-xs font-semibold text-muted-foreground">{item.unit || "units"}</span></span>
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${col.iconBg} shrink-0`}>
+                  <Package className={`h-4 w-4 ${col.text}`} />
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Current Stock</span>
+              </div>
+              <span className={`text-2xl font-extrabold leading-none ${col.text}`}>
+                {item.currentQty} <span className="text-xs font-semibold text-muted-foreground">{item.unit || "units"}</span>
+              </span>
             </div>
 
-            <div>
-              <div className="flex rounded-lg border border-border overflow-hidden mb-2">
+            <div className="flex items-stretch gap-2">
+              <div className="flex flex-[1.6] rounded-lg border border-border overflow-hidden h-11">
                 {STOCK_TYPE_OPTIONS.map(({ key, label, icon: TypeIcon }) => (
                   <button
                     key={key}
@@ -1242,16 +1257,13 @@ function ItemDetailDialog({
                     data-testid={`btn-stock-type-${key}`}
                     onClick={() => setStockType(key)}
                     aria-label={label}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 min-h-[44px] text-sm font-bold transition-colors ${stockType === key ? "bg-emerald-600 text-white" : "bg-transparent text-muted-foreground hover:bg-muted"} ${key !== "add" ? "border-l border-border" : ""}`}
+                    aria-pressed={stockType === key}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-1.5 text-xs sm:text-sm font-bold transition-colors ${stockType === key ? "bg-emerald-600 text-white" : "bg-transparent text-muted-foreground hover:bg-muted"} ${key !== "add" ? "border-l border-border" : ""}`}
                   >
                     <TypeIcon className="h-4 w-4 shrink-0" /> {label}
                   </button>
                 ))}
               </div>
-
-              <Label className="text-xs font-semibold mb-1 block">
-                {STOCK_TYPE_LABELS[stockType]}
-              </Label>
               <Input
                 data-testid="input-stock-qty"
                 type="number"
@@ -1260,13 +1272,16 @@ function ItemDetailDialog({
                 placeholder="0"
                 value={stockQty}
                 onChange={e => setStockQty(e.target.value)}
-                className="h-11 w-32 text-center text-lg font-bold"
+                className="flex-1 h-11 text-center text-lg font-bold"
                 required
               />
             </div>
+            <Label className="text-xs font-semibold -mt-2 block">
+              {STOCK_TYPE_LABELS[stockType]}
+            </Label>
 
-            <div>
-              <Label className="text-xs font-semibold mb-1 block">Reason</Label>
+            <div className="pt-3 border-t border-border/60">
+              <Label className="text-xs font-semibold mb-1 block text-muted-foreground">Reason <span className="font-normal normal-case">(optional)</span></Label>
               <Input
                 data-testid="input-stock-reason"
                 placeholder="e.g. Used in procedure, restocked from supplier"
