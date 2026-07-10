@@ -140,7 +140,7 @@ export default function DoctorDashboard() {
   const [dialogExpanded, setDialogExpanded] = useState(false);
   const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
-  const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number } | null>(() => {
+  const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number; notifType?: string } | null>(() => {
     if (typeof window === "undefined") return null;
     const pending = sessionStorage.getItem("pendingNotifNav");
     if (!pending) return null;
@@ -191,11 +191,26 @@ export default function DoctorDashboard() {
   }, [isLoading, isAuthenticated, setLocation]);
 
   // ── Notification deep-link helpers ────────────────────────────────────────
-  const applyDoctorNotifNav = (detail: { bookingId?: number }) => {
+  const notifTabMap: Record<string, "overview" | "notes" | "diagnosis" | "prescription" | "chart"> = {
+    doctor_assigned: "overview",
+    patient_checked_in: "overview",
+    admin_confirmed: "overview",
+    booking_rescheduled: "overview",
+    booking_cancelled: "overview",
+    patient_no_show: "overview",
+    visit_override_completed: "overview",
+    patient_left_early: "overview",
+    consent_requested: "overview",
+    booking_note_added: "notes",
+  };
+
+  const applyDoctorNotifNav = (detail: { bookingId?: number; notifType?: string }) => {
     if (detail.bookingId) {
       // The patient modal is at the top level of DoctorDashboard so it opens
       // regardless of which tab is active — no tab switch needed.
       setPatientModalId(detail.bookingId);
+      const tab = detail.notifType ? notifTabMap[detail.notifType] : undefined;
+      setPatientModalTab(tab ?? "overview");
     }
   };
 

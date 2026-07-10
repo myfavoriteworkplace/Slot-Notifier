@@ -198,6 +198,15 @@ export default function ClinicDashboard() {
   // ── Notification deep-link helpers ────────────────────────────────────────
   const applyClinicNotifNav = (detail: { bookingId?: number; notifType?: string; panel?: string }) => {
     const tabMap: Record<string, "overview" | "clinical" | "notes" | "actions" | "billing"> = {
+      new_booking: "overview",
+      paid_booking_confirmed: "billing",
+      booking_rescheduled: "overview",
+      booking_cancelled: "actions",
+      doctor_assigned: "overview",
+      doctor_approved: "overview",
+      doctor_declined: "actions",
+      consultation_started: "actions",
+      visit_completed: "billing",
       clinical_record_created: "clinical",
       clinical_record_updated: "clinical",
       case_closed_by_doctor: "clinical",
