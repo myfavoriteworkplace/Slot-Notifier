@@ -804,6 +804,18 @@ function AddItemSheet({
 
 type DetailMode = "detail" | "stock";
 
+const STOCK_TYPE_OPTIONS: { key: "add" | "deduct" | "adjust"; label: string; icon: typeof TrendingUp }[] = [
+  { key: "add", label: "Add", icon: TrendingUp },
+  { key: "deduct", label: "Deduct", icon: TrendingDown },
+  { key: "adjust", label: "Set", icon: RefreshCw },
+];
+
+const STOCK_TYPE_LABELS: Record<"add" | "deduct" | "adjust", string> = {
+  add: "Set qty to add",
+  deduct: "Set qty to deduct",
+  adjust: "Set current qty",
+};
+
 function ItemDetailDialog({
   item,
   categories,
@@ -1212,42 +1224,47 @@ function ItemDetailDialog({
 
         {/* ── STOCK MODE ── */}
         {mode === "stock" && (
-          <form id="stock-form" onSubmit={handleStockSubmit} className="space-y-3 mt-1">
-            <div className="text-sm text-muted-foreground">
-              Current: <strong>{item.currentQty} {item.unit || "units"}</strong>
+          <form id="stock-form" onSubmit={handleStockSubmit} className="space-y-4 mt-1">
+            <div
+              data-testid="text-current-qty"
+              className={`flex items-center justify-between rounded-xl border-2 ${col.card} px-4 py-2.5`}
+            >
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Current Stock</span>
+              <span className={`text-xl font-extrabold ${col.text}`}>{item.currentQty} <span className="text-xs font-semibold text-muted-foreground">{item.unit || "units"}</span></span>
             </div>
+
             <div>
-              <Label className="text-xs font-semibold mb-1 block">
-                {stockType === "adjust" ? "Set quantity to" : `Quantity to ${stockType}`}
-              </Label>
-              <div className="flex items-stretch gap-2">
-                <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
-                  {(["add", "deduct", "adjust"] as const).map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      data-testid={`btn-stock-type-${t}`}
-                      onClick={() => setStockType(t)}
-                      aria-label={t === "adjust" ? "Set to" : t}
-                      className={`px-2.5 flex items-center justify-center min-h-[44px] transition-colors ${stockType === t ? "bg-emerald-600 text-white" : "bg-transparent text-muted-foreground hover:bg-muted"} ${t !== "add" ? "border-l border-border" : ""}`}
-                    >
-                      {t === "add" ? <TrendingUp className="h-4 w-4" /> : t === "deduct" ? <TrendingDown className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                    </button>
-                  ))}
-                </div>
-                <Input
-                  data-testid="input-stock-qty"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  placeholder="0"
-                  value={stockQty}
-                  onChange={e => setStockQty(e.target.value)}
-                  className="flex-1"
-                  required
-                />
+              <div className="flex rounded-lg border border-border overflow-hidden mb-2">
+                {STOCK_TYPE_OPTIONS.map(({ key, label, icon: TypeIcon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    data-testid={`btn-stock-type-${key}`}
+                    onClick={() => setStockType(key)}
+                    aria-label={label}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 min-h-[44px] text-sm font-bold transition-colors ${stockType === key ? "bg-emerald-600 text-white" : "bg-transparent text-muted-foreground hover:bg-muted"} ${key !== "add" ? "border-l border-border" : ""}`}
+                  >
+                    <TypeIcon className="h-4 w-4 shrink-0" /> {label}
+                  </button>
+                ))}
               </div>
+
+              <Label className="text-xs font-semibold mb-1 block">
+                {STOCK_TYPE_LABELS[stockType]}
+              </Label>
+              <Input
+                data-testid="input-stock-qty"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                placeholder="0"
+                value={stockQty}
+                onChange={e => setStockQty(e.target.value)}
+                className="h-11 w-32 text-center text-lg font-bold"
+                required
+              />
             </div>
+
             <div>
               <Label className="text-xs font-semibold mb-1 block">Reason</Label>
               <Input
@@ -1255,6 +1272,7 @@ function ItemDetailDialog({
                 placeholder="e.g. Used in procedure, restocked from supplier"
                 value={stockReason}
                 onChange={e => setStockReason(e.target.value)}
+                className="h-11"
               />
             </div>
           </form>
@@ -1325,9 +1343,14 @@ function ItemDetailDialog({
                 form="stock-form"
                 data-testid="btn-stock-submit"
                 disabled={stockMutation.isPending || !stockQty}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white min-w-0"
               >
-                {stockMutation.isPending ? "Updating..." : <><Check className="h-4 w-4 mr-1" /> Update</>}
+                {stockMutation.isPending ? "Updating..." : (
+                  <span className="flex items-center gap-1 min-w-0">
+                    <Check className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Update Stock ({item.name})</span>
+                  </span>
+                )}
               </Button>
             </>
           )}
@@ -2132,7 +2155,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
       />
 
       <ItemDetailDialog
-        item={detailItem}
+        item={detailItem ? (items.find(i => i.id === detailItem.id) ?? detailItem) : null}
         categories={categories}
         onClose={handleDetailClose}
         onDelete={(id) => deleteMutation.mutate(id)}
