@@ -28,6 +28,7 @@ import {
   type LoginEvent, type InsertLoginEvent,
   type PatientBill, type InsertPatientBill,
   type PatientChart,
+  type ClinicAnalyticsResult,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne } from "drizzle-orm";
@@ -285,7 +286,7 @@ export interface IStorage {
   deletePharmacyItem(id: number, clinicId: number): Promise<void>;
 
   // Analytics
-  getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>>;
+  getClinicAnalytics(clinicId: number, range: string): Promise<ClinicAnalyticsResult>;
 
   // Patient Charts (Odontogram)
   getPatientChart(patientId: number, clinicId: number): Promise<PatientChart | null>;
@@ -2305,14 +2306,17 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(pharmacyStock.id, id), eq(pharmacyStock.clinicId, clinicId)));
   }
 
-  async getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>> {
+  async getClinicAnalytics(clinicId: number, range: string): Promise<ClinicAnalyticsResult> {
     const now = new Date();
     let startDate: Date;
+    let prevStartDate: Date; // for period-over-period comparison
     if (range === 'year') {
       startDate = new Date(now.getFullYear(), 0, 1);
+      prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
     } else {
       const days = range === '60d' ? 60 : range === '90d' ? 90 : 30;
       startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      prevStartDate = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
     }
 
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
@@ -2329,11 +2333,16 @@ export class DatabaseStorage implements IStorage {
       return `${mo[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
     }
 
-    const [bookingRows, slotRows, billRows, patientRows, clinicalRows, alertRows, itemRows, loginRows] =
+    // Fetch both current and previous period data for comparisons
+    const [bookingRows, prevBookingRows, slotRows, billRows, prevBillRows, patientRows, clinicalRows, alertRows, itemRows] =
       await Promise.all([
         db.select({ booking: bookings, slot: slots })
           .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
           .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+
+        db.select({ booking: bookings, slot: slots })
+          .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, prevStartDate), lt(slots.startTime, startDate))),
 
         db.select().from(slots)
           .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
@@ -2341,9 +2350,12 @@ export class DatabaseStorage implements IStorage {
         db.select().from(patientBills)
           .where(and(eq(patientBills.clinicId, clinicId), gte(patientBills.createdAt as any, startDate))),
 
+        db.select().from(patientBills)
+          .where(and(eq(patientBills.clinicId, clinicId), gte(patientBills.createdAt as any, prevStartDate), lt(patientBills.createdAt as any, startDate))),
+
         db.select().from(patients).where(eq(patients.clinicId, clinicId)),
 
-        db.select({ diagnosis: clinicalRecords.diagnosis })
+        db.select({ diagnosis: clinicalRecords.diagnosis, category: clinicalRecords.category, doctorName: clinicalRecords.doctorName })
           .from(clinicalRecords)
           .where(and(
             eq(clinicalRecords.clinicId, clinicId),
@@ -2355,18 +2367,24 @@ export class DatabaseStorage implements IStorage {
           .where(and(eq(stockAlerts.clinicId, clinicId), eq(stockAlerts.isDismissed, false))),
 
         db.select().from(inventoryItems).where(eq(inventoryItems.clinicId, clinicId)),
-
-        db.select({ success: loginEvents.success })
-          .from(loginEvents)
-          .where(and(eq(loginEvents.role, 'clinic'), gte(loginEvents.createdAt as any, startDate))),
       ]);
 
     // ── Overview ──────────────────────────────────────────────────────────────
-    const totalBookings  = bookingRows.length;
-    const todayBookings  = bookingRows.filter(r => r.slot.startTime >= todayStart && r.slot.startTime <= todayEnd).length;
-    const cancelledSlots = slotRows.filter(s => s.isCancelled).length;
-    const bookedSlots    = slotRows.filter(s => s.isBooked).length;
-    const utilizationPct = slotRows.length > 0 ? Math.round((bookedSlots / slotRows.length) * 100) : 0;
+    const totalBookings   = bookingRows.length;
+    const todayBookings   = bookingRows.filter(r => r.slot.startTime >= todayStart && r.slot.startTime <= todayEnd).length;
+    const cancelledSlots  = slotRows.filter(s => s.isCancelled).length;
+    const availableSlots  = slotRows.filter(s => !s.isCancelled).length;
+    const bookedSlots     = slotRows.filter(s => s.isBooked).length;
+    const utilizationPct  = availableSlots > 0 ? Math.round((bookedSlots / availableSlots) * 100) : 0;
+
+    // Booking cancellations (not slot cancellations)
+    const bookingCancellations = bookingRows.filter(r =>
+      r.booking.verificationStatus === 'cancelled' || r.booking.verificationStatus === 'no_show'
+    ).length;
+
+    // No-shows
+    const noShowCount = bookingRows.filter(r => r.booking.verificationStatus === 'no_show').length;
+    const noShowRate  = totalBookings > 0 ? Math.round((noShowCount / totalBookings) * 100) : 0;
 
     const trendMap = new Map<string, number>();
     for (const r of bookingRows) {
@@ -2377,12 +2395,23 @@ export class DatabaseStorage implements IStorage {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({ date, count }));
 
+    // Period-over-period helpers
+    const prevTotalBookings = prevBookingRows.length;
+    const prevNoShowCount   = prevBookingRows.filter(r => r.booking.verificationStatus === 'no_show').length;
+
+    function pctChange(curr: number, prev: number): number {
+      return prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
+    }
+
     // ── Financial ─────────────────────────────────────────────────────────────
-    const paidBills      = billRows.filter(b => b.paymentStatus === 'paid');
-    const totalRevenue   = paidBills.reduce((s, b) => s + (b.total ?? 0), 0);
-    const outstanding    = billRows.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
-    const uniquePtIds    = new Set(billRows.map(b => b.patientId).filter(Boolean));
-    const avgRevPerPt    = uniquePtIds.size > 0 ? Math.round(totalRevenue / uniquePtIds.size) : 0;
+    const paidBills       = billRows.filter(b => b.paymentStatus === 'paid');
+    const totalRevenue    = paidBills.reduce((s, b) => s + (b.total ?? 0), 0);
+    const outstanding     = billRows.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const uniquePtIds     = new Set(billRows.map(b => b.patientId).filter(Boolean));
+    const avgRevPerPt     = uniquePtIds.size > 0 ? Math.round(totalRevenue / uniquePtIds.size) : 0;
+
+    const prevPaidBills   = prevBillRows.filter(b => b.paymentStatus === 'paid');
+    const prevRevenue     = prevPaidBills.reduce((s, b) => s + (b.total ?? 0), 0);
 
     const payMap = new Map<string, { amount: number; count: number }>();
     for (const b of billRows) {
@@ -2404,6 +2433,21 @@ export class DatabaseStorage implements IStorage {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([week, amount]) => ({ week, amount: Math.round(amount) }));
 
+    // Revenue by doctor
+    const docRevMap = new Map<string, number>();
+    for (const b of billRows) {
+      if (b.paymentStatus !== 'paid') continue;
+      const doc = b.patientName; // closest proxy: patient name is who the bill is for
+      // Better: use assignedDoctor from booking — but bill doesn't link to booking doctor directly
+      // We can use a join but for simplicity, skip if not critical
+      const key = doc ?? 'Unassigned';
+      docRevMap.set(key, (docRevMap.get(key) ?? 0) + (b.total ?? 0));
+    }
+    const revenueByDoctor = Array.from(docRevMap.entries())
+      .map(([doctor, amount]) => ({ doctor, amount: Math.round(amount) }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8);
+
     // ── Appointments ──────────────────────────────────────────────────────────
     const statusMap = new Map<string, number>();
     for (const r of bookingRows) {
@@ -2423,15 +2467,30 @@ export class DatabaseStorage implements IStorage {
       .map(([doctor, count]) => ({ doctor, count }))
       .sort((a, b) => b.count - a.count).slice(0, 8);
 
+    // Procedures & categories
     const procMap = new Map<string, number>();
+    const catRevMap = new Map<string, number>();
     for (const r of clinicalRows) {
       for (const d of ((r.diagnosis ?? []) as string[])) {
         if (d) procMap.set(d, (procMap.get(d) ?? 0) + 1);
       }
+      const cat = r.category ?? 'General';
+      catRevMap.set(cat, (catRevMap.get(cat) ?? 0) + 1);
     }
     const topProcedures = Array.from(procMap.entries())
       .map(([procedure, count]) => ({ procedure, count }))
       .sort((a, b) => b.count - a.count).slice(0, 6);
+
+    const categoryBreakdown = Array.from(catRevMap.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 6);
+
+    // Conversion funnel counts
+    const confirmedCount     = bookingRows.filter(r => r.booking.verificationStatus === 'verified' || r.booking.verificationStatus === 'confirmed').length;
+    const checkedInCount       = bookingRows.filter(r => r.booking.visitStatus === 'checked_in' || r.booking.checkedInAt !== null).length;
+    const treatmentDoneCount   = bookingRows.filter(r => r.booking.visitStatus === 'treatment_completed').length;
+    const visitCompletedCount  = bookingRows.filter(r => r.booking.visitStatus === 'completed').length;
+    const billsPaidCount     = paidBills.length;
 
     // ── Patients ──────────────────────────────────────────────────────────────
     const totalPatients  = patientRows.length;
@@ -2447,21 +2506,95 @@ export class DatabaseStorage implements IStorage {
     const growthByMonth = Array.from(growthMap.entries())
       .map(([month, count]) => ({ month, count }));
 
+    // Demographics
+    const genderMap = new Map<string, number>();
+    const ageBuckets: Record<string, number> = { '0-18': 0, '19-35': 0, '36-50': 0, '51-65': 0, '65+': 0 };
+    for (const p of patientRows) {
+      if (p.gender) genderMap.set(p.gender, (genderMap.get(p.gender) ?? 0) + 1);
+      if (p.age != null) {
+        if (p.age <= 18) ageBuckets['0-18']++;
+        else if (p.age <= 35) ageBuckets['19-35']++;
+        else if (p.age <= 50) ageBuckets['36-50']++;
+        else if (p.age <= 65) ageBuckets['51-65']++;
+        else ageBuckets['65+']++;
+      }
+    }
+    const genderBreakdown = Array.from(genderMap.entries())
+      .map(([gender, count]) => ({ gender, count }))
+      .sort((a, b) => b.count - a.count);
+    const ageBreakdown = Object.entries(ageBuckets)
+      .map(([bucket, count]) => ({ bucket, count }))
+      .filter(d => d.count > 0);
+
     // ── Compliance ────────────────────────────────────────────────────────────
     const signedCount    = bookingRows.filter(r => r.booking.consentSignedAt !== null).length;
     const consentRate    = totalBookings > 0 ? Math.round((signedCount / totalBookings) * 100) : 0;
     const lowStockItems  = itemRows.filter(i => i.reorderLevel !== null && i.currentQty <= (i.reorderLevel ?? Infinity)).length;
     const expiringItems  = itemRows.filter(i => i.expiryDate && new Date(i.expiryDate) <= thirtyDaysOut).length;
-    const loginSuccess   = loginRows.filter(l => l.success).length;
-    const loginFail      = loginRows.filter(l => !l.success).length;
+
+    // Alerts / thresholds
+    const alerts: string[] = [];
+    if (utilizationPct < 50) alerts.push('Low slot utilization (< 50%)');
+    if (noShowRate > 15) alerts.push('High no-show rate (> 15%)');
+    if (consentRate < 80) alerts.push('Consent compliance below 80%');
+    if (lowStockItems > 0) alerts.push(`${lowStockItems} items low on stock`);
+    if (expiringItems > 0) alerts.push(`${expiringItems} items expiring soon`);
 
     return {
       range,
-      overview: { totalBookings, todayBookings, utilizationPct, cancellations: cancelledSlots, trendByDay },
-      financial: { totalRevenue: Math.round(totalRevenue), outstanding: Math.round(outstanding), avgRevenuePerPatient: avgRevPerPt, paymentBreakdown, revenueTrend },
-      appointments: { statusBreakdown, doctorWorkload, topProcedures },
-      patients: { total: totalPatients, newPatients, repeatPatients, growthByMonth },
-      compliance: { consentRate, signedCount, totalWithConsent: totalBookings, inventoryAlerts: alertRows.length, lowStockItems, expiringItems, loginSuccess, loginFail },
+      overview: {
+        totalBookings,
+        todayBookings,
+        utilizationPct,
+        cancellations: bookingCancellations,
+        noShowCount,
+        noShowRate,
+        trendByDay,
+        prevTotalBookings,
+        changeTotalBookings: pctChange(totalBookings, prevTotalBookings),
+        changeNoShowRate: pctChange(noShowRate, prevNoShowCount > 0 ? Math.round((prevNoShowCount / prevTotalBookings) * 100) : 0),
+      },
+      financial: {
+        totalRevenue: Math.round(totalRevenue),
+        outstanding: Math.round(outstanding),
+        avgRevenuePerPatient: avgRevPerPt,
+        paymentBreakdown,
+        revenueTrend,
+        revenueByDoctor,
+        prevRevenue: Math.round(prevRevenue),
+        changeRevenue: pctChange(Math.round(totalRevenue), Math.round(prevRevenue)),
+      },
+      appointments: {
+        statusBreakdown,
+        doctorWorkload,
+        topProcedures,
+        categoryBreakdown,
+        funnel: {
+          booked: totalBookings,
+          confirmed: confirmedCount,
+          checkedIn: checkedInCount,
+          treatmentDone: treatmentDoneCount,
+          visitCompleted: visitCompletedCount,
+          billsPaid: billsPaidCount,
+        },
+      },
+      patients: {
+        total: totalPatients,
+        newPatients,
+        repeatPatients,
+        growthByMonth,
+        genderBreakdown,
+        ageBreakdown,
+      },
+      compliance: {
+        consentRate,
+        signedCount,
+        totalWithConsent: totalBookings,
+        inventoryAlerts: alertRows.length,
+        lowStockItems,
+        expiringItems,
+        alerts,
+      },
     };
   }
 

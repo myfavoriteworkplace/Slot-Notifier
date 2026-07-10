@@ -748,3 +748,85 @@ export interface ClinicSession {
   clinicId?: number;
   role?: 'superuser' | 'owner' | 'doctor' | 'customer';
 }
+
+// ── ANALYTICS TYPES ──────────────────────────────────────────────────────────
+
+export interface AnalyticsTrendPoint { date: string; count: number }
+export interface AnalyticsRevenueTrendPoint { week: string; amount: number }
+export interface AnalyticsPaymentBreakdown { method: string; amount: number; count: number }
+export interface AnalyticsStatusBreakdown { status: string; count: number }
+export interface AnalyticsDoctorWorkload { doctor: string; count: number }
+export interface AnalyticsTopProcedure { procedure: string; count: number }
+export interface AnalyticsCategoryBreakdown { category: string; count: number }
+export interface AnalyticsGrowthPoint { month: string; count: number }
+export interface AnalyticsGenderBreakdown { gender: string; count: number }
+export interface AnalyticsAgeBreakdown { bucket: string; count: number }
+export interface AnalyticsRevenueByDoctor { doctor: string; amount: number }
+export interface AnalyticsFunnel {
+  booked: number;
+  confirmed: number;
+  checkedIn: number;
+  treatmentDone: number;
+  visitCompleted: number;
+  billsPaid: number;
+}
+
+export interface AnalyticsOverview {
+  totalBookings: number;
+  todayBookings: number;
+  utilizationPct: number;
+  cancellations: number;
+  noShowCount: number;
+  noShowRate: number;
+  trendByDay: AnalyticsTrendPoint[];
+  prevTotalBookings: number;
+  changeTotalBookings: number;
+  changeNoShowRate: number;
+}
+
+export interface AnalyticsFinancial {
+  totalRevenue: number;
+  outstanding: number;
+  avgRevenuePerPatient: number;
+  paymentBreakdown: AnalyticsPaymentBreakdown[];
+  revenueTrend: AnalyticsRevenueTrendPoint[];
+  revenueByDoctor: AnalyticsRevenueByDoctor[];
+  prevRevenue: number;
+  changeRevenue: number;
+}
+
+export interface AnalyticsAppointments {
+  statusBreakdown: AnalyticsStatusBreakdown[];
+  doctorWorkload: AnalyticsDoctorWorkload[];
+  topProcedures: AnalyticsTopProcedure[];
+  categoryBreakdown: AnalyticsCategoryBreakdown[];
+  funnel: AnalyticsFunnel;
+}
+
+export interface AnalyticsPatients {
+  total: number;
+  newPatients: number;
+  repeatPatients: number;
+  growthByMonth: AnalyticsGrowthPoint[];
+  genderBreakdown: AnalyticsGenderBreakdown[];
+  ageBreakdown: AnalyticsAgeBreakdown[];
+}
+
+export interface AnalyticsCompliance {
+  consentRate: number;
+  signedCount: number;
+  totalWithConsent: number;
+  inventoryAlerts: number;
+  lowStockItems: number;
+  expiringItems: number;
+  alerts: string[];
+}
+
+export interface ClinicAnalyticsResult {
+  range: string;
+  overview: AnalyticsOverview;
+  financial: AnalyticsFinancial;
+  appointments: AnalyticsAppointments;
+  patients: AnalyticsPatients;
+  compliance: AnalyticsCompliance;
+}
