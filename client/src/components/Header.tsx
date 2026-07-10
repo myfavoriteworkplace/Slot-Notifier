@@ -84,6 +84,40 @@ interface NotificationBellProps {
   onNavigate?: (n: Notification) => void;
 }
 
+/* Groups notifications that share the same bookingId (same patient/visit) within a
+   single day-bucket into one expandable entry, so a burst of updates about one
+   patient doesn't flood the list with separate rows. Notifications without a
+   bookingId (e.g. doctor leave) are never grouped. */
+type DisplayItem =
+  | { kind: "single"; notification: Notification }
+  | { kind: "group"; bookingId: number; items: Notification[] };
+
+function groupByBooking(items: Notification[]): DisplayItem[] {
+  const groupIndex = new Map<number, number>();
+  const result: DisplayItem[] = [];
+
+  for (const n of items) {
+    if (n.bookingId != null) {
+      const existingIdx = groupIndex.get(n.bookingId);
+      if (existingIdx != null) {
+        const existing = result[existingIdx];
+        if (existing.kind === "single") {
+          result[existingIdx] = { kind: "group", bookingId: n.bookingId, items: [existing.notification, n] };
+        } else {
+          existing.items.push(n);
+        }
+        continue;
+      }
+      groupIndex.set(n.bookingId, result.length);
+      result.push({ kind: "single", notification: n });
+    } else {
+      result.push({ kind: "single", notification: n });
+    }
+  }
+
+  return result;
+}
+
 /* ── Shared panel content (used by both mobile drawer + desktop popover) ── */
 function NotificationPanelContent({
   notifications,
@@ -93,16 +127,32 @@ function NotificationPanelContent({
   onNavigate,
   onClose,
 }: NotificationBellProps & { onClose: () => void }) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+
   const todayItems     = notifications.filter(n => isToday(new Date(n.createdAt!)));
   const yesterdayItems = notifications.filter(n => isYesterday(new Date(n.createdAt!)));
   const earlierItems   = notifications.filter(
     n => !isToday(new Date(n.createdAt!)) && !isYesterday(new Date(n.createdAt!))
   );
   const groups = [
-    { label: "Today",     items: todayItems     },
-    { label: "Yesterday", items: yesterdayItems  },
-    { label: "Earlier",   items: earlierItems    },
+    { label: "Today",     items: groupByBooking(todayItems)     },
+    { label: "Yesterday", items: groupByBooking(yesterdayItems) },
+    { label: "Earlier",   items: groupByBooking(earlierItems)   },
   ].filter(g => g.items.length > 0);
+
+  const toggleGroup = (bookingId: number, items: Notification[]) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(bookingId)) {
+        next.delete(bookingId);
+      } else {
+        next.add(bookingId);
+        // Expanding a group marks every notification inside it as read.
+        items.filter(n => !n.read).forEach(n => onMarkRead(n.id));
+      }
+      return next;
+    });
+  };
 
   return (
     <>
@@ -161,53 +211,131 @@ function NotificationPanelContent({
                 </div>
 
                 {/* Rows */}
-                {group.items.map(n => {
-                  const { Icon, bg, color } = getNotifMeta(n.message);
+                {group.items.map(item => {
+                  if (item.kind === "single") {
+                    const n = item.notification;
+                    const { Icon, bg, color } = getNotifMeta(n.message);
+                    return (
+                      <div key={n.id} className="group relative">
+                        <button
+                          className={`w-full flex items-start gap-3 pl-4 pr-10 py-3.5 text-left transition-all hover:bg-muted/40 active:bg-muted/60 min-h-[56px] border-l-2 ${
+                            !n.read
+                              ? "bg-primary/[0.06] dark:bg-primary/[0.10] border-primary"
+                              : "border-transparent"
+                          }`}
+                          onClick={() => {
+                            if (!n.read) onMarkRead(n.id);
+                            onClose();
+                            onNavigate?.(n);
+                          }}
+                          data-testid={`notification-item-${n.id}`}
+                        >
+                          {/* Type icon */}
+                          <div className={`h-8 w-8 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                            <Icon className={`h-3.5 w-3.5 ${color}`} />
+                          </div>
+
+                          {/* Text */}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[13px] leading-snug ${
+                              !n.read
+                                ? "font-semibold text-foreground"
+                                : "font-normal text-muted-foreground"
+                            }`}>
+                              {n.message}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground/60 mt-1">
+                              {formatDistanceToNow(new Date(n.createdAt!), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Per-row mark-as-read hover button */}
+                        {!n.read && (
+                          <button
+                            className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 hover:bg-primary/20 text-primary"
+                            onClick={e => { e.stopPropagation(); onMarkRead(n.id); }}
+                            title="Mark as read"
+                            data-testid={`notification-mark-read-${n.id}`}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Grouped notifications — same booking, same day.
+                  const { bookingId, items: groupItems } = item;
+                  const sorted = [...groupItems].sort(
+                    (a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+                  );
+                  const latest = sorted[0];
+                  const groupUnread = groupItems.some(n => !n.read);
+                  const isExpanded = expandedGroups.has(bookingId);
+                  const { Icon, bg, color } = getNotifMeta(latest.message);
+
                   return (
-                    <div key={n.id} className="group relative">
+                    <div key={`group-${bookingId}`} className="relative">
                       <button
                         className={`w-full flex items-start gap-3 pl-4 pr-10 py-3.5 text-left transition-all hover:bg-muted/40 active:bg-muted/60 min-h-[56px] border-l-2 ${
-                          !n.read
+                          groupUnread
                             ? "bg-primary/[0.06] dark:bg-primary/[0.10] border-primary"
                             : "border-transparent"
                         }`}
-                        onClick={() => {
-                          if (!n.read) onMarkRead(n.id);
-                          onClose();
-                          onNavigate?.(n);
-                        }}
-                        data-testid={`notification-item-${n.id}`}
+                        onClick={() => toggleGroup(bookingId, groupItems)}
+                        data-testid={`notification-group-${bookingId}`}
                       >
-                        {/* Type icon */}
                         <div className={`h-8 w-8 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>
                           <Icon className={`h-3.5 w-3.5 ${color}`} />
                         </div>
 
-                        {/* Text */}
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[13px] leading-snug ${
-                            !n.read
-                              ? "font-semibold text-foreground"
-                              : "font-normal text-muted-foreground"
-                          }`}>
-                            {n.message}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className={`text-[13px] leading-snug truncate ${
+                              groupUnread ? "font-semibold text-foreground" : "font-normal text-muted-foreground"
+                            }`}>
+                              {latest.message}
+                            </p>
+                            <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                              {groupItems.length}
+                            </span>
+                          </div>
                           <p className="text-[11px] text-muted-foreground/60 mt-1">
-                            {formatDistanceToNow(new Date(n.createdAt!), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(latest.createdAt!), { addSuffix: true })} · {groupItems.length} updates for this booking
                           </p>
                         </div>
+
+                        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-1 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                       </button>
 
-                      {/* Per-row mark-as-read hover button */}
-                      {!n.read && (
-                        <button
-                          className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 hover:bg-primary/20 text-primary"
-                          onClick={e => { e.stopPropagation(); onMarkRead(n.id); }}
-                          title="Mark as read"
-                          data-testid={`notification-mark-read-${n.id}`}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                        </button>
+                      {isExpanded && (
+                        <div className="bg-muted/20 border-l-2 border-primary/30 ml-4">
+                          {sorted.map(n => {
+                            const meta = getNotifMeta(n.message);
+                            return (
+                              <button
+                                key={n.id}
+                                className="w-full flex items-start gap-3 pl-4 pr-4 py-2.5 text-left transition-all hover:bg-muted/40 active:bg-muted/60"
+                                onClick={() => {
+                                  onClose();
+                                  onNavigate?.(n);
+                                }}
+                                data-testid={`notification-item-${n.id}`}
+                              >
+                                <div className={`h-6 w-6 rounded-lg ${meta.bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                                  <meta.Icon className={`h-3 w-3 ${meta.color}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[12px] leading-snug text-foreground">{n.message}</p>
+                                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                    {formatDistanceToNow(new Date(n.createdAt!), { addSuffix: true })}
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   );

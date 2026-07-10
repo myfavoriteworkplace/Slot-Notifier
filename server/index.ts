@@ -931,6 +931,54 @@ By signing below, I confirm that I have read and understood the above and volunt
         log(`notifications column migration warning: ${e.message}`, "system");
       }
 
+      // ── Backfill notifications.user_id with clinic:/doctor: prefix ──────────
+      // clinics.id and doctors.id are both independent serial sequences that
+      // start at 1, so legacy bare-numeric user_id values (e.g. "3") were
+      // ambiguous and could collide between a clinic and a doctor with the
+      // same numeric id, leaking notifications across roles. New rows are
+      // always written with a "clinic:" or "doctor:" prefix — this backfills
+      // old rows so they still resolve under the new scheme. Idempotent: only
+      // touches rows whose user_id has no prefix yet.
+      try {
+        await db.execute(sql`
+          UPDATE notifications n
+          SET user_id = 'clinic:' || n.user_id
+          WHERE n.user_id !~ ':'
+            AND n.user_id ~ '^[0-9]+$'
+            AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = n.user_id::integer)
+            AND NOT EXISTS (SELECT 1 FROM doctors d WHERE d.id = n.user_id::integer);
+        `);
+        await db.execute(sql`
+          UPDATE notifications n
+          SET user_id = 'doctor:' || n.user_id
+          WHERE n.user_id !~ ':'
+            AND n.user_id ~ '^[0-9]+$'
+            AND EXISTS (SELECT 1 FROM doctors d WHERE d.id = n.user_id::integer)
+            AND NOT EXISTS (SELECT 1 FROM clinics c WHERE c.id = n.user_id::integer);
+        `);
+        // Genuine collisions (same numeric id exists in both clinics and
+        // doctors): unrecoverable — the original role was never stored — so
+        // mark them read rather than guess wrong and leak them into a bell
+        // that isn't theirs.
+        const collisionResult: any = await db.execute(sql`
+          UPDATE notifications n
+          SET read = true
+          WHERE n.user_id !~ ':'
+            AND n.user_id ~ '^[0-9]+$'
+            AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = n.user_id::integer)
+            AND EXISTS (SELECT 1 FROM doctors d WHERE d.id = n.user_id::integer)
+            AND n.read = false
+          RETURNING n.id;
+        `);
+        const collisionCount = collisionResult?.rows?.length ?? collisionResult?.rowCount ?? 0;
+        if (collisionCount > 0) {
+          log(`notifications user_id backfill: ${collisionCount} ambiguous legacy rows (id collision between a clinic and doctor) marked read — role unrecoverable`, "system");
+        }
+        log("notifications user_id clinic:/doctor: backfill complete", "system");
+      } catch (e: any) {
+        log(`notifications user_id backfill warning: ${e.message}`, "system");
+      }
+
       // ── patient_charts table (odontogram — one chart per patient per clinic) ──
       try {
         await db.execute(sql`

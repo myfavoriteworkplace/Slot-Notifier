@@ -923,6 +923,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   const clinicSockets = new Map<string, Set<WebSocket>>();
   const doctorSockets = new Map<string, Set<WebSocket>>();
 
+  // Notification `userId` prefixes — clinics.id and doctors.id are independent
+  // serial sequences that both start at 1, so a bare numeric string like "3"
+  // would collide between a clinic and a doctor. Prefixing keeps the two ID
+  // spaces disjoint so `getNotifications(userId)` never mixes roles.
+  const clinicUid = (id: number | string) => `clinic:${id}`;
+  const doctorUid = (id: number | string) => `doctor:${id}`;
+
   function broadcastToClinic(clinicId: string, data: object) {
     const clients = clinicSockets.get(clinicId);
     if (!clients) return;
@@ -1797,7 +1804,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const dateStr = requestedStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
         const timeStr = requestedStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
         const paidNotif = await storage.createNotification({
-          userId: String(clinic.id),
+          userId: clinicUid(clinic.id),
           message: `Paid booking confirmed — ${customerName} on ${dateStr} at ${timeStr}`,
           read: false,
           type: "paid_booking_confirmed",
@@ -2007,7 +2014,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         const notifMessage = `New booking from ${customerName} on ${requestedStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at ${requestedStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
         const notification = await storage.createNotification({
-          userId: String(clinic.id),
+          userId: clinicUid(clinic.id),
           message: notifMessage,
           read: false,
           type: "new_booking",
@@ -2318,7 +2325,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.json([]);
     }
 
-    const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+    const userId = sess.doctorId ? doctorUid(sess.doctorId) : sess.clinicId ? clinicUid(sess.clinicId) : String(sess.adminEmail || "superuser");
 
     try {
       const userNotifications = await storage.getNotifications(userId);
@@ -2333,7 +2340,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess?.adminLoggedIn && !sess?.doctorLoggedIn) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+    const userId = sess.doctorId ? doctorUid(sess.doctorId) : sess.clinicId ? clinicUid(sess.clinicId) : String(sess.adminEmail || "superuser");
     try {
       await storage.markAllNotificationsRead(userId);
       res.json({ ok: true });
@@ -3552,7 +3559,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         try {
           const newDateStr = new Date(newSlot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
           const reschedNotif = await storage.createNotification({
-            userId: String(clinic.id),
+            userId: clinicUid(clinic.id),
             message: `Booking #${bookingId} for ${booking.customerName} rescheduled to ${newDateStr}`,
             read: false,
             type: "booking_rescheduled",
@@ -3571,7 +3578,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (reschedDoc) {
             const newTimeStr = format(new Date(newSlot.startTime), 'EEE d MMM, h:mm a');
             const reschedDocNotif = await storage.createNotification({
-              userId: String(reschedDoc.id),
+              userId: doctorUid(reschedDoc.id),
               message: `Appointment for ${booking.customerName} has been rescheduled to ${newTimeStr}`,
               read: false,
               type: "booking_rescheduled",
@@ -3626,7 +3633,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const label = statusLabels[clinicalStatus] ?? clinicalStatus;
             const notifType = clinicalStatus === 'case_closed' ? 'case_closed_by_clinic' : 'clinical_status_updated';
             const notif = await storage.createNotification({
-              userId: String(doc.id),
+              userId: doctorUid(doc.id),
               message: `Clinic admin updated ${booking.customerName}'s clinical status to "${label}"`,
               read: false,
               type: notifType,
@@ -3659,7 +3666,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (doc) {
             const slot = await storage.getSlot(booking.slotId);
             const timeStr = slot ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-            const notif = await storage.createNotification({ userId: String(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false, type: "patient_checked_in", bookingId });
+            const notif = await storage.createNotification({ userId: doctorUid(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false, type: "patient_checked_in", bookingId });
             broadcastToDoctor(String(doc.id), { type: "patient_checked_in", bookingId, notification: notif });
           }
         } catch (e: any) { console.error('[NOTIFICATION] Check-in notification failed:', e.message); }
@@ -3764,7 +3771,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
               : '';
             const overrideNotif = await storage.createNotification({
-              userId: String(overriddenDoc.id),
+              userId: doctorUid(overriddenDoc.id),
               message: `Admin confirmed ${booking.customerName}'s appointment on your behalf${dateStr ? ` on ${dateStr}` : ''} — no action needed`,
               read: false,
               type: "admin_confirmed",
@@ -3822,7 +3829,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         const clinicId = sess.clinicId || slot.clinicId;
         const notif = await storage.createNotification({
-          userId: String(clinicId),
+          userId: clinicUid(clinicId),
           message: `Booking for ${booking.customerName} has been cancelled`,
           read: false,
           type: "booking_cancelled",
@@ -3840,7 +3847,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (cancelDoc) {
             const dateStr = slot ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
             const cancelDocNotif = await storage.createNotification({
-              userId: String(cancelDoc.id),
+              userId: doctorUid(cancelDoc.id),
               message: `Appointment for ${booking.customerName}${dateStr ? ` on ${dateStr}` : ''} has been cancelled by the clinic`,
               read: false,
               type: "booking_cancelled",
@@ -3907,7 +3914,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
               : '';
             const assignNotif = await storage.createNotification({
-              userId: String(assignedDoc.id),
+              userId: doctorUid(assignedDoc.id),
               message: `New appointment assigned: ${booking.customerName} on ${dateStr}${timeStr ? ` at ${timeStr}` : ''} — awaiting your approval`,
               read: false,
               type: "doctor_assigned",
@@ -3984,7 +3991,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
             : '';
           const approveNotif = await storage.createNotification({
-            userId: String(doctorClinic.id),
+            userId: clinicUid(doctorClinic.id),
             message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} confirmed ${booking.customerName}'s appointment${dateStr ? ` on ${dateStr}` : ''}`,
             read: false,
             type: "doctor_approved",
@@ -4033,7 +4040,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           try {
             const dateStr = new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
             const declineNotif = await storage.createNotification({
-              userId: String(clinicForDecline.id),
+              userId: clinicUid(clinicForDecline.id),
               message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} declined ${booking.customerName}'s appointment on ${dateStr} — reassignment needed`,
               read: false,
               type: "doctor_declined",
@@ -4322,7 +4329,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const leaveDateFmt = new Date(leaveDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
         for (const { clinic } of linkedClinics) {
           const leaveNotif = await storage.createNotification({
-            userId: String(clinic.id),
+            userId: clinicUid(clinic.id),
             message: `Dr. ${d.name} has marked ${leaveDateFmt} as leave${reason ? ` — ${reason}` : ''}`,
             read: false,
             type: "doctor_on_leave",
@@ -4353,7 +4360,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .where(eq(clinicDoctors.doctorId, d.id));
         for (const { clinic } of linkedClinics) {
           const cancelLeaveNotif = await storage.createNotification({
-            userId: String(clinic.id),
+            userId: clinicUid(clinic.id),
             message: `Dr. ${d.name} cancelled a leave and is now available`,
             read: false,
             type: "doctor_leave_cancelled",
@@ -4430,7 +4437,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             if (slot) {
               const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
               if (clinic) {
-                const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+                const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
                 broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
               }
             }
@@ -4495,7 +4502,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const noteSlot = await storage.getSlot(noteBooking.slotId);
             if (noteSlot?.clinicId) {
               const clinicNoteNotif = await storage.createNotification({
-                userId: String(noteSlot.clinicId),
+                userId: clinicUid(noteSlot.clinicId),
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
                 type: "booking_note_added",
@@ -4507,7 +4514,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const [noteDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, noteBooking.assignedDoctorEmail)).limit(1);
             if (noteDoc) {
               const docNoteNotif = await storage.createNotification({
-                userId: String(noteDoc.id),
+                userId: doctorUid(noteDoc.id),
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
                 type: "booking_note_added",
@@ -4548,7 +4555,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (slot) {
             const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
             if (clinic) {
-              const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+              const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
               broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
             }
           }
@@ -4575,7 +4582,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false, type: "consultation_started", bookingId });
+            const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false, type: "consultation_started", bookingId });
             broadcastToClinic(String(clinic.id), { type: "consultation_started", bookingId, notification: notif });
           }
         }
@@ -4601,7 +4608,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false, type: "visit_completed", bookingId });
+            const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false, type: "visit_completed", bookingId });
             broadcastToClinic(String(clinic.id), { type: "visit_completed", bookingId, notification: notif });
           }
         }
@@ -4634,7 +4641,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [nsDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (nsDoc) {
             const nsNotif = await storage.createNotification({
-              userId: String(nsDoc.id),
+              userId: doctorUid(nsDoc.id),
               message: `${booking.customerName} did not show up for their appointment — marked as No-Show`,
               read: false,
               type: "patient_no_show",
@@ -4702,7 +4709,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [ocDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (ocDoc) {
             const ocNotif = await storage.createNotification({
-              userId: String(ocDoc.id),
+              userId: doctorUid(ocDoc.id),
               message: `${booking.customerName}'s visit was marked complete by clinic admin${reason ? ` — "${reason}"` : ''}`,
               read: false,
               type: "visit_override_completed",
@@ -4753,7 +4760,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [pleDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (pleDoc) {
             const pleNotif = await storage.createNotification({
-              userId: String(pleDoc.id),
+              userId: doctorUid(pleDoc.id),
               message: `${booking.customerName} left early${reason ? ` — "${reason}"` : ''}`,
               read: false,
               type: "patient_left_early",
@@ -4904,7 +4911,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [clinicConsentDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, (booking as any).assignedDoctorEmail)).limit(1);
           if (clinicConsentDoc) {
             const clinicConsentNotif = await storage.createNotification({
-              userId: String(clinicConsentDoc.id),
+              userId: doctorUid(clinicConsentDoc.id),
               message: `Clinic sent a consent form request to ${booking.customerName}`,
               read: false,
               type: "consent_requested",
@@ -5002,7 +5009,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // G14 — Notify clinic admin that the doctor requested a consent form
       try {
         const drConsentNotif = await storage.createNotification({
-          userId: String(clinic.id),
+          userId: clinicUid(clinic.id),
           message: `Consent form requested for ${booking.customerName} by Dr. ${sess.doctorEmail}`,
           read: false,
           type: "consent_requested",
@@ -5084,7 +5091,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ? new Date(consentSlot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
             : '';
           const consentNotif = await storage.createNotification({
-            userId: String(consentClinicId),
+            userId: clinicUid(consentClinicId),
             message: `Consent signed by ${record.booking.customerName}${dateStr ? ` for appointment on ${dateStr}` : ''}`,
             read: false,
             type: "consent_signed",
@@ -5161,7 +5168,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (clinicId) {
         try {
           const crNotif = await storage.createNotification({
-            userId: String(clinicId),
+            userId: clinicUid(clinicId),
             message: `${doctorName || 'Doctor'} created a clinical record for ${patientName}${prescription ? ' (includes prescription)' : ''}`,
             read: false,
             type: "clinical_record_created",
@@ -5200,7 +5207,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (record.clinicId) {
         try {
           const crUpdateNotif = await storage.createNotification({
-            userId: String(record.clinicId),
+            userId: clinicUid(record.clinicId),
             message: `${record.doctorName || 'Doctor'} updated clinical record for ${record.patientName}${prescription !== undefined ? ' (prescription updated)' : ''}`,
             read: false,
             type: "clinical_record_updated",
