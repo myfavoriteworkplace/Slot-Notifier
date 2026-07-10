@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import type { AnalyticsData } from "@/lib/clinic-constants";
 
@@ -253,7 +252,7 @@ export default function ClinicAnalyticsPanel() {
   if (isError)   return <ErrorState onRetry={refetch} />;
   if (!data)     return <EmptyState />;
 
-  const { overview, financial, patients, compliance } = data;
+  const { overview, financial, patients, compliance, appointments } = data;
 
   return (
     <div className="space-y-7 animate-in fade-in duration-200">
@@ -285,7 +284,7 @@ export default function ClinicAnalyticsPanel() {
       </div>
 
       {/* Alerts banner */}
-      {compliance.alerts.length > 0 && (
+      {compliance.alerts && compliance.alerts.length > 0 && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-1.5">
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -318,24 +317,23 @@ export default function ClinicAnalyticsPanel() {
           <StatCard
             label="Total Bookings"
             value={overview.totalBookings}
-            change={overview.changeBookings}
+            change={overview.changeTotalBookings}
             icon={CalendarDays}
             iconBg="bg-emerald-500/10"
             iconColor="text-emerald-600 dark:text-emerald-400"
           />
           <StatCard
             label="New Patients"
-            value={overview.newPatients}
-            change={overview.changeNewPatients}
+            value={patients.newPatients}
+            sub={`${patients.total} total`}
             icon={UserPlus}
             iconBg="bg-blue-500/10"
             iconColor="text-blue-500"
           />
           <StatCard
             label="Utilization"
-            value={`${overview.utilization}%`}
-            change={overview.changeUtilization}
-            sub={`${overview.availableSlots} slots available`}
+            value={`${overview.utilizationPct}%`}
+            sub="Booked vs available slots"
             icon={Activity}
             iconBg="bg-violet-500/10"
             iconColor="text-violet-600 dark:text-violet-400"
@@ -361,7 +359,7 @@ export default function ClinicAnalyticsPanel() {
 
         {/* Appointments trend */}
         <ChartCard title="Appointments Trend">
-          {overview.trendByDay.length === 0 ? (
+          {overview.trendByDay && overview.trendByDay.length === 0 ? (
             <div className="flex items-center justify-center h-[180px]">
               <p className="text-sm text-muted-foreground">No appointment data for this period.</p>
             </div>
@@ -417,8 +415,8 @@ export default function ClinicAnalyticsPanel() {
           <StatCard
             label="Avg / Patient"
             value={fmtINR(financial.avgRevenuePerPatient)}
-            sub="With bills in period"
-            icon={Users}
+            sub="Per unique patient billed"
+            icon={UserCheck}
             iconBg="bg-blue-500/10"
             iconColor="text-blue-500"
           />
@@ -426,7 +424,7 @@ export default function ClinicAnalyticsPanel() {
 
         {/* Revenue trend */}
         <ChartCard title="Revenue Trend (by week)">
-          {financial.revenueTrend.length === 0 ? (
+          {financial.revenueTrend && financial.revenueTrend.length === 0 ? (
             <div className="flex items-center justify-center h-[190px]">
               <p className="text-sm text-muted-foreground">No revenue data for this period.</p>
             </div>
@@ -450,17 +448,17 @@ export default function ClinicAnalyticsPanel() {
         </ChartCard>
 
         {/* Revenue by Doctor */}
-        {financial.revenueByDoctor.length > 0 && (
+        {financial.revenueByDoctor && financial.revenueByDoctor.length > 0 && (
           <ChartCard title="Revenue by Doctor" className="mt-4">
             <div className="space-y-3 p-2">
               {financial.revenueByDoctor.map((d) => {
-                const max = financial.revenueByDoctor[0]?.revenue ?? 1;
-                const pct = max > 0 ? (d.revenue / max) * 100 : 0;
+                const max = financial.revenueByDoctor[0]?.amount ?? 1;
+                const pct = max > 0 ? (d.amount / max) * 100 : 0;
                 return (
-                  <div key={d.doctorName} className="space-y-1">
+                  <div key={d.doctor} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold truncate">{d.doctorName}</span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{fmtINR(d.revenue)}</span>
+                      <span className="font-semibold truncate">{d.doctor}</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{fmtINR(d.amount)}</span>
                     </div>
                     <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                       <div
@@ -483,12 +481,12 @@ export default function ClinicAnalyticsPanel() {
       {/* ================================================================
           SECTION 3 - Conversion Funnel
           ================================================================ */}
-      {overview.funnel && overview.funnel.totalVisitors > 0 && (
+      {appointments && appointments.funnel && appointments.funnel.booked > 0 && (
         <section>
           <SectionHeader
             icon={BarChart2}
             title="Conversion Funnel"
-            sub="Patient journey from visit to booking"
+            sub="Patient journey from booking to payment"
             iconBg="bg-blue-500/10"
             iconColor="text-blue-500"
           />
@@ -496,13 +494,14 @@ export default function ClinicAnalyticsPanel() {
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm p-4">
             <div className="space-y-2 max-w-lg mx-auto">
               {[
-                { label: 'Page Visitors', value: overview.funnel.totalVisitors, color: 'bg-slate-400' },
-                { label: 'Started Booking', value: overview.funnel.startedBooking, color: 'bg-violet-400' },
-                { label: 'Email Verified', value: overview.funnel.emailVerified, color: 'bg-blue-400' },
-                { label: 'Slot Selected', value: overview.funnel.slotSelected, color: 'bg-emerald-400' },
-                { label: 'Booking Confirmed', value: overview.funnel.confirmed, color: 'bg-emerald-600' },
+                { label: 'Booked', value: appointments.funnel.booked, color: 'bg-slate-400' },
+                { label: 'Confirmed', value: appointments.funnel.confirmed, color: 'bg-violet-400' },
+                { label: 'Checked In', value: appointments.funnel.checkedIn, color: 'bg-blue-400' },
+                { label: 'Treatment Done', value: appointments.funnel.treatmentDone, color: 'bg-emerald-400' },
+                { label: 'Visit Completed', value: appointments.funnel.visitCompleted, color: 'bg-emerald-500' },
+                { label: 'Bills Paid', value: appointments.funnel.billsPaid, color: 'bg-emerald-600' },
               ].map((step, idx) => {
-                const max = overview.funnel.totalVisitors || 1;
+                const max = appointments.funnel.booked || 1;
                 const pct = (step.value / max) * 100;
                 return (
                   <div key={idx} className="flex items-center gap-3">
@@ -546,7 +545,7 @@ export default function ClinicAnalyticsPanel() {
           {/* Gender */}
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm p-4">
             <p className="text-sm font-semibold text-muted-foreground mb-3">Gender Distribution</p>
-            {patients.genderBreakdown.length === 0 ? (
+            {patients.genderBreakdown && patients.genderBreakdown.length === 0 ? (
               <div className="flex items-center justify-center h-[120px]">
                 <p className="text-sm text-muted-foreground">No gender data available.</p>
               </div>
@@ -575,7 +574,7 @@ export default function ClinicAnalyticsPanel() {
           {/* Age */}
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm p-4">
             <p className="text-sm font-semibold text-muted-foreground mb-3">Age Distribution</p>
-            {patients.ageBreakdown.length === 0 ? (
+            {patients.ageBreakdown && patients.ageBreakdown.length === 0 ? (
               <div className="flex items-center justify-center h-[120px]">
                 <p className="text-sm text-muted-foreground">No age data available.</p>
               </div>
@@ -585,9 +584,9 @@ export default function ClinicAnalyticsPanel() {
                   const max = patients.ageBreakdown[0]?.count ?? 1;
                   const pct = max > 0 ? (a.count / max) * 100 : 0;
                   return (
-                    <div key={a.ageRange} className="space-y-1">
+                    <div key={a.bucket} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium">{a.ageRange}</span>
+                        <span className="font-medium">{a.bucket}</span>
                         <span className="font-bold">{a.count}</span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -616,30 +615,30 @@ export default function ClinicAnalyticsPanel() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard
-            label="Consent Signed"
-            value={`${compliance.consentSigned}%`}
-            sub={`${compliance.consentTotal} total`}
+            label="Consent Rate"
+            value={`${compliance.consentRate}%`}
+            sub={`${compliance.signedCount} of ${compliance.totalWithConsent}`}
             icon={CheckCircle2}
             iconBg="bg-emerald-500/10"
             iconColor="text-emerald-600 dark:text-emerald-400"
           />
           <StatCard
             label="Consent Pending"
-            value={compliance.consentPending}
+            value={compliance.totalWithConsent - compliance.signedCount}
             icon={Clock}
             iconBg="bg-amber-500/10"
             iconColor="text-amber-600 dark:text-amber-400"
           />
           <StatCard
             label="Low Stock"
-            value={compliance.lowStockCount}
+            value={compliance.lowStockItems}
             icon={Package}
             iconBg="bg-rose-500/10"
             iconColor="text-rose-500"
           />
           <StatCard
             label="Expiring Items"
-            value={compliance.expiringCount}
+            value={compliance.expiringItems}
             icon={AlertTriangle}
             iconBg="bg-orange-500/10"
             iconColor="text-orange-500"
