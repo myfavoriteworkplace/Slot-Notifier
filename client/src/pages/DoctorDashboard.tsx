@@ -1455,143 +1455,42 @@ export default function DoctorDashboard() {
                 </div>
               )}
 
-              {/* Dynamic section heading — matches clinic dashboard booking header style */}
-              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-                <div className="flex">
-                  <div className="w-1.5 bg-primary/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                        <Calendar className="h-[18px] w-[18px] text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <h2 className="text-sm sm:text-base font-semibold tracking-tight truncate">
-                          {quickFilter === "today"             ? "Today's Appointments"
-                           : quickFilter === "upcoming"        ? "Upcoming Appointments"
-                           : quickFilter === "owned"           ? "All Owned Appointments"
-                           : quickFilter === "awaiting"        ? "All Pending Bookings"
-                           : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
-                           : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
-                           : quickFilter === "this-week"       ? "This Week's Appointments"
-                           : quickFilter === "next-week"       ? "Next Week's Appointments"
-                           : filterDate                        ? "Filtered Appointments"
-                           : "All Appointments"}
-                        </h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          <span className="tabular-nums font-semibold">{bookingsInfiniteData?.pages[0]?.total ?? 0}</span>{" "}
-                          {(bookingsInfiniteData?.pages[0]?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
-                          {quickFilter === "today"             ? "Appointments assigned to you today"
-                           : quickFilter === "upcoming"        ? "Future appointments beyond today"
-                           : quickFilter === "owned"           ? "Only appointments you've confirmed or accepted"
-                           : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
-                           : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
-                           : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
-                           : quickFilter === "this-week"       ? "Appointments within the current Mon–Sun week"
-                           : quickFilter === "next-week"       ? "Appointments within next Mon–Sun week"
-                           : filterDate                        ? "Showing custom date range"
-                           : "All your patient appointments"}
-                        </p>
-                      </div>
-                    </div>
+              {/* Dynamic section heading — dark green gradient, attached to cards (BookingsPanel style) */}
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">
+                <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between shrink-0">
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-tight">
+                      {quickFilter === "today"             ? "Today's Appointments"
+                       : quickFilter === "upcoming"        ? "Upcoming Appointments"
+                       : quickFilter === "owned"           ? "All Owned Appointments"
+                       : quickFilter === "awaiting"        ? "All Pending Bookings"
+                       : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
+                       : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
+                       : quickFilter === "this-week"       ? "This Week's Appointments"
+                       : quickFilter === "next-week"       ? "Next Week's Appointments"
+                       : filterDate                        ? "Filtered Appointments"
+                       : "All Appointments"}
+                    </h2>
+                    <p className="text-white/70 text-xs mt-0.5">
+                      <span className="tabular-nums font-semibold">{bookingsInfiniteData?.pages[0]?.total ?? 0}</span>{" "}
+                      {(bookingsInfiniteData?.pages[0]?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
+                      {quickFilter === "today"             ? "Appointments assigned to you today"
+                       : quickFilter === "upcoming"        ? "Future appointments beyond today"
+                       : quickFilter === "owned"           ? "Only appointments you've confirmed or accepted"
+                       : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
+                       : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
+                       : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
+                       : quickFilter === "this-week"       ? "Appointments within the current Mon–Sun week"
+                       : quickFilter === "next-week"       ? "Appointments within next Mon–Sun week"
+                       : filterDate                        ? "Showing custom date range"
+                       : "All your patient appointments"}
+                    </p>
                   </div>
                 </div>
-              </div>
-
-              {isBookingsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {[1,2,3,4,5,6].map(i => (
-                    <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Skeleton className="h-4 w-28" />
-                        <Skeleton className="h-5 w-16 rounded-full" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Skeleton className="h-3.5 w-36" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Skeleton className="h-7 flex-1 rounded-md" />
-                        <Skeleton className="h-7 flex-1 rounded-md" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : displayBookings.length > 0 ? (
-                <>
+                <div className="p-5 space-y-5">
+                {isBookingsLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {displayBookings.map((booking: any) => {
-                    const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
-                    const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
-                    const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
-                    const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
-                    const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
-                    const bookingDateStr = startTime ? startTime.toISOString().split("T")[0] : "";
-                    const isApptToday = bookingDateStr === todayStr;
-                    const isApptPast = startTime ? startTime < new Date(new Date().setHours(0, 0, 0, 0)) && !isApptToday : false;
-                    const isApptConfirmed = booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed';
-                    const isApptCancelled = booking.verificationStatus === 'cancelled';
-                    const clinicCity = clinicAddress ? clinicAddress.split(',').at(-1)?.trim() : null;
-
-                    const apptAccentBar = isApptToday
-                      ? "bg-gradient-to-r from-sky-400 to-cyan-400"
-                      : isApptPast
-                      ? "bg-gradient-to-r from-slate-400 to-slate-300"
-                      : "bg-gradient-to-r from-primary to-accent";
-                    const apptHeaderBg = isApptToday
-                      ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
-                      : isApptPast
-                      ? "bg-muted/30"
-                      : "bg-gradient-to-r from-primary/5 to-accent/5";
-                    const apptLeftBorder = isApptCancelled
-                      ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
-                      : isApptConfirmed
-                      ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
-                      : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
-                    const apptTimeLabel = isApptToday ? "Today" : isApptPast ? "Past" : "Upcoming";
-                    const apptTimeClass = isApptToday
-                      ? "text-sky-600 bg-sky-500/10 border-sky-500/25 dark:text-sky-400 dark:bg-sky-400/10 dark:border-sky-500/30"
-                      : isApptPast
-                      ? "text-muted-foreground bg-muted/50 border-border/50"
-                      : "text-primary bg-primary/10 border-primary/25";
-                    const apptStatusLabel = isApptCancelled ? "Cancelled" : isApptConfirmed ? "Confirmed" : "Pending";
-                    const apptStatusClass = isApptCancelled
-                      ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
-                      : isApptConfirmed
-                      ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
-                      : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
-                    return (
-                      <AppointmentCard
-                        key={booking.id}
-                        role="doctor"
-                        booking={booking}
-                        bookingNumber={String(booking.id).padStart(4, '0')}
-                        complaints={(() => {
-                          const raw = booking.description ?? "";
-                          const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
-                          return stripped ? stripped.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : [];
-                        })()}
-                        clinicName={clinicName}
-                        clinicCity={clinicCity ?? undefined}
-                        onCardClick={() => { setOpenedBooking(booking); setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        onApprove={() => approveMutation.mutate(booking.id)}
-                        onDecline={() => declineMutation.mutate(booking.id)}
-                        onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
-                        declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
-                        onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
-                        startConsultPending={startConsultationMutation.isPending}
-                        onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
-                        completeVisitPending={completeVisitMutation.isPending}
-                        onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
-                        consentRequestPending={requestConsentMutation.isPending}
-                      />
-                    );
-                  })}
-                </div>
-                {isFetchingNextPage && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
-                    {[1,2,3].map(i => (
+                    {[1,2,3,4,5,6].map(i => (
                       <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Skeleton className="h-4 w-28" />
@@ -1608,27 +1507,121 @@ export default function DoctorDashboard() {
                       </div>
                     ))}
                   </div>
-                )}
-                {!hasNextPage && displayBookings.length > 0 && (
-                  <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
-                    All {bookingsInfiniteData?.pages[0]?.total ?? displayBookings.length} appointments loaded
-                  </p>
-                )}
-                <div ref={sentinelRef} className="h-2" />
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
-                    {quickFilter === "awaiting" ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
+                ) : displayBookings.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {displayBookings.map((booking: any) => {
+                      const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
+                      const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
+                      const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
+                      const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
+                      const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
+                      const bookingDateStr = startTime ? startTime.toISOString().split("T")[0] : "";
+                      const isApptToday = bookingDateStr === todayStr;
+                      const isApptPast = startTime ? startTime < new Date(new Date().setHours(0, 0, 0, 0)) && !isApptToday : false;
+                      const isApptConfirmed = booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed';
+                      const isApptCancelled = booking.verificationStatus === 'cancelled';
+                      const clinicCity = clinicAddress ? clinicAddress.split(',').at(-1)?.trim() : null;
+
+                      const apptAccentBar = isApptToday
+                        ? "bg-gradient-to-r from-sky-400 to-cyan-400"
+                        : isApptPast
+                        ? "bg-gradient-to-r from-slate-400 to-slate-300"
+                        : "bg-gradient-to-r from-primary to-accent";
+                      const apptHeaderBg = isApptToday
+                        ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
+                        : isApptPast
+                        ? "bg-muted/30"
+                        : "bg-gradient-to-r from-primary/5 to-accent/5";
+                      const apptLeftBorder = isApptCancelled
+                        ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
+                        : isApptConfirmed
+                        ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
+                        : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
+                      const apptTimeLabel = isApptToday ? "Today" : isApptPast ? "Past" : "Upcoming";
+                      const apptTimeClass = isApptToday
+                        ? "text-sky-600 bg-sky-500/10 border-sky-500/25 dark:text-sky-400 dark:bg-sky-400/10 dark:border-sky-500/30"
+                        : isApptPast
+                        ? "text-muted-foreground bg-muted/50 border-border/50"
+                        : "text-primary bg-primary/10 border-primary/25";
+                      const apptStatusLabel = isApptCancelled ? "Cancelled" : isApptConfirmed ? "Confirmed" : "Pending";
+                      const apptStatusClass = isApptCancelled
+                        ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
+                        : isApptConfirmed
+                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
+                        : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
+                      return (
+                        <AppointmentCard
+                          key={booking.id}
+                          role="doctor"
+                          booking={booking}
+                          bookingNumber={String(booking.id).padStart(4, '0')}
+                          complaints={(() => {
+                            const raw = booking.description ?? "";
+                            const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
+                            return stripped ? stripped.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : [];
+                          })()}
+                          clinicName={clinicName}
+                          clinicCity={clinicCity ?? undefined}
+                          onCardClick={() => { setOpenedBooking(booking); setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
+                          onApprove={() => approveMutation.mutate(booking.id)}
+                          onDecline={() => declineMutation.mutate(booking.id)}
+                          onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                          onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                          approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
+                          declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
+                          onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
+                          startConsultPending={startConsultationMutation.isPending}
+                          onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                          completeVisitPending={completeVisitMutation.isPending}
+                          onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
+                          consentRequestPending={requestConsentMutation.isPending}
+                        />
+                      );
+                    })}
+                    </div>
+                    {isFetchingNextPage && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
+                        {[1,2,3].map(i => (
+                          <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Skeleton className="h-4 w-28" />
+                              <Skeleton className="h-5 w-16 rounded-full" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Skeleton className="h-3.5 w-36" />
+                              <Skeleton className="h-3 w-24" />
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <Skeleton className="h-7 flex-1 rounded-md" />
+                              <Skeleton className="h-7 flex-1 rounded-md" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {!hasNextPage && displayBookings.length > 0 && (
+                      <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
+                        All {bookingsInfiniteData?.pages[0]?.total ?? displayBookings.length} appointments loaded
+                      </p>
+                    )}
+                    <div ref={sentinelRef} className="h-2" />
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
+                      {quickFilter === "awaiting" ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {quickFilter === "awaiting" ? "No appointments awaiting approval" : "No appointments found"}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      {quickFilter === "awaiting" ? "You're all caught up — nothing waiting for your review." : "Try adjusting your filters"}
+                    </p>
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {quickFilter === "awaiting" ? "No appointments awaiting approval" : "No appointments found"}
-                  </p>
-                  <p className="text-xs text-muted-foreground/70">
-                    {quickFilter === "awaiting" ? "You're all caught up — nothing waiting for your review." : "Try adjusting your filters"}
-                  </p>
+                )}
                 </div>
-              )}
+              </div>
             </div>
           </>
           )}
