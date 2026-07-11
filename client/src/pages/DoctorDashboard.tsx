@@ -946,7 +946,7 @@ export default function DoctorDashboard() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
-                      className={`flex flex-col items-start gap-1.5 px-3 py-2.5 rounded-xl border bg-card ${border} ${darkBorder} cursor-pointer transition-all hover:bg-muted/40 hover:scale-[1.02] active:scale-[0.98] min-h-[80px] sm:min-h-[90px] ${quickFilter === filter ? 'ring-1 ring-primary/30 bg-primary/5' : ''}`}
+                      className={`flex flex-col gap-1 px-3 py-2 rounded-xl border bg-card ${border} ${darkBorder} cursor-pointer transition-all hover:bg-muted/40 hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-primary/30 bg-primary/5' : ''}`}
                       onClick={() => {
                         setActiveTab("appointments");
                         handleQuickFilter(filter);
@@ -954,19 +954,20 @@ export default function DoctorDashboard() {
                       }}
                       data-testid={`stat-card-${filter}`}
                     >
-                      <div className="flex items-center gap-2 w-full">
+                      {/* Single row: icon + label (ellipsis) + count + info */}
+                      <div className="flex items-center gap-2 min-w-0">
                         <div className={`shrink-0 ${text} ${darkText} ${bg} ${darkBg} p-1 rounded-md`}>
                           <Icon className="h-3.5 w-3.5" />
                         </div>
-                        <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0 ml-auto`} />
+                        <p className={`text-xs font-semibold ${text} ${darkText} min-w-0 truncate`}>{label}</p>
+                        <p className="text-lg font-extrabold text-foreground leading-none tabular-nums ml-auto shrink-0">
+                          {count}
+                        </p>
+                        <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0`} />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xl font-extrabold text-foreground leading-none tabular-nums">{count}</p>
-                        <p className={`text-xs font-semibold mt-0.5 ${text} ${darkText}`}>{label}</p>
-                        {subTag && (
-                          <span className="text-[10px] font-medium text-muted-foreground">{subTag}</span>
-                        )}
-                      </div>
+                      {subTag && (
+                        <span className="text-[10px] font-medium text-muted-foreground leading-none">{subTag}</span>
+                      )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
