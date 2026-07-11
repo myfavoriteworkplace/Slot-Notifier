@@ -863,12 +863,67 @@ export default function DoctorDashboard() {
               Sign Out
             </button>
           </div>
+
+          {/* ── Desktop embedded stats (hidden on mobile) ── */}
+          <div className="hidden sm:block relative mt-5">
+            <div className="flex items-center gap-2 pt-4">
+              <div className="flex-1 h-px bg-white/10" />
+              <button
+                onClick={() => setHeroStatsCollapsed(s => !s)}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/10 active:bg-white/15 transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
+                title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
+              </button>
+            </div>
+            {!heroStatsCollapsed && (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+            {[
+              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookingsCount,       Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,      Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: "pending-7days" as QuickFilter, tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",       count: pendingNext7Count,        Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",             count: awaitingApprovalCount,    Icon: TrendingUp,    text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
+            ].map(({ label, shortLabel, subTag, filter, tooltip, count, Icon, text, bg, border }) => (
+              <TooltipProvider key={label} delayDuration={700}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`flex items-start gap-2 px-2.5 py-3 rounded-xl border bg-white/[0.04] ${border} cursor-pointer transition-all hover:bg-white/[0.09] hover:scale-[1.02] active:scale-[0.98] min-h-[44px] ${quickFilter === filter ? 'ring-1 ring-white/50 bg-white/[0.09]' : ''}`}
+                      onClick={() => {
+                        setActiveTab("appointments");
+                        handleQuickFilter(filter);
+                        setTimeout(() => appointmentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                      }}
+                      data-testid={`stat-card-${filter}`}
+                    >
+                      <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg mt-0.5`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
+                        <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
+                        {subTag && (
+                          <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
+                        )}
+                      </div>
+                      <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 mt-1`} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
+                    {tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
+            </div>
+            )}
+          </div>
         </div>
         <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
       </div>
 
-      {/* ═══ COMPACT STATS CARDS (white, outside hero) ═══ */}
-      <div className="mb-5 sm:mb-8">
+      {/* ═══ COMPACT STATS CARDS (mobile-only white cards) ═══ */}
+      <div className="sm:hidden mb-5">
         <div className="flex items-center justify-between mb-2 px-0.5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
           <button
