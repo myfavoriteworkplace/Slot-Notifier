@@ -159,6 +159,7 @@ function AppLayout() {
   const [location] = useLocation();
   const isClinicAboutPage = location.startsWith("/clinic/") || location === "/about";
   const isDoctorDashboard = location === "/doctor-dashboard";
+  const isClinicDashboard = location === "/clinic-dashboard";
 
   return (
     <div className="min-h-screen bg-background font-sans antialiased relative overflow-x-hidden">
@@ -172,7 +173,7 @@ function AppLayout() {
         className="fixed -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-accent/10 blur-3xl pointer-events-none z-0"
       />
       {!isClinicAboutPage && (
-        <div className={isDoctorDashboard ? "hidden lg:block" : ""}>
+        <div className={isDoctorDashboard || isClinicDashboard ? "hidden lg:block" : ""}>
           <Header />
         </div>
       )}

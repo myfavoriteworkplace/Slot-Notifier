@@ -21,6 +21,8 @@ import {
   generateReceiptPDF, printBillFromRecord, generateConsentPdf,
 } from "@/lib/clinic-pdf";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
+import { useNotifications, useMarkAllNotificationsRead } from "@/hooks/use-notifications";
+import { useTheme } from "next-themes";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -33,6 +35,7 @@ import {
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
   ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight,
   Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb,
+  Menu, Bell,
 } from "lucide-react";
 import {
   ToothIcon, SlotTiming, SectionConfig, DayConfig, BookingWithSlot,
@@ -125,7 +128,7 @@ function BookingCardSkeleton() {
 
 function ClinicDashboardSkeleton() {
   return (
-    <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-0">
+    <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
       {/* Header skeleton — mirrors compact hero + white stats */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
@@ -178,6 +181,9 @@ function ClinicDashboardSkeleton() {
 
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
+  const { data: notifications = [] } = useNotifications();
+  const markAllRead = useMarkAllNotificationsRead();
+  const { theme, setTheme } = useTheme();
   const [_, setLocation] = useLocation();
 
   const updateLogoMutation = useMutation({
@@ -282,15 +288,7 @@ export default function ClinicDashboard() {
     setTimeout(() => setCopiedUrlType(null), 2000);
   };
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
-  const [heroCompact, setHeroCompact] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
-
-  /* Sticky compact hero (mobile only) */
-  useEffect(() => {
-    const onScroll = () => setHeroCompact(window.scrollY > 80);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
 
@@ -311,7 +309,8 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics' | 'consent-form'>('bookings');
-  const [clinicMoreDrawerOpen, setClinicMoreDrawerOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
 
 
   // Bookings patient search
@@ -853,8 +852,100 @@ export default function ClinicDashboard() {
   const totalPendingCount   = bookingHeroStats?.totalPendingCount ?? 0;
   const confirmedNext7Count = bookingHeroStats?.confirmedNext7Count ?? 0;
 
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
   return (
-    <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-0">
+    <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
+
+      {/* ── MOBILE STICKY TOP BAR ── */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-2 gap-1 bg-background/90 backdrop-blur-[18px] border-b border-black/[0.06] dark:border-white/[0.06] shadow-sm">
+        {/* Hamburger */}
+        <button
+          onClick={() => setMobileNavOpen(true)}
+          className="h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label="Open navigation"
+          data-testid="btn-mobile-hamburger"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+
+        {/* App branding */}
+        <div className="flex-1 min-w-0 pl-1">
+          <p className="text-[18px] font-bold text-foreground leading-none tracking-tight">
+            book<span className="text-primary">My</span>Slot
+          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-primary leading-none mt-px">
+            Dental
+          </p>
+        </div>
+
+        {/* Notification bell */}
+        <button
+          onClick={() => setMobileNotifOpen(true)}
+          className="relative h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+          data-testid="btn-mobile-notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* Avatar dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="h-11 w-11 flex items-center justify-center rounded-xl hover:bg-muted/60 active:scale-95 transition-all"
+              aria-label="Profile menu"
+              data-testid="btn-mobile-avatar"
+            >
+              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                {clinic?.name?.charAt(0)?.toUpperCase() || 'C'}
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <div className="px-2 py-1.5">
+              <p className="text-xs font-semibold text-foreground truncate">{clinic?.name}</p>
+              <p className="text-[11px] text-muted-foreground">Clinic Admin</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setActivePanel('clinic-profile')}
+              data-testid="mobile-menu-clinic-profile"
+            >
+              <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+              Clinic Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              data-testid="mobile-menu-theme"
+            >
+              {theme === 'dark'
+                ? <Sun className="h-4 w-4 mr-2 text-muted-foreground" />
+                : <Moon className="h-4 w-4 mr-2 text-muted-foreground" />
+              }
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="text-rose-600 dark:text-rose-400 focus:text-rose-600 dark:focus:text-rose-400"
+              data-testid="mobile-menu-sign-out"
+            >
+              {isLoggingOut
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <LogOut className="h-4 w-4 mr-2" />
+              }
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Subscription payment pending banner */}
       {(clinic as any)?.subscriptionStatus === "pending_payment" && (
@@ -878,27 +969,6 @@ export default function ClinicDashboard() {
           </a>
         </div>
       )}
-
-      {/* ═══════════════ COMPACT HERO + STATS ═══════════════ */}
-
-      {/* Sticky compact bar (mobile, after scroll) */}
-      <div className={`lg:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${heroCompact ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-        <div className="mx-2 mt-2 rounded-xl border border-white/10 bg-gradient-to-r from-[#052B22] via-[#085041] to-[#0A5540] shadow-lg px-3 py-2 flex items-center gap-2.5">
-          <div className="shrink-0 h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-white font-bold text-xs">
-            {clinic?.name?.charAt(0) || "C"}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-white truncate">{clinic?.name}</p>
-          </div>
-          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-            </span>
-            Live
-          </span>
-        </div>
-      </div>
 
       {/* Hero card */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
@@ -1852,105 +1922,167 @@ export default function ClinicDashboard() {
       </Dialog>
 
 
-      {/* ── CLINIC MOBILE BOTTOM NAV ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
-        <div className="flex items-stretch">
-          {([
-            { key: 'bookings'   as const, label: 'Bookings', Icon: CalendarIcon },
-            { key: 'book-a-slot'as const, label: 'Book',     Icon: Plus },
-            { key: 'patients'   as const, label: 'Patients', Icon: Users },
-            { key: 'accounts'   as const, label: 'Accounts', Icon: IndianRupee },
-          ]).map(({ key, label, Icon }) => {
-            const isActive = activePanel === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setActivePanel(key)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                }`}
-                data-testid={`bottom-nav-clinic-${key}`}
-              >
-                {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-semibold">{label}</span>
-              </button>
-            );
-          })}
-          <button
-            onClick={() => setClinicMoreDrawerOpen(true)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-              ['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data','consent-form'].includes(activePanel)
-                ? 'text-primary' : 'text-muted-foreground'
-            }`}
-            data-testid="bottom-nav-clinic-more"
-          >
-            {['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data','consent-form'].includes(activePanel) && (
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
-            )}
-            <MoreHorizontal className="h-5 w-5" />
-            <span className="text-[10px] font-semibold">More</span>
-          </button>
-        </div>
-      </nav>
+      {/* ── MOBILE LEFT NAVIGATION DRAWER ── */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-[320px] max-w-[80vw] p-0 flex flex-col lg:hidden">
 
-      {/* ── CLINIC MORE DRAWER (mobile) ── */}
-      <Sheet open={clinicMoreDrawerOpen} onOpenChange={setClinicMoreDrawerOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader className="mb-4">
-            <SheetTitle>More</SheetTitle>
-          </SheetHeader>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              { key: 'configure-slots' as const, label: 'Configure Slots', desc: 'Capacity & cancellation',  Icon: Clock,       cls: 'bg-blue-500/10 border-blue-500/20 text-blue-600' },
-              { key: 'manage-doctors'  as const, label: 'Manage Doctors',  desc: 'Add or remove doctors',    Icon: Stethoscope, cls: 'bg-teal-500/10 border-teal-500/20 text-teal-600' },
-              { key: 'inventory'       as const, label: 'Inventory',        desc: 'Stock, assets & alerts',   Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
-              { key: 'pharmacy-stock'  as const, label: 'Pharmacy Stock',   desc: 'Medicines & supplies',     Icon: Pill,        cls: 'bg-orange-500/10 border-orange-500/20 text-orange-600' },
-              { key: 'clinic-profile'  as const, label: 'Clinic Profile',   desc: 'Edit public about page',   Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
-              { key: 'website'         as const, label: 'Clinic Website',   desc: 'Theme & content',          Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
-              { key: 'analytics'       as const, label: 'Analytics',        desc: 'Clinic performance',       Icon: TrendingUp,  cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
-              { key: 'export-data'     as const, label: 'Export Data',      desc: 'Download patient records', Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
-              { key: 'consent-form'   as const, label: 'Consent Form',     desc: 'Edit patient wording',     Icon: ScrollText,  cls: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' },
-            ]).map(({ key, label, desc, Icon, cls }) => (
-              <button
-                key={key}
-                onClick={() => { setActivePanel(key); setClinicMoreDrawerOpen(false); }}
-                className={`flex items-center gap-3 px-3 py-3 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98] ${
-                  activePanel === key ? 'ring-2 ring-primary/30' : ''
-                }`}
-                data-testid={`drawer-clinic-${key}`}
-              >
-                <div className={`h-8 w-8 rounded-xl border flex items-center justify-center shrink-0 ${cls}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm leading-tight">{label}</p>
-                  <p className="text-xs text-muted-foreground truncate">{desc}</p>
-                </div>
-              </button>
-            ))}
+          {/* Drawer header */}
+          <div className="px-4 pt-5 pb-4 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {clinic?.name?.charAt(0)?.toUpperCase() || 'C'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{clinic?.name}</p>
+                <p className="text-[11px] text-muted-foreground">Clinic Admin</p>
+              </div>
+            </div>
           </div>
 
-          {/* Sign Out — lives here on mobile; hidden from the green hero on small screens */}
-          <div className="mt-3 pt-3 border-t border-border/50 pb-4">
+          {/* Nav groups */}
+          <ScrollArea className="flex-1 px-3 py-3">
+            {([
+              {
+                label: 'SCHEDULING',
+                items: [
+                  { key: 'bookings'    as const, label: 'Bookings',    desc: 'All appointments',          Icon: CalendarIcon, activeBg: 'bg-primary/10 border-primary/20',        iconCls: 'bg-primary/10 border-primary/20 text-primary',         textCls: 'text-primary' },
+                  { key: 'book-a-slot' as const, label: 'Book a Slot', desc: 'New patient appointment',   Icon: Plus,         activeBg: 'bg-primary/10 border-primary/20',        iconCls: 'bg-primary/10 border-primary/20 text-primary',         textCls: 'text-primary' },
+                ],
+              },
+              {
+                label: 'PATIENTS & STAFF',
+                items: [
+                  { key: 'patients'       as const, label: 'Patients',       desc: 'Patient directory',      Icon: Users,       activeBg: 'bg-rose-500/10 border-rose-500/20',       iconCls: 'bg-rose-500/10 border-rose-500/20 text-rose-500',       textCls: 'text-rose-600 dark:text-rose-400' },
+                  { key: 'manage-doctors' as const, label: 'Manage Doctors', desc: 'Add or remove doctors',  Icon: Stethoscope, activeBg: 'bg-teal-500/10 border-teal-500/20',       iconCls: 'bg-teal-500/10 border-teal-500/20 text-teal-600',       textCls: 'text-teal-700 dark:text-teal-400' },
+                ],
+              },
+              {
+                label: 'BILLING',
+                items: [
+                  { key: 'accounts' as const, label: 'Accounts', desc: 'All patient billing history', Icon: IndianRupee, activeBg: 'bg-primary/10 border-primary/20', iconCls: 'bg-primary/10 border-primary/20 text-primary', textCls: 'text-primary' },
+                ],
+              },
+              {
+                label: 'INVENTORY',
+                items: [
+                  { key: 'inventory'      as const, label: 'Inventory',      desc: 'Stock, assets & alerts',      Icon: Package, activeBg: 'bg-emerald-500/10 border-emerald-500/20', iconCls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600', textCls: 'text-emerald-700 dark:text-emerald-400' },
+                  { key: 'pharmacy-stock' as const, label: 'Pharmacy Stock', desc: 'Medicine catalog & pricing',   Icon: Pill,    activeBg: 'bg-orange-500/10 border-orange-500/20',   iconCls: 'bg-orange-500/10 border-orange-500/20 text-orange-600',   textCls: 'text-orange-700 dark:text-orange-400' },
+                ],
+              },
+              {
+                label: 'CLINIC',
+                items: [
+                  { key: 'clinic-profile' as const, label: 'Clinic Profile',  desc: 'Edit public about page',  Icon: Building2,  activeBg: 'bg-violet-500/10 border-violet-500/20', iconCls: 'bg-violet-500/10 border-violet-500/20 text-violet-600', textCls: 'text-violet-700 dark:text-violet-400' },
+                  { key: 'website'        as const, label: 'Clinic Website',  desc: 'Theme & content',          Icon: Globe,      activeBg: 'bg-sky-500/10 border-sky-500/20',       iconCls: 'bg-sky-500/10 border-sky-500/20 text-sky-600',         textCls: 'text-sky-700 dark:text-sky-400' },
+                  { key: 'analytics'      as const, label: 'Analytics',       desc: 'Clinic performance',       Icon: TrendingUp, activeBg: 'bg-violet-500/10 border-violet-500/20', iconCls: 'bg-violet-500/10 border-violet-500/20 text-violet-500', textCls: 'text-violet-700 dark:text-violet-400' },
+                  { key: 'consent-form'   as const, label: 'Consent Form',    desc: 'Edit patient wording',     Icon: ScrollText, activeBg: 'bg-indigo-500/10 border-indigo-500/20', iconCls: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600', textCls: 'text-indigo-700 dark:text-indigo-400' },
+                ],
+              },
+              {
+                label: 'SETTINGS',
+                items: [
+                  { key: 'configure-slots' as const, label: 'Configure Slots', desc: 'Capacity & cancellation',  Icon: Clock,     activeBg: 'bg-blue-500/10 border-blue-500/20',   iconCls: 'bg-blue-500/10 border-blue-500/20 text-blue-500',     textCls: 'text-blue-600' },
+                  { key: 'export-data'     as const, label: 'Export Data',     desc: 'Download patient records', Icon: Download,  activeBg: 'bg-amber-500/10 border-amber-500/20', iconCls: 'bg-amber-500/10 border-amber-500/20 text-amber-600',  textCls: 'text-amber-700 dark:text-amber-400' },
+                ],
+              },
+            ] as const).map(group => (
+              <div key={group.label} className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 mb-1">{group.label}</p>
+                <div className="space-y-0.5">
+                  {(group.items as readonly { key: typeof activePanel; label: string; desc: string; Icon: React.ComponentType<{ className?: string }>; activeBg: string; iconCls: string; textCls: string }[]).map(({ key, label, desc, Icon, activeBg, iconCls, textCls }) => {
+                    const isActive = activePanel === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => { setActivePanel(key); setMobileNavOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-2 py-2.5 rounded-xl transition-all text-left ${isActive ? `${activeBg} border` : 'border border-transparent hover:bg-muted/50'}`}
+                        data-testid={`drawer-nav-${key}`}
+                      >
+                        <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${isActive ? iconCls : 'bg-muted/50 border-border/50'}`}>
+                          <Icon className={`h-4 w-4 ${isActive ? '' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-semibold leading-tight ${isActive ? textCls : 'text-foreground'}`}>{label}</p>
+                          <p className="text-xs text-muted-foreground truncate">{desc}</p>
+                        </div>
+                        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-current shrink-0 opacity-60" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </ScrollArea>
+
+          {/* Sign out */}
+          <div className="px-3 pb-5 pt-2 border-t border-border/50">
             <button
-              onClick={() => { setClinicMoreDrawerOpen(false); handleLogout(); }}
+              onClick={() => { setMobileNavOpen(false); handleLogout(); }}
               disabled={isLoggingOut}
-              className="flex items-center gap-3 px-3 py-3 rounded-2xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/60 dark:bg-rose-950/20 w-full text-left hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors active:scale-[0.98] disabled:opacity-60"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/60 dark:bg-rose-950/20 w-full text-left hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors active:scale-[0.98] disabled:opacity-60"
               data-testid="drawer-sign-out"
             >
-              <div className="h-8 w-8 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center shrink-0 text-rose-500">
-                {isLoggingOut
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <LogOut className="h-4 w-4" />
-                }
+              <div className="h-8 w-8 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center shrink-0 text-rose-500">
+                {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm leading-tight text-rose-600 dark:text-rose-400">Sign Out</p>
-                <p className="text-xs text-muted-foreground truncate">Exit clinic dashboard</p>
+                <p className="text-xs text-muted-foreground">Exit clinic dashboard</p>
               </div>
             </button>
           </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── MOBILE NOTIFICATIONS SHEET ── */}
+      <Sheet open={mobileNotifOpen} onOpenChange={setMobileNotifOpen}>
+        <SheetContent side="right" className="w-[320px] max-w-[90vw] p-0 flex flex-col lg:hidden">
+          <SheetHeader className="px-4 pt-5 pb-3 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-base">Notifications</SheetTitle>
+              {notifications.some(n => !n.isRead) && (
+                <button
+                  onClick={() => markAllRead.mutate()}
+                  className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                  data-testid="btn-mobile-mark-all-read"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+          </SheetHeader>
+          <ScrollArea className="flex-1">
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <Bell className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                <p className="text-sm font-semibold text-foreground">No notifications</p>
+                <p className="text-xs text-muted-foreground mt-1">You're all caught up</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {notifications.map(n => (
+                  <div
+                    key={n.id}
+                    className={`px-4 py-3 flex items-start gap-3 transition-colors ${!n.isRead ? 'bg-primary/[0.03]' : ''}`}
+                    data-testid={`notif-item-${n.id}`}
+                  >
+                    <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5 ${!n.isRead ? 'bg-primary/10' : 'bg-muted/60'}`}>
+                      <Bell className={`h-3.5 w-3.5 ${!n.isRead ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs leading-snug ${!n.isRead ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{n.message}</p>
+                      {n.createdAt && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(n.createdAt).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+                    {!n.isRead && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
         </SheetContent>
       </Sheet>
 
