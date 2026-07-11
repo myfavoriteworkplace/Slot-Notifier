@@ -942,8 +942,8 @@ export default function BookingsPanel({
 
   return (
           <div className="space-y-5" ref={bookingsSectionRef}>
-        {/* Panel header */}
-        <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        {/* Panel header — desktop only (mobile header lives in ClinicDashboard above stats) */}
+        <div className="hidden sm:block rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
           <div className="flex">
             <div className="w-1.5 bg-sky-500/60 shrink-0" />
             <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex items-center gap-3">

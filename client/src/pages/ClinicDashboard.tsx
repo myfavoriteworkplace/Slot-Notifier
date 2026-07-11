@@ -1039,65 +1039,88 @@ export default function ClinicDashboard() {
         <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
       </div>
 
-      {/* ═══════════════ COMPACT STATS CARDS (mobile-only white cards) ═══════════════ */}
-      <div className="sm:hidden mb-5">
-        <div className="flex items-center justify-between mb-2 px-0.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
-          <button
-            onClick={() => setHeroStatsCollapsed(s => !s)}
-            className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
-            title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
-          >
-            <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
-          </button>
-        </div>
-        {!heroStatsCollapsed && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: "Today",         subTag: null,          filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                          value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-600",      bg: "bg-sky-50",     border: "border-sky-200",     darkText: "dark:text-sky-400", darkBg: "dark:bg-sky-950/20", darkBorder: "dark:border-sky-800" },
-              { label: "Confirmed",     subTag: "7 Days",      filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", darkText: "dark:text-emerald-400", darkBg: "dark:bg-emerald-950/20", darkBorder: "dark:border-emerald-800" },
-              { label: "Pending",       subTag: "7 Days",      filter: 'pending-7days' as const,    tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.", value: pendingNext7Count,   Icon: Clock,        text: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   darkText: "dark:text-amber-400", darkBg: "dark:bg-amber-950/20", darkBorder: "dark:border-amber-800" },
-              { label: "All Pending",   subTag: null,          filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.", value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-200",    darkText: "dark:text-rose-400", darkBg: "dark:bg-rose-950/20", darkBorder: "dark:border-rose-800" },
-            ].map(({ label, subTag, filter, tooltip, value, Icon, text, bg, border, darkText, darkBg, darkBorder }, i) => (
-              <TooltipProvider key={i} delayDuration={700}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={`flex flex-col gap-1 px-3 py-2 rounded-xl border bg-card ${border} ${darkBorder} cursor-pointer transition-all hover:bg-muted/40 hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-primary/30 bg-primary/5' : ''}`}
-                      onClick={() => {
-                        setFilterDate(undefined);
-                        setFilterEndDate(undefined);
-                        setActivePanel('bookings');
-                        setQuickFilter(filter);
-                        setTimeout(() => bookingsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
-                      }}
-                      data-testid={`stat-card-${filter}`}
-                    >
-                      {/* Single row: icon + label (ellipsis) + count + info */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`shrink-0 ${text} ${darkText} ${bg} ${darkBg} p-1 rounded-md`}>
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        <p className={`text-xs font-semibold ${text} ${darkText} min-w-0 truncate`}>{label}</p>
-                        <p className="text-lg font-extrabold text-foreground leading-none tabular-nums ml-auto shrink-0">
-                          {bookingsLoading ? "—" : value}
-                        </p>
-                        <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0`} />
-                      </div>
-                      {subTag && (
-                        <span className="text-[10px] font-medium text-muted-foreground leading-none">{subTag}</span>
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
-                    {tooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ))}
+      {/* ═══════════════ BOOKINGS SECTION HEADER + STATS (mobile-only, bookings panel) ═══════════════ */}
+      {activePanel === 'bookings' && (
+        <>
+          {/* Mobile panel header */}
+          <div className="sm:hidden mb-3">
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="flex">
+                <div className="w-1.5 bg-sky-500/60 shrink-0" />
+                <div className="flex-1 px-4 py-3 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                    <CalendarIcon className="h-[16px] w-[16px] text-sky-600 dark:text-sky-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold tracking-tight">Bookings</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Manage all patient appointments</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Mobile quick stats */}
+          <div className="sm:hidden mb-5">
+            <div className="flex items-center justify-between mb-2 px-0.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
+              <button
+                onClick={() => setHeroStatsCollapsed(s => !s)}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
+                title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
+              </button>
+            </div>
+            {!heroStatsCollapsed && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "Today",         subTag: null,          filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                          value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-600",      bg: "bg-sky-50",     border: "border-sky-200",     darkText: "dark:text-sky-400", darkBg: "dark:bg-sky-950/20", darkBorder: "dark:border-sky-800" },
+                  { label: "Confirmed",     subTag: "7 Days",      filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", darkText: "dark:text-emerald-400", darkBg: "dark:bg-emerald-950/20", darkBorder: "dark:border-emerald-800" },
+                  { label: "Pending",       subTag: "7 Days",      filter: 'pending-7days' as const,    tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.", value: pendingNext7Count,   Icon: Clock,        text: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   darkText: "dark:text-amber-400", darkBg: "dark:bg-amber-950/20", darkBorder: "dark:border-amber-800" },
+                  { label: "All Pending",   subTag: null,          filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.", value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-200",    darkText: "dark:text-rose-400", darkBg: "dark:bg-rose-950/20", darkBorder: "dark:border-rose-800" },
+                ].map(({ label, subTag, filter, tooltip, value, Icon, text, bg, border, darkText, darkBg, darkBorder }, i) => (
+                  <TooltipProvider key={i} delayDuration={700}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`flex flex-col gap-1 px-3 py-2 rounded-xl border bg-card ${border} ${darkBorder} cursor-pointer transition-all hover:bg-muted/40 hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-primary/30 bg-primary/5' : ''}`}
+                          onClick={() => {
+                            setFilterDate(undefined);
+                            setFilterEndDate(undefined);
+                            setActivePanel('bookings');
+                            setQuickFilter(filter);
+                            setTimeout(() => bookingsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                          }}
+                          data-testid={`stat-card-${filter}`}
+                        >
+                          {/* Single row: icon + label (ellipsis) + count + info */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`shrink-0 ${text} ${darkText} ${bg} ${darkBg} p-1 rounded-md`}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <p className={`text-xs font-semibold ${text} ${darkText} min-w-0 truncate`}>{label}</p>
+                            <p className="text-lg font-extrabold text-foreground leading-none tabular-nums ml-auto shrink-0">
+                              {bookingsLoading ? "—" : value}
+                            </p>
+                            <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0`} />
+                          </div>
+                          {subTag && (
+                            <span className="text-[10px] font-medium text-muted-foreground leading-none">{subTag}</span>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+                        {tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Two-column layout: left sidebar + main content */}
       <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
