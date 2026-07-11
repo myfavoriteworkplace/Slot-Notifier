@@ -60,9 +60,9 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
   return (
     <div className="space-y-5">
 
-      {/* Panel header */}
+      {/* Panel header — standalone card */}
       <div className="rounded-2xl overflow-hidden border border-border/50 shadow-sm">
-        <div className="flex border-b border-border/40">
+        <div className="flex">
           <div className="w-1.5 bg-violet-500/60 shrink-0" />
           <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -86,6 +86,10 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
             </a>
           </div>
         </div>
+      </div>
+
+      {/* Content card — detached */}
+      <div className="rounded-2xl overflow-hidden border border-border/50 bg-card shadow-sm">
 
         {/* Locked identity row */}
         <div className="px-5 py-3 bg-muted/30 border-b border-border/40 flex items-center gap-3">
@@ -249,7 +253,8 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
             )}
           </Button>
         </div>
-      </div>
+
+      </div>{/* end content card */}
 
     </div>
   );

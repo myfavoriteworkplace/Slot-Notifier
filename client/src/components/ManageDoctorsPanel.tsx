@@ -175,9 +175,11 @@ export default function ManageDoctorsPanel({ clinic, isAuthenticated, allDoctorL
   };
 
   return (
-    <>
+    <div className="space-y-5">
+
+      {/* Panel header — standalone card */}
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-        <div className="flex border-b border-border/40">
+        <div className="flex">
           <div className="w-1.5 bg-teal-500/60 shrink-0" />
           <div className="flex-1 px-5 py-4 bg-gradient-to-r from-teal-500/[0.06] to-transparent flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -194,6 +196,10 @@ export default function ManageDoctorsPanel({ clinic, isAuthenticated, allDoctorL
             </Badge>
           </div>
         </div>
+      </div>
+
+      {/* Content card — detached */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="p-5 space-y-4">
           <div className="border-t border-border/30">
             <div className="space-y-4">
@@ -649,6 +655,6 @@ export default function ManageDoctorsPanel({ clinic, isAuthenticated, allDoctorL
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

@@ -267,19 +267,26 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
   };
 
   return (
-    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-      <div className="flex border-b border-border/40">
-        <div className="w-1.5 bg-primary/60 shrink-0" />
-        <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <Plus className="h-[18px] w-[18px] text-primary" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">Book a Slot</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Create a new patient appointment</p>
+    <div className="space-y-5">
+
+      {/* Panel header — standalone card */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        <div className="flex">
+          <div className="w-1.5 bg-primary/60 shrink-0" />
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <Plus className="h-[18px] w-[18px] text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">Book a Slot</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Create a new patient appointment</p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Content card — detached */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
       <div className="p-3 sm:p-5">
         {bookingSuccess ? (
           <div className="py-10 flex flex-col items-center gap-5 text-center">
@@ -875,6 +882,8 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
           </div>
         )}
       </div>
+      </div>
+
     </div>
   );
 }
