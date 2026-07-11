@@ -2615,9 +2615,34 @@ export default function DoctorDashboard() {
             {/* ═══ MOBILE LEFT NAVIGATION DRAWER ═══ */}
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
-          <SheetHeader className="px-5 py-4 border-b border-border/40">
-            <SheetTitle className="text-left text-base">Menu</SheetTitle>
+          <SheetHeader className="sr-only">
+            <SheetTitle>Doctor Menu</SheetTitle>
           </SheetHeader>
+
+          {/* Doctor identity header */}
+          <div className="px-4 pt-5 pb-4 border-b border-border/50 shrink-0">
+            <div className="flex items-center gap-3">
+              {(doctor as any)?.photoUrl ? (
+                <img
+                  src={(doctor as any).photoUrl}
+                  alt={(doctor as any)?.name || "Doctor"}
+                  className="h-10 w-10 rounded-full object-cover shrink-0 border border-border/40"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                  {(doctor as any)?.name?.charAt(0)?.toUpperCase() || "D"}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {(doctor as any)?.name || "Doctor"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {(doctor as any)?.specialty || "Doctor Portal"}
+                </p>
+              </div>
+            </div>
+          </div>
           <ScrollArea className="flex-1">
             <div className="p-3 space-y-1">
               {([
