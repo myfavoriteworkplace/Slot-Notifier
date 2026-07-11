@@ -120,6 +120,7 @@ export default function DoctorDashboard() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
 
   const [profName, setProfName] = useState("");
@@ -745,21 +746,6 @@ export default function DoctorDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
 
-      {/* Temporary password warning */}
-      {(doctor as any).isDefaultPassword && (
-        <div className="bg-gradient-to-r from-amber-500/90 via-yellow-500/90 to-amber-500/90 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2 flex-wrap">
-          <ShieldAlert className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">You are using a temporary password. Please change it to keep your account secure.</span>
-          <span className="sm:hidden">Temporary password in use — please update it.</span>
-          <button
-            onClick={() => setChangePwdOpen(true)}
-            className="ml-2 inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 border border-white/40 text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
-          >
-            <KeyRound className="h-3 w-3" />
-            Change Password →
-          </button>
-        </div>
-      )}
 
       {/* ═══ MOBILE STICKY TOP BAR ═══ */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-2 gap-1 bg-background/90 backdrop-blur-[18px] border-b border-black/[0.06] dark:border-white/[0.06] shadow-sm">
@@ -816,6 +802,34 @@ export default function DoctorDashboard() {
 
       {/* ═══ PAGE CONTAINER ═══ */}
       <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
+
+      {/* ═══ TEMPORARY PASSWORD BANNER ═══ */}
+      {(doctor as any).isDefaultPassword && !bannerDismissed && (
+        <div className="mb-3 bg-amber-500 text-white rounded-xl px-3 py-2.5 flex items-center gap-2.5 shadow-sm">
+          <ShieldAlert className="h-4 w-4 shrink-0" />
+          <p className="text-xs font-medium flex-1 min-w-0 leading-snug">
+            <span className="hidden sm:inline">You are using a temporary password. Please change it to keep your account secure.</span>
+            <span className="sm:hidden">Using a temporary password — update it.</span>
+          </p>
+          <button
+            onClick={() => setChangePwdOpen(true)}
+            className="shrink-0 inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 active:bg-white/40 border border-white/40 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors whitespace-nowrap"
+            data-testid="btn-banner-change-password"
+          >
+            <KeyRound className="h-3 w-3" />
+            <span className="hidden sm:inline">Change Password</span>
+            <span className="sm:hidden">Update</span>
+          </button>
+          <button
+            onClick={() => setBannerDismissed(true)}
+            aria-label="Dismiss banner"
+            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 active:bg-white/30 transition-colors"
+            data-testid="btn-banner-dismiss"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* ═══ COMPACT HERO + STATS ═══ */}
 
