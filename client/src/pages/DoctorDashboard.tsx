@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -26,9 +27,9 @@ import {
   ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight,
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
-  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
+  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, ChevronRight, BriefcaseMedical, KeyRound,
   MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
-  SlidersHorizontal, Maximize2, Minimize2, Layers, Search
+  SlidersHorizontal, Maximize2, Minimize2, Layers, Search, Menu, Bell
 } from "lucide-react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -116,17 +117,10 @@ export default function DoctorDashboard() {
     };
   }, [apptSearchInput]);
 
-  const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
-  const [heroCompact, setHeroCompact] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
-
-  /* Sticky compact hero (mobile only) */
-  useEffect(() => {
-    const onScroll = () => setHeroCompact(window.scrollY > 80);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const [profName, setProfName] = useState("");
   const [profSpecialization, setProfSpecialization] = useState("");
@@ -767,29 +761,63 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
-      <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-8">
+      {/* ═══ MOBILE STICKY TOP BAR ═══ */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-2 gap-1 bg-background/90 backdrop-blur-[18px] border-b border-black/[0.06] dark:border-white/[0.06] shadow-sm">
+        {/* Hamburger */}
+        <button
+          onClick={() => setMobileNavOpen(true)}
+          className="h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label="Open navigation"
+          data-testid="btn-mobile-hamburger"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+
+        {/* App branding */}
+        <div className="flex-1 min-w-0 pl-1">
+          <p className="text-[18px] font-bold text-foreground leading-none tracking-tight">
+            book<span className="text-primary">My</span>Slot
+          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-primary leading-none mt-px">
+            Dental
+          </p>
+        </div>
+
+        {/* Notification bell */}
+        <button
+          onClick={() => setMobileNotifOpen(true)}
+          className="h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all relative"
+          aria-label="Notifications"
+          data-testid="btn-mobile-notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {awaitingApprovalCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              {awaitingApprovalCount > 99 ? '99+' : awaitingApprovalCount}
+            </span>
+          )}
+        </button>
+
+        {/* Profile avatar */}
+        <button
+          onClick={() => setActiveTab("profile")}
+          className="h-11 w-11 flex items-center justify-center rounded-xl hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label="Profile"
+          data-testid="btn-mobile-profile"
+        >
+          <Avatar className="h-7 w-7 ring-2 ring-primary/20">
+            <AvatarImage src={(doctor as any).imageUrl || undefined} />
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+              {(doctor as any).name?.charAt(0) || "D"}
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      </div>
+
+      {/* ═══ PAGE CONTAINER ═══ */}
+      <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
 
       {/* ═══ COMPACT HERO + STATS ═══ */}
-
-      {/* Sticky compact bar (mobile, after scroll) */}
-      <div className={`lg:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${heroCompact ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-        <div className="mx-2 mt-2 rounded-xl border border-white/10 bg-gradient-to-r from-[#052B22] via-[#085041] to-[#0A5540] shadow-lg px-3 py-2 flex items-center gap-2.5">
-          <div className="shrink-0 h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-white font-bold text-xs">
-            {(doctor as any).name?.charAt(0) || "D"}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-white truncate">Dr. {(doctor as any).name}</p>
-          </div>
-          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-            </span>
-            Live
-          </span>
-        </div>
-      </div>
 
       {/* Hero card */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
@@ -2584,131 +2612,155 @@ export default function DoctorDashboard() {
       </div>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV BAR ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
-        <div className="flex items-stretch">
-          {([
-            { key: "appointments" as Tab, label: "Appointments", Icon: Calendar },
-            { key: "leaves"       as Tab, label: "Leave",        Icon: CalendarOff },
-            { key: "profile"      as Tab, label: "Profile",      Icon: User },
-            { key: "cases"        as Tab, label: "Cases",        Icon: BookOpen },
-          ] as { key: Tab; label: string; Icon: any }[]).map(({ key, label, Icon }) => {
-            const isActive = activeTab === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-                  isActive ? "text-primary" : "text-muted-foreground"
-                }`}
-                data-testid={`bottom-nav-${key}`}
-              >
-                {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-semibold">{label}</span>
-                {key === "appointments" && awaitingApprovalCount > 0 && (
-                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center leading-none">{awaitingApprovalCount}</span>
-                )}
-              </button>
-            );
-          })}
-          {/* More button — utility actions only */}
-          <button
-            onClick={() => setMoreDrawerOpen(true)}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative text-muted-foreground"
-            data-testid="bottom-nav-more"
-          >
-            <MoreHorizontal className="h-5 w-5" />
-            <span className="text-[10px] font-semibold">More</span>
-          </button>
-        </div>
-      </nav>
-
-      {/* ── MORE DRAWER (mobile) ── */}
-      <Sheet open={moreDrawerOpen} onOpenChange={setMoreDrawerOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader className="mb-4">
-            <SheetTitle>More</SheetTitle>
+            {/* ═══ MOBILE LEFT NAVIGATION DRAWER ═══ */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
+          <SheetHeader className="px-5 py-4 border-b border-border/40">
+            <SheetTitle className="text-left text-base">Menu</SheetTitle>
           </SheetHeader>
-          <div className="space-y-2 pb-6">
-            {/* ── Overflow tab navigation ── */}
-            <button
-              onClick={() => { setActiveTab("certifications"); setMoreDrawerOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "certifications" ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
-              data-testid="drawer-nav-certifications"
-            >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-500/10 border border-blue-500/20">
-                <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Certifications</p>
-                <p className="text-xs text-muted-foreground">Degrees &amp; awards</p>
-              </div>
-              {activeTab === "certifications" && <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
-            </button>
-            <button
-              onClick={() => { setActiveTab("xray"); setMoreDrawerOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "xray" ? "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
-              data-testid="drawer-nav-xray"
-            >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/10 border border-violet-500/20">
-                <Microscope className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Analyse X-Ray</p>
-                <p className="text-xs text-muted-foreground">AI dental findings</p>
-              </div>
-              {activeTab === "xray" && <div className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />}
-            </button>
-            <div className="h-px bg-border/50 my-1" />
-            <button
-              onClick={() => { setChangePwdOpen(true); setMoreDrawerOpen(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"
-            >
-              <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm">Change Password</p>
-                <p className="text-xs text-muted-foreground">Update your account password</p>
-              </div>
-            </button>
-            {doctor && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border/50 bg-muted/20">
-                <div className="rounded-xl overflow-hidden bg-white dark:bg-muted/20 p-2 border border-border/40 shadow-inner shrink-0">
-                  <QRCode
-                    value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
-                    size={64}
-                    level="M"
-                    fgColor="#085041"
-                    bgColor="#ffffff"
-                    style={{ display: "block" }}
-                  />
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-1">
+              {([
+                { key: "appointments" as Tab, label: "Appointments", desc: "View your schedule", Icon: Calendar, color: "primary" },
+                { key: "leaves"       as Tab, label: "Leave",        desc: "Apply for time off", Icon: CalendarOff, color: "orange" },
+                { key: "profile"      as Tab, label: "Profile",      desc: "Edit your details",  Icon: User, color: "teal" },
+                { key: "cases"        as Tab, label: "Cases",        desc: "Patient case studies", Icon: BookOpen, color: "emerald" },
+                { key: "certifications" as Tab, label: "Certifications", desc: "Degrees & awards", Icon: Award, color: "blue" },
+                { key: "xray"         as Tab, label: "Analyse X-Ray",  desc: "AI dental findings", Icon: Microscope, color: "violet" },
+              ] as { key: Tab; label: string; desc: string; Icon: any; color: string }[]).map(({ key, label, desc, Icon, color }) => {
+                const isActive = activeTab === key;
+                const bgActive = color === "primary" ? "bg-primary/10 border-primary/25" :
+                                  color === "orange" ? "bg-orange-500/10 border-orange-500/25" :
+                                  color === "teal" ? "bg-teal-500/10 border-teal-500/25" :
+                                  color === "emerald" ? "bg-emerald-500/10 border-emerald-500/25" :
+                                  color === "blue" ? "bg-blue-500/10 border-blue-500/25" :
+                                  "bg-violet-500/10 border-violet-500/25";
+                const iconColor = color === "primary" ? "text-primary" :
+                                   color === "orange" ? "text-orange-600 dark:text-orange-400" :
+                                   color === "teal" ? "text-teal-600 dark:text-teal-400" :
+                                   color === "emerald" ? "text-emerald-600 dark:text-emerald-400" :
+                                   color === "blue" ? "text-blue-600 dark:text-blue-400" :
+                                   "text-violet-600 dark:text-violet-400";
+                return (
+                  <button
+                    key={key}
+                    onClick={() => { setActiveTab(key); setMobileNavOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all active:scale-[0.98] text-left ${isActive ? bgActive : "border-transparent hover:bg-muted/40"}`}
+                    data-testid={`drawer-nav-${key}`}
+                  >
+                    <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? "bg-white/60 dark:bg-white/10" : "bg-muted/60"}`}>
+                      <Icon className={`h-4 w-4 ${iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{label}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                    {isActive && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-5 py-2">
+              <div className="h-px bg-border/50" />
+            </div>
+            <div className="p-3 space-y-1">
+              <button
+                onClick={() => { setChangePwdOpen(true); setMobileNavOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-transparent hover:bg-muted/40 transition-all active:scale-[0.98] text-left"
+              >
+                <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">Your QR Code</p>
-                  <p className="text-xs text-muted-foreground mb-2">Scan to view public profile</p>
-                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={copyProfileLink}>
-                    {linkCopied ? <Check className="h-3 w-3 mr-1.5 text-primary" /> : <Copy className="h-3 w-3 mr-1.5" />}
-                    {linkCopied ? "Copied!" : "Copy Profile Link"}
-                  </Button>
+                <div>
+                  <p className="font-semibold text-sm">Change Password</p>
+                  <p className="text-xs text-muted-foreground">Update your account password</p>
                 </div>
-              </div>
-            )}
-            <button
-              onClick={() => { logout(); setMoreDrawerOpen(false); }}
-              disabled={isLoggingOut}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-red-200 dark:border-red-900/40 bg-background text-left hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors active:scale-[0.98]"
-            >
-              <div className="h-9 w-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-                <LogOut className="h-4 w-4 text-red-500" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-red-600 dark:text-red-400">{isLoggingOut ? "Logging out…" : "Log Out"}</p>
-                <p className="text-xs text-muted-foreground">Sign out of the doctor portal</p>
-              </div>
-            </button>
-          </div>
+              </button>
+              {doctor && (
+                <div className="flex items-center gap-3 px-3 py-3 rounded-xl border border-border/50 bg-muted/20">
+                  <div className="rounded-xl overflow-hidden bg-white dark:bg-muted/20 p-2 border border-border/40 shadow-inner shrink-0">
+                    <QRCode
+                      value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
+                      size={64}
+                      level="M"
+                      fgColor="#085041"
+                      bgColor="#ffffff"
+                      style={{ display: "block" }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">Your QR Code</p>
+                    <p className="text-xs text-muted-foreground mb-2">Scan to view public profile</p>
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { copyProfileLink(); setMobileNavOpen(false); }}>
+                      {linkCopied ? <Check className="h-3 w-3 mr-1.5 text-primary" /> : <Copy className="h-3 w-3 mr-1.5" />}
+                      {linkCopied ? "Copied!" : "Copy Profile Link"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => { logout(); setMobileNavOpen(false); }}
+                disabled={isLoggingOut}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all active:scale-[0.98] text-left"
+              >
+                <div className="h-9 w-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                  <LogOut className="h-4 w-4 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-red-600 dark:text-red-400">{isLoggingOut ? "Logging out…" : "Log Out"}</p>
+                  <p className="text-xs text-muted-foreground">Sign out of the doctor portal</p>
+                </div>
+              </button>
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══ MOBILE NOTIFICATIONS BOTTOM SHEET ═══ */}
+      <Sheet open={mobileNotifOpen} onOpenChange={setMobileNotifOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl h-[70vh] p-0 flex flex-col">
+          <SheetHeader className="px-5 py-4 border-b border-border/40 shrink-0">
+            <SheetTitle className="text-left text-base">Notifications</SheetTitle>
+            <SheetDescription className="text-left">
+              {awaitingApprovalCount > 0 ? `${awaitingApprovalCount} booking${awaitingApprovalCount === 1 ? "" : "s"} awaiting your approval` : "No pending notifications"}
+            </SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-2">
+              {awaitingApprovalCount > 0 ? (
+                displayBookings
+                  .filter((b: any) => b.status === "awaitingApproval")
+                  .slice(0, 20)
+                  .map((b: any) => (
+                    <button
+                      key={b.id}
+                      onClick={() => { setPatientModalId(b.id); setMobileNotifOpen(false); }}
+                      className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/20 text-left transition-colors hover:bg-amber-100 dark:hover:bg-amber-950/30"
+                    >
+                      <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{b.patientName || "Patient"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {b.appointmentDate ? new Date(b.appointmentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+                          {b.slotTime ? ` \u2022 ${b.slotTime}` : ""}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                    </button>
+                  ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                    <Bell className="h-5 w-5 opacity-40" />
+                  </div>
+                  <p className="text-sm font-medium">All caught up!</p>
+                  <p className="text-xs mt-1">No notifications right now</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         </SheetContent>
       </Sheet>
 
