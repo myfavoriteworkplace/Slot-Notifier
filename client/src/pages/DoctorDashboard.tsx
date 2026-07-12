@@ -1179,7 +1179,8 @@ export default function DoctorDashboard() {
 
               {/* Quick-filter chips */}
               <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
-                {!chipsCollapsed && (<>
+                {!chipsCollapsed && (
+                <div className="flex flex-wrap gap-1.5 w-full order-2 sm:contents">
                 {/* Today */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
@@ -1274,7 +1275,7 @@ export default function DoctorDashboard() {
                     quickFilter === "owned" ? "bg-teal-500/15 text-teal-700 dark:text-teal-400" : "bg-muted text-muted-foreground"
                   }`}>{ownedCount}</span>
                 </button>
-                </>)}
+                </div>)}
 
                 {/* Patient search — collapsed magnifier or expanded input */}
                 {searchOpen ? (

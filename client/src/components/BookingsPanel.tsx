@@ -960,7 +960,8 @@ export default function BookingsPanel({
         </div>
         {/* Quick-filter chips + inline search — single unified row */}
         <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
-          {!chipsCollapsed && (<>
+          {!chipsCollapsed && (
+          <div className="flex flex-wrap gap-1.5 w-full order-2 sm:contents">
           {/* Today */}
           <button
             onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
@@ -1036,7 +1037,7 @@ export default function BookingsPanel({
               quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{bookingStats?.totalAllCount ?? 0}</span>
           </button>
-          </>)}
+          </div>)}
 
           {/* Search slot — magnifier, expanded input, or active-patient chip */}
           <div className="relative w-full sm:flex-1">
