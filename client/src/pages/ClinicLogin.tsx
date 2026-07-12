@@ -676,7 +676,7 @@ export default function ClinicLogin() {
                   placeholder="your@email.com"
                   required
                   autoFocus
-                  className="flex-1 min-h-[44px] bg-transparent border-0 outline-none pl-3 pr-3 text-sm text-foreground placeholder:text-muted-foreground"
+                  className="flex-1 min-h-[44px] bg-transparent border-0 outline-none pl-3 pr-3 text-sm text-foreground placeholder:text-muted-foreground/55"
                   data-testid="input-forgot-email"
                 />
               </div>

@@ -1827,7 +1827,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
                 <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                 <input
                   data-testid="input-search-items"
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/55"
                   placeholder="Search by name, SKU, barcode, supplier..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
@@ -2064,7 +2064,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
                 <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                 <input
                   data-testid="input-log-search"
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/55"
                   placeholder="Search by item name..."
                   value={logSearch}
                   onChange={e => setLogSearch(e.target.value)}

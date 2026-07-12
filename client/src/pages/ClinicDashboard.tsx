@@ -1644,7 +1644,7 @@ export default function ClinicDashboard() {
                         value={(billingDetails as any)[key]}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, [key]: e.target.value }))}
                         placeholder={placeholder}
-                        className="h-6 text-xs border-0 bg-transparent p-0 font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/50"
+                        className="h-6 text-xs border-0 bg-transparent p-0 font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/55"
                       />
                     </div>
                   </div>

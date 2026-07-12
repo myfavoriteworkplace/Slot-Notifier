@@ -958,7 +958,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Type clinic name, city, or area…"
-                    className="flex-1 h-12 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                    className="flex-1 h-12 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground/55"
                     data-testid="input-clinic-search"
                   />
                   {searchQuery && (
@@ -1616,7 +1616,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           onChange={e => setCustomerName(e.target.value)}
                           placeholder="e.g. Rahul Verma"
                           onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground/55"
                           data-testid="input-name"
                         />
                       </div>
@@ -1638,7 +1638,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             onChange={e => setCustomerAge(e.target.value)}
                             placeholder="Age"
                             onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                            className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
+                            className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground/55"
                             data-testid="input-age"
                           />
                           <span className="text-xs text-muted-foreground pr-3 shrink-0">yrs</span>
@@ -1678,7 +1678,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           onChange={e => handlePhoneChange(e.target.value)}
                           placeholder="+91 9876543210"
                           onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground/55"
                           data-testid="input-phone"
                         />
                       </div>
@@ -1710,7 +1710,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             onChange={e => handleEmailChange(e.target.value)}
                             placeholder="you@example.com"
                             onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                            className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                            className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground/55"
                             data-testid="input-email"
                           />
                         </div>
@@ -2035,7 +2035,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             onChange={e => setAdditionalNotes(e.target.value)}
                             placeholder="e.g. Allergies, previous treatments, other concerns…"
                             rows={2}
-                            className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground resize-none transition-all"
+                            className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground/55 resize-none transition-all"
                             data-testid="textarea-additional-notes"
                           />
                         </div>
