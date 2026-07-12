@@ -1105,7 +1105,7 @@ export default function BookingsPanel({
                       }
                     }}
                     placeholder="Search patient — name, PAT code, phone or email…"
-                    className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
+                    className="flex-1 min-w-0 bg-transparent text-xs text-foreground outline-none border-none focus:ring-0 h-5 leading-none"
                     data-testid="input-booking-patient-search"
                     autoComplete="off"
                     spellCheck={false}

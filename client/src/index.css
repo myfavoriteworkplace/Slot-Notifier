@@ -92,8 +92,19 @@
     @apply font-bold tracking-tight text-foreground;
   }
 
-  /* Global placeholder style — italic so it's never confused with real input */
+  /* ── Ghost text — single source of truth ──────────────────────────────────
+     Change ONLY here to update every placeholder across the entire application.
+     Color = --muted-foreground at 55% opacity = muted green-gray, italic.
+     Do NOT add placeholder:* or data-[placeholder]:* classes in other files.  */
   ::placeholder {
+    color: hsl(var(--muted-foreground) / 0.55);
+    font-style: italic;
+  }
+
+  /* Radix <Select> — SelectValue renders a real <span>, not a ::placeholder.
+     Targets the text span inside any Radix select trigger in placeholder state. */
+  button[data-placeholder] > span:first-of-type {
+    color: hsl(var(--muted-foreground) / 0.55);
     font-style: italic;
   }
 }

@@ -225,7 +225,7 @@ export default function PatientDirectoryPanel({
             onChange={e => setPatientSearch(e.target.value)}
             placeholder="Search by name, email, phone or PAT code…"
             data-testid="input-patient-search"
-            className="w-full h-9 pl-9 pr-8 text-sm rounded-xl border border-border/60 bg-card focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/10 transition-all placeholder:text-muted-foreground/55"
+            className="w-full h-9 pl-9 pr-8 text-sm rounded-xl border border-border/60 bg-card focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/10 transition-all"
           />
           {patientSearch && (
             <button

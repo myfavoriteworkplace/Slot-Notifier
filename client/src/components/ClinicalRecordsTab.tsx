@@ -682,7 +682,7 @@ export default function ClinicalRecordsTab({
                     onChange={e => setDxNotes(e.target.value)}
                     placeholder="Additional observations…"
                     rows={2}
-                    className="w-full mt-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground/55 placeholder:italic focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/20"
+                    className="w-full mt-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-xs focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/20"
                     data-testid="textarea-dx-notes"
                   />
                 </div>

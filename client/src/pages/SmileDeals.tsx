@@ -766,14 +766,12 @@ function GetListedForm({ c }: { c: Palette }) {
                   <input type="text" placeholder="Company / brand name *" value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     onFocus={focusStyle} onBlur={blurStyle}
-                    disabled={locked} style={locked ? lockedStyle : inputStyle}
-                    className="placeholder:text-muted-foreground/55" />
+                    disabled={locked} style={locked ? lockedStyle : inputStyle} />
 
                   <input type="tel" placeholder="Phone number (+91) *" value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     onFocus={focusStyle} onBlur={blurStyle}
-                    disabled={locked} style={locked ? lockedStyle : inputStyle}
-                    className="placeholder:text-muted-foreground/55" />
+                    disabled={locked} style={locked ? lockedStyle : inputStyle} />
 
                   <select value={category} onChange={(e) => setCategory(e.target.value)}
                     onFocus={focusStyle} onBlur={blurStyle} disabled={locked}
@@ -786,14 +784,12 @@ function GetListedForm({ c }: { c: Palette }) {
                     value={description} onChange={(e) => setDescription(e.target.value)}
                     onFocus={focusStyle as any} onBlur={blurStyle as any} rows={3}
                     disabled={locked}
-                    className="placeholder:text-muted-foreground/55"
                     style={{ ...(locked ? lockedStyle : inputStyle), resize: "vertical", fontFamily: "inherit" } as any} />
 
                   <input type="url" placeholder="Website URL (optional)" value={website}
                     onChange={(e) => setWebsite(e.target.value)}
                     onFocus={focusStyle} onBlur={blurStyle}
-                    disabled={locked} style={locked ? lockedStyle : inputStyle}
-                    className="placeholder:text-muted-foreground/55" />
+                    disabled={locked} style={locked ? lockedStyle : inputStyle} />
 
                   {/* Email — verification trigger */}
                   <div style={{ borderTop: `1px solid ${c.bdr}`, paddingTop: 14, marginTop: 2 }}>
@@ -805,7 +801,6 @@ function GetListedForm({ c }: { c: Palette }) {
                       onChange={(e) => setEmail(e.target.value)}
                       onFocus={focusStyle} onBlur={blurStyle}
                       disabled={locked} style={locked ? lockedStyle : inputStyle}
-                      className="placeholder:text-muted-foreground/55"
                     />
                     {step === "otp-sent" && (
                       <div className="animate-in fade-in slide-in-from-top-1 duration-200" style={{ marginTop: 10 }}>
@@ -814,7 +809,6 @@ function GetListedForm({ c }: { c: Palette }) {
                           placeholder="6-digit verification code" value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                           onFocus={focusStyle} onBlur={blurStyle}
-                          className="placeholder:text-muted-foreground/55"
                           style={{ ...inputStyle, letterSpacing: ".2em", fontSize: 18, textAlign: "center" }}
                         />
                         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
@@ -1053,7 +1047,6 @@ export default function SmileDeals() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={activeTab === "clinic" ? "Search products, suppliers..." : "Search deals, procedures..."}
-                  className="placeholder:text-muted-foreground/55"
                   style={{
                     width: "100%",
                     padding: "11px 40px 11px 40px",
