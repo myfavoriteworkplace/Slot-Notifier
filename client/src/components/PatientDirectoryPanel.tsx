@@ -206,7 +206,7 @@ export default function PatientDirectoryPanel({
                       color === 'blue' ? 'text-blue-500' : 'text-amber-600'
                     }`} />
                   </div>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
+                  <p className="label-field leading-none">{label}</p>
                 </div>
                 <p className="text-xl font-bold text-foreground">{value}</p>
               </>

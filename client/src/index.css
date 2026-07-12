@@ -143,6 +143,16 @@
     @apply sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/40 pb-[env(safe-area-inset-bottom)];
   }
 
+  /* ── Form field label — THE canonical style for every clinic-facing field label.
+     Change once here → updates every panel, modal, and form across the app.
+     Always uppercase + tracked. Color is --muted-foreground at full opacity.
+     Add spacing (mb-1, mb-1.5, block) at the usage site — it's contextual.
+     Do NOT use this on patient-facing labels (Book.tsx) — those stay sentence-case.
+     Do NOT use on coloured exception labels (yellow/red thresholds in Inventory).  */
+  .label-field {
+    @apply text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
   /* Native <select> with standard border + focus ring.
      Use with w-full on raw <select> elements (AppointmentCard, BookingsPanel).
      Shadcn <Select> does NOT need this — it uses its own trigger styles.      */

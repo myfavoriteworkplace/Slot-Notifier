@@ -639,7 +639,7 @@ function AddItemSheet({
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <Label className="text-xs font-semibold mb-2 block">Item Type</Label>
+            <Label className="label-field mb-2 block">Item Type</Label>
             <div className="grid grid-cols-2 gap-2">
               {([
                 ["consumable", "Consumable", Package],
@@ -661,7 +661,7 @@ function AddItemSheet({
           </div>
 
           <div>
-            <Label htmlFor="inv-name" className="text-xs font-semibold mb-1 block">Item Name *</Label>
+            <Label htmlFor="inv-name" className="label-field mb-1 block">Item Name *</Label>
             <ItemNameCombobox
               value={form.name}
               onChange={(v) => setForm(f => ({ ...f, name: v }))}
@@ -671,7 +671,7 @@ function AddItemSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs font-semibold mb-1 block">Category</Label>
+              <Label className="label-field mb-1 block">Category</Label>
               <Select value={form.categoryId} onValueChange={set("categoryId")}>
                 <SelectTrigger data-testid="select-category">
                   <SelectValue placeholder="Select..." />
@@ -686,7 +686,7 @@ function AddItemSheet({
             </div>
             {!isAsset && (
               <div>
-                <Label className="text-xs font-semibold mb-1 block">Unit</Label>
+                <Label className="label-field mb-1 block">Unit</Label>
                 <Select value={form.unit} onValueChange={set("unit")}>
                   <SelectTrigger data-testid="select-unit">
                     <SelectValue />
@@ -702,95 +702,95 @@ function AddItemSheet({
           {!isAsset && (
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label htmlFor="inv-qty" className="text-xs font-semibold mb-1 block">Initial Qty</Label>
+                <Label htmlFor="inv-qty" className="label-field mb-1 block">Initial Qty</Label>
                 <Input id="inv-qty" data-testid="input-qty" type="number" min={0} placeholder="0" value={form.currentQty} onChange={onChange("currentQty")} />
               </div>
               <div>
-                <Label htmlFor="inv-reorder" className="text-xs font-semibold mb-1 block text-yellow-600">Reorder At</Label>
+                <Label htmlFor="inv-reorder" className="text-xs font-semibold uppercase tracking-wide mb-1 block text-yellow-600">Reorder At</Label>
                 <Input id="inv-reorder" data-testid="input-reorder" type="number" min={0} placeholder="e.g. 20" value={form.reorderLevel} onChange={onChange("reorderLevel")} />
               </div>
               <div>
-                <Label htmlFor="inv-critical" className="text-xs font-semibold mb-1 block text-red-600">Critical At</Label>
+                <Label htmlFor="inv-critical" className="text-xs font-semibold uppercase tracking-wide mb-1 block text-red-600">Critical At</Label>
                 <Input id="inv-critical" data-testid="input-critical" type="number" min={0} placeholder="e.g. 5" value={form.criticalLevel} onChange={onChange("criticalLevel")} />
               </div>
             </div>
           )}
 
           <div>
-            <Label htmlFor="inv-unit-price" className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
+            <Label htmlFor="inv-unit-price" className="label-field mb-1 block">Unit Price (₹)</Label>
             <Input id="inv-unit-price" data-testid="input-unit-price" type="number" min={0} step="0.01" placeholder="e.g. 150" value={form.unitPrice} onChange={onChange("unitPrice")} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="inv-sku" className="text-xs font-semibold mb-1 block">SKU</Label>
+              <Label htmlFor="inv-sku" className="label-field mb-1 block">SKU</Label>
               <Input id="inv-sku" data-testid="input-sku" placeholder="e.g. CON-001" value={form.sku} onChange={onChange("sku")} />
             </div>
             <div>
-              <Label htmlFor="inv-barcode" className="text-xs font-semibold mb-1 block">Barcode</Label>
+              <Label htmlFor="inv-barcode" className="label-field mb-1 block">Barcode</Label>
               <Input id="inv-barcode" data-testid="input-barcode" placeholder="Scan or type barcode" value={form.barcode} onChange={onChange("barcode")} />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="inv-manufacturer" className="text-xs font-semibold mb-1 block">Manufacturer</Label>
+            <Label htmlFor="inv-manufacturer" className="label-field mb-1 block">Manufacturer</Label>
             <Input id="inv-manufacturer" data-testid="input-manufacturer" placeholder="e.g. 3M, Dentsply" value={form.manufacturer} onChange={onChange("manufacturer")} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="inv-supplier-name" className="text-xs font-semibold mb-1 block">Supplier</Label>
+              <Label htmlFor="inv-supplier-name" className="label-field mb-1 block">Supplier</Label>
               <Input id="inv-supplier-name" data-testid="input-supplier-name" placeholder="e.g. MedSupply Co." value={form.supplierName} onChange={onChange("supplierName")} />
             </div>
             <div>
-              <Label htmlFor="inv-supplier-contact" className="text-xs font-semibold mb-1 block">Supplier Contact</Label>
+              <Label htmlFor="inv-supplier-contact" className="label-field mb-1 block">Supplier Contact</Label>
               <Input id="inv-supplier-contact" data-testid="input-supplier-contact" placeholder="Phone or email" value={form.supplierContact} onChange={onChange("supplierContact")} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="inv-purchase-price" className="text-xs font-semibold mb-1 block">Purchase Price (₹)</Label>
+              <Label htmlFor="inv-purchase-price" className="label-field mb-1 block">Purchase Price (₹)</Label>
               <Input id="inv-purchase-price" data-testid="input-purchase-price" type="number" min={0} step="0.01" placeholder="e.g. 120" value={form.purchasePrice} onChange={onChange("purchasePrice")} />
             </div>
             <div>
-              <Label htmlFor="inv-last-purchased" className="text-xs font-semibold mb-1 block">Last Purchased</Label>
+              <Label htmlFor="inv-last-purchased" className="label-field mb-1 block">Last Purchased</Label>
               <Input id="inv-last-purchased" data-testid="input-last-purchased" type="date" value={form.lastPurchasedDate} onChange={onChange("lastPurchasedDate")} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="inv-location" className="text-xs font-semibold mb-1 block">Storage Location</Label>
+              <Label htmlFor="inv-location" className="label-field mb-1 block">Storage Location</Label>
               <Input id="inv-location" data-testid="input-location" placeholder="e.g. Cabinet 3, Shelf B" value={form.location} onChange={onChange("location")} />
             </div>
             <div>
-              <Label htmlFor="inv-batch" className="text-xs font-semibold mb-1 block">Batch / Lot No.</Label>
+              <Label htmlFor="inv-batch" className="label-field mb-1 block">Batch / Lot No.</Label>
               <Input id="inv-batch" data-testid="input-batch" placeholder="e.g. LOT-2026-04" value={form.batchNumber} onChange={onChange("batchNumber")} />
             </div>
           </div>
 
           {(form.trackingType === "consumable" || form.trackingType === "perishable") && (
             <div>
-              <Label htmlFor="inv-expiry" className="text-xs font-semibold mb-1 block">Expiry Date</Label>
+              <Label htmlFor="inv-expiry" className="label-field mb-1 block">Expiry Date</Label>
               <Input id="inv-expiry" data-testid="input-expiry" type="date" value={form.expiryDate} onChange={onChange("expiryDate")} />
             </div>
           )}
           {isAsset && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="inv-warranty" className="text-xs font-semibold mb-1 block">Warranty Expiry</Label>
+                <Label htmlFor="inv-warranty" className="label-field mb-1 block">Warranty Expiry</Label>
                 <Input id="inv-warranty" data-testid="input-warranty" type="date" value={form.warrantyExpiry} onChange={onChange("warrantyExpiry")} />
               </div>
               <div>
-                <Label htmlFor="inv-service" className="text-xs font-semibold mb-1 block">Next Service</Label>
+                <Label htmlFor="inv-service" className="label-field mb-1 block">Next Service</Label>
                 <Input id="inv-service" data-testid="input-service" type="date" value={form.nextServiceDate} onChange={onChange("nextServiceDate")} />
               </div>
             </div>
           )}
 
           <div>
-            <Label htmlFor="inv-notes" className="text-xs font-semibold mb-1 block">Notes</Label>
+            <Label htmlFor="inv-notes" className="label-field mb-1 block">Notes</Label>
             <Textarea id="inv-notes" data-testid="input-notes" placeholder="e.g. Store in cool, dry place" value={form.notes} onChange={onChange("notes")} rows={2} />
           </div>
 
@@ -989,7 +989,7 @@ function ItemDetailDialog({
           <form id="edit-form" onSubmit={handleEditSubmit} className="space-y-3 mt-1">
             {isEditing && (
               <div>
-                <Label className="text-xs font-semibold mb-1 block">Item Name *</Label>
+                <Label className="label-field mb-1 block">Item Name *</Label>
                 <Input data-testid="input-edit-name" value={editForm.name || ""} onChange={setEdit("name")} required />
               </div>
             )}
@@ -1024,7 +1024,7 @@ function ItemDetailDialog({
 
             {isAsset && (
               <div>
-                <Label className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
+                <Label className="label-field mb-1 block">Unit Price (₹)</Label>
                 {isEditing ? (
                   <Input data-testid="input-edit-price-asset" type="number" min={0} step="0.01" placeholder="e.g. 50000" value={editForm.unitPrice || ""} onChange={setEdit("unitPrice")} />
                 ) : (
@@ -1036,7 +1036,7 @@ function ItemDetailDialog({
             {(isEditing || item.unitPrice != null) && !isAsset && (
               isEditing ? (
                 <div>
-                  <Label className="text-xs font-semibold mb-1 block">Unit Price (₹)</Label>
+                  <Label className="label-field mb-1 block">Unit Price (₹)</Label>
                   <Input data-testid="input-edit-price" type="number" min={0} step="0.01" placeholder="e.g. 150" value={editForm.unitPrice || ""} onChange={setEdit("unitPrice")} />
                 </div>
               ) : (
@@ -1050,7 +1050,7 @@ function ItemDetailDialog({
 
             {isEditing && (
               <div>
-                <Label className="text-xs font-semibold mb-1 block">Category</Label>
+                <Label className="label-field mb-1 block">Category</Label>
                 <Select value={editForm.categoryId || ""} onValueChange={setEditSelect("categoryId")}>
                   <SelectTrigger data-testid="select-edit-category">
                     <SelectValue placeholder="Select..." />
@@ -1066,7 +1066,7 @@ function ItemDetailDialog({
             )}
             {isEditing && !isAsset && (
               <div>
-                <Label className="text-xs font-semibold mb-1 block">Unit</Label>
+                <Label className="label-field mb-1 block">Unit</Label>
                 <Select value={editForm.unit || "units"} onValueChange={setEditSelect("unit")}>
                   <SelectTrigger data-testid="select-edit-unit">
                     <SelectValue />
@@ -1081,7 +1081,7 @@ function ItemDetailDialog({
             {(isEditing || item.expiryDate) && (item.trackingType === "consumable" || item.trackingType === "perishable") && (
               isEditing ? (
                 <div>
-                  <Label className="text-xs font-semibold mb-1 block">Expiry Date</Label>
+                  <Label className="label-field mb-1 block">Expiry Date</Label>
                   <Input data-testid="input-edit-expiry" type="date" value={editForm.expiryDate || ""} onChange={setEdit("expiryDate")} />
                 </div>
               ) : (
@@ -1097,11 +1097,11 @@ function ItemDetailDialog({
               isEditing ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Warranty Expiry</Label>
+                    <Label className="label-field mb-1 block">Warranty Expiry</Label>
                     <Input data-testid="input-edit-warranty" type="date" value={editForm.warrantyExpiry || ""} onChange={setEdit("warrantyExpiry")} />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Next Service</Label>
+                    <Label className="label-field mb-1 block">Next Service</Label>
                     <Input data-testid="input-edit-service" type="date" value={editForm.nextServiceDate || ""} onChange={setEdit("nextServiceDate")} />
                   </div>
                 </div>
@@ -1142,45 +1142,45 @@ function ItemDetailDialog({
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">SKU</Label>
+                    <Label className="label-field mb-1 block">SKU</Label>
                     <Input data-testid="input-edit-sku" placeholder="e.g. CON-001" value={editForm.sku || ""} onChange={setEdit("sku")} />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Barcode</Label>
+                    <Label className="label-field mb-1 block">Barcode</Label>
                     <Input data-testid="input-edit-barcode" placeholder="Scan or type barcode" value={editForm.barcode || ""} onChange={setEdit("barcode")} />
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold mb-1 block">Manufacturer</Label>
+                  <Label className="label-field mb-1 block">Manufacturer</Label>
                   <Input data-testid="input-edit-manufacturer" placeholder="e.g. 3M, Dentsply" value={editForm.manufacturer || ""} onChange={setEdit("manufacturer")} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Supplier</Label>
+                    <Label className="label-field mb-1 block">Supplier</Label>
                     <Input data-testid="input-edit-supplier-name" placeholder="e.g. MedSupply Co." value={editForm.supplierName || ""} onChange={setEdit("supplierName")} />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Supplier Contact</Label>
+                    <Label className="label-field mb-1 block">Supplier Contact</Label>
                     <Input data-testid="input-edit-supplier-contact" placeholder="Phone or email" value={editForm.supplierContact || ""} onChange={setEdit("supplierContact")} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Purchase Price (₹)</Label>
+                    <Label className="label-field mb-1 block">Purchase Price (₹)</Label>
                     <Input data-testid="input-edit-purchase-price" type="number" min={0} step="0.01" placeholder="e.g. 120" value={editForm.purchasePrice || ""} onChange={setEdit("purchasePrice")} />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Last Purchased</Label>
+                    <Label className="label-field mb-1 block">Last Purchased</Label>
                     <Input data-testid="input-edit-last-purchased" type="date" value={editForm.lastPurchasedDate || ""} onChange={setEdit("lastPurchasedDate")} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Storage Location</Label>
+                    <Label className="label-field mb-1 block">Storage Location</Label>
                     <Input data-testid="input-edit-location" placeholder="e.g. Cabinet 3, Shelf B" value={editForm.location || ""} onChange={setEdit("location")} />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold mb-1 block">Batch / Lot No.</Label>
+                    <Label className="label-field mb-1 block">Batch / Lot No.</Label>
                     <Input data-testid="input-edit-batch" placeholder="e.g. LOT-2026-04" value={editForm.batchNumber || ""} onChange={setEdit("batchNumber")} />
                   </div>
                 </div>
@@ -1190,7 +1190,7 @@ function ItemDetailDialog({
             {(isEditing || item.notes) && (
               isEditing ? (
                 <div>
-                  <Label className="text-xs font-semibold mb-1 block">Notes</Label>
+                  <Label className="label-field mb-1 block">Notes</Label>
                   <Textarea data-testid="input-edit-notes" placeholder="e.g. Store in cool, dry place" value={editForm.notes || ""} onChange={setEdit("notes")} rows={2} />
                 </div>
               ) : (

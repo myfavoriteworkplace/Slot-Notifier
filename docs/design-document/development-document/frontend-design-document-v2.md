@@ -1459,6 +1459,59 @@ Add a comment when: working around a known quirk · a state machine transition i
 
 ## 35. Input Field Style Standard & Placeholder Conventions
 
+### 35.0 Form field label standard
+
+#### `.label-field` — the single canonical class for all clinic-facing field labels
+
+Defined in `client/src/index.css` `@layer utilities`:
+
+```css
+.label-field {
+  @apply text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+}
+```
+
+**Use it on every `<Label>`, `<label>`, or `<p>` that sits directly above or beside an input in a clinic/admin-facing form.** Add contextual spacing at the usage site — never bake spacing into the class.
+
+```tsx
+// ✅ Correct — spacing is contextual
+<Label className="label-field mb-1 block">Street Address</Label>
+<Label className="label-field mb-1.5 block">Tagline Line 1</Label>
+
+// ✅ Extra classes compose fine — specificity of Tailwind utilities means
+//    the last declaration wins for the same property
+<Label className="label-field leading-none">Total Patients</Label>
+
+// ❌ Never do this — kills the single source of truth
+<Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+  Street Address
+</Label>
+```
+
+#### Exceptions — do NOT use `.label-field` for:
+
+| Case | Instead use |
+|---|---|
+| Patient-facing labels (`Book.tsx` intake form) | `text-xs font-semibold text-muted-foreground` — sentence case, no uppercase |
+| Threshold / alert labels in Inventory ("Reorder At", "Critical At") | `text-xs font-semibold uppercase tracking-wide mb-1 block text-yellow-600` — inline so the accent colour takes precedence cleanly |
+| Panel section group dividers (not field labels) | Inline Tailwind — no single pattern since colours vary per section |
+
+#### Tag choice
+
+Prefer `<Label htmlFor="...">` (shadcn) for all real form fields — it wires the click-to-focus behaviour for free. Use raw `<label>` when the shadcn component is unavailable in context. Only use `<p>` for visual-only section labels that have no associated input (e.g. card section titles in ConsentFormPanel).
+
+#### Audit command
+
+```bash
+# Should return ZERO results — every field label uses .label-field
+grep -rn 'className="text-xs font-semibold uppercase tracking-wide\|text-xs font-bold.*uppercase\|text-\[1[01]px\].*font-semibold.*uppercase\|text-\[1[01]px\].*font-bold.*uppercase' client/src/
+
+# Verify the class is defined exactly once
+grep -rn '\.label-field' client/src/index.css   # must return exactly 1 result
+```
+
+---
+
 ### 35.1 Input field visual standard
 
 #### `index.css` is the single source of truth for placeholder styling

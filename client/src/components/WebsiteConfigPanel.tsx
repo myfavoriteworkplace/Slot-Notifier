@@ -621,20 +621,20 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Tagline Line 1</Label>
+                <Label className="label-field mb-1.5 block">Tagline Line 1</Label>
                 <Input value={taglineL1} onChange={e => setTaglineL1(e.target.value)} placeholder="e.g. Your Smile," className="rounded-xl" onFocus={scrollFocus} data-testid="input-tagline-l1" />
               </div>
               <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Tagline Line 2 (highlighted)</Label>
+                <Label className="label-field mb-1.5 block">Tagline Line 2 (highlighted)</Label>
                 <Input value={taglineL2} onChange={e => setTaglineL2(e.target.value)} placeholder="e.g. Our Passion." className="rounded-xl" onFocus={scrollFocus} data-testid="input-tagline-l2" />
               </div>
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Hero Description</Label>
+              <Label className="label-field mb-1.5 block">Hero Description</Label>
               <Textarea value={heroDescription} onChange={e => setHeroDescription(e.target.value)} placeholder="Short paragraph shown below the tagline..." rows={3} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-hero-description" />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Hero / Clinic Photo</Label>
+              <Label className="label-field mb-1.5 block">Hero / Clinic Photo</Label>
               <p className="text-xs text-muted-foreground mb-2">Used as the background (Warm theme) or side image (Classic & Modern themes).</p>
               <ImageUpload currentImage={heroImageUrl || undefined} onImageUploaded={(url) => setHeroImageUrl(url)} folder="clinics" fallbackText="Hero" />
             </div>
@@ -645,15 +645,15 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="space-y-4">
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">About / Our Story</Label>
+              <Label className="label-field mb-1.5 block">About / Our Story</Label>
               <Textarea value={aboutDescription} onChange={e => setAboutDescription(e.target.value)} placeholder="Tell patients about your clinic, your background, and what makes you different..." rows={4} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-about-description" />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Our Vision</Label>
+              <Label className="label-field mb-1.5 block">Our Vision</Label>
               <Textarea value={vision} onChange={e => setVision(e.target.value)} placeholder="e.g. Exceptional dental care delivered with precision, compassion, and modern technology." rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-vision" />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Our Values</Label>
+              <Label className="label-field mb-1.5 block">Our Values</Label>
               <Textarea value={values} onChange={e => setValues(e.target.value)} placeholder="e.g. Patient-first · Pain-free dentistry · Transparency · Continuous excellence." rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-values" />
             </div>
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-muted/30 border border-border/50">
@@ -698,7 +698,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               </Button>
             )}
             <div className="pt-2 border-t border-border/40">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Side Photo (optional)</Label>
+              <Label className="label-field mb-1.5 block">Side Photo (optional)</Label>
               <p className="text-xs text-muted-foreground mb-2">Shown next to the feature grid. Falls back to Hero photo if not set.</p>
               <ImageUpload currentImage={featuresImageUrl || undefined} onImageUploaded={(url) => setFeaturesImageUrl(url)} folder="clinics" fallbackText="Photo" />
             </div>
@@ -837,15 +837,15 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="space-y-4">
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Instagram URL</Label>
+              <Label className="label-field mb-1.5 block">Instagram URL</Label>
               <Input value={socialLinks.instagram ?? ""} onChange={e => setSocialLinks(p => ({ ...p, instagram: e.target.value }))} placeholder="https://instagram.com/yourclinic" className="rounded-xl" onFocus={scrollFocus} data-testid="input-social-instagram" />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Facebook URL</Label>
+              <Label className="label-field mb-1.5 block">Facebook URL</Label>
               <Input value={socialLinks.facebook ?? ""} onChange={e => setSocialLinks(p => ({ ...p, facebook: e.target.value }))} placeholder="https://facebook.com/yourclinic" className="rounded-xl" onFocus={scrollFocus} data-testid="input-social-facebook" />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">YouTube URL</Label>
+              <Label className="label-field mb-1.5 block">YouTube URL</Label>
               <Input value={socialLinks.youtube ?? ""} onChange={e => setSocialLinks(p => ({ ...p, youtube: e.target.value }))} placeholder="https://youtube.com/@yourclinic" className="rounded-xl" onFocus={scrollFocus} data-testid="input-social-youtube" />
             </div>
           </div>

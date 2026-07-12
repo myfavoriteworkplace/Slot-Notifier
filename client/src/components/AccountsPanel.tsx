@@ -268,7 +268,7 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
                     <div className={`h-5 w-5 rounded-md flex items-center justify-center ${bgCls}`}>
                       <Icon className={`h-3 w-3 ${textCls}`} />
                     </div>
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
+                    <p className="label-field leading-none">{label}</p>
                   </div>
                   <p className="text-xl font-bold text-foreground">{value}</p>
                   {subtitle && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{subtitle}</p>}

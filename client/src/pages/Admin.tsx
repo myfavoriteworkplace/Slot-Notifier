@@ -1622,7 +1622,7 @@ export default function Admin() {
                                 <div className="p-4 space-y-3">
                                   <div className="flex gap-2">
                                     <div className="flex-1">
-                                      <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground block mb-1">Plan</label>
+                                      <label className="label-field block mb-1">Plan</label>
                                       <select
                                         value={approvalPlans[clinic.id] ?? (clinic.plan || "starter")}
                                         onChange={e => setApprovalPlans(p => ({ ...p, [clinic.id]: e.target.value }))}
@@ -1635,7 +1635,7 @@ export default function Admin() {
                                       </select>
                                     </div>
                                     <div className="flex-1">
-                                      <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground block mb-1">Billing</label>
+                                      <label className="label-field block mb-1">Billing</label>
                                       <select
                                         value={approvalCycles[clinic.id] ?? "monthly"}
                                         onChange={e => setApprovalCycles(p => ({ ...p, [clinic.id]: e.target.value }))}

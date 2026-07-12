@@ -638,7 +638,7 @@ export default function ClinicalRecordsTab({
 
                 {/* Tag picker */}
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label className="label-field">
                     Select diagnosis <span className="normal-case font-normal">(one or more)</span>
                   </Label>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -674,7 +674,7 @@ export default function ClinicalRecordsTab({
 
                 {/* Optional notes */}
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label className="label-field">
                     Notes <span className="normal-case font-normal">(optional)</span>
                   </Label>
                   <textarea
@@ -911,7 +911,7 @@ export default function ClinicalRecordsTab({
                 {/* ── Compact prescription grid ─────────────────────────── */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Label className="label-field flex items-center gap-1">
                       <Pill className="h-3 w-3" /> Medicines
                     </Label>
                   </div>
@@ -921,7 +921,7 @@ export default function ClinicalRecordsTab({
                     <div className="min-w-[664px]">
                       <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
                         {["#", "Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
-                          <span key={i} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 truncate">{h}</span>
+                          <span key={i} className="label-field/70 truncate">{h}</span>
                         ))}
                       </div>
 

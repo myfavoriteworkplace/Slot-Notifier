@@ -1735,27 +1735,27 @@ export function BillingHistoryPanel({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="col-span-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description *</Label>
+              <Label className="label-field">Description *</Label>
               <Input value={addForm.description}
                 onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="e.g. Dental cleaning, Root canal…"
                 className="h-8 text-xs mt-0.5" data-testid="input-entry-description" />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</Label>
+              <Label className="label-field">Category</Label>
               <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
                 <SelectTrigger className="h-8 text-xs mt-0.5" data-testid="select-entry-category"><SelectValue /></SelectTrigger>
                 <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qty</Label>
+              <Label className="label-field">Qty</Label>
               <Input type="number" min="1" value={addForm.qty}
                 onChange={e => setAddForm(f => ({ ...f, qty: e.target.value }))}
                 className="h-8 text-xs mt-0.5" data-testid="input-entry-qty" />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit Price (₹) *</Label>
+              <Label className="label-field">Unit Price (₹) *</Label>
               <div className="relative mt-0.5">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
                 <Input type="number" min="0" step="0.01" value={addForm.unitPrice}

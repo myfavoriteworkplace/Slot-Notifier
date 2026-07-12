@@ -2998,7 +2998,7 @@ export default function BookingsPanel({
                                 </AlertDialogHeader>
                                 <div className="px-1 py-2 space-y-3">
                                   <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-foreground">Reason for cancellation</label>
+                                    <label className="label-field">Reason for cancellation</label>
                                     <select
                                       value={cancelReason}
                                       onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
@@ -3015,7 +3015,7 @@ export default function BookingsPanel({
                                   </div>
                                   {cancelReason === "Other" && (
                                     <div className="space-y-1.5">
-                                      <label className="text-sm font-medium text-foreground">Please specify</label>
+                                      <label className="label-field">Please specify</label>
                                       <Input
                                         value={cancelReasonOther}
                                         onChange={e => setCancelReasonOther(e.target.value)}

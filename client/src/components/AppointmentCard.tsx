@@ -534,7 +534,7 @@ export function AppointmentCard({
                           )}
                           <div className="px-1 py-2 space-y-3">
                             <div className="space-y-1.5">
-                              <label className="text-sm font-medium">Reason (optional)</label>
+                              <label className="label-field">Reason (optional)</label>
                               <select
                                 value={noShowPredefined}
                                 onChange={(e) => { setNoShowPredefined(e.target.value); setNoShowCustom(""); }}
@@ -551,7 +551,7 @@ export function AppointmentCard({
                             </div>
                             {noShowPredefined === "Other" && (
                               <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Please specify</label>
+                                <label className="label-field">Please specify</label>
                                 <Input
                                   value={noShowCustom}
                                   onChange={(e) => setNoShowCustom(e.target.value)}
@@ -604,7 +604,7 @@ export function AppointmentCard({
                             </AlertDialogHeader>
                             <div className="px-1 py-2 space-y-3">
                               <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Reason (optional)</label>
+                                <label className="label-field">Reason (optional)</label>
                                 <select
                                   value={visitMenuPredefined}
                                   onChange={(e) => { setVisitMenuPredefined(e.target.value); setVisitMenuCustom(""); }}
@@ -620,7 +620,7 @@ export function AppointmentCard({
                               </div>
                               {visitMenuPredefined === "Other" && (
                                 <div className="space-y-1.5">
-                                  <label className="text-sm font-medium">Please specify</label>
+                                  <label className="label-field">Please specify</label>
                                   <Input
                                     value={visitMenuCustom}
                                     onChange={(e) => setVisitMenuCustom(e.target.value)}
@@ -668,7 +668,7 @@ export function AppointmentCard({
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <div className="px-1 py-2">
-                            <label className="text-sm font-medium">Reason <span className="text-red-500">*</span></label>
+                            <label className="label-field">Reason <span className="text-destructive">*</span></label>
                             <Input
                               className="mt-1.5"
                               value={leftEarlyReason}
@@ -725,7 +725,7 @@ export function AppointmentCard({
                               </div>
                             )}
                             <div className="space-y-1.5">
-                              <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
+                              <label className="label-field">Reason <span className="text-destructive">*</span></label>
                               <select
                                 value={overridePredefined}
                                 onChange={(e) => { setOverridePredefined(e.target.value); setOverrideCustom(""); }}
@@ -742,7 +742,7 @@ export function AppointmentCard({
                             </div>
                             {overridePredefined === "Other" && (
                               <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Please specify</label>
+                                <label className="label-field">Please specify</label>
                                 <Input
                                   value={overrideCustom}
                                   onChange={(e) => setOverrideCustom(e.target.value)}
@@ -1378,7 +1378,7 @@ export function AppointmentCard({
               </AlertDialogHeader>
               <div className="px-1 py-2 space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
+                  <label className="label-field">Reason <span className="text-destructive">*</span></label>
                   <select value={cancelReason} onChange={(e) => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
                     className="w-full select-base">
                     <option value="">Select a reason…</option>
@@ -1392,7 +1392,7 @@ export function AppointmentCard({
                 </div>
                 {cancelReason === "Other" && (
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Please specify</label>
+                    <label className="label-field">Please specify</label>
                     <Input value={cancelReasonOther} onChange={(e) => setCancelReasonOther(e.target.value)} placeholder="e.g. Emergency, personal reasons" autoFocus />
                   </div>
                 )}
@@ -1423,7 +1423,7 @@ export function AppointmentCard({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="px-1 py-2 space-y-1.5">
-                <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
+                <label className="label-field">Reason <span className="text-destructive">*</span></label>
                 <Select value={visitDoneReason} onValueChange={setVisitDoneReason}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a reason…" />
