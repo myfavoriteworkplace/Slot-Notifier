@@ -538,7 +538,7 @@ export function AppointmentCard({
                               <select
                                 value={noShowPredefined}
                                 onChange={(e) => { setNoShowPredefined(e.target.value); setNoShowCustom(""); }}
-                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-ring/20"
                               >
                                 <option value="">Select a reason…</option>
                                 <option>Patient didn't respond to calls</option>
@@ -608,7 +608,7 @@ export function AppointmentCard({
                                 <select
                                   value={visitMenuPredefined}
                                   onChange={(e) => { setVisitMenuPredefined(e.target.value); setVisitMenuCustom(""); }}
-                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-ring/20"
                                 >
                                   <option value="">Select a reason…</option>
                                   <option>Visit completed as scheduled</option>
@@ -729,7 +729,7 @@ export function AppointmentCard({
                               <select
                                 value={overridePredefined}
                                 onChange={(e) => { setOverridePredefined(e.target.value); setOverrideCustom(""); }}
-                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-ring/20"
                               >
                                 <option value="">Select a reason…</option>
                                 <option>Admin override — technical issue</option>
@@ -1380,7 +1380,7 @@ export function AppointmentCard({
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
                   <select value={cancelReason} onChange={(e) => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-ring/20">
                     <option value="">Select a reason…</option>
                     <option>Patient requested cancellation</option>
                     <option>Doctor unavailable</option>
