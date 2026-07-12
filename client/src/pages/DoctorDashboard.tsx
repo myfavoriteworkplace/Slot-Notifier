@@ -29,7 +29,7 @@ import {
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, ChevronRight, BriefcaseMedical, KeyRound,
   MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
-  SlidersHorizontal, Maximize2, Minimize2, Layers, Search, Menu, Bell
+  SlidersHorizontal, Maximize2, Minimize2, Layers, Search, Menu, Bell, LayoutList
 } from "lucide-react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -99,6 +99,7 @@ export default function DoctorDashboard() {
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterRowOpen, setFilterRowOpen] = useState(false);
+  const [chipsCollapsed, setChipsCollapsed] = useState(false);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [apptSearch, setApptSearch] = useState("");
@@ -1178,6 +1179,7 @@ export default function DoctorDashboard() {
 
               {/* Quick-filter chips */}
               <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
+                {!chipsCollapsed && (<>
                 {/* Today */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
@@ -1272,6 +1274,7 @@ export default function DoctorDashboard() {
                     quickFilter === "owned" ? "bg-teal-500/15 text-teal-700 dark:text-teal-400" : "bg-muted text-muted-foreground"
                   }`}>{ownedCount}</span>
                 </button>
+                </>)}
 
                 {/* Patient search — collapsed magnifier or expanded input */}
                 {searchOpen ? (
@@ -1332,6 +1335,20 @@ export default function DoctorDashboard() {
                     <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
                   </button>
                 )}
+
+                {/* Chip visibility toggle */}
+                <button
+                  onClick={() => setChipsCollapsed(c => !c)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] shrink-0 ${
+                    chipsCollapsed
+                      ? 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                      : 'bg-primary/10 border-primary/40 text-primary'
+                  }`}
+                  data-testid="button-toggle-chips"
+                  title={chipsCollapsed ? "Show filter chips" : "Hide filter chips"}
+                >
+                  <LayoutList className="h-4 w-4" />
+                </button>
               </div>
 
               {/* Date range + Quick week — collapsible filter row */}

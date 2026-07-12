@@ -67,7 +67,7 @@ import {
   Info, ClipboardCheck, PenLine, Link2, ClipboardList, AlertTriangle, AlertCircle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal,
   ChevronLeft, ChevronRight, Save, Hash, Printer, ArrowLeft, ArrowRight,
-  Building2, ExternalLink, LogOut, Settings, SlidersHorizontal,
+  Building2, ExternalLink, LogOut, Settings, SlidersHorizontal, LayoutList,
 } from "lucide-react";
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
@@ -165,6 +165,7 @@ export default function BookingsPanel({
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
   const [searchOpen, setSearchOpen] = useState(true);
   const [filterRowOpen, setFilterRowOpen] = useState(false);
+  const [chipsCollapsed, setChipsCollapsed] = useState(false);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
     if (!clinic?.id) return;
@@ -959,6 +960,7 @@ export default function BookingsPanel({
         </div>
         {/* Quick-filter chips + inline search — single unified row */}
         <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
+          {!chipsCollapsed && (<>
           {/* Today */}
           <button
             onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
@@ -1034,6 +1036,7 @@ export default function BookingsPanel({
               quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{bookingStats?.totalAllCount ?? 0}</span>
           </button>
+          </>)}
 
           {/* Search slot — magnifier, expanded input, or active-patient chip */}
           <div className="relative w-full sm:flex-1">
@@ -1119,6 +1122,18 @@ export default function BookingsPanel({
                     <X className="h-3 w-3" />
                   </button>
                 </div>
+                <button
+                  onClick={() => setChipsCollapsed(c => !c)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] shrink-0 ${
+                    chipsCollapsed
+                      ? 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                      : 'bg-primary/10 border-primary/40 text-primary'
+                  }`}
+                  data-testid="button-toggle-chips"
+                  title={chipsCollapsed ? "Show filter chips" : "Hide filter chips"}
+                >
+                  <LayoutList className="h-4 w-4" />
+                </button>
                 {!filterRowOpen && (
                   <button
                     onClick={() => setFilterRowOpen(true)}
