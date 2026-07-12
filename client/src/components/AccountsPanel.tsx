@@ -187,7 +187,7 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="flex">
           <div className="w-1.5 bg-primary/60 shrink-0" />
-          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                 <IndianRupee className="h-[18px] w-[18px] text-primary" />
@@ -197,7 +197,7 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
                 <p className="text-xs text-muted-foreground mt-0.5">Billing &amp; payment records</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* View toggle */}
               <div className="flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5 gap-0.5">
                 {(['ledger', 'register'] as const).map(v => (

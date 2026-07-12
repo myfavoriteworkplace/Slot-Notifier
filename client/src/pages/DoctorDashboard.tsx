@@ -2114,7 +2114,7 @@ export default function DoctorDashboard() {
                     </div>
                     <div>
                       <h2 className="text-base font-semibold tracking-tight">Leave Management</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">Mark dates when you are unavailable. Clinic admins will see a warning when trying to assign you on these dates.</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Mark your unavailable dates</p>
                     </div>
                   </div>
                 </div>
@@ -2489,7 +2489,7 @@ export default function DoctorDashboard() {
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="flex">
                   <div className="w-1.5 bg-blue-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
                         <Award className="h-[18px] w-[18px] text-blue-600 dark:text-blue-400" />
@@ -2499,7 +2499,7 @@ export default function DoctorDashboard() {
                         <p className="text-xs text-muted-foreground mt-0.5">Highlight your credentials — these appear on your public profile.</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCert} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                    <Button onClick={openNewCert} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 h-9 px-3">
                       <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Certification</span>
                     </Button>
                   </div>
@@ -2567,17 +2567,17 @@ export default function DoctorDashboard() {
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="flex">
                   <div className="w-1.5 bg-teal-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-teal-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-teal-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
                         <BookOpen className="h-[18px] w-[18px] text-teal-600 dark:text-teal-400" />
                       </div>
                       <div>
                         <h2 className="text-base font-semibold tracking-tight">Case Studies</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">Share your clinical cases with descriptions and media. Visible on your public profile.</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Clinical cases shown on your public profile</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCase} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                    <Button onClick={openNewCase} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 h-9 px-3">
                       <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Case</span>
                     </Button>
                   </div>

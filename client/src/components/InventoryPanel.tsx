@@ -1750,7 +1750,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
         <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
           <div className="flex">
             <div className="w-1.5 bg-emerald-500/60 shrink-0" />
-            <div className="flex-1 px-5 py-4 bg-gradient-to-r from-emerald-500/[0.06] to-transparent flex items-center justify-between gap-3">
+            <div className="flex-1 px-5 py-4 bg-gradient-to-r from-emerald-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
                   <Package className="h-[18px] w-[18px] text-emerald-600 dark:text-emerald-400" />
@@ -1766,7 +1766,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
               <Button
                 data-testid="btn-add-item"
                 onClick={() => setShowAddItem(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shrink-0"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
               >
                 <Plus className="h-4 w-4" /> Add Item
               </Button>

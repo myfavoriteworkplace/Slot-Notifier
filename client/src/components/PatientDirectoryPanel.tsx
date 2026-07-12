@@ -154,7 +154,7 @@ export default function PatientDirectoryPanel({
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="flex">
           <div className="w-1.5 bg-rose-500/60 shrink-0" />
-          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-rose-500/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-rose-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
                 <Users className="h-[18px] w-[18px] text-rose-500" />
