@@ -9,7 +9,7 @@ import {
   Wrench, FlaskConical, Stethoscope, Box, TrendingDown, TrendingUp,
   ArrowUpDown, ShieldAlert, CalendarClock, Info, Pencil, Download,
   FolderPlus, MoreHorizontal, ChevronLeft, Check, History, Settings2,
-  RefreshCw, XCircle, LayoutGrid, BarChart3,
+  RefreshCw, XCircle, LayoutGrid, BarChart3, SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
