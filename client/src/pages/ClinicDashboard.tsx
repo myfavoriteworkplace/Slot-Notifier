@@ -1062,10 +1062,10 @@ export default function ClinicDashboard() {
             {!heroStatsCollapsed && (
             <div className="mt-3 grid grid-cols-4 gap-2">
             {[
-              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                                             value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",      bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: 'pending-7days' as const,    tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.",               value: pendingNext7Count,   Icon: Clock,        text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",             value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
+              { label: "Confirmed Bookings Today",                   shortLabel: "Confirmed Bookings",    subTag: "Today",                                    filter: 'today-confirmed' as const, tooltip: "Bookings scheduled for today that have been confirmed by the clinic.",                                                    value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",      bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+              { label: "Confirmed Bookings (Coming in Next 7 Days)",  shortLabel: "Confirmed Bookings",    subTag: "Coming in Next 7 Days",             filter: 'confirmed-7days' as const, tooltip: "Confirmed bookings scheduled within the next 7 days. These are locked in.",                                                 value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              { label: "Pending Booking Confirmation (Next 7 Days)",  shortLabel: "Pending Confirmation",  subTag: "Next 7 Days · Awaiting Confirmation", filter: 'pending-7days' as const,   tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.",                  value: pendingNext7Count,   Icon: Clock,        text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+              { label: "All Pending Booking Confirmations",           shortLabel: "Pending Confirmations", subTag: "All · Awaiting Confirmation",       filter: 'all-pending' as const,     tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",                 value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
             ].map(({ label, shortLabel, subTag, filter, tooltip, value, Icon, text, bg, border }, i) => (
               <TooltipProvider key={i} delayDuration={700}>
                 <Tooltip>
@@ -1090,7 +1090,7 @@ export default function ClinicDashboard() {
                         </p>
                         <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
                         {subTag && (
-                          <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
+                          <span className={`block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none truncate`}>{subTag}</span>
                         )}
                       </div>
                       <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 mt-1`} />
@@ -1133,7 +1133,10 @@ export default function ClinicDashboard() {
           {/* Mobile quick stats */}
           <div className="sm:hidden mb-5">
             <div className="flex items-center justify-between mb-2 px-0.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
+                <p className="text-[10px] text-muted-foreground/70 leading-none mt-0.5">Booking Confirmation Status</p>
+              </div>
               <button
                 onClick={() => setHeroStatsCollapsed(s => !s)}
                 className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
@@ -1145,10 +1148,10 @@ export default function ClinicDashboard() {
             {!heroStatsCollapsed && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
-                  { label: "Today",         subTag: null,          filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                          value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-600",      bg: "bg-sky-50",     border: "border-sky-200",     darkText: "dark:text-sky-400", darkBg: "dark:bg-sky-950/20", darkBorder: "dark:border-sky-800" },
-                  { label: "Confirmed",     subTag: "7 Days",      filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", darkText: "dark:text-emerald-400", darkBg: "dark:bg-emerald-950/20", darkBorder: "dark:border-emerald-800" },
-                  { label: "Pending",       subTag: "7 Days",      filter: 'pending-7days' as const,    tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.", value: pendingNext7Count,   Icon: Clock,        text: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   darkText: "dark:text-amber-400", darkBg: "dark:bg-amber-950/20", darkBorder: "dark:border-amber-800" },
-                  { label: "All Pending",   subTag: null,          filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.", value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-200",    darkText: "dark:text-rose-400", darkBg: "dark:bg-rose-950/20", darkBorder: "dark:border-rose-800" },
+                  { label: "Confirmed",  subTag: "Today",                  filter: 'today-confirmed' as const, tooltip: "Bookings scheduled for today that have been confirmed by the clinic.",                                        value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-600",      bg: "bg-sky-50",     border: "border-sky-200",     darkText: "dark:text-sky-400",     darkBg: "dark:bg-sky-950/20",     darkBorder: "dark:border-sky-800" },
+                  { label: "Confirmed",  subTag: "In Coming 7 Days",       filter: 'confirmed-7days' as const, tooltip: "Confirmed bookings scheduled within the next 7 days. These are locked in.",                               value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", darkText: "dark:text-emerald-400", darkBg: "dark:bg-emerald-950/20", darkBorder: "dark:border-emerald-800" },
+                  { label: "Pending",    subTag: "Next 7 Days · Awaiting", filter: 'pending-7days' as const,   tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.", value: pendingNext7Count,   Icon: Clock,        text: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   darkText: "dark:text-amber-400",   darkBg: "dark:bg-amber-950/20",   darkBorder: "dark:border-amber-800" },
+                  { label: "Pending",    subTag: "All",                    filter: 'all-pending' as const,     tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.", value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-200",    darkText: "dark:text-rose-400",    darkBg: "dark:bg-rose-950/20",    darkBorder: "dark:border-rose-800" },
                 ].map(({ label, subTag, filter, tooltip, value, Icon, text, bg, border, darkText, darkBg, darkBorder }, i) => (
                   <TooltipProvider key={i} delayDuration={700}>
                     <Tooltip>
@@ -1176,7 +1179,7 @@ export default function ClinicDashboard() {
                             <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0`} />
                           </div>
                           {subTag && (
-                            <span className="text-[10px] font-medium text-muted-foreground leading-none">{subTag}</span>
+                            <span className="text-[10px] font-medium text-muted-foreground leading-none truncate block">{subTag}</span>
                           )}
                         </div>
                       </TooltipTrigger>
