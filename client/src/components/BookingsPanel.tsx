@@ -165,7 +165,7 @@ export default function BookingsPanel({
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
   const [searchOpen, setSearchOpen] = useState(true);
   const [filterRowOpen, setFilterRowOpen] = useState(false);
-  const [chipsCollapsed, setChipsCollapsed] = useState(false);
+  const [chipsCollapsed, setChipsCollapsed] = useState(() => window.innerWidth < 640);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
     if (!clinic?.id) return;

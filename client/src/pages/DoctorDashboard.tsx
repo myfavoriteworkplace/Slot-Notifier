@@ -99,7 +99,7 @@ export default function DoctorDashboard() {
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterRowOpen, setFilterRowOpen] = useState(false);
-  const [chipsCollapsed, setChipsCollapsed] = useState(false);
+  const [chipsCollapsed, setChipsCollapsed] = useState(() => window.innerWidth < 640);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [apptSearch, setApptSearch] = useState("");
