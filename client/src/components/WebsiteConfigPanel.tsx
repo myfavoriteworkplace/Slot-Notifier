@@ -944,7 +944,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         </div>
 
         {/* A — Page-order section map: shows sections as a horizontal ordered strip */}
-        <div className="border-b border-border/40 bg-gradient-to-r from-muted/40 to-transparent overflow-x-auto shrink-0" style={{ scrollbarWidth: "none" }}>
+        <div className="hide-scrollbar border-b border-border/40 bg-gradient-to-r from-muted/40 to-transparent overflow-x-auto shrink-0">
           <div className="flex items-center gap-1 px-4 py-2 min-w-max">
             <span className="text-xs font-semibold text-muted-foreground/60 mr-2 shrink-0 uppercase tracking-wide">Page top → bottom</span>
             {MAP_ROWS.map((row, idx) => {
@@ -980,7 +980,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(400px, 60vh, 600px)" }}>
 
           {/* ── Mobile: horizontal tab strip with status dots (hidden on desktop) ── */}
-          <div className="lg:hidden flex overflow-x-auto gap-1 p-2 border-b border-border/40" style={{ scrollbarWidth: "none" }}>
+          <div className="hide-scrollbar lg:hidden flex overflow-x-auto gap-1 p-2 border-b border-border/40">
             {MAP_ROWS.map((row, idx) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;

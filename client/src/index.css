@@ -109,7 +109,9 @@
   }
 }
 
-/* Glassmorphism utilities */
+/* ── Shared utility classes — extracted from 2+ files ────────────────────────
+   Change here → updates every usage across the app.
+   See frontend-design-document-v2.md § 35.0 for the full rule catalogue.     */
 @layer utilities {
   .glass-panel {
     @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
@@ -117,6 +119,35 @@
 
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+
+  /* Hides scrollbar on any overflow element (Firefox + Webkit/Chrome/Safari).
+     Replaces inline style={{ scrollbarWidth: "none" }} — that misses ::-webkit-scrollbar. */
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fixed mobile top navigation bar.
+     Shared exactly by ClinicDashboard.tsx and DoctorDashboard.tsx.            */
+  .mobile-topbar {
+    @apply lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-2 gap-1 bg-background/90 backdrop-blur-[18px] border-b border-black/[0.06] dark:border-white/[0.06] shadow-sm;
+  }
+
+  /* Sticky bottom action bar — safe-area-aware for notched phones.
+     Shared by ConsentFormPanel and DoctorDashboard sticky save footers.
+     Add layout padding (pt-*, px-*, py-*) at the usage site.                 */
+  .sticky-action-bar {
+    @apply sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/40 pb-[env(safe-area-inset-bottom)];
+  }
+
+  /* Native <select> with standard border + focus ring.
+     Use with w-full on raw <select> elements (AppointmentCard, BookingsPanel).
+     Shadcn <Select> does NOT need this — it uses its own trigger styles.      */
+  .select-base {
+    @apply rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-ring/20;
   }
 }
 

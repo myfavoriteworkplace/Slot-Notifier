@@ -205,7 +205,7 @@ export default function ConsentFormPanel() {
         </div>
 
         {/* Sticky save bar */}
-        <div className="sticky bottom-0 px-4 sm:px-5 pb-[env(safe-area-inset-bottom)] py-3 bg-background/95 backdrop-blur-sm border-t border-border/40">
+        <div className="sticky-action-bar px-4 sm:px-5 py-3">
           <Button
             onClick={handleSave}
             disabled={saveMutation.isPending || !hasEdited || editText.trim().length < 20}

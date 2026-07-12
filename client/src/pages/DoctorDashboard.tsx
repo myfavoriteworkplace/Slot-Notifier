@@ -749,7 +749,7 @@ export default function DoctorDashboard() {
 
 
       {/* ═══ MOBILE STICKY TOP BAR ═══ */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-2 gap-1 bg-background/90 backdrop-blur-[18px] border-b border-black/[0.06] dark:border-white/[0.06] shadow-sm">
+      <div className="mobile-topbar">
         {/* Hamburger */}
         <button
           onClick={() => setMobileNavOpen(true)}
@@ -2048,7 +2048,7 @@ export default function DoctorDashboard() {
                 )}
 
                 {/* ── Sticky Save Footer ── */}
-                <div className="sticky bottom-0 pb-[env(safe-area-inset-bottom)] bg-background/95 backdrop-blur-sm pt-3 border-t border-border/40">
+                <div className="sticky-action-bar pt-3">
                   <div className="flex gap-3">
                     <Button
                       className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold shadow-md shadow-primary/20 active:scale-[0.98] transition-all min-h-[44px]"

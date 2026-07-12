@@ -1214,7 +1214,7 @@ export default function SmileDeals() {
                 </div>
               </div>
               {flashDeals.length >= 3 ? (
-                <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
+                <div className="hide-scrollbar" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollSnapType: "x mandatory" }}>
                   {flashDeals.map((d) => <FlashCard key={d.id} deal={d} c={c} isClinic={activeTab === "clinic"} />)}
                 </div>
               ) : (

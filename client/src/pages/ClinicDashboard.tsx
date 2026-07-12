@@ -858,7 +858,7 @@ export default function ClinicDashboard() {
     <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
 
       {/* ── MOBILE STICKY TOP BAR ── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-2 gap-1 bg-background/90 backdrop-blur-[18px] border-b border-black/[0.06] dark:border-white/[0.06] shadow-sm">
+      <div className="mobile-topbar">
         {/* Hamburger */}
         <button
           onClick={() => setMobileNavOpen(true)}
