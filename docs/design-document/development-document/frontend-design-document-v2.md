@@ -1461,102 +1461,79 @@ Add a comment when: working around a known quirk · a state machine transition i
 
 ### 35.1 Input field visual standard
 
-This is the single canonical style for every text input, textarea, and select in the application. All three surface types (shadcn component, raw HTML element, inline-styled element) must produce the same visual result.
+#### `index.css` is the single source of truth for placeholder styling
 
-#### Shadcn `<Input>` and `<Textarea>` components
-
-The base style is baked into `client/src/components/ui/input.tsx` and `textarea.tsx`. Do not override these classes without updating those files.
-
-```tsx
-// Resting border
-className="border border-input bg-background"
-
-// Focus ring — applied automatically by the component
-focus-visible:border-primary/60
-focus-visible:ring-2
-focus-visible:ring-ring/20
-
-// Placeholder — applied automatically by the component
-placeholder:text-muted-foreground/55
-```
-
-#### Shadcn `<Select>` trigger
-
-The trigger uses a Radix data attribute to target the unselected (placeholder) state — `::placeholder` does not apply here.
-
-```tsx
-// In SelectTrigger className:
-data-[placeholder]:text-muted-foreground/55
-data-[placeholder]:italic
-```
-
-#### Raw `<input>` and `<textarea>` elements (Tailwind class approach)
-
-Any raw element that bypasses the shadcn component must manually apply both sets of classes:
-
-```tsx
-// Focus ring
-className="focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/20"
-
-// Placeholder
-className="placeholder:text-muted-foreground/55"
-// italic is handled by the global CSS rule in index.css (see below)
-```
-
-Both classes must be present. A raw input with the focus ring but not the placeholder class will show the browser's default gray.
-
-#### ⚠️ Critical — inline `style={}` elements (SmileDeals pattern)
-
-Pages that style inputs with a JavaScript `style={}` object (e.g. SmileDeals.tsx, which uses a `LIGHT`/`DARK` palette JS object) **cannot** control `::placeholder` via inline styles. The CSS `::placeholder` pseudo-element is unreachable from React's inline style prop.
-
-**Rule: any raw input or textarea that carries a `style={}` prop MUST also carry `className="placeholder:text-muted-foreground/55"` explicitly.** The two props can always coexist — `style=` and `className=` are independent HTML attributes.
-
-```tsx
-// ✅ Correct — className controls placeholder, style controls everything else
-<input
-  type="text"
-  placeholder="Business email *"
-  style={inputStyle}
-  className="placeholder:text-muted-foreground/55"
-/>
-
-// ❌ Wrong — style={} cannot reach ::placeholder, shows browser default gray
-<input
-  type="text"
-  placeholder="Business email *"
-  style={inputStyle}
-/>
-```
-
-This pattern applies to: supplier registration form inputs · search input in SmileDeals · any future custom-themed form that uses JS-object styling.
-
-#### Global CSS rule (`client/src/index.css`)
+`client/src/index.css` sets placeholder colour, opacity, and italic for **every** input surface in one place:
 
 ```css
-/* Lines 96–98 — do not remove */
+/* @layer base — do not remove or move */
 ::placeholder {
+  color: hsl(var(--muted-foreground) / 0.55);   /* muted green-gray at 55% */
+  font-style: italic;
+}
+
+/* Radix <Select> — SelectValue renders a <span>, not a real input,
+   so ::placeholder does not fire. Target the span directly. */
+button[data-placeholder] > span:first-of-type {
+  color: hsl(var(--muted-foreground) / 0.55);
   font-style: italic;
 }
 ```
 
-This single global rule makes every `<input>` and `<textarea>` placeholder italic — including raw elements with no className. The `/55` opacity (from `placeholder:text-muted-foreground/55`) plus this italic rule together define the ghost text appearance.
+This covers every surface automatically:
 
-#### Colour value reference
+| Surface | How it gets ghost text |
+|---|---|
+| Shadcn `<Input>` / `<Textarea>` | `::placeholder` global rule |
+| Raw `<input>` / `<textarea>` | `::placeholder` global rule |
+| Raw element with `style={}` (JS palette) | `::placeholder` global rule — pseudo-elements are reachable from CSS even when the element has inline styles |
+| Shadcn `<Select>` trigger | `button[data-placeholder] > span` global rule |
+
+#### What NOT to do
+
+```tsx
+// ❌ Never add these — they fight the global rule and double-apply opacity
+className="placeholder:text-muted-foreground/55"
+className="data-[placeholder]:text-muted-foreground/55 data-[placeholder]:italic"
+```
+
+Adding `placeholder:text-muted-foreground/55` on top of the global `::placeholder` rule compounds the opacity (0.55 × 0.55 ≈ 30%) and makes ghost text nearly invisible. Adding `data-[placeholder]:*` Tailwind classes on a `<SelectTrigger>` duplicates the global span rule with no benefit.
+
+#### Focus ring — shadcn components
+
+Baked into `client/src/components/ui/input.tsx` and `textarea.tsx`. Do not override without editing those files:
+
+```
+focus-visible:border-primary/60
+focus-visible:ring-2
+focus-visible:ring-ring/20
+```
+
+#### Focus ring — raw `<input>` elements
+
+There is one intentional exception: `BookingsPanel.tsx` contains a raw `<input>` at the patient-search combobox. It uses `outline-none border-none focus:ring-0` because the focus ring is handled by the **parent container div** via a `patientSearchFocused` state flag. This is the correct pattern for a combobox — do not swap it for shadcn `<Input>` (which would add an unwanted border and background inside the already-styled container).
+
+Any other raw `<input>` that is NOT embedded in a custom container must apply the focus ring manually:
+
+```tsx
+className="focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/20"
+```
+
+#### Colour reference
 
 | Token | HSL | Hex approx | Effect |
 |---|---|---|---|
 | `--muted-foreground` | `160 12% 45%` | `#6A7F74` | Muted green-gray |
-| `/55` opacity modifier | 55% alpha | — | Soft, clearly secondary |
+| `/ 0.55` alpha | 55% opacity | — | Soft, clearly secondary |
 
-The resulting ghost text is **italic, muted green-gray at 55% opacity** — visually distinct from real input values without being invisible.
-
-#### Consistency audit command
+#### Consistency audit commands
 
 ```bash
-# Find raw inputs/textareas that have placeholder= but no placeholder: class
-# These are candidates for the fix
-grep -rn 'placeholder="' client/src/ | grep -v 'placeholder:text-muted'
-# Any result using a raw <input>/<textarea> (not a component) needs the className fix
+# Should return ZERO — no manual placeholder colour classes anywhere
+grep -rn 'placeholder:text-muted-foreground\|data-\[placeholder\]:text-muted\|data-\[placeholder\]:italic' client/src/
+
+# Should return exactly ONE file (index.css) — the global rule lives here only
+grep -rn 'muted-foreground.*0\.55\|0\.55.*muted-foreground' client/src/
 ```
 
 ---
