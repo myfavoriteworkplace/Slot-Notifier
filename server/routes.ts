@@ -4740,6 +4740,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // PATCH /api/auth/clinic/bookings/:id/patient-left-early
   // Admin records that the patient walked out during or before consultation
+  app.patch("/api/auth/clinic/bookings/:id/patient-info", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const schema = z.object({
+        customerName:   z.string().min(1).optional(),
+        customerPhone:  z.string().nullable().optional(),
+        customerEmail:  z.string().email().nullable().optional(),
+        customerAge:    z.number().int().min(0).max(150).nullable().optional(),
+        customerGender: z.string().nullable().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.errors });
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (sess.clinicId && booking.clinicId !== sess.clinicId) return res.status(403).json({ message: "Booking does not belong to this clinic" });
+      const updated = await storage.updateBookingPatientInfo(bookingId, parsed.data);
+      console.log(`[BOOKING] Patient info updated for booking ${bookingId} by clinic ${sess.clinicId}`);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[BOOKING] patient-info update error:', err.message);
+      res.status(500).json({ message: "Failed to update patient info" });
+    }
+  });
+
   app.patch("/api/auth/clinic/bookings/:id/patient-left-early", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });

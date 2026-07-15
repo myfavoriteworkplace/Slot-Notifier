@@ -124,6 +124,7 @@ export interface IStorage {
   rescheduleBooking(id: number, newSlotId: number): Promise<Booking>;
   updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking>;
   updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking>;
+  updateBookingPatientInfo(id: number, data: { customerName?: string; customerPhone?: string | null; customerEmail?: string | null; customerAge?: number | null; customerGender?: string | null }): Promise<Booking>;
   updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
   
   // Notifications
@@ -964,6 +965,18 @@ export class DatabaseStorage implements IStorage {
       .set({ doctorNotes: encryptField(notes), clinicalStatus })
       .where(eq(bookings.id, id))
       .returning();
+    return this.decryptBooking(updated);
+  }
+
+  async updateBookingPatientInfo(id: number, data: { customerName?: string; customerPhone?: string | null; customerEmail?: string | null; customerAge?: number | null; customerGender?: string | null }): Promise<Booking> {
+    const setFields: Record<string, any> = {};
+    if (data.customerName !== undefined) setFields.customerName = data.customerName;
+    if (data.customerPhone !== undefined) setFields.customerPhone = data.customerPhone;
+    if (data.customerEmail !== undefined) setFields.customerEmail = data.customerEmail;
+    if (data.customerAge !== undefined) setFields.customerAge = data.customerAge;
+    if (data.customerGender !== undefined) setFields.customerGender = data.customerGender;
+    const [updated] = await db.update(bookings).set(setFields).where(eq(bookings.id, id)).returning();
+    if (!updated) throw new Error(`Booking ${id} not found`);
     return this.decryptBooking(updated);
   }
 

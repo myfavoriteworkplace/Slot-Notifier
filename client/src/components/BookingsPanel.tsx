@@ -67,7 +67,7 @@ import {
   Info, ClipboardCheck, PenLine, Link2, ClipboardList, AlertTriangle, AlertCircle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal,
   ChevronLeft, ChevronRight, Save, Hash, Printer, ArrowLeft, ArrowRight,
-  Building2, ExternalLink, LogOut, Settings, SlidersHorizontal, LayoutList,
+  Building2, ExternalLink, LogOut, Settings, SlidersHorizontal, LayoutList, Pencil,
 } from "lucide-react";
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
@@ -225,6 +225,7 @@ export default function BookingsPanel({
 
   const [isBillingOpen, setIsBillingOpen] = useState(false);
   const [dialogExpanded, setDialogExpanded] = useState(false);
+  const [editingField, setEditingField] = useState<{ bookingId: number; field: string; value: string } | null>(null);
   const [billingBooking, setBillingBooking] = useState<BookingWithSlot | null>(null);
   const [billingDetails, setBillingDetails] = useState<BillingDetails>({
     patientName: "", patientPhone: "", patientEmail: "",
@@ -919,6 +920,26 @@ export default function BookingsPanel({
       notify.success("Booking Confirmed", { description: "A confirmation email has been sent to the patient." });
     },
     onError: (error: any) => { notify.apiError(error, "Failed to confirm booking"); },
+  });
+
+  const patientInfoMutation = useMutation({
+    mutationFn: async ({ bookingId, field, value }: { bookingId: number; field: string; value: string }) => {
+      const payload: Record<string, string | number | null> =
+        field === 'age' ? { customerAge: value === '' ? null : Number(value) } :
+        field === 'name'   ? { customerName: value } :
+        field === 'phone'  ? { customerPhone: value || null } :
+        field === 'email'  ? { customerEmail: value || null } :
+        field === 'gender' ? { customerGender: value || null } : {};
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/patient-info`, payload);
+      if (!response.ok) { const err = await response.json(); throw new Error(err.message || 'Failed to update'); }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Patient info updated");
+      setEditingField(null);
+    },
+    onError: (error: any) => { notify.apiError(error, "Failed to update patient info"); },
   });
 
   const todayConfirmedCount = bookingStats?.todayConfirmedCount ?? 0;
@@ -2155,12 +2176,12 @@ export default function BookingsPanel({
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Patient ID:</span>
                                   {(booking as any).patientCode ? (
-                                    <>
+                                    <div className="flex items-center gap-1 min-w-0">
                                       <span className="font-mono font-bold text-primary truncate">{(booking as any).patientCode}</span>
-                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((booking as any).patientCode); notify.success("Patient ID copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy Patient ID">
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((booking as any).patientCode); notify.success("Patient ID copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy Patient ID" data-testid="btn-copy-patient-id">
                                         <Copy className="h-2.5 w-2.5 text-muted-foreground" />
                                       </button>
-                                    </>
+                                    </div>
                                   ) : (
                                     <span className="text-muted-foreground/50">–</span>
                                   )}
@@ -2172,20 +2193,34 @@ export default function BookingsPanel({
                                     <Phone className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Phone:</span>
-                                  {booking.customerPhone ? (
-                                    <>
-                                      <a href={`tel:${booking.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
-                                        {booking.customerPhone}
-                                      </a>
-                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
-                                        <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                  {editingField?.bookingId === booking.id && editingField.field === 'phone' ? (
+                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                      <input
+                                        autoFocus
+                                        data-testid="input-edit-phone"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        onKeyDown={e => { if (e.key === 'Escape') setEditingField(null); }}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1.5 w-28 bg-background focus:outline-none focus:border-primary"
+                                        placeholder="Phone number"
+                                      />
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'phone', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-phone">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
                                       </button>
-                                      <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
-                                        <Phone className="h-2.5 w-2.5 text-primary" />
-                                      </a>
-                                    </>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : booking.customerPhone ? (
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <a href={`tel:${booking.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">{booking.customerPhone}</a>
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone" data-testid="btn-copy-phone"><Copy className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                      <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient"><Phone className="h-2.5 w-2.5 text-primary" /></a>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'phone', value: booking.customerPhone! }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit phone" data-testid="btn-edit-phone"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
                                   ) : (
-                                    <span className="text-muted-foreground/50">–</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground/50">–</span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'phone', value: '' }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Add phone" data-testid="btn-edit-phone-empty"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
                                   )}
                                 </div>
 
@@ -2195,15 +2230,34 @@ export default function BookingsPanel({
                                     <Mail className="h-3 w-3 text-blue-500" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Email:</span>
-                                  {booking.customerEmail ? (
-                                    <>
-                                      <span className="font-semibold text-foreground truncate min-w-0">{booking.customerEmail}</span>
-                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerEmail!); notify.success("Email copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy email">
-                                        <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                  {editingField?.bookingId === booking.id && editingField.field === 'email' ? (
+                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                      <input
+                                        autoFocus
+                                        data-testid="input-edit-email"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        onKeyDown={e => { if (e.key === 'Escape') setEditingField(null); }}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1.5 min-w-0 flex-1 bg-background focus:outline-none focus:border-primary"
+                                        placeholder="Email address"
+                                        type="email"
+                                      />
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'email', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-email">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
                                       </button>
-                                    </>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : booking.customerEmail ? (
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className="font-semibold text-foreground truncate min-w-0">{booking.customerEmail}</span>
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerEmail!); notify.success("Email copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy email" data-testid="btn-copy-email"><Copy className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'email', value: booking.customerEmail! }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit email" data-testid="btn-edit-email"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
                                   ) : (
-                                    <span className="text-muted-foreground/50">–</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground/50">–</span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'email', value: '' }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Add email" data-testid="btn-edit-email-empty"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
                                   )}
                                 </div>
 
@@ -2213,9 +2267,33 @@ export default function BookingsPanel({
                                     <CalendarDays className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Age:</span>
-                                  <span className={(booking as any).customerAge ? "font-semibold text-foreground" : "text-muted-foreground/50"}>
-                                    {(booking as any).customerAge ? `${(booking as any).customerAge}y` : "–"}
-                                  </span>
+                                  {editingField?.bookingId === booking.id && editingField.field === 'age' ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        autoFocus
+                                        data-testid="input-edit-age"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        onKeyDown={e => { if (e.key === 'Escape') setEditingField(null); }}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1.5 w-14 bg-background focus:outline-none focus:border-primary text-center"
+                                        placeholder="Age"
+                                        type="number"
+                                        min={0}
+                                        max={150}
+                                      />
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'age', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-age">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
+                                      </button>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className={(booking as any).customerAge ? "font-semibold text-foreground" : "text-muted-foreground/50"}>
+                                        {(booking as any).customerAge ? `${(booking as any).customerAge}y` : "–"}
+                                      </span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'age', value: String((booking as any).customerAge ?? '') }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit age" data-testid="btn-edit-age"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Gender */}
@@ -2224,9 +2302,33 @@ export default function BookingsPanel({
                                     <Users className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Gender:</span>
-                                  <span className={(booking as any).customerGender ? "font-semibold text-foreground capitalize" : "text-muted-foreground/50"}>
-                                    {(booking as any).customerGender || "–"}
-                                  </span>
+                                  {editingField?.bookingId === booking.id && editingField.field === 'gender' ? (
+                                    <div className="flex items-center gap-1">
+                                      <select
+                                        autoFocus
+                                        data-testid="select-edit-gender"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1 bg-background focus:outline-none focus:border-primary"
+                                      >
+                                        <option value="">–</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                      </select>
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'gender', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-gender">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
+                                      </button>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className={(booking as any).customerGender ? "font-semibold text-foreground capitalize" : "text-muted-foreground/50"}>
+                                        {(booking as any).customerGender || "–"}
+                                      </span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'gender', value: (booking as any).customerGender ?? '' }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit gender" data-testid="btn-edit-gender"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* ── Zone B divider ── */}
