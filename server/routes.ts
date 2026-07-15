@@ -4756,7 +4756,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.errors });
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
-      if (sess.clinicId && booking.clinicId !== sess.clinicId) return res.status(403).json({ message: "Booking does not belong to this clinic" });
+      if (sess.clinicId) {
+        const slot = await storage.getSlot(booking.slotId);
+        if (!slot || slot.clinicId !== Number(sess.clinicId)) {
+          return res.status(403).json({ message: "Booking does not belong to this clinic" });
+        }
+      }
       const updated = await storage.updateBookingPatientInfo(bookingId, parsed.data);
       console.log(`[BOOKING] Patient info updated for booking ${bookingId} by clinic ${sess.clinicId}`);
       res.json(updated);
