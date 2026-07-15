@@ -3009,7 +3009,7 @@ export default function DoctorDashboard() {
                               <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                                 <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                               </span>
-                            ) : (b.consentToken || (b as any).consentUrl) ? (
+                            ) : b.consentToken ? (
                               <div className="flex items-center gap-1.5">
                                 <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
                                   <Clock className="h-2.5 w-2.5" />Sent
@@ -3024,7 +3024,7 @@ export default function DoctorDashboard() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    const url = (b as any).consentUrl || `${window.location.origin}/consent/${b.consentToken}`;
+                                    const url = `${window.location.origin}/consent/${b.consentToken}`;
                                     navigator.clipboard.writeText(url);
                                     notify.success("Consent link copied!");
                                   }}

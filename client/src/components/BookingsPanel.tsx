@@ -207,7 +207,7 @@ export default function BookingsPanel({
   const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
-  const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
+  // consent status is read from booking.consentToken / consentSignedAt after backend fix
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [legendCollapsed, setLegendCollapsed] = useState(true);
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
@@ -896,10 +896,9 @@ export default function BookingsPanel({
         const err = await response.json();
         throw new Error(err.message || 'Failed to send consent request');
       }
-      return response.json() as Promise<{ consentUrl: string }>;
+      return response.json();
     },
-    onSuccess: (data, bookingId) => {
-      setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
     },
@@ -2393,7 +2392,7 @@ export default function BookingsPanel({
                                     <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                                       <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                                     </span>
-                                  ) : (consentUrls[booking.id] || (booking as any).consentToken) ? (
+                                  ) : booking.consentToken ? (
                                     <div className="flex items-center gap-1.5">
                                       <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
                                         <Clock className="h-2.5 w-2.5" />Sent
@@ -2408,7 +2407,7 @@ export default function BookingsPanel({
                                       </button>
                                       <button
                                         onClick={() => {
-                                          const url = consentUrls[booking.id] || `${window.location.origin}/consent/${(booking as any).consentToken}`;
+                                          const url = `${window.location.origin}/consent/${booking.consentToken}`;
                                           navigator.clipboard.writeText(url);
                                           setCopiedConsentId(booking.id);
                                           setTimeout(() => setCopiedConsentId(null), 2000);
@@ -2854,29 +2853,29 @@ export default function BookingsPanel({
                                   >
                                     {requestConsentMutation.isPending && requestConsentMutation.variables === booking.id
                                       ? "Sending…"
-                                      : consentUrls[booking.id] ? "Resend →" : "Send Link →"}
+                                      : booking.consentToken ? "Resend →" : "Send Link →"}
                                   </button>
                                 )}
                               </div>
                               {!booking.consentSignedAt && (
                                 <div className="px-3 py-2.5">
-                                  {consentUrls[booking.id] ? (
+                                  {booking.consentToken ? (
                                     <div className="space-y-2">
                                       <p className="text-xs text-muted-foreground">
                                         WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
                                       </p>
                                       <div className="flex items-center gap-1.5">
                                         <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
-                                          {consentUrls[booking.id]}
+                                          {`${window.location.origin}/consent/${booking.consentToken}`}
                                         </div>
                                         <button
                                           className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors"
-                                          onClick={() => { navigator.clipboard.writeText(consentUrls[booking.id]); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
+                                          onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/consent/${booking.consentToken}`); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
                                           data-testid={`button-copy-consent-actions-${booking.id}`}
                                         >
                                           {copiedConsentId === booking.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                                         </button>
-                                        <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
+                                        <a href={`${window.location.origin}/consent/${booking.consentToken}`} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
                                           <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                                         </a>
                                       </div>

@@ -304,7 +304,6 @@ export default function ClinicDashboard() {
   const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
-  const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   // Booking form state
@@ -725,10 +724,9 @@ export default function ClinicDashboard() {
         const err = await response.json();
         throw new Error(err.message || 'Failed to send consent request');
       }
-      return response.json() as Promise<{ consentUrl: string }>;
+      return response.json();
     },
-    onSuccess: (data, bookingId) => {
-      setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
     },

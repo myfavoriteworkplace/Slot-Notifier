@@ -1461,6 +1461,10 @@ export class DatabaseStorage implements IStorage {
   // Consent Tokens
   async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date, consentTextVersionId?: number): Promise<ConsentToken> {
     const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt, consentTextVersionId: consentTextVersionId ?? null } as any).returning();
+    // Persist token on bookings row so UI can detect "Sent" state after page reload
+    await db.update(bookings)
+      .set({ consentToken: token, consentSignedAt: null, consentSignature: null, consentIp: null })
+      .where(eq(bookings.id, bookingId));
     return ct;
   }
 
