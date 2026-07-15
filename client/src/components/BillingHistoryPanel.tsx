@@ -1292,7 +1292,7 @@ export function BillingHistoryPanel({
                                   <th></th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-border/30">
+                              <tbody className="divide-y divide-border/30 [&>tr:last-child>td]:border-b-0">
                                 {pharmacyItems.map(({ svc, origIdx }, rowIdx) => {
                                   const itemKey = `${bill.id}-${origIdx}`;
                                   const isEditing = editingKey === itemKey;
