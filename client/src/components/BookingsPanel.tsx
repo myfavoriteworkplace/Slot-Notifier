@@ -2609,9 +2609,9 @@ export default function BookingsPanel({
 
                             {/* Clinical Status — single chip + dropdown, editable by admin */}
                             <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                              <div className="px-3 py-2.5 bg-green-800 border-b border-green-900/20 flex items-center gap-1.5">
-                                <ClipboardCheck className="h-3 w-3 text-white" />
-                                <span className="text-xs font-semibold uppercase tracking-wide text-white">Clinical Status</span>
+                              <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center gap-1.5">
+                                <ClipboardCheck className="h-3 w-3 text-green-800 dark:text-green-300" />
+                                <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Clinical Status</span>
                               </div>
                               <div className="px-3 py-3">
                                 {(() => {
