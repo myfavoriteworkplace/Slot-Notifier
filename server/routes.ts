@@ -1394,7 +1394,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .where(eq(emailOtps.id, existing.id));
 
         if (resend && RESEND_MODE === 'PRODUCTION') {
-          await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+          const sendResult = await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+          if (sendResult.error) {
+            console.error(`[OTP EMAIL ERROR] from=${EMAIL_FROM} to=${email} error=${JSON.stringify(sendResult.error)}`);
+          } else {
+            console.log(`[OTP EMAIL] Sent to ${email} id=${sendResult.data?.id}`);
+          }
         } else {
           console.log(`[OTP DEV] Resend for ${email}: ${code}`);
         }
@@ -1417,7 +1422,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
 
       if (resend && RESEND_MODE === 'PRODUCTION') {
-        await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+        const sendResult = await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+        if (sendResult.error) {
+          console.error(`[OTP EMAIL ERROR] from=${EMAIL_FROM} to=${email} error=${JSON.stringify(sendResult.error)}`);
+        } else {
+          console.log(`[OTP EMAIL] Sent to ${email} id=${sendResult.data?.id}`);
+        }
       } else {
         console.log(`[OTP DEV] Code for ${email}: ${code}`);
       }
