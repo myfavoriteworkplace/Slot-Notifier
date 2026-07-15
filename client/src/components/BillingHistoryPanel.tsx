@@ -1217,35 +1217,22 @@ export function BillingHistoryPanel({
                                   );
                                 })}
                               </tbody>
+                              <tfoot>
+                                <tr className="bg-primary/5 border-t border-border/40">
+                                  <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                    {consultItems.length} service{consultItems.length !== 1 ? "s" : ""}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                                    {consultItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
+                                    ₹{consultTotal.toFixed(0)}
+                                  </td>
+                                  <td></td>
+                                </tr>
+                              </tfoot>
                             </table>
                           </div>
-                          {/* Pinned footer — stays visible while body scrolls */}
-                          <table className="w-full text-xs table-fixed min-w-[500px]">
-                            <colgroup>
-                              <col style={{ width: "4%" }} />
-                              <col style={{ width: "43%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "8%" }} />
-                            </colgroup>
-                            <tfoot>
-                              <tr className="bg-primary/5 border-t border-border/40">
-                                <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
-                                  {consultItems.length} service{consultItems.length !== 1 ? "s" : ""}
-                                </td>
-                                <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                                  {consultItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
-                                </td>
-                                <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
-                                  ₹{consultTotal.toFixed(0)}
-                                </td>
-                                <td></td>
-                              </tr>
-                            </tfoot>
-                          </table>
                         </div>
                       </div>
                     )}
@@ -1363,35 +1350,22 @@ export function BillingHistoryPanel({
                                   );
                                 })}
                               </tbody>
+                              <tfoot>
+                                <tr className="bg-primary/5 border-t border-border/40">
+                                  <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                    {pharmacyItems.length} medicine{pharmacyItems.length !== 1 ? "s" : ""}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                                    {pharmacyItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
+                                    ₹{pharmacyTotal.toFixed(0)}
+                                  </td>
+                                  <td></td>
+                                </tr>
+                              </tfoot>
                             </table>
                           </div>
-                          {/* Pinned footer — stays visible while body scrolls */}
-                          <table className="w-full text-xs table-fixed min-w-[500px]">
-                            <colgroup>
-                              <col style={{ width: "4%" }} />
-                              <col style={{ width: "43%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "9%" }} />
-                              <col style={{ width: "8%" }} />
-                            </colgroup>
-                            <tfoot>
-                              <tr className="bg-primary/5 border-t border-border/40">
-                                <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
-                                  {pharmacyItems.length} medicine{pharmacyItems.length !== 1 ? "s" : ""}
-                                </td>
-                                <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                                  {pharmacyItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
-                                </td>
-                                <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
-                                  ₹{pharmacyTotal.toFixed(0)}
-                                </td>
-                                <td></td>
-                              </tr>
-                            </tfoot>
-                          </table>
                         </div>
                       </div>
                     )}
