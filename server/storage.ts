@@ -797,12 +797,13 @@ export class DatabaseStorage implements IStorage {
           filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
           break;
         case 'upcoming':
-          // Confirmed by clinic + doctor-approved, from tomorrow onwards, not terminal.
+          // Doctor-approved (or admin_confirmed on their behalf), from tomorrow onwards, not terminal.
+          // No verificationStatus requirement — the doctor's own acceptance is sufficient; clinic-patient
+          // notification status is the clinic's concern, not the doctor's.
           // visitStatus is nullable — isNull guard prevents SQL ne(NULL, x) → NULL silently dropping rows.
           filterCond = and(
             approvedCond,
             gte(slots.startTime, tomorrowStart),
-            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
             or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
             or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
           );
@@ -898,8 +899,8 @@ export class DatabaseStorage implements IStorage {
       if (isApproved) {
         stats.totalOwnedCount!++;
         if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-        // "upcoming" matches the query filter: confirmed by clinic, tomorrowStart boundary, not terminal
-        if (d >= tomorrowStart && isConfirmed && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+        // "upcoming" matches the query filter: doctor-approved, tomorrowStart boundary, not terminal
+        if (d >= tomorrowStart && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
         if (d < todayStart) stats.pastCount++;
         if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
         if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
