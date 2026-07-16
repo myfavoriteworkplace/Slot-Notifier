@@ -7,6 +7,7 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
+import { registerOgRouteProduction } from "./og-inject";
 import { createServer } from "http";
 import cors from "cors";
 import { pool } from "./db";
@@ -1057,6 +1058,8 @@ By signing below, I confirm that I have read and understood the above and volunt
   // Serve frontend static files in production
   if (process.env.NODE_ENV === "production") {
     console.log("[SYSTEM] Production mode: Serving static files");
+    // Must be registered before serveStatic so the route fires before the catch-all
+    registerOgRouteProduction(app);
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");

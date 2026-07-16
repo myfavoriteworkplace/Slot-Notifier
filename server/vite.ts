@@ -5,6 +5,7 @@ import viteConfig from "../vite.config";
 import fs from "fs";
 import path from "path";
 import { nanoid } from "nanoid";
+import { resolveClinicOgTags, injectOgTags } from "./og-inject";
 
 const viteLogger = createLogger();
 
@@ -46,6 +47,7 @@ export async function setupVite(server: Server, app: Express) {
     if (req.originalUrl.startsWith("/api")) return next();
 
     const url = req.originalUrl;
+    const bookMatch = url.match(/^\/book\/(\d+)/);
 
     try {
       const clientTemplate = path.resolve(
@@ -61,6 +63,14 @@ export async function setupVite(server: Server, app: Express) {
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
+
+      // Inject clinic-specific OG tags for direct booking links
+      if (bookMatch) {
+        const clinicId = parseInt(bookMatch[1], 10);
+        const ogTags = await resolveClinicOgTags(clinicId, req);
+        if (ogTags) template = injectOgTags(template, ogTags);
+      }
+
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
