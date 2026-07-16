@@ -2725,212 +2725,6 @@ export default function BookingsPanel({
                         {getModalTab(booking.id) === 'actions' && (
                           <div className="p-4 space-y-3">
 
-                            {/* Reschedule */}
-                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                              <div className="px-3 py-2 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5">
-                                  <CalendarDays className="h-3 w-3 text-green-800 dark:text-green-300" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Reschedule Appointment</span>
-                                </div>
-                                {rescheduleBookingId === booking.id ? (
-                                  <button
-                                    className="text-xs font-semibold text-muted-foreground hover:text-foreground active:text-foreground transition-colors min-h-[44px] px-2"
-                                    onClick={() => { setRescheduleBookingId(null); setRescheduleSlot(null); }}
-                                    data-testid="button-cancel-reschedule"
-                                  >
-                                    Collapse ↑
-                                  </button>
-                                ) : (
-                                  <button
-                                    className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[44px] px-2"
-                                    onClick={() => { setRescheduleBookingId(booking.id); setRescheduleDate(new Date(booking.slot.startTime)); }}
-                                    data-testid="button-start-reschedule"
-                                  >
-                                    Change →
-                                  </button>
-                                )}
-                              </div>
-                              {rescheduleBookingId !== booking.id && (
-                                <div className="px-3 py-2.5">
-                                  <p className="text-xs text-muted-foreground">Current: <span className="font-medium text-foreground">{format(bookingDateTime, "EEE, MMM d")} · {format(bookingDateTime, "h:mm a")} → {format(new Date(booking.slot.endTime), "h:mm a")}</span></p>
-                                </div>
-                              )}
-                              {rescheduleBookingId === booking.id && (
-                                <div className="px-3 py-3 space-y-3">
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
-                                      <span className="text-xs text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
-                                    </div>
-                                    <ScrollArea className="w-full whitespace-nowrap pb-1">
-                                      <div className="flex space-x-1.5 w-max pb-1">
-                                        {dates.map((date) => (
-                                          <button
-                                            key={date.toISOString()}
-                                            onClick={() => { setRescheduleDate(date); setRescheduleSlot(null); }}
-                                            className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center active:scale-[0.96] ${
-                                              isSameDay(date, rescheduleDate)
-                                                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-                                                : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
-                                            }`}
-                                            data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
-                                          >
-                                            <span className="text-xs uppercase font-bold opacity-70 leading-none">{format(date, "EEE")}</span>
-                                            <span className="text-sm font-black leading-tight">{format(date, "d")}</span>
-                                          </button>
-                                        ))}
-                                      </div>
-                                      <ScrollBar orientation="horizontal" />
-                                    </ScrollArea>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
-                                      {rescheduleAvailFetching && (
-                                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                      )}
-                                    </div>
-                                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-                                      {slotTimings.map((slot, slotIdx) => {
-                                        const avail = rescheduleSlotAvailability?.find(a => a.slotIndex === slotIdx);
-                                        const isSlotCancelled = avail?.isCancelled ?? false;
-                                        const spotsLeft = avail ? avail.spotsLeft : (DEFAULT_SECTION_CAPACITY[slot.id] ?? 3);
-                                        const isFull = avail ? avail.spotsLeft === 0 : false;
-                                        const isSelected = rescheduleSlot === slot.id;
-                                        if (isSlotCancelled) return null;
-                                        return (
-                                          <button
-                                            key={slot.id}
-                                            onClick={() => !isFull && setRescheduleSlot(slot.id)}
-                                            disabled={isFull}
-                                            className={`relative flex flex-col items-center justify-center h-14 rounded-xl border text-center transition-all active:scale-[0.96] ${
-                                              isSelected
-                                                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-                                                : isFull
-                                                ? 'bg-muted/30 border-border/40 opacity-50 cursor-not-allowed'
-                                                : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
-                                            }`}
-                                            data-testid={`reschedule-slot-${slot.id}`}
-                                          >
-                                            <span className="text-xs font-bold leading-tight px-1 text-center">{slot.label}</span>
-                                            <span className="text-xs opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
-                                            {isFull ? (
-                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
-                                            ) : avail && spotsLeft <= 2 ? (
-                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-amber-500 text-white px-1 rounded-full">{spotsLeft} left</span>
-                                            ) : null}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                  <Button
-                                    className="w-full h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0"
-                                    disabled={!rescheduleSlot || rescheduleMutation.isPending}
-                                    onClick={async () => {
-                                      if (!rescheduleSlot) return;
-                                      const slotInfo = slotTimings.find(s => s.id === rescheduleSlot);
-                                      if (!slotInfo) return;
-                                      const newSlotTime = new Date(rescheduleDate);
-                                      newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
-                                      try {
-                                        const rescheduleBracket = slotTimings.find(s => s.id === rescheduleSlot);
-                                        const rescheduleDefaultMax = rescheduleBracket ? (DEFAULT_SECTION_CAPACITY[rescheduleBracket.id] ?? 4) : 4;
-                                        const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
-                                          startTime: newSlotTime.toISOString(), maxBookings: rescheduleDefaultMax, isCancelled: false
-                                        });
-                                        if (!configResponse.ok) throw new Error('Failed to ensure slot exists');
-                                        const configResult = await configResponse.json();
-                                        const newSlotId = configResult.id;
-                                        if (newSlotId) {
-                                          rescheduleMutation.mutate({ bookingId: booking.id, newSlotId });
-                                        } else {
-                                          throw new Error("Invalid slot ID received from server");
-                                        }
-                                      } catch (error: any) {
-                                        notify.apiError(error, "Failed to reschedule");
-                                      }
-                                    }}
-                                    data-testid="button-confirm-reschedule"
-                                  >
-                                    {rescheduleMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                                    Confirm Reschedule
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Digital Consent */}
-                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                              <div className="px-3 py-2 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5">
-                                  <ClipboardCheck className="h-3 w-3 text-green-800 dark:text-green-300" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Request Digital Consent</span>
-                                </div>
-                                {booking.consentSignedAt ? (
-                                  <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
-                                    <CheckCircle2 className="h-3 w-3" /> Signed
-                                  </span>
-                                ) : (
-                                  <button
-                                    className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors disabled:opacity-50 min-h-[36px] px-1"
-                                    onClick={() => requestConsentMutation.mutate(booking.id)}
-                                    disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
-                                    data-testid={`button-request-consent-${booking.id}`}
-                                  >
-                                    {requestConsentMutation.isPending && requestConsentMutation.variables === booking.id
-                                      ? "Sending…"
-                                      : booking.consentToken ? "Resend →" : "Send Link →"}
-                                  </button>
-                                )}
-                              </div>
-                              {!booking.consentSignedAt && (
-                                <div className="px-3 py-2.5">
-                                  {booking.consentToken ? (
-                                    <div className="space-y-2">
-                                      <p className="text-xs text-muted-foreground">
-                                        WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
-                                      </p>
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
-                                          {`${window.location.origin}/consent/${booking.consentToken}`}
-                                        </div>
-                                        <button
-                                          className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors"
-                                          onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/consent/${booking.consentToken}`); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
-                                          data-testid={`button-copy-consent-actions-${booking.id}`}
-                                        >
-                                          {copiedConsentId === booking.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
-                                        </button>
-                                        <a href={`${window.location.origin}/consent/${booking.consentToken}`} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
-                                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                                        </a>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground">Send a digital consent form to the patient via WhatsApp or SMS.</p>
-                                  )}
-                                </div>
-                              )}
-                              {booking.consentSignedAt && (
-                                <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                                  <span className="text-xs text-muted-foreground">
-                                    Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
-                                  </span>
-                                  {booking.consentSignature && (
-                                    <button
-                                      className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
-                                      onClick={() => generateConsentPdf(booking, clinic as ClinicInfo)}
-                                      data-testid={`button-download-consent-actions-${booking.id}`}
-                                    >
-                                      <Download className="h-3 w-3" />
-                                      Download PDF
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
                             {/* Assign Doctor */}
                             {booking.visitStatus !== 'completed' && (clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
                               const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
@@ -2946,12 +2740,20 @@ export default function BookingsPanel({
                                 )?.reason;
                               return (
                                 <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                                  <div className="px-3 py-2 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
+                                  <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5">
-                                      <Stethoscope className="h-3 w-3 text-green-800 dark:text-green-300" />
+                                      <Stethoscope className="h-3 w-3 text-green-800 dark:text-green-300" aria-hidden="true" />
                                       <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Assign Doctor</span>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
+                                    <div className="flex items-center gap-2">
+                                      {booking.assignedDoctor && (
+                                        <span className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                                          <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                          <span className="truncate">{booking.assignedDoctor}</span>
+                                        </span>
+                                      )}
+                                      <span className="text-xs text-muted-foreground shrink-0">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
+                                    </div>
                                   </div>
 
                                   {/* Specialist suggestion banner */}
@@ -3085,6 +2887,217 @@ export default function BookingsPanel({
                                 </div>
                               );
                             })()}
+
+                            {/* Digital Consent */}
+                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
+                              <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <ClipboardCheck className="h-3 w-3 text-green-800 dark:text-green-300" aria-hidden="true" />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Digital Consent</span>
+                                </div>
+                                {booking.consentSignedAt ? (
+                                  <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-1 rounded-full border border-green-200 dark:border-green-600/30">
+                                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Signed
+                                  </span>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    className="h-9 px-3.5 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.97] text-primary-foreground border-0 transition-all disabled:opacity-50"
+                                    onClick={() => requestConsentMutation.mutate(booking.id)}
+                                    disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
+                                    data-testid={`button-request-consent-${booking.id}`}
+                                  >
+                                    {requestConsentMutation.isPending && requestConsentMutation.variables === booking.id
+                                      ? "Sending…"
+                                      : booking.consentToken ? "Resend" : "Send Consent"}
+                                  </Button>
+                                )}
+                              </div>
+                              {!booking.consentSignedAt && (
+                                <div className="px-3 py-2.5">
+                                  {booking.consentToken ? (
+                                    <div className="space-y-2">
+                                      <p className="text-xs text-muted-foreground">
+                                        WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
+                                      </p>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
+                                          {`${window.location.origin}/consent/${booking.consentToken}`}
+                                        </div>
+                                        <button
+                                          className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors"
+                                          onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/consent/${booking.consentToken}`); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
+                                          data-testid={`button-copy-consent-actions-${booking.id}`}
+                                        >
+                                          {copiedConsentId === booking.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+                                        </button>
+                                        <a href={`${window.location.origin}/consent/${booking.consentToken}`} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
+                                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">Send a digital consent form to the patient via WhatsApp or SMS.</p>
+                                  )}
+                                </div>
+                              )}
+                              {booking.consentSignedAt && (
+                                <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">
+                                    Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
+                                  </span>
+                                  {booking.consentSignature && (
+                                    <button
+                                      className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
+                                      onClick={() => generateConsentPdf(booking, clinic as ClinicInfo)}
+                                      data-testid={`button-download-consent-actions-${booking.id}`}
+                                    >
+                                      <Download className="h-3 w-3" />
+                                      Download PDF
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Reschedule */}
+                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
+                              <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <CalendarDays className="h-3 w-3 text-green-800 dark:text-green-300" aria-hidden="true" />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Appointment</span>
+                                </div>
+                                {rescheduleBookingId === booking.id ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-9 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-green-100 dark:hover:bg-green-800/40 gap-1.5 transition-all"
+                                    onClick={() => { setRescheduleBookingId(null); setRescheduleSlot(null); }}
+                                    data-testid="button-cancel-reschedule"
+                                  >
+                                    <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Collapse
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    className="h-9 px-3.5 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.97] text-primary-foreground border-0 transition-all"
+                                    onClick={() => { setRescheduleBookingId(booking.id); setRescheduleDate(new Date(booking.slot.startTime)); }}
+                                    data-testid="button-start-reschedule"
+                                  >
+                                    Reschedule
+                                  </Button>
+                                )}
+                              </div>
+                              {rescheduleBookingId !== booking.id && (
+                                <div className="px-3 py-2.5">
+                                  <p className="text-xs text-muted-foreground">Current: <span className="font-medium text-foreground">{format(bookingDateTime, "EEE, MMM d")} · {format(bookingDateTime, "h:mm a")} → {format(new Date(booking.slot.endTime), "h:mm a")}</span></p>
+                                </div>
+                              )}
+                              {rescheduleBookingId === booking.id && (
+                                <div className="px-3 py-3 space-y-3">
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
+                                      <span className="text-xs text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                    </div>
+                                    <ScrollArea className="w-full whitespace-nowrap pb-1">
+                                      <div className="flex space-x-1.5 w-max pb-1">
+                                        {dates.map((date) => (
+                                          <button
+                                            key={date.toISOString()}
+                                            onClick={() => { setRescheduleDate(date); setRescheduleSlot(null); }}
+                                            className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center active:scale-[0.96] ${
+                                              isSameDay(date, rescheduleDate)
+                                                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                                                : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
+                                            }`}
+                                            data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
+                                          >
+                                            <span className="text-xs uppercase font-bold opacity-70 leading-none">{format(date, "EEE")}</span>
+                                            <span className="text-sm font-black leading-tight">{format(date, "d")}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <ScrollBar orientation="horizontal" />
+                                    </ScrollArea>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                      {rescheduleAvailFetching && (
+                                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                                      {slotTimings.map((slot, slotIdx) => {
+                                        const avail = rescheduleSlotAvailability?.find(a => a.slotIndex === slotIdx);
+                                        const isSlotCancelled = avail?.isCancelled ?? false;
+                                        const spotsLeft = avail ? avail.spotsLeft : (DEFAULT_SECTION_CAPACITY[slot.id] ?? 3);
+                                        const isFull = avail ? avail.spotsLeft === 0 : false;
+                                        const isSelected = rescheduleSlot === slot.id;
+                                        if (isSlotCancelled) return null;
+                                        return (
+                                          <button
+                                            key={slot.id}
+                                            onClick={() => !isFull && setRescheduleSlot(slot.id)}
+                                            disabled={isFull}
+                                            className={`relative flex flex-col items-center justify-center h-14 rounded-xl border text-center transition-all active:scale-[0.96] ${
+                                              isSelected
+                                                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                                                : isFull
+                                                ? 'bg-muted/30 border-border/40 opacity-50 cursor-not-allowed'
+                                                : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
+                                            }`}
+                                            data-testid={`reschedule-slot-${slot.id}`}
+                                          >
+                                            <span className="text-xs font-bold leading-tight px-1 text-center">{slot.label}</span>
+                                            <span className="text-xs opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
+                                            {isFull ? (
+                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
+                                            ) : avail && spotsLeft <= 2 ? (
+                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-amber-500 text-white px-1 rounded-full">{spotsLeft} left</span>
+                                            ) : null}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    className="w-full h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0"
+                                    disabled={!rescheduleSlot || rescheduleMutation.isPending}
+                                    onClick={async () => {
+                                      if (!rescheduleSlot) return;
+                                      const slotInfo = slotTimings.find(s => s.id === rescheduleSlot);
+                                      if (!slotInfo) return;
+                                      const newSlotTime = new Date(rescheduleDate);
+                                      newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
+                                      try {
+                                        const rescheduleBracket = slotTimings.find(s => s.id === rescheduleSlot);
+                                        const rescheduleDefaultMax = rescheduleBracket ? (DEFAULT_SECTION_CAPACITY[rescheduleBracket.id] ?? 4) : 4;
+                                        const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
+                                          startTime: newSlotTime.toISOString(), maxBookings: rescheduleDefaultMax, isCancelled: false
+                                        });
+                                        if (!configResponse.ok) throw new Error('Failed to ensure slot exists');
+                                        const configResult = await configResponse.json();
+                                        const newSlotId = configResult.id;
+                                        if (newSlotId) {
+                                          rescheduleMutation.mutate({ bookingId: booking.id, newSlotId });
+                                        } else {
+                                          throw new Error("Invalid slot ID received from server");
+                                        }
+                                      } catch (error: any) {
+                                        notify.apiError(error, "Failed to reschedule");
+                                      }
+                                    }}
+                                    data-testid="button-confirm-reschedule"
+                                  >
+                                    {rescheduleMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                                    Confirm Reschedule
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
 
                           </div>
                         )}
