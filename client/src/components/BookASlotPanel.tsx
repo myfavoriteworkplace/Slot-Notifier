@@ -242,24 +242,21 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     const endTime = new Date(bookingDate);
     endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
 
-    const descParts: string[] = [];
-    if (bookingAppointmentCategory) descParts.push(`Category: ${bookingAppointmentCategory}`);
-    if (bookingVisitType) descParts.push(`Visit: ${bookingVisitType}`);
-    if (bookingAge) descParts.push(`Age: ${bookingAge}`);
-    if (bookingGender) descParts.push(`Gender: ${bookingGender}`);
-    if (bookingDescription) descParts.push(bookingDescription);
-
     const slotCost = bookingAppointmentCategory ? (PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) : 1;
 
     createBookingMutation.mutate({
       customerName: bookingName,
       customerPhone: bookingPhone,
       customerEmail: bookingEmail,
+      customerAge: bookingAge || undefined,
+      customerGender: bookingGender || undefined,
+      visitType: bookingVisitType || undefined,
+      treatmentCategory: bookingAppointmentCategory || undefined,
+      description: bookingDescription || undefined,
       clinicId: clinic.id,
       clinicName: clinic.name,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      description: descParts.join(' | '),
       slotCost,
       verificationStatus: 'confirmed',
       confirmedBy: 'admin',

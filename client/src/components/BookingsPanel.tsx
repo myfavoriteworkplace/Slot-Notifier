@@ -1938,8 +1938,8 @@ export default function BookingsPanel({
                     onBookAgain={() => {
                       const _desc = booking.description ?? "";
                       const _rebookDesc = _desc.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
-                      const _rebookVisit = (_desc.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
-                      const _rebookCategory = (_desc.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                      const _rebookVisit = (booking as any).visitType || (_desc.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                      const _rebookCategory = (booking as any).treatmentCategory || (_desc.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
                       persistRebookValues({
                         bookingName: booking.customerName,
                         bookingPhone: booking.customerPhone,
@@ -3215,8 +3215,8 @@ export default function BookingsPanel({
                                   onClick={() => {
                                     const _d = booking.description ?? "";
                                     const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
-                                    const _rv = (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
-                                    const _rc = (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                    const _rv = (booking as any).visitType || (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                    const _rc = (booking as any).treatmentCategory || (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
                                     persistRebookValues({
                                       bookingName: booking.customerName,
                                       bookingPhone: booking.customerPhone,
@@ -3326,8 +3326,8 @@ export default function BookingsPanel({
                               onClick={() => {
                                 const _d = booking.description ?? "";
                                 const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
-                                const _rv = (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
-                                const _rc = (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                const _rv = (booking as any).visitType || (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                const _rc = (booking as any).treatmentCategory || (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
                                 persistRebookValues({
                                   bookingName: booking.customerName,
                                   bookingPhone: booking.customerPhone,

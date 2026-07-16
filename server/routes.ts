@@ -2954,7 +2954,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
 
     try {
-      const { customerName, customerPhone, customerEmail, startTime, endTime, description, slotCost: rawSlotCost } = req.body;
+      const {
+        customerName, customerPhone, customerEmail, startTime, endTime,
+        description, slotCost: rawSlotCost,
+        visitType, treatmentCategory,
+        customerAge: rawCustomerAge, customerGender,
+      } = req.body;
 
       if (!customerName || !customerPhone || !startTime || !endTime) {
         return res.status(400).json({ message: "Name, phone, start time and end time are required" });
@@ -2998,24 +3003,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         isBooked: true,
       } as any);
 
-      const adminParsedCategory = typeof description === 'string'
-        ? description.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim() || null
-        : null;
-      const adminParsedVisitType = typeof description === 'string'
-        ? description.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim() || null
-        : null;
-
       const booking = await storage.createPublicBooking({
         slotId: slot.id,
         customerName,
         customerPhone,
         customerEmail: customerEmail || null,
+        customerAge: rawCustomerAge ? parseInt(rawCustomerAge) : null,
+        customerGender: customerGender || null,
         description: description || null,
         verificationCode: null,
         verificationExpiresAt: null,
         verificationStatus: 'admin_booked',
-        treatmentCategory: adminParsedCategory || 'Consultation',
-        visitType: adminParsedVisitType || null,
+        treatmentCategory: treatmentCategory || 'Consultation',
+        visitType: visitType || null,
         bookedBy: 'admin',
       });
 
