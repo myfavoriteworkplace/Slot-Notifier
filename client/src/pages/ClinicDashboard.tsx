@@ -417,6 +417,30 @@ export default function ClinicDashboard() {
     staleTime: 30_000,
   });
 
+  // Auto-select the most relevant filter once per panel-open, when stats first arrive.
+  // Guard ref prevents re-firing on the 30 s refetch interval (which would override manual selections).
+  const hasAutoSelectedFilterRef = useRef(false);
+  useEffect(() => {
+    if (!bookingHeroStats) return;
+    if (hasAutoSelectedFilterRef.current) return;
+    hasAutoSelectedFilterRef.current = true;
+    if (bookingHeroStats.todayCount > 0) {
+      setQuickFilter('today');
+    } else if (bookingHeroStats.upcomingCount > 0) {
+      setQuickFilter('upcoming');
+    } else if (bookingHeroStats.totalPendingCount > 0) {
+      setQuickFilter('all-pending');
+    }
+    // else stay on 'today' — all three filters are empty, show the empty state
+  }, [bookingHeroStats]);
+
+  // Reset auto-select guard whenever the bookings panel is re-opened
+  useEffect(() => {
+    if (activePanel !== 'bookings') {
+      hasAutoSelectedFilterRef.current = false;
+    }
+  }, [activePanel]);
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       setLocation("/clinic-login");

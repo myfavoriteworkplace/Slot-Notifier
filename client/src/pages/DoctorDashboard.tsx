@@ -95,7 +95,7 @@ export default function DoctorDashboard() {
   const [_, setLocation] = useLocation();
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("today");
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterRowOpen, setFilterRowOpen] = useState(false);
