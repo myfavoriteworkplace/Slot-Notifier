@@ -621,7 +621,14 @@ export class DatabaseStorage implements IStorage {
           filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
           break;
         case 'upcoming':
-          filterCond = and(gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
+          // Only confirmed appointments from tomorrow onwards.
+          // visitStatus is nullable — isNull guard required (NULL != x → NULL in SQL, not TRUE).
+          filterCond = and(
+            gte(slots.startTime, tomorrowStart),
+            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
+            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
+          );
           break;
         case 'past':
           filterCond = lt(slots.startTime, todayStart);
@@ -717,7 +724,8 @@ export class DatabaseStorage implements IStorage {
       const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
       const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
       if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-      if (d >= now && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+      // "upcoming" matches the query filter: tomorrowStart boundary, confirmed only, not terminal
+      if (d >= tomorrowStart && isConfirmed && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
       if (d < todayStart) stats.pastCount++;
       if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
       if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;

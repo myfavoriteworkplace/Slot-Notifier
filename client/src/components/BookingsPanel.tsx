@@ -1020,6 +1020,25 @@ export default function BookingsPanel({
             }`}>{futureBookingsCount}</span>
           </button>
 
+          {/* Awaiting Confirmation */}
+          <button
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'all-pending' ? 'all' : 'all-pending'); }}
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+              quickFilter === 'all-pending'
+                ? 'bg-amber-500/10 border-amber-400/50 text-amber-700 dark:text-amber-400'
+                : 'bg-transparent border-amber-400/30 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400'
+            }`}
+            data-testid="chip-filter-awaiting"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Awaiting</span>
+            </span>
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'all-pending' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground'
+            }`}>{bookingStats?.totalPendingCount ?? 0}</span>
+          </button>
+
           {/* Past */}
           <button
             onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
