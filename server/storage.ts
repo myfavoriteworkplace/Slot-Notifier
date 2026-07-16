@@ -755,13 +755,15 @@ export class DatabaseStorage implements IStorage {
       ne(bookings.doctorApprovalStatus, 'declined'),
     );
     // "awaiting" = pending doctor approval, slot is today or future, not cancelled/terminal
+    // NOTE: visitStatus is nullable — SQL ne(null, x) returns NULL (not TRUE), so rows with
+    // visitStatus=NULL would be silently excluded without the isNull guard.
     const awaitingCond = and(
       eq(bookings.doctorApprovalStatus, 'pending'),
       ne(bookings.verificationStatus, 'cancelled'),
       ne(bookings.verificationStatus, 'no_show'),
-      ne(bookings.visitStatus, 'completed'),
-      ne(bookings.visitStatus, 'patient_left_early'),
-      ne(bookings.visitStatus, 'treatment_completed'),
+      or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
+      or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
+      or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'treatment_completed')),
       gte(slots.startTime, todayStart),
     );
     // Patient name/phone/email search (plain text columns — no encryption)
