@@ -797,7 +797,15 @@ export class DatabaseStorage implements IStorage {
           filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
           break;
         case 'upcoming':
-          filterCond = and(approvedCond, gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
+          // Confirmed by clinic + doctor-approved, from tomorrow onwards, not terminal.
+          // visitStatus is nullable — isNull guard prevents SQL ne(NULL, x) → NULL silently dropping rows.
+          filterCond = and(
+            approvedCond,
+            gte(slots.startTime, tomorrowStart),
+            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
+            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
+          );
           break;
         case 'past':
           filterCond = and(approvedCond, lt(slots.startTime, todayStart));
@@ -890,8 +898,8 @@ export class DatabaseStorage implements IStorage {
       if (isApproved) {
         stats.totalOwnedCount!++;
         if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-        // "upcoming" boundary matches the server filter: tomorrowStart (not now), so today's slots don't inflate the count
-        if (d >= tomorrowStart && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+        // "upcoming" matches the query filter: confirmed by clinic, tomorrowStart boundary, not terminal
+        if (d >= tomorrowStart && isConfirmed && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
         if (d < todayStart) stats.pastCount++;
         if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
         if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
