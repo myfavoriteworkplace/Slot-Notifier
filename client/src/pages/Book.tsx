@@ -684,6 +684,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const selectedClinicObj = clinics.find(c => c.name === selectedClinic);
   const selectedSlotInfo  = slotTimings.find(s => s.id === selectedSlot);
 
+  // Change 5 — dynamic browser tab title for clinic-specific links
+  useEffect(() => {
+    if (clinicIdFromUrl && selectedClinicObj) {
+      document.title = `Book at ${selectedClinicObj.name} | BookMySlot`;
+    } else {
+      document.title = "BookMySlot — Book a Dental Appointment";
+    }
+    return () => { document.title = "BookMySlot"; };
+  }, [clinicIdFromUrl, selectedClinicObj?.name]);
+
   if (clinicsLoading) {
     return (
       <div className="min-h-screen bg-background overflow-x-hidden">
@@ -781,30 +791,52 @@ export default function Book(props: { params: { clinicId?: string } }) {
             <CalendarDays className="h-3 w-3" /> BookMySlot
           </p>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
-            Book a <span className="text-primary">Dental Appointment</span>
+            {clinicIdFromUrl && selectedClinicObj ? (
+              <>Book a dental appointment at <span className="text-primary">{selectedClinicObj.name}</span></>
+            ) : (
+              <>Book a <span className="text-primary">Dental Appointment</span></>
+            )}
           </h1>
           <p className="text-white/50 text-sm sm:text-base mb-5 sm:mb-7 max-w-md">
-            Find a verified clinic near you, pick a slot, and get confirmed instantly. No account needed.
+            {clinicIdFromUrl && selectedClinicObj
+              ? `Secure your slot at ${selectedClinicObj.name}. Pick a time that works and get confirmed instantly — no account needed.`
+              : "Find a verified clinic near you, pick a slot, and get confirmed instantly. No account needed."}
           </p>
-          <div className="hidden sm:flex flex-wrap gap-2">
-            {[
-              { Icon: MapPin,    label: "50+ verified clinics across Kerala" },
-              { Icon: Shield,   label: "No sign-up — just email verification" },
-              { Icon: Sparkles, label: "Instant WhatsApp confirmation"        },
-            ].map(({ Icon, label }) => (
-              <div key={label} className="flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.1] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/70 backdrop-blur-sm">
-                <Icon className="h-3 w-3" />
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className="flex sm:hidden gap-3 text-[11px] text-white/50 font-semibold">
-            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> 50+ clinics</span>
-            <span>·</span>
-            <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Email verified</span>
-            <span>·</span>
-            <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" /> Instant</span>
-          </div>
+          {(() => {
+            const clinicLocation = clinicIdFromUrl && selectedClinicObj
+              ? ((selectedClinicObj as any).city || selectedClinicObj.address || null)
+              : null;
+            const desktopPills = clinicLocation
+              ? [
+                  { Icon: MapPin,    label: clinicLocation                       },
+                  { Icon: Shield,   label: "No sign-up — just email verification" },
+                  { Icon: Sparkles, label: "Instant WhatsApp confirmation"        },
+                ]
+              : [
+                  { Icon: MapPin,    label: "50+ verified clinics across Kerala"  },
+                  { Icon: Shield,   label: "No sign-up — just email verification" },
+                  { Icon: Sparkles, label: "Instant WhatsApp confirmation"        },
+                ];
+            return (
+              <>
+                <div className="hidden sm:flex flex-wrap gap-2">
+                  {desktopPills.map(({ Icon, label }) => (
+                    <div key={label} className="flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.1] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/70 backdrop-blur-sm">
+                      <Icon className="h-3 w-3" />
+                      {label}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex sm:hidden gap-3 text-[11px] text-white/50 font-semibold">
+                  <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {clinicLocation ?? "50+ clinics"}</span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Email verified</span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" /> Instant</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Bottom accent bar */}
@@ -1057,11 +1089,20 @@ export default function Book(props: { params: { clinicId?: string } }) {
             <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 sm:px-5 py-3 sm:py-4 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
               <div className="relative flex items-center gap-3 sm:gap-4">
-                {/* Avatar */}
+                {/* Avatar — show clinic logo if available, otherwise first-letter initial */}
                 <div className="relative shrink-0">
                   <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
-                  <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center ring-1 ring-white/10">
-                    <span className="text-lg sm:text-xl font-black text-white">{selectedClinic.charAt(0)}</span>
+                  <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center ring-1 ring-white/10 overflow-hidden">
+                    {selectedClinicObj?.logoUrl ? (
+                      <img
+                        src={selectedClinicObj.logoUrl}
+                        alt={selectedClinic}
+                        className="h-full w-full object-cover"
+                        fetchPriority="high"
+                      />
+                    ) : (
+                      <span className="text-lg sm:text-xl font-black text-white">{selectedClinic.charAt(0)}</span>
+                    )}
                   </div>
                 </div>
                 {/* Info */}
@@ -1074,6 +1115,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       <span className="truncate">
                         Dr. {selectedClinicObj.doctorName}
                         {selectedClinicObj.doctorSpecialization ? ` · ${selectedClinicObj.doctorSpecialization}` : ""}
+                      </span>
+                    </p>
+                  )}
+                  {((selectedClinicObj as any)?.city || selectedClinicObj?.address) && (
+                    <p className="text-white/50 text-xs mt-0.5 flex items-center gap-1 overflow-hidden">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {(selectedClinicObj as any).city || selectedClinicObj?.address}
                       </span>
                     </p>
                   )}
