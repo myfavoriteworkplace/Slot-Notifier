@@ -954,6 +954,30 @@ export function BillingHistoryPanel({
               <span className="text-xs text-muted-foreground">· {bill.paymentMethod ?? "Cash"}</span>
             </div>
           </button>
+
+          {/* ── Action buttons in header — only for the active editable bill ── */}
+          {isActiveBill && canEdit && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button size="sm"
+                onClick={e => { e.stopPropagation(); handleLoadPrescription(); }}
+                disabled={loadingPrescription}
+                className="h-7 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground px-2 sm:px-2.5"
+                aria-label="Load Prescription"
+                data-testid="button-load-prescription-header">
+                {loadingPrescription ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pill className="h-3 w-3" />}
+                <span className="hidden sm:inline">Load Prescription</span>
+              </Button>
+              <Button size="sm" variant="outline"
+                onClick={e => { e.stopPropagation(); setAddFormOpenInCard(v => !v); if (!isExpanded) toggleExpand(bill.id); }}
+                className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5 active:scale-[0.98] px-2 sm:px-2.5"
+                aria-label="Add Entry"
+                data-testid="button-toggle-add-entry-header">
+                <Plus className="h-3 w-3" />
+                <span className="hidden sm:inline">Add Entry</span>
+              </Button>
+            </div>
+          )}
+
           <span className="text-sm font-bold text-primary shrink-0">₹{totalAmt.toFixed(0)}</span>
           <button
             onClick={() => { setPreviewBill(bill); setPreviewModalOpen(true); }}
@@ -1011,25 +1035,6 @@ export function BillingHistoryPanel({
         {isExpanded && (
           <div className="border-t border-border/40">
 
-            {/* Action toolbar — only for the active editable bill */}
-            {isActiveBill && canEdit && (
-              <div className="px-3 py-2 border-b border-border/30 bg-background flex items-center gap-2 flex-wrap">
-                <Button size="sm"
-                  onClick={() => handleLoadPrescription()}
-                  disabled={loadingPrescription}
-                  className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
-                  data-testid="button-load-prescription">
-                  {loadingPrescription ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pill className="h-3.5 w-3.5" />}
-                  Load Prescription
-                </Button>
-                <Button size="sm" variant="outline"
-                  onClick={() => setAddFormOpenInCard(v => !v)}
-                  className="h-8 text-xs gap-1.5 active:scale-[0.98]"
-                  data-testid="button-toggle-add-entry">
-                  <Plus className="h-3.5 w-3.5" /> Add Entry
-                </Button>
-              </div>
-            )}
 
             {/* Inline Add Entry form — compact table-row style */}
             {isActiveBill && canEdit && addFormOpenInCard && (
