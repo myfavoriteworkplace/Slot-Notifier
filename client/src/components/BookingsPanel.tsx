@@ -2177,6 +2177,10 @@ export default function BookingsPanel({
                           const ovVisitType = (booking as any).visitType
                             || rawOverviewDesc.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim()
                             || null;
+                          const ovBookedBy: string | null = (booking as any).bookedBy ?? null;
+                          const ovFallbackVisitKey = !ovVisitType
+                            ? (ovBookedBy === 'patient' ? 'booked_by_patient' : ovBookedBy === 'admin' ? 'admin_booked' : null)
+                            : null;
                           const ovTreatmentCategory = (booking as any).treatmentCategory
                             || rawOverviewDesc.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim()
                             || null;
@@ -2361,6 +2365,10 @@ export default function BookingsPanel({
                                   {ovVisitType ? (
                                     <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
+                                    </span>
+                                  ) : ovFallbackVisitKey ? (
+                                    <span className="inline-flex items-center font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
+                                      {OVERVIEW_VISIT_TYPE_LABELS[ovFallbackVisitKey]}
                                     </span>
                                   ) : (
                                     <span className="text-muted-foreground/50">–</span>

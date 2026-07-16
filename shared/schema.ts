@@ -115,6 +115,7 @@ export const bookings = pgTable("bookings", {
   slotCost: integer("slot_cost").default(1),
   visitType: varchar("visit_type", { length: 50 }),
   treatmentCategory: varchar("treatment_category", { length: 255 }),
+  bookedBy: varchar("booked_by", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

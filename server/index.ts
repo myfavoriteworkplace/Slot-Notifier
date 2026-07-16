@@ -338,6 +338,21 @@ app.use((req, res, next) => {
       `);
       log("bookings columns verified/updated", "system");
 
+      await db.execute(sql`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='visit_type') THEN
+            ALTER TABLE bookings ADD COLUMN visit_type VARCHAR(50);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='treatment_category') THEN
+            ALTER TABLE bookings ADD COLUMN treatment_category VARCHAR(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='booked_by') THEN
+            ALTER TABLE bookings ADD COLUMN booked_by VARCHAR(20);
+          END IF;
+        END $$;
+      `);
+      log("bookings visit_type/treatment_category/booked_by columns verified", "system");
+
       // Check if doctor_invites table exists
       const checkTable = await db.execute(
         sql`SELECT table_name FROM information_schema.tables WHERE table_name='doctor_invites'`

@@ -1031,6 +1031,9 @@ export class DatabaseStorage implements IStorage {
     paymentStatus?: string | null;
     razorpayOrderId?: string | null;
     razorpayPaymentId?: string | null;
+    visitType?: string | null;
+    treatmentCategory?: string | null;
+    bookedBy?: string | null;
   }): Promise<Booking> {
     const [booking] = await db.insert(bookings).values({
       slotId: data.slotId,
@@ -1046,6 +1049,9 @@ export class DatabaseStorage implements IStorage {
       paymentStatus: data.paymentStatus || null,
       razorpayOrderId: data.razorpayOrderId || null,
       razorpayPaymentId: data.razorpayPaymentId || null,
+      visitType: data.visitType || null,
+      treatmentCategory: data.treatmentCategory || null,
+      bookedBy: data.bookedBy || null,
     } as any).returning();
     return booking;
   }

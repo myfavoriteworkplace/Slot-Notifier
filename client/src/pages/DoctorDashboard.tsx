@@ -73,6 +73,7 @@ const DR_VISIT_TYPE_LABELS: Record<string, string> = {
   consultation: "Consultation",
   review: "Review",
   booked_by_patient: "Booked by Patient",
+  admin_booked: "Admin booked",
 };
 
 const DR_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {
@@ -2954,6 +2955,10 @@ export default function DoctorDashboard() {
                   {patientModalTab === 'overview' && (() => {
                     const drVisitType = (b as any).visitType || null;
                     const drTreatment = (b as any).treatmentCategory || null;
+                    const drBookedBy: string | null = (b as any).bookedBy ?? null;
+                    const drFallbackVisitKey = !drVisitType
+                      ? (drBookedBy === 'patient' ? 'booked_by_patient' : drBookedBy === 'admin' ? 'admin_booked' : null)
+                      : null;
                     const drComplaints = b.description
                       ? DR_CHIEF_COMPLAINTS.filter(c => b.description!.toLowerCase().includes(c.toLowerCase()))
                       : [];
@@ -2993,6 +2998,10 @@ export default function DoctorDashboard() {
                             {drVisitType ? (
                               <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
                                 {DR_VISIT_TYPE_LABELS[drVisitType] ?? drVisitType}
+                              </span>
+                            ) : drFallbackVisitKey ? (
+                              <span className="inline-flex items-center font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
+                                {DR_VISIT_TYPE_LABELS[drFallbackVisitKey]}
                               </span>
                             ) : (
                               <span className="text-muted-foreground/50">–</span>

@@ -42,6 +42,7 @@ export const OVERVIEW_VISIT_TYPE_LABELS: Record<string, string> = {
   consultation:      "Consultation",
   review:            "Review",
   booked_by_patient: "Booked by Patient",
+  admin_booked: "Admin booked",
 };
 
 export const OVERVIEW_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {

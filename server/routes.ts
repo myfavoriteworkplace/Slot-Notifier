@@ -1983,6 +1983,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             verificationCode: null,
             verificationExpiresAt: null,
             verificationStatus: 'email_verified',
+            treatmentCategory: 'Consultation',
+            bookedBy: 'patient',
           } as any).returning();
           booking = newBooking;
         });
@@ -2996,6 +2998,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         isBooked: true,
       } as any);
 
+      const adminParsedCategory = typeof description === 'string'
+        ? description.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim() || null
+        : null;
+      const adminParsedVisitType = typeof description === 'string'
+        ? description.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim() || null
+        : null;
+
       const booking = await storage.createPublicBooking({
         slotId: slot.id,
         customerName,
@@ -3005,6 +3014,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         verificationCode: null,
         verificationExpiresAt: null,
         verificationStatus: 'admin_booked',
+        treatmentCategory: adminParsedCategory || 'Consultation',
+        visitType: adminParsedVisitType || null,
+        bookedBy: 'admin',
       });
 
       // Store slot_cost on the booking

@@ -89,6 +89,7 @@ const VISIT_TYPE_LABELS: Record<string, string> = {
   consultation: "Consultation",
   review: "Review",
   booked_by_patient: "Booked by Patient",
+  admin_booked: "Admin booked",
 };
 
 const CLINICAL_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
@@ -275,11 +276,18 @@ export function AppointmentCard({
   const slotCost = booking.slotCost ?? 0;
   const maxChips = role === "clinic" ? 3 : 3;
 
-  // visitType: prefer dedicated column, fall back to description parse
+  // visitType: prefer dedicated column, fall back to description parse, then bookedBy origin badge
   const rawDesc = booking.description ?? "";
   const parsedVisitType = rawDesc.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim() ?? null;
   const visitType = booking.visitType || parsedVisitType;
-  const visitTypeLabel = visitType ? (VISIT_TYPE_LABELS[visitType] ?? visitType) : null;
+  const bookedByOrigin: string | null = (booking as any).bookedBy ?? null;
+  const fallbackVisitKey = !visitType
+    ? (bookedByOrigin === 'patient' ? 'booked_by_patient' : bookedByOrigin === 'admin' ? 'admin_booked' : null)
+    : null;
+  const visitTypeLabel = visitType
+    ? (VISIT_TYPE_LABELS[visitType] ?? visitType)
+    : fallbackVisitKey ? (VISIT_TYPE_LABELS[fallbackVisitKey] ?? null)
+    : null;
 
   // treatmentCategory: prefer dedicated column, fall back to description parse
   const parsedCategory = rawDesc.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim() ?? null;
@@ -843,7 +851,11 @@ export function AppointmentCard({
             </div>
             <span className="text-muted-foreground shrink-0">Visit Type:</span>
             {visitTypeLabel ? (
-              <span className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
+              <span className={`inline-flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded-md ${
+                fallbackVisitKey
+                  ? 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700'
+                  : 'text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800'
+              }`}>
                 {visitTypeLabel}
               </span>
             ) : (
