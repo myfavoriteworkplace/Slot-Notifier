@@ -2982,7 +2982,11 @@ export default function BookingsPanel({
                                   <Button
                                     size="sm"
                                     className="h-9 px-3.5 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.97] text-primary-foreground border-0 transition-all"
-                                    onClick={() => { setRescheduleBookingId(booking.id); setRescheduleDate(new Date(booking.slot.startTime)); }}
+                                    onClick={() => {
+                                      const orig = new Date(booking.slot.startTime);
+                                      setRescheduleBookingId(booking.id);
+                                      setRescheduleDate(orig < startOfToday() ? startOfToday() : orig);
+                                    }}
                                     data-testid="button-start-reschedule"
                                   >
                                     Reschedule
@@ -3003,12 +3007,17 @@ export default function BookingsPanel({
                                     </div>
                                     <ScrollArea className="w-full whitespace-nowrap pb-1">
                                       <div className="flex space-x-1.5 w-max pb-1">
-                                        {dates.map((date) => (
+                                        {dates.map((date) => {
+                                          const isPastDate = date < startOfToday();
+                                          return (
                                           <button
                                             key={date.toISOString()}
-                                            onClick={() => { setRescheduleDate(date); setRescheduleSlot(null); }}
+                                            onClick={() => { if (!isPastDate) { setRescheduleDate(date); setRescheduleSlot(null); } }}
+                                            disabled={isPastDate}
                                             className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center active:scale-[0.96] ${
-                                              isSameDay(date, rescheduleDate)
+                                              isPastDate
+                                                ? 'bg-muted/30 border-border/30 opacity-40 cursor-not-allowed'
+                                                : isSameDay(date, rescheduleDate)
                                                 ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
                                                 : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
                                             }`}
@@ -3017,7 +3026,8 @@ export default function BookingsPanel({
                                             <span className="text-xs uppercase font-bold opacity-70 leading-none">{format(date, "EEE")}</span>
                                             <span className="text-sm font-black leading-tight">{format(date, "d")}</span>
                                           </button>
-                                        ))}
+                                          );
+                                        })}
                                       </div>
                                       <ScrollBar orientation="horizontal" />
                                     </ScrollArea>
