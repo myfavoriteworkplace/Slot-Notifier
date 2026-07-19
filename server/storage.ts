@@ -3,6 +3,7 @@ import {
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
   inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock, patientCharts,
+  patientMedicalHistory,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -28,6 +29,7 @@ import {
   type LoginEvent, type InsertLoginEvent,
   type PatientBill, type InsertPatientBill,
   type PatientChart,
+  type PatientMedicalHistory,
   type ClinicAnalyticsResult,
 } from "@shared/schema";
 import { db } from "./db";
@@ -292,6 +294,10 @@ export interface IStorage {
   // Patient Charts (Odontogram)
   getPatientChart(patientId: number, clinicId: number): Promise<PatientChart | null>;
   upsertPatientChart(patientId: number, clinicId: number, chartData: string): Promise<PatientChart>;
+
+  // Patient Medical History
+  getPatientMedicalHistory(patientId: number, clinicId: number): Promise<PatientMedicalHistory | null>;
+  upsertPatientMedicalHistory(patientId: number, clinicId: number, data: Partial<Omit<PatientMedicalHistory, "id" | "patientId" | "clinicId" | "createdAt" | "updatedAt">>): Promise<PatientMedicalHistory>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2659,6 +2665,38 @@ export class DatabaseStorage implements IStorage {
       .values({ patientId, clinicId, chartData })
       .returning();
     return chart;
+  }
+
+  // ── Patient Medical History ──────────────────────────────────────────────────
+
+  async getPatientMedicalHistory(patientId: number, clinicId: number): Promise<PatientMedicalHistory | null> {
+    const [row] = await db
+      .select()
+      .from(patientMedicalHistory)
+      .where(and(eq(patientMedicalHistory.patientId, patientId), eq(patientMedicalHistory.clinicId, clinicId)))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async upsertPatientMedicalHistory(
+    patientId: number,
+    clinicId: number,
+    data: Partial<Omit<PatientMedicalHistory, "id" | "patientId" | "clinicId" | "createdAt" | "updatedAt">>,
+  ): Promise<PatientMedicalHistory> {
+    const existing = await this.getPatientMedicalHistory(patientId, clinicId);
+    if (existing) {
+      const [updated] = await db
+        .update(patientMedicalHistory)
+        .set({ ...data, updatedAt: new Date() })
+        .where(and(eq(patientMedicalHistory.patientId, patientId), eq(patientMedicalHistory.clinicId, clinicId)))
+        .returning();
+      return updated;
+    }
+    const [row] = await db
+      .insert(patientMedicalHistory)
+      .values({ patientId, clinicId, ...data })
+      .returning();
+    return row;
   }
 }
 

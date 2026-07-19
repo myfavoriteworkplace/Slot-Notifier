@@ -5966,5 +5966,67 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── GET /api/doctor/bookings/:id/medical-history ─────────────────────────
+  app.get("/api/doctor/bookings/:id/medical-history", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.json({ patientId: null, clinicId: null, data: null });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found for this booking" });
+      const clinicId = slot.clinicId;
+      const history = await storage.getPatientMedicalHistory(patientId, clinicId);
+      return res.json({ patientId, clinicId, data: history ?? null });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PUT /api/doctor/bookings/:id/medical-history ──────────────────────────
+  app.put("/api/doctor/bookings/:id/medical-history", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    const bodySchema = z.object({
+      medicalAlerts:      z.array(z.object({ text: z.string(), color: z.string().optional() })).optional(),
+      generalConditions:  z.array(z.string()).optional(),
+      currentMedications: z.array(z.object({ medicine: z.string(), dose: z.string(), frequency: z.string(), startedOn: z.string().optional() })).optional(),
+      allergies:          z.array(z.object({ allergy: z.string(), type: z.string(), reaction: z.string().optional(), severity: z.enum(["High", "Medium", "Low"]).optional(), verifiedOn: z.string().optional() })).optional(),
+      surgicalHistory:    z.array(z.object({ procedure: z.string(), year: z.string().optional(), hospital: z.string().optional(), notes: z.string().optional() })).optional(),
+      familyHistory:      z.array(z.string()).optional(),
+      dentalHistory:      z.record(z.string(), z.string()).optional().nullable(),
+      vaccinationHistory: z.array(z.string()).optional(),
+      insuranceDetails:   z.record(z.string(), z.string()).optional().nullable(),
+      emergencyContact:   z.record(z.string(), z.string()).optional().nullable(),
+      lifestyle:          z.object({ smoking: z.string().optional(), alcohol: z.string().optional(), tobacco: z.string().optional(), pregnancy: z.string().optional(), heightCm: z.number().optional(), weightKg: z.number().optional() }).optional().nullable(),
+      medicalClearance:   z.record(z.string(), z.string()).optional().nullable(),
+      generalNotes:       z.string().optional().nullable(),
+      attachments:        z.array(z.object({ url: z.string(), name: z.string(), type: z.string(), uploadedAt: z.string() })).optional(),
+    });
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.status(400).json({ message: "Patient record not linked to this booking — cannot save medical history" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(400).json({ message: "Clinic not found for this booking" });
+      const clinicId = slot.clinicId;
+      const history = await storage.upsertPatientMedicalHistory(patientId, clinicId, parsed.data as any);
+      return res.json({ patientId, clinicId, data: history });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return createServer(app);
 }

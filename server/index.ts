@@ -1012,6 +1012,37 @@ By signing below, I confirm that I have read and understood the above and volunt
       } catch (e: any) {
         log(`patient_charts migration warning: ${e.message}`, "system");
       }
+      // ── patient_medical_history table (cross-visit medical profile) ──────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS patient_medical_history (
+            id                  SERIAL PRIMARY KEY,
+            patient_id          INTEGER NOT NULL REFERENCES patients(id),
+            clinic_id           INTEGER NOT NULL REFERENCES clinics(id),
+            medical_alerts      JSONB DEFAULT '[]',
+            general_conditions  JSONB DEFAULT '[]',
+            current_medications JSONB DEFAULT '[]',
+            allergies           JSONB DEFAULT '[]',
+            surgical_history    JSONB DEFAULT '[]',
+            family_history      JSONB DEFAULT '[]',
+            dental_history      JSONB,
+            vaccination_history JSONB DEFAULT '[]',
+            insurance_details   JSONB,
+            emergency_contact   JSONB,
+            lifestyle           JSONB,
+            medical_clearance   JSONB,
+            general_notes       TEXT,
+            attachments         JSONB DEFAULT '[]',
+            updated_at          TIMESTAMP DEFAULT NOW(),
+            created_at          TIMESTAMP DEFAULT NOW(),
+            UNIQUE(patient_id, clinic_id)
+          );
+        `);
+        log("patient_medical_history table ensured", "system");
+      } catch (e: any) {
+        log(`patient_medical_history migration warning: ${e.message}`, "system");
+      }
+
       // ── Add unit_price column to inventory_items ──────────────────────────
       try {
         await db.execute(sql`ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS unit_price REAL;`);

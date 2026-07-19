@@ -738,6 +738,44 @@ export const patientCharts = pgTable("patient_charts", {
 });
 export type PatientChart = typeof patientCharts.$inferSelect;
 
+// ── PATIENT MEDICAL HISTORY ──────────────────────────────────────────────────
+// One row per (patientId, clinicId). All sections stored as JSONB — nullable,
+// so any section can be omitted. Unique constraint enforced in migration SQL.
+
+export type MedicalAlert       = { text: string; color?: string };
+export type CurrentMedication  = { medicine: string; dose: string; frequency: string; startedOn?: string };
+export type AllergyEntry       = { allergy: string; type: string; reaction?: string; severity?: "High" | "Medium" | "Low"; verifiedOn?: string };
+export type SurgicalEntry      = { procedure: string; year?: string; hospital?: string; notes?: string };
+export type DentalHistoryMap   = { rootCanal?: string; bruxism?: string; implant?: string; sensitivity?: string; orthodontic?: string; gumDisease?: string; wisdomExtraction?: string; dentures?: string; tobaccoChewing?: string };
+export type MedHistLifestyle   = { smoking?: string; alcohol?: string; tobacco?: string; pregnancy?: string; heightCm?: number; weightKg?: number };
+export type MedHistClearance   = { required?: string; requestedOn?: string; receivedOn?: string; documentUrl?: string };
+export type MedHistInsurance   = { provider?: string; policyNumber?: string; expiryDate?: string };
+export type MedHistEmergency   = { name?: string; relationship?: string; phone?: string };
+export type MedHistAttachment  = { url: string; name: string; type: string; uploadedAt: string };
+
+export const patientMedicalHistory = pgTable("patient_medical_history", {
+  id:                 serial("id").primaryKey(),
+  patientId:          integer("patient_id").notNull().references(() => patients.id),
+  clinicId:           integer("clinic_id").notNull().references(() => clinics.id),
+  medicalAlerts:      jsonb("medical_alerts").$type<MedicalAlert[]>().default([]),
+  generalConditions:  jsonb("general_conditions").$type<string[]>().default([]),
+  currentMedications: jsonb("current_medications").$type<CurrentMedication[]>().default([]),
+  allergies:          jsonb("allergies").$type<AllergyEntry[]>().default([]),
+  surgicalHistory:    jsonb("surgical_history").$type<SurgicalEntry[]>().default([]),
+  familyHistory:      jsonb("family_history").$type<string[]>().default([]),
+  dentalHistory:      jsonb("dental_history").$type<DentalHistoryMap>(),
+  vaccinationHistory: jsonb("vaccination_history").$type<string[]>().default([]),
+  insuranceDetails:   jsonb("insurance_details").$type<MedHistInsurance>(),
+  emergencyContact:   jsonb("emergency_contact").$type<MedHistEmergency>(),
+  lifestyle:          jsonb("lifestyle").$type<MedHistLifestyle>(),
+  medicalClearance:   jsonb("medical_clearance").$type<MedHistClearance>(),
+  generalNotes:       text("general_notes"),
+  attachments:        jsonb("attachments").$type<MedHistAttachment[]>().default([]),
+  updatedAt:          timestamp("updated_at").defaultNow(),
+  createdAt:          timestamp("created_at").defaultNow(),
+});
+export type PatientMedicalHistory = typeof patientMedicalHistory.$inferSelect;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {
