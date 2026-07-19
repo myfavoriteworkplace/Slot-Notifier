@@ -509,6 +509,8 @@ export const clinicalRecords = pgTable("clinical_records", {
   doctorName: varchar("doctor_name", { length: 255 }),
   diagnosis: jsonb("diagnosis").$type<string[]>().default([]),
   prescription: text("prescription"),
+  medicationList: jsonb("medication_list").$type<{ name: string; dose?: string; frequency?: string }[]>(),
+  visitAttachments: jsonb("visit_attachments").$type<{ name: string; url: string; type?: string; uploadedAt?: string }[]>(),
   notes: text("notes"),
   isDeleted: boolean("is_deleted").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),

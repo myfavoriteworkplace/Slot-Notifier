@@ -5966,6 +5966,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── GET /api/doctor/bookings/:id/visit-timeline ──────────────────────────
+  app.get("/api/doctor/bookings/:id/visit-timeline", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.json([]);
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found for this booking" });
+      const timeline = await storage.getPatientVisitTimeline(slot.clinicId, patientId);
+      return res.json(timeline);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── GET /api/doctor/bookings/:id/medical-history ─────────────────────────
   app.get("/api/doctor/bookings/:id/medical-history", isAuthenticated, async (req, res) => {
     const sess = req.session as any;

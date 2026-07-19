@@ -36,6 +36,21 @@ import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne } from "drizzle-orm";
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 
+export interface VisitTimelineEntry {
+  bookingId: number;
+  visitDate: string;
+  visitType: string | null;
+  treatmentCategory: string | null;
+  visitStatus: string | null;
+  description: string | null;
+  visitCompletionNote: string | null;
+  diagnosis: string[];
+  medicationCount: number;
+  attachmentCount: number;
+  billServiceCount: number;
+  isFirstVisit: boolean;
+}
+
 export interface BookingQueryParams {
   filter?: string;
   page?: number;
@@ -223,8 +238,9 @@ export interface IStorage {
   createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord>;
   getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]>;
   getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]>;
-  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
+  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
   softDeleteClinicalRecord(id: number): Promise<void>;
+  getPatientVisitTimeline(clinicId: number, patientId: number): Promise<VisitTimelineEntry[]>;
 
   // Inventory
   getInventoryCategories(clinicId: number): Promise<InventoryCategory[]>;
@@ -1586,7 +1602,7 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => this.decryptClinicalRecord(r));
   }
 
-  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
+  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
     const encryptedUpdates = {
       ...updates,
       ...(updates.prescription !== undefined ? { prescription: encryptField(updates.prescription) } : {}),
@@ -1604,6 +1620,64 @@ export class DatabaseStorage implements IStorage {
     await db.update(clinicalRecords)
       .set({ isDeleted: true, updatedAt: new Date() })
       .where(eq(clinicalRecords.id, id));
+  }
+
+  async getPatientVisitTimeline(clinicId: number, patientId: number): Promise<VisitTimelineEntry[]> {
+    const [bookingRows, records, bills] = await Promise.all([
+      db.select({ booking: bookings, slot: slots })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(eq(bookings.patientId, patientId), eq(slots.clinicId, clinicId)))
+        .orderBy(desc(slots.startTime)),
+      db.select().from(clinicalRecords)
+        .where(and(
+          eq(clinicalRecords.clinicId, clinicId),
+          eq(clinicalRecords.patientId, patientId),
+          eq(clinicalRecords.isDeleted, false),
+        )),
+      db.select().from(patientBills)
+        .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientId, patientId))),
+    ]);
+
+    // Index clinical records and bills by bookingId for O(1) lookup
+    const recordsByBooking = new Map<number, ClinicalRecord[]>();
+    for (const r of records) {
+      const key = r.bookingId;
+      if (!recordsByBooking.has(key)) recordsByBooking.set(key, []);
+      recordsByBooking.get(key)!.push(r);
+    }
+    const billsByBooking = new Map<number, PatientBill[]>();
+    for (const b of bills) {
+      if (!b.bookingId) continue;
+      if (!billsByBooking.has(b.bookingId)) billsByBooking.set(b.bookingId, []);
+      billsByBooking.get(b.bookingId)!.push(b);
+    }
+
+    const entries: VisitTimelineEntry[] = bookingRows.map((row, idx) => {
+      const b = row.booking;
+      const recs = recordsByBooking.get(b.id) ?? [];
+      const bls = billsByBooking.get(b.id) ?? [];
+      const allDiagnosis = recs.flatMap(r => (r.diagnosis ?? []) as string[]);
+      const medicationCount = recs.reduce((sum, r) => sum + ((r.medicationList as any[] | null)?.length ?? 0), 0);
+      const attachmentCount = recs.reduce((sum, r) => sum + ((r.visitAttachments as any[] | null)?.length ?? 0), 0);
+      const billServiceCount = bls.reduce((sum, bl) => sum + ((bl.services as any[] | null)?.length ?? 0), 0);
+      return {
+        bookingId: b.id,
+        visitDate: row.slot.startTime.toISOString(),
+        visitType: b.visitType ?? null,
+        treatmentCategory: b.treatmentCategory ?? null,
+        visitStatus: b.visitStatus ?? null,
+        description: b.description ?? null,
+        visitCompletionNote: (b as any).visitCompletionNote ?? null,
+        diagnosis: allDiagnosis,
+        medicationCount,
+        attachmentCount,
+        billServiceCount,
+        isFirstVisit: idx === bookingRows.length - 1,
+      };
+    });
+
+    return entries;
   }
 
   // ── Inventory ──────────────────────────────────────────────────────────────

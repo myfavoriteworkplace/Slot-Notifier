@@ -722,6 +722,12 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='patient_id') THEN
             ALTER TABLE clinical_records ADD COLUMN patient_id INTEGER REFERENCES patients(id);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='medication_list') THEN
+            ALTER TABLE clinical_records ADD COLUMN medication_list JSONB;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='visit_attachments') THEN
+            ALTER TABLE clinical_records ADD COLUMN visit_attachments JSONB;
+          END IF;
         END $$;
       `);
       log("patient identity columns ready", "system");

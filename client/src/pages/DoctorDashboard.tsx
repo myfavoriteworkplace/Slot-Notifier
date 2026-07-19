@@ -3,6 +3,7 @@ import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import MedicalHistoryTab from "@/components/MedicalHistoryTab";
+import VisitTimelineTab from "@/components/VisitTimelineTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -144,7 +145,7 @@ export default function DoctorDashboard() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
   const [dialogExpanded, setDialogExpanded] = useState(false);
-  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart' | 'medical'>('overview');
+  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart' | 'medical' | 'timeline'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
   const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number; notifType?: string } | null>(() => {
     if (typeof window === "undefined") return null;
@@ -2930,6 +2931,7 @@ export default function DoctorDashboard() {
                     { key: 'prescription' as const, label: 'Rx',          icon: <Pill className="h-3.5 w-3.5" /> },
                     { key: 'chart'        as const, label: 'Chart',       icon: <Layers className="h-3.5 w-3.5" /> },
                     { key: 'medical'      as const, label: 'Medical',     icon: <Activity className="h-3.5 w-3.5" /> },
+                    { key: 'timeline'     as const, label: 'Timeline',    icon: <CalendarDays className="h-3.5 w-3.5" /> },
                   ]).map(({ key, label, icon }) => {
                     const isActive = patientModalTab === key;
                     return (
@@ -3231,6 +3233,14 @@ export default function DoctorDashboard() {
                       bookingId={b.id}
                       dialogExpanded={dialogExpanded}
                       setDialogExpanded={setDialogExpanded}
+                    />
+                  )}
+
+                  {/* VISIT TIMELINE TAB */}
+                  {patientModalTab === 'timeline' && (
+                    <VisitTimelineTab
+                      bookingId={b.id}
+                      currentBookingId={b.id}
                     />
                   )}
                 </div>
