@@ -285,91 +285,157 @@ function HistoryRow({
   onPdf: () => void;
   mode: "doctor" | "admin";
 }) {
+  const [expanded, setExpanded] = useState(false);
   const teeth = (record.affectedTeeth as string[] | null) ?? [];
   const rxMeds = parsePrescription(record.prescription);
   const rxPreview = rxMeds ? rxMeds.slice(0, 2).map(r => r.name).filter(Boolean).join(", ") : null;
-  const notesPreview = record.notes ? record.notes.slice(0, 60) + (record.notes.length > 60 ? "…" : "") : null;
 
-  if (type === "prescription") {
-    const rxLabel = rxMeds ? rxMeds.map(r => r.name).filter(Boolean).join(", ") || record.prescription?.slice(0, 50) : record.prescription?.slice(0, 50);
-    return (
-      <div className="px-3 py-2 flex items-center gap-2 min-h-[36px]">
-        <div className="w-1 h-1 rounded-full bg-slate-300 shrink-0 mt-0.5" />
-        <span className="text-[11px] text-muted-foreground font-medium shrink-0 w-20">
+  const actionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="ghost"
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+          aria-label="Record actions"
+          onClick={e => e.stopPropagation()}>
+          <MoreVertical className="h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="text-xs w-36">
+        <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Eye className="h-3 w-3" /> Preview</DropdownMenuItem>
+        <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Printer className="h-3 w-3" /> Print</DropdownMenuItem>
+        {onEdit && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onEdit} className="gap-1.5"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  /* ── Collapsed summary row (common to both types) ── */
+  const summaryRow = (
+    <button
+      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors min-h-[36px]"
+      onClick={() => setExpanded(v => !v)}>
+      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${type === "diagnosis" ? "bg-primary/30" : "bg-slate-300"}`} />
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
           {format(new Date(record.createdAt!), "d MMM yyyy")}
         </span>
         {record.doctorName && (
-          <span className="text-[11px] text-muted-foreground shrink-0">· Dr. {record.doctorName}</span>
+          <span className="text-[11px] text-muted-foreground/70 shrink-0">· Dr. {record.doctorName}</span>
         )}
-        {rxLabel && (
-          <span className="text-[11px] text-slate-700 truncate flex-1">{rxLabel}</span>
+        {type === "diagnosis" && (
+          <>
+            {teeth.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0 rounded-full border border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50 font-semibold leading-5 shrink-0">
+                [{teeth.join(", ")}]
+              </span>
+            )}
+            {(record.diagnosis ?? []).map(d => (
+              <span key={d} className="text-[10px] px-1.5 py-0 rounded-full border border-green-700/25 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-semibold leading-5">
+                {d}
+              </span>
+            ))}
+            {record.prescription && (
+              <span className="text-[10px] px-1.5 py-0 rounded-full bg-primary/10 text-primary font-semibold leading-5 shrink-0">Rx ✓</span>
+            )}
+          </>
         )}
-        {mode === "doctor" && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0" aria-label="Record actions">
-                <MoreVertical className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="text-xs w-36">
-              <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Eye className="h-3 w-3" /> Preview</DropdownMenuItem>
-              <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Printer className="h-3 w-3" /> Print</DropdownMenuItem>
-              {onEdit && <><DropdownMenuSeparator /><DropdownMenuItem onClick={onEdit} className="gap-1.5"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem></>}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {type === "prescription" && rxPreview && (
+          <span className="text-[11px] text-muted-foreground/70 truncate">{rxPreview}</span>
         )}
       </div>
-    );
-  }
+      <div className="flex items-center gap-1 shrink-0">
+        {mode === "doctor" && actionsMenu}
+        {expanded
+          ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" />
+          : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
+      </div>
+    </button>
+  );
+
+  /* ── Expanded detail panel ── */
+  const detailPanel = expanded && (
+    <div className="px-3 pb-3 pt-1 space-y-1.5 border-t border-border/20 bg-muted/20 animate-in slide-in-from-top-1 duration-150">
+      {/* Recorded by */}
+      {record.doctorName && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0">Recorded by</span>
+          <span className="text-xs text-foreground flex items-center gap-1">
+            <Stethoscope className="h-3 w-3 text-muted-foreground" /> Dr. {record.doctorName}
+          </span>
+        </div>
+      )}
+
+      {type === "diagnosis" && (
+        <>
+          {/* Anat. Focus */}
+          {teeth.length > 0 && (
+            <div className="flex items-start gap-1.5 flex-wrap">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Anat. Focus</span>
+              <div className="flex flex-wrap gap-1 flex-1">
+                {teeth.map(t => (
+                  <span key={t}
+                    className="text-[10px] px-1.5 py-0 rounded-full border border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50 font-semibold leading-5">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Findings */}
+          {(record.diagnosis ?? []).length > 0 && (
+            <div className="flex items-start gap-1.5 flex-wrap">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Findings</span>
+              <div className="flex flex-wrap gap-1 flex-1">
+                {(record.diagnosis ?? []).map(d => (
+                  <Badge key={d} variant="outline"
+                    className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 dark:border-green-700/50 font-semibold">
+                    {d}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {record.notes && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Notes</span>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line flex-1">{record.notes}</p>
+            </div>
+          )}
+
+          {/* Linked Rx */}
+          {record.prescription && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Medicines</span>
+              <div className="flex-1">
+                <PrescriptionDisplay prescription={record.prescription} />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {type === "prescription" && record.prescription && (
+        <div className="flex items-start gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Medicines</span>
+          <div className="flex-1">
+            <PrescriptionDisplay prescription={record.prescription} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className="px-3 py-2 flex items-start gap-2 min-h-[36px]">
-      <div className="w-1.5 h-1.5 rounded-full bg-primary/30 shrink-0 mt-1.5" />
-      <div className="flex-1 min-w-0 space-y-0.5">
-        {/* Single meta line: date · doctor · anatomy · diagnoses */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] text-muted-foreground font-medium shrink-0">
-            {format(new Date(record.createdAt!), "d MMM yyyy")}
-          </span>
-          {record.doctorName && (
-            <span className="text-[11px] text-muted-foreground shrink-0">· Dr. {record.doctorName}</span>
-          )}
-          {teeth.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0 rounded-full border border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50 font-semibold leading-5 shrink-0">
-              [{teeth.join(", ")}]
-            </span>
-          )}
-          {(record.diagnosis ?? []).map(d => (
-            <span key={d} className="text-[10px] px-1.5 py-0 rounded-full border border-green-700/25 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-semibold leading-5">
-              {d}
-            </span>
-          ))}
-          {record.prescription && (
-            <span className="text-[10px] px-1.5 py-0 rounded-full bg-primary/10 text-primary font-semibold leading-5 shrink-0">Rx ✓</span>
-          )}
-        </div>
-        {/* Secondary line: notes + rx preview */}
-        {(notesPreview || rxPreview) && (
-          <p className="text-[11px] text-muted-foreground leading-snug">
-            {notesPreview && <span>— {notesPreview}</span>}
-            {rxPreview && <span className="ml-1 text-primary/70">· Rx: {rxPreview}</span>}
-          </p>
-        )}
-      </div>
-      {mode === "doctor" && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0 mt-0.5" aria-label="Record actions">
-              <MoreVertical className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="text-xs w-36">
-            <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Eye className="h-3 w-3" /> Preview</DropdownMenuItem>
-            <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Printer className="h-3 w-3" /> Print</DropdownMenuItem>
-            {onEdit && <><DropdownMenuSeparator /><DropdownMenuItem onClick={onEdit} className="gap-1.5"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem></>}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+    <div className="rounded-lg border border-border/30 overflow-hidden mb-1.5 last:mb-0">
+      {summaryRow}
+      {detailPanel}
     </div>
   );
 }
