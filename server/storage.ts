@@ -238,7 +238,7 @@ export interface IStorage {
   createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord>;
   getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]>;
   getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]>;
-  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
+  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'affectedTeeth' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
   softDeleteClinicalRecord(id: number): Promise<void>;
   getPatientVisitTimeline(clinicId: number, patientId: number): Promise<VisitTimelineEntry[]>;
 
@@ -1602,7 +1602,7 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => this.decryptClinicalRecord(r));
   }
 
-  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
+  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'affectedTeeth' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
     const encryptedUpdates = {
       ...updates,
       ...(updates.prescription !== undefined ? { prescription: encryptField(updates.prescription) } : {}),

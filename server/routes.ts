@@ -5248,9 +5248,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid record ID" });
-      const { diagnosis, prescription, notes, doctorName } = req.body;
+      const { diagnosis, affectedTeeth, prescription, notes, doctorName } = req.body;
       const record = await storage.updateClinicalRecord(id, {
         ...(diagnosis !== undefined ? { diagnosis } : {}),
+        ...(affectedTeeth !== undefined ? { affectedTeeth } : {}),
         ...(prescription !== undefined ? { prescription } : {}),
         ...(notes !== undefined ? { notes } : {}),
         ...(doctorName !== undefined ? { doctorName } : {}),
