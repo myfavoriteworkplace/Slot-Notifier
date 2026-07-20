@@ -46,6 +46,8 @@ export interface VisitTimelineEntry {
   visitCompletionNote: string | null;
   diagnosis: string[];
   medicationCount: number;
+  medicationNames: string[];
+  clinicalNotes: string | null;
   attachmentCount: number;
   billServiceCount: number;
   isFirstVisit: boolean;
@@ -1659,6 +1661,8 @@ export class DatabaseStorage implements IStorage {
       const bls = billsByBooking.get(b.id) ?? [];
       const allDiagnosis = recs.flatMap(r => (r.diagnosis ?? []) as string[]);
       const medicationCount = recs.reduce((sum, r) => sum + ((r.medicationList as any[] | null)?.length ?? 0), 0);
+      const medicationNames = recs.flatMap(r => ((r.medicationList as { name: string }[] | null) ?? []).map(m => m.name).filter(Boolean));
+      const clinicalNotes = recs[0]?.notes ?? null;
       const attachmentCount = recs.reduce((sum, r) => sum + ((r.visitAttachments as any[] | null)?.length ?? 0), 0);
       const billServiceCount = bls.reduce((sum, bl) => sum + ((bl.services as any[] | null)?.length ?? 0), 0);
       return {
@@ -1671,6 +1675,8 @@ export class DatabaseStorage implements IStorage {
         visitCompletionNote: (b as any).visitCompletionNote ?? null,
         diagnosis: allDiagnosis,
         medicationCount,
+        medicationNames,
+        clinicalNotes,
         attachmentCount,
         billServiceCount,
         isFirstVisit: idx === bookingRows.length - 1,

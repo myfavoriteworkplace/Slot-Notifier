@@ -3241,6 +3241,7 @@ export default function DoctorDashboard() {
                     <VisitTimelineTab
                       bookingId={b.id}
                       currentBookingId={b.id}
+                      onTabSwitch={(tab) => setPatientModalTab(tab === "prescription" ? "prescription" : "diagnosis")}
                     />
                   )}
                 </div>

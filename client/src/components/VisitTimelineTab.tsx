@@ -1,6 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { Activity, Stethoscope, Pill, Paperclip, FileText, CheckCircle2, Clock, RefreshCw, AlertCircle, CalendarDays } from "lucide-react";
+import {
+  Activity, Stethoscope, Pill, Paperclip, FileText,
+  CheckCircle2, Clock, RefreshCw, AlertCircle, CalendarDays,
+  ExternalLink, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
@@ -15,6 +20,8 @@ interface VisitTimelineEntry {
   visitCompletionNote: string | null;
   diagnosis: string[];
   medicationCount: number;
+  medicationNames: string[];
+  clinicalNotes: string | null;
   attachmentCount: number;
   billServiceCount: number;
   isFirstVisit: boolean;
@@ -23,6 +30,7 @@ interface VisitTimelineEntry {
 interface Props {
   bookingId: number;
   currentBookingId: number;
+  onTabSwitch?: (tab: "diagnosis" | "prescription") => void;
 }
 
 function visitLabel(entry: VisitTimelineEntry): string {
@@ -58,24 +66,57 @@ function visitDotColor(entry: VisitTimelineEntry, isCurrent: boolean): string {
   return "bg-slate-400";
 }
 
-function DataCell({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+/** Inline expandable detail panel for past-visit records */
+function PastVisitDetail({ entry }: { entry: VisitTimelineEntry }) {
   return (
-    <div className="flex items-start gap-2">
-      <span className="mt-0.5 text-slate-400 shrink-0">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-[10px] text-slate-400 uppercase tracking-wide leading-none mb-0.5">{label}</p>
-        <p className="text-xs font-medium text-slate-700 leading-snug">{value}</p>
-      </div>
+    <div className="mt-2 pt-2 border-t border-slate-100 space-y-2 text-[11px]">
+      {entry.diagnosis.length > 0 && (
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Diagnosis findings</p>
+          <div className="flex flex-wrap gap-1">
+            {entry.diagnosis.map(d => (
+              <span key={d} className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#0F9B6E]/10 text-[#085041] border border-[#0F9B6E]/20 text-[10px] font-medium">
+                {d}
+              </span>
+            ))}
+          </div>
+          {entry.clinicalNotes && (
+            <p className="mt-1 text-slate-500 italic leading-snug">{entry.clinicalNotes}</p>
+          )}
+        </div>
+      )}
+      {entry.medicationNames.length > 0 && (
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Prescriptions</p>
+          <div className="flex flex-wrap gap-1">
+            {entry.medicationNames.map((m, i) => (
+              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-medium">
+                <Pill className="w-2.5 h-2.5 mr-1" />{m}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export default function VisitTimelineTab({ bookingId, currentBookingId }: Props) {
+export default function VisitTimelineTab({ bookingId, currentBookingId, onTabSwitch }: Props) {
+  const [expandedPast, setExpandedPast] = useState<Set<number>>(new Set());
+
   const { data: timeline, isLoading, isError } = useQuery<VisitTimelineEntry[]>({
     queryKey: ["/api/doctor/bookings", bookingId, "visit-timeline"],
     queryFn: () => apiRequest("GET", `/api/doctor/bookings/${bookingId}/visit-timeline`).then(r => r.json()),
     staleTime: 60_000,
   });
+
+  const togglePast = (id: number) => {
+    setExpandedPast(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -128,6 +169,27 @@ export default function VisitTimelineTab({ bookingId, currentBookingId }: Props)
           const isLast = idx === timeline.length - 1;
           const label = visitLabel(entry);
           const dateStr = format(parseISO(entry.visitDate), "d MMM yyyy");
+          const isPastExpanded = expandedPast.has(entry.bookingId);
+
+          // Diagnosis display values
+          const dxTags = entry.diagnosis;
+          const dxSummary = dxTags.length > 0
+            ? dxTags.slice(0, 2).join(", ") + (dxTags.length > 2 ? ` +${dxTags.length - 2}` : "")
+            : null;
+
+          // Prescription display values
+          const rxNames = entry.medicationNames;
+          const rxSummary = rxNames.length > 0
+            ? rxNames.slice(0, 2).join(", ") + (rxNames.length > 2 ? ` +${rxNames.length - 2}` : "")
+            : entry.medicationCount > 0
+              ? `${entry.medicationCount} Medicine${entry.medicationCount !== 1 ? "s" : ""}`
+              : null;
+
+          // Treatment display value
+          const treatmentSummary = entry.treatmentCategory
+            ?? (entry.clinicalNotes ? entry.clinicalNotes.slice(0, 60) + (entry.clinicalNotes.length > 60 ? "…" : "") : null);
+
+          const hasPastDetail = !isCurrent && (dxTags.length > 0 || rxNames.length > 0);
 
           return (
             <div key={entry.bookingId} className="flex gap-3 mb-2" data-testid={`timeline-entry-${entry.bookingId}`}>
@@ -169,41 +231,99 @@ export default function VisitTimelineTab({ bookingId, currentBookingId }: Props)
 
                 {/* 2×2 grid of data cells */}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                  <DataCell
-                    icon={<Stethoscope className="w-3 h-3" />}
-                    label="Diagnosis"
-                    value={
-                      entry.diagnosis.length > 0
-                        ? entry.diagnosis.slice(0, 2).join(", ") + (entry.diagnosis.length > 2 ? ` +${entry.diagnosis.length - 2}` : "")
-                        : <span className="text-slate-400">—</span>
-                    }
-                  />
-                  <DataCell
-                    icon={<Pill className="w-3 h-3" />}
-                    label="Prescription"
-                    value={
-                      entry.medicationCount > 0
-                        ? `${entry.medicationCount} Medicine${entry.medicationCount !== 1 ? "s" : ""}`
-                        : <span className="text-slate-400">—</span>
-                    }
-                  />
-                  <DataCell
-                    icon={<RefreshCw className="w-3 h-3" />}
-                    label="Treatment"
-                    value={entry.treatmentCategory ?? <span className="text-slate-400">—</span>}
-                  />
-                  <DataCell
-                    icon={<Paperclip className="w-3 h-3" />}
-                    label="Attachments"
-                    value={
-                      entry.attachmentCount > 0
-                        ? `${entry.attachmentCount} File${entry.attachmentCount !== 1 ? "s" : ""}`
-                        : entry.billServiceCount > 0
-                          ? `${entry.billServiceCount} Service${entry.billServiceCount !== 1 ? "s" : ""} billed`
-                          : <span className="text-slate-400">—</span>
-                    }
-                  />
+                  {/* ── Diagnosis ── */}
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-slate-400 shrink-0"><Stethoscope className="w-3 h-3" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide leading-none mb-0.5">Diagnosis</p>
+                      {dxSummary ? (
+                        <p className="text-xs font-medium text-slate-700 leading-snug">{dxSummary}</p>
+                      ) : (
+                        <p className="text-xs text-slate-400">—</p>
+                      )}
+                      {entry.clinicalNotes && dxSummary && (
+                        <p className="text-[10px] text-slate-400 italic mt-0.5 leading-snug line-clamp-1">
+                          {entry.clinicalNotes}
+                        </p>
+                      )}
+                      {dxSummary && (
+                        isCurrent && onTabSwitch ? (
+                          <button
+                            onClick={() => onTabSwitch("diagnosis")}
+                            className="mt-1 inline-flex items-center gap-0.5 text-[10px] text-[#0F9B6E] hover:text-[#085041] font-medium transition-colors"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            View Diagnosis
+                          </button>
+                        ) : hasPastDetail ? (
+                          <button
+                            onClick={() => togglePast(entry.bookingId)}
+                            className="mt-1 inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-700 font-medium transition-colors"
+                          >
+                            {isPastExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                            {isPastExpanded ? "Hide" : "Details"}
+                          </button>
+                        ) : null
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Prescription ── */}
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-slate-400 shrink-0"><Pill className="w-3 h-3" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide leading-none mb-0.5">Prescription</p>
+                      {rxSummary ? (
+                        <p className="text-xs font-medium text-slate-700 leading-snug">{rxSummary}</p>
+                      ) : (
+                        <p className="text-xs text-slate-400">—</p>
+                      )}
+                      {rxSummary && (
+                        isCurrent && onTabSwitch ? (
+                          <button
+                            onClick={() => onTabSwitch("prescription")}
+                            className="mt-1 inline-flex items-center gap-0.5 text-[10px] text-[#0F9B6E] hover:text-[#085041] font-medium transition-colors"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            View Rx
+                          </button>
+                        ) : !isCurrent && !hasPastDetail ? null : null
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Treatment ── */}
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-slate-400 shrink-0"><RefreshCw className="w-3 h-3" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide leading-none mb-0.5">Treatment</p>
+                      {treatmentSummary ? (
+                        <p className="text-xs font-medium text-slate-700 leading-snug line-clamp-2">{treatmentSummary}</p>
+                      ) : (
+                        <p className="text-xs text-slate-400">—</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Attachments ── */}
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 text-slate-400 shrink-0"><Paperclip className="w-3 h-3" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide leading-none mb-0.5">Attachments</p>
+                      <p className="text-xs font-medium text-slate-700 leading-snug">
+                        {entry.attachmentCount > 0
+                          ? `${entry.attachmentCount} File${entry.attachmentCount !== 1 ? "s" : ""}`
+                          : entry.billServiceCount > 0
+                            ? `${entry.billServiceCount} Service${entry.billServiceCount !== 1 ? "s" : ""} billed`
+                            : <span className="text-slate-400">—</span>
+                        }
+                      </p>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Expanded past-visit detail */}
+                {isPastExpanded && <PastVisitDetail entry={entry} />}
 
                 {/* Completion note if present */}
                 {entry.visitCompletionNote && (
