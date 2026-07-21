@@ -33,7 +33,7 @@ import {
   type ClinicAnalyticsResult,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne, inArray } from "drizzle-orm";
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 
 export interface VisitTimelineEntry {
@@ -1625,20 +1625,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPatientVisitTimeline(clinicId: number, patientId: number): Promise<VisitTimelineEntry[]> {
-    const [bookingRows, records, bills] = await Promise.all([
-      db.select({ booking: bookings, slot: slots })
-        .from(bookings)
-        .innerJoin(slots, eq(bookings.slotId, slots.id))
-        .where(and(eq(bookings.patientId, patientId), eq(slots.clinicId, clinicId)))
-        .orderBy(desc(slots.startTime)),
+    // Step 1 — get bookings for this patient at this clinic
+    const bookingRows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(eq(bookings.patientId, patientId), eq(slots.clinicId, clinicId)))
+      .orderBy(desc(slots.startTime));
+
+    if (bookingRows.length === 0) return [];
+
+    const bookingIds = bookingRows.map(r => r.booking.id);
+
+    // Step 2 — clinical records and bills, scoped to those exact booking IDs.
+    // This correctly picks up records where patientId was never populated (stored as NULL)
+    // because we filter by bookingId instead, which is always set.
+    const [records, bills] = await Promise.all([
       db.select().from(clinicalRecords)
         .where(and(
-          eq(clinicalRecords.clinicId, clinicId),
-          eq(clinicalRecords.patientId, patientId),
+          inArray(clinicalRecords.bookingId, bookingIds),
           eq(clinicalRecords.isDeleted, false),
         )),
       db.select().from(patientBills)
-        .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientId, patientId))),
+        .where(inArray(patientBills.bookingId, bookingIds)),
     ]);
 
     // Index clinical records and bills by bookingId for O(1) lookup

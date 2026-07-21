@@ -5195,20 +5195,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (bookingId == null || !patientName) {
         return res.status(400).json({ message: "bookingId and patientName are required" });
       }
+      // Always look up the booking to get patientId; also resolve clinicId if not supplied
+      const [bkRow] = await db
+        .select({ slotClinicId: slots.clinicId, patientId: bookings.patientId })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(eq(bookings.id, Number(bookingId)))
+        .limit(1);
       if (clinicId == null) {
-        const [row] = await db.select({ slotClinicId: slots.clinicId })
-          .from(bookings)
-          .innerJoin(slots, eq(bookings.slotId, slots.id))
-          .where(eq(bookings.id, Number(bookingId)))
-          .limit(1);
-        clinicId = row?.slotClinicId ?? null;
+        clinicId = bkRow?.slotClinicId ?? null;
       }
+      const resolvedPatientId = bkRow?.patientId ?? null;
       if (clinicId == null) {
         return res.status(400).json({ message: "Could not determine clinic for this booking" });
       }
       const record = await storage.createClinicalRecord({
         bookingId: Number(bookingId),
         clinicId: Number(clinicId),
+        patientId: resolvedPatientId,
         patientName,
         patientPhone: patientPhone || null,
         doctorName: doctorName || null,
