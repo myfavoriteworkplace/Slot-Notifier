@@ -1663,13 +1663,39 @@ export class DatabaseStorage implements IStorage {
       billsByBooking.get(b.bookingId)!.push(b);
     }
 
+    // Parse the free-text prescription field (stored as a JSON array of medication objects)
+    // so we can fall back to it when medicationList (the structured column) is null.
+    function parsePrescriptionItems(text: string | null | undefined): { name: string }[] {
+      if (!text) return [];
+      try {
+        const parsed = JSON.parse(text);
+        return Array.isArray(parsed)
+          ? parsed.filter((item: any) => item && typeof item.name === "string")
+          : [];
+      } catch { return []; }
+    }
+
     const entries: VisitTimelineEntry[] = bookingRows.map((row, idx) => {
       const b = row.booking;
       const recs = recordsByBooking.get(b.id) ?? [];
       const bls = billsByBooking.get(b.id) ?? [];
       const allDiagnosis = recs.flatMap(r => (r.diagnosis ?? []) as string[]);
-      const medicationCount = recs.reduce((sum, r) => sum + ((r.medicationList as any[] | null)?.length ?? 0), 0);
-      const medicationNames = recs.flatMap(r => ((r.medicationList as { name: string }[] | null) ?? []).map(m => m.name).filter(Boolean));
+
+      // medicationList is the structured column; prescription is the text column.
+      // The doctor UI only writes prescription (text), never medicationList,
+      // so fall back to parsing prescription when medicationList is absent.
+      const medicationCount = recs.reduce((sum, r) => {
+        const fromList = (r.medicationList as any[] | null)?.length ?? 0;
+        return sum + (fromList > 0 ? fromList : parsePrescriptionItems(r.prescription).length);
+      }, 0);
+      const medicationNames = recs.flatMap(r => {
+        const fromList = ((r.medicationList as { name: string }[] | null) ?? [])
+          .map(m => m.name).filter(Boolean);
+        return fromList.length > 0
+          ? fromList
+          : parsePrescriptionItems(r.prescription).map((m: { name: string }) => m.name).filter(Boolean);
+      });
+
       const clinicalNotes = recs[0]?.notes ?? null;
       const attachmentCount = recs.reduce((sum, r) => sum + ((r.visitAttachments as any[] | null)?.length ?? 0), 0);
       const billServiceCount = bls.reduce((sum, bl) => sum + ((bl.services as any[] | null)?.length ?? 0), 0);
