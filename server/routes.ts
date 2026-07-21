@@ -5205,6 +5205,54 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── CLINICAL RECORDS ────────────────────────────────────────────────────────
 
+  // GET /api/clinical-records/booking/:bookingId/patient-history — read-only Dx/Rx from all previous visits
+  app.get("/api/clinical-records/booking/:bookingId/patient-history", isAuthenticated, async (req, res) => {
+    try {
+      const session = req.session as any;
+      if (!session?.doctorLoggedIn && !session?.adminLoggedIn) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const bookingId = parseInt(req.params.bookingId);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const patientId = (booking as any).patientId ?? null;
+      if (!patientId) return res.json([]);
+
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.json([]);
+      const clinicId = slot.clinicId;
+
+      // All other bookings for this patient at this clinic, newest first
+      const otherBookings = await db
+        .select({ bookingId: bookings.id, slotStart: slots.startTime })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(
+          eq(bookings.patientId, patientId),
+          eq(slots.clinicId, clinicId),
+          ne(bookings.id, bookingId),
+        ))
+        .orderBy(desc(slots.startTime));
+
+      if (!otherBookings.length) return res.json([]);
+
+      // Fetch clinical records for each past booking; skip visits with no records
+      const result: { bookingId: number; slotDate: string; records: any[] }[] = [];
+      for (const row of otherBookings) {
+        const records = await storage.getClinicalRecordsByBookingId(row.bookingId);
+        if (records.length > 0) {
+          result.push({ bookingId: row.bookingId, slotDate: String(row.slotStart), records });
+        }
+      }
+      return res.json(result);
+    } catch (err: any) {
+      console.error("[CLINICAL-RECORDS-HISTORY]", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // GET /api/clinical-records/booking/:bookingId — doctor or clinic admin
   app.get("/api/clinical-records/booking/:bookingId", isAuthenticated, async (req, res) => {
     try {

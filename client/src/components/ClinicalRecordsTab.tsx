@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import {
   Loader2, Plus, Pencil, Trash2, Printer, Eye, FileText, Stethoscope,
   ChevronDown, ChevronUp, ChevronRight, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
-  MoreVertical, MapPin,
+  MoreVertical, MapPin, History,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -470,6 +470,9 @@ export default function ClinicalRecordsTab({
   // When set, saving the Rx form PATCHes this record id (links Rx to an existing Dx row)
   const [rxLinkedToDxId, setRxLinkedToDxId] = useState<number | null>(null);
 
+  // ── Previous visits history (read-only) ────────────────────────────────────
+  const [showPastVisits, setShowPastVisits] = useState(false);
+
 
   // ── Pharmacy catalogue (doctor mode only) — loaded once, used for autocomplete ──
   const { data: pharmacyCatalogue = [] } = useQuery<PharmacyStockItem[]>({
@@ -497,7 +500,7 @@ export default function ClinicalRecordsTab({
     return null;
   };
 
-  // ── Query ──────────────────────────────────────────────────────────────────
+  // ── Query — current booking records ───────────────────────────────────────
   const queryKey = ["/api/clinical-records/booking", bookingId];
 
   const { data: records = [], isLoading, error } = useQuery<ClinicalRecord[]>({
@@ -508,6 +511,18 @@ export default function ClinicalRecordsTab({
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || `Error ${res.status}`); }
       return res.json();
     },
+  });
+
+  // ── Query — previous visits for the same patient (read-only) ───────────────
+  interface PastVisit { bookingId: number; slotDate: string; records: ClinicalRecord[] }
+  const { data: pastVisits = [] } = useQuery<PastVisit[]>({
+    queryKey: ["/api/clinical-records/booking", bookingId, "patient-history"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/clinical-records/booking/${bookingId}/patient-history`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   // ── Derived record streams ─────────────────────────────────────────────────
@@ -1331,6 +1346,104 @@ export default function ClinicalRecordsTab({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Previous Visit Records — read-only, collapsible ─────────────────── */}
+      {pastVisits.length > 0 && (
+        <div className="border-t border-violet-200/60 dark:border-violet-800/40 mt-1">
+          <button
+            onClick={() => setShowPastVisits(v => !v)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 bg-violet-50/60 dark:bg-violet-900/20 hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors min-h-[44px]"
+            data-testid="button-toggle-past-visit-records"
+          >
+            <History className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-wider text-violet-700 dark:text-violet-400 flex-1 text-left">
+              Previous Visit Records
+              <span className="ml-1.5 font-normal normal-case tracking-normal text-violet-500/70">
+                ({pastVisits.reduce((a, v) => a + v.records.length, 0)} record{pastVisits.reduce((a, v) => a + v.records.length, 0) !== 1 ? "s" : ""} across {pastVisits.length} visit{pastVisits.length !== 1 ? "s" : ""})
+              </span>
+            </span>
+            {showPastVisits
+              ? <ChevronUp className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+              : <ChevronDown className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+            }
+          </button>
+
+          {showPastVisits && (
+            <div className="px-4 py-3 space-y-5 max-h-96 overflow-y-auto bg-violet-50/20 dark:bg-violet-900/10">
+              {pastVisits.map((visit) => {
+                const visitDx = visit.records.filter(r => r.diagnosis && (r.diagnosis as string[]).length > 0);
+                const visitRx = visit.records.filter(r => !!r.prescription && (!r.diagnosis || (r.diagnosis as string[]).length === 0));
+                return (
+                  <div key={visit.bookingId}>
+                    {/* Visit date divider */}
+                    <p className="text-xs font-semibold text-violet-700 dark:text-violet-400 mb-2 flex items-center gap-1.5">
+                      <span className="h-px flex-1 bg-violet-200 dark:bg-violet-800/50" />
+                      Visit — {format(new Date(visit.slotDate), "d MMM yyyy, h:mm a")}
+                      <span className="h-px flex-1 bg-violet-200 dark:bg-violet-800/50" />
+                    </p>
+
+                    {visitDx.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                          <Stethoscope className="h-3 w-3" /> Diagnosis
+                        </p>
+                        <div className="rounded-xl border border-border/50 bg-muted/20 overflow-hidden divide-y divide-border/30">
+                          {visitDx.map(record => (
+                            <HistoryRow
+                              key={record.id}
+                              record={record}
+                              type="diagnosis"
+                              mode={mode}
+                              onPdf={() => printClinicalRecord({
+                                type: "diagnosis",
+                                clinicName,
+                                patientName,
+                                patientPhone,
+                                doctorName: record.doctorName,
+                                date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                                diagnosis: record.diagnosis ?? [],
+                                notes: record.notes,
+                              })}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {visitRx.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                          <Pill className="h-3 w-3" /> Prescription
+                        </p>
+                        <div className="rounded-xl border border-border/50 bg-muted/20 overflow-hidden divide-y divide-border/30">
+                          {visitRx.map(record => (
+                            <HistoryRow
+                              key={record.id}
+                              record={record}
+                              type="prescription"
+                              mode={mode}
+                              onPdf={() => printClinicalRecord({
+                                type: "prescription",
+                                clinicName,
+                                patientName,
+                                patientPhone,
+                                doctorName: record.doctorName,
+                                date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                                medicines: parsePrescription(record.prescription),
+                                rawPrescription: record.prescription,
+                              })}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
