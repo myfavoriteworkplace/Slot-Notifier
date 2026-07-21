@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
+import { sql, eq, and, gte, lte, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
 import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens } from "@shared/schema";
 import { z } from "zod";
@@ -4481,6 +4481,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const notes = await storage.getBookingNotes(bookingId);
       res.json(notes);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/booking/:id/notes/history — read-only notes from all OTHER visits for the same patient
+  app.get("/api/booking/:id/notes/history", isAuthenticated, async (req, res) => {
+    const bookingId = Number(req.params.id);
+    if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking id" });
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const patientId = (booking as any).patientId ?? null;
+      if (!patientId) return res.json([]);
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.json([]);
+      const clinicId = slot.clinicId;
+
+      // All other bookings for this patient at this clinic, newest first
+      const otherBookings = await db
+        .select({ bookingId: bookings.id, slotStart: slots.startTime })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(
+          eq(bookings.patientId, patientId),
+          eq(slots.clinicId, clinicId),
+          ne(bookings.id, bookingId),
+        ))
+        .orderBy(desc(slots.startTime));
+
+      if (!otherBookings.length) return res.json([]);
+
+      // Fetch notes for each past booking; skip bookings with no notes
+      const result: { bookingId: number; slotDate: string; notes: any[] }[] = [];
+      for (const row of otherBookings) {
+        const notes = await storage.getBookingNotes(row.bookingId);
+        if (notes.length > 0) {
+          result.push({ bookingId: row.bookingId, slotDate: String(row.slotStart), notes });
+        }
+      }
+      return res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
