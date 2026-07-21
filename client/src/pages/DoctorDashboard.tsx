@@ -631,6 +631,26 @@ export default function DoctorDashboard() {
 
   const displayBookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
 
+  // Visit-number map — when the same patient appears 2+ times in the current list,
+  // tag each booking with "Visit #N of M" so staff can tell them apart at a glance.
+  const drVisitNumberMap = useMemo<Map<number, { n: number; total: number }>>(() => {
+    const patientGroups = new Map<string | number, any[]>();
+    displayBookings.forEach((b: any) => {
+      const key = b.patientId ?? b.customerPhone ?? b.customerName;
+      if (!patientGroups.has(key)) patientGroups.set(key, []);
+      patientGroups.get(key)!.push(b);
+    });
+    const map = new Map<number, { n: number; total: number }>();
+    patientGroups.forEach((group) => {
+      if (group.length < 2) return;
+      const sorted = [...group].sort((a: any, b: any) =>
+        new Date(a.slot?.startTime ?? 0).getTime() - new Date(b.slot?.startTime ?? 0).getTime()
+      );
+      sorted.forEach((b: any, i: number) => map.set(b.id, { n: i + 1, total: sorted.length }));
+    });
+    return map;
+  }, [displayBookings]);
+
   // ── Focus-fetch: load the specific booking from a notification when it isn't
   //    in the currently-filtered displayBookings list (e.g. doctor is on "Today"
   //    filter but notification is for a past/upcoming booking).
@@ -1639,6 +1659,8 @@ export default function DoctorDashboard() {
                           role="doctor"
                           booking={booking}
                           bookingNumber={String(booking.id).padStart(4, '0')}
+                          visitNumber={drVisitNumberMap.get(booking.id)?.n}
+                          totalVisits={drVisitNumberMap.get(booking.id)?.total}
                           complaints={(() => {
                             const raw = booking.description ?? "";
                             const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();

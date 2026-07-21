@@ -77,6 +77,8 @@ export interface AppointmentCardProps {
   declinePending?: boolean;
   startConsultPending?: boolean;
   consentRequestPending?: boolean;
+  visitNumber?: number;
+  totalVisits?: number;
 }
 
 // ──────────────── Helpers ────────────────
@@ -144,6 +146,8 @@ export function AppointmentCard({
   declinePending,
   startConsultPending,
   consentRequestPending,
+  visitNumber,
+  totalVisits,
 }: AppointmentCardProps) {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
@@ -431,8 +435,8 @@ export function AppointmentCard({
                     #{bookingNumber}
                   </span>
                 </div>
-                {/* Row 2: PAT code or REF fallback */}
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                {/* Row 2: PAT code or REF fallback + visit number badge */}
+                <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                   {booking.patientCode ? (
                     <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
@@ -440,6 +444,12 @@ export function AppointmentCard({
                   ) : (
                     <span className="font-mono text-xs text-muted-foreground/60 bg-muted/50 border border-border/50 px-1.5 py-px rounded-md shrink-0">
                       REF-{bookingNumber}
+                    </span>
+                  )}
+                  {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
+                    <span className="inline-flex items-center gap-0.5 font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-px rounded-md shrink-0">
+                      <Repeat2 className="h-2.5 w-2.5" />
+                      Visit {visitNumber}/{totalVisits}
                     </span>
                   )}
                 </div>

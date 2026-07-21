@@ -346,6 +346,19 @@ export default function BookingsPanel({
 
   const filteredBookings = bookings;
 
+  // Visit-number map — computed only when a patient filter is active.
+  // Sorts all the patient's bookings chronologically and assigns Visit #1, #2… so
+  // staff can immediately tell these are different appointments, not duplicates.
+  const visitNumberMap = useMemo<Map<number, { n: number; total: number }>>(() => {
+    if (!activePatientFilter) return new Map();
+    const sorted = [...filteredBookings].sort(
+      (a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime()
+    );
+    const map = new Map<number, { n: number; total: number }>();
+    sorted.forEach((b, i) => map.set(b.id, { n: i + 1, total: sorted.length }));
+    return map;
+  }, [activePatientFilter, filteredBookings]);
+
   // ── Focus booking — fetch when openBookingId is set but not in the current filtered list ──────
   // This allows the booking detail dialog to open from a notification even when the user is on
   // another panel (BookingsPanel is mounted hidden) and the booking isn't in the active filter.
@@ -1707,6 +1720,20 @@ export default function BookingsPanel({
         ) : (
           <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activePatientFilter && bookingsForDialog.length > 0 && (
+              <div className="col-span-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-primary/5 border border-primary/15" data-testid="patient-filter-banner">
+                <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-xs font-semibold text-primary flex-1 min-w-0 truncate">
+                  {activePatientFilter.name}
+                  {activePatientFilter.patientCode && (
+                    <span className="ml-1.5 font-mono text-primary/70">{activePatientFilter.patientCode}</span>
+                  )}
+                  <span className="text-primary/60 font-normal ml-1.5">
+                    · {filteredBookings.length} visit{filteredBookings.length !== 1 ? 's' : ''} at this clinic
+                  </span>
+                </span>
+              </div>
+            )}
             {bookingsForDialog.length === 0 ? (
               <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
                 <div className="rounded-2xl overflow-hidden bg-white/70 dark:bg-muted/20 p-2 shadow-sm">
@@ -1916,6 +1943,8 @@ export default function BookingsPanel({
                     booking={booking}
                     bookingNumber={bookingNumber(booking)}
                     complaints={complaints}
+                    visitNumber={visitNumberMap.get(booking.id)?.n}
+                    totalVisits={visitNumberMap.get(booking.id)?.total}
                     onCardClick={() => setOpenBookingId(booking.id)}
                     onConfirm={() => actionState.canConfirm && confirmBookingMutation.mutate(booking.id)}
                     onCancel={(reason) => actionState.canCancel && cancelBookingMutation.mutate({ id: booking.id, reason })}
