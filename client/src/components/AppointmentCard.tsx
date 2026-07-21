@@ -6,7 +6,7 @@ import {
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
-  LogOut, AlertTriangle, ChevronDown, Download,
+  LogOut, AlertTriangle, ChevronDown, ChevronUp, Download,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -399,6 +399,63 @@ export function AppointmentCard({
   };
 
   const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState && !isVisitCompleted;
+
+  // ── Collapsed summary row (one line per visit when patient filter is active) ──
+  if (isCollapsed) {
+    const relDay = (() => {
+      if (isToday) return (
+        <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 px-1.5 py-px rounded-full shrink-0">Today</span>
+      );
+      const d = differenceInCalendarDays(startTime, new Date());
+      if (d === 1) return (
+        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-1.5 py-px rounded-full shrink-0">Tomorrow</span>
+      );
+      return null;
+    })();
+    return (
+      <Card
+        className={`overflow-hidden border-border/50 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/30 transition-all duration-200 cursor-pointer ${cardBorderClass}`}
+        data-testid={`card-booking-${booking.id}-collapsed`}
+        onClick={onToggleCollapse}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onToggleCollapse?.(); }}
+      >
+        <div className={`h-[2px] ${accentBar}`} />
+        <div className="px-3 py-2.5 flex items-center gap-2 min-w-0 overflow-hidden">
+          {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
+            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-px rounded-md shrink-0">
+              <Repeat2 className="h-2.5 w-2.5" />{visitNumber}/{totalVisits}
+            </span>
+          )}
+          <span className="text-xs font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
+          {relDay}
+          <span className="text-xs text-muted-foreground shrink-0">{format(startTime, "h:mm a")}</span>
+          <span className="opacity-20 shrink-0 px-0.5">·</span>
+          {treatmentCategory ? (
+            <span className="text-xs font-semibold text-violet-700 dark:text-violet-400 truncate max-w-[110px] shrink-0">{treatmentCategory}</span>
+          ) : (
+            <span className="text-xs text-muted-foreground/40 shrink-0">No treatment</span>
+          )}
+          {booking.assignedDoctor && (
+            <span className="text-xs text-muted-foreground/70 hidden sm:inline shrink-0">· Dr. {booking.assignedDoctor.split(" ")[0]}</span>
+          )}
+          <div className="flex-1 min-w-0" />
+          <StatusBadge />
+          {totalBillsCount > 0 && (
+            <span className={`shrink-0 inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-px rounded-md border ${
+              openBillsCount > 0
+                ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                : "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+            }`}>
+              ₹ {openBillsCount > 0 ? "Due" : "Paid"}
+            </span>
+          )}
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card

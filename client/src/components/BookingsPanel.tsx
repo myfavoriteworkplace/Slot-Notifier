@@ -359,6 +359,17 @@ export default function BookingsPanel({
     return map;
   }, [activePatientFilter, filteredBookings]);
 
+  // Collapsed state — when patient filter is active and 2+ bookings exist, cards
+  // start collapsed so staff see a compact list rather than stacked full cards.
+  const [collapsedBookingIds, setCollapsedBookingIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (activePatientFilter && filteredBookings.length >= 2) {
+      setCollapsedBookingIds(new Set(filteredBookings.map(b => b.id)));
+    } else {
+      setCollapsedBookingIds(new Set());
+    }
+  }, [activePatientFilter?.id, filteredBookings.length]);
+
   // ── Focus booking — fetch when openBookingId is set but not in the current filtered list ──────
   // This allows the booking detail dialog to open from a notification even when the user is on
   // another panel (BookingsPanel is mounted hidden) and the booking isn't in the active filter.
@@ -1732,6 +1743,25 @@ export default function BookingsPanel({
                     · {filteredBookings.length} visit{filteredBookings.length !== 1 ? 's' : ''} at this clinic
                   </span>
                 </span>
+                {filteredBookings.length >= 2 && (
+                  <button
+                    onClick={() => {
+                      if (collapsedBookingIds.size > 0) {
+                        setCollapsedBookingIds(new Set());
+                      } else {
+                        setCollapsedBookingIds(new Set(bookingsForDialog.map((b: any) => b.id)));
+                      }
+                    }}
+                    className="shrink-0 text-xs font-semibold text-primary/70 hover:text-primary flex items-center gap-1 px-2 py-1 rounded-md hover:bg-primary/10 transition-colors"
+                    data-testid="button-toggle-collapse-all"
+                  >
+                    {collapsedBookingIds.size > 0 ? (
+                      <><Maximize2 className="h-3 w-3" />Expand all</>
+                    ) : (
+                      <><Minimize2 className="h-3 w-3" />Collapse all</>
+                    )}
+                  </button>
+                )}
               </div>
             )}
             {bookingsForDialog.length === 0 ? (

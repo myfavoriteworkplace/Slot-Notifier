@@ -651,6 +651,13 @@ export default function DoctorDashboard() {
     return map;
   }, [displayBookings]);
 
+  // Auto-collapse cards when the same patient appears 2+ times — so staff see a
+  // compact list rather than identical-looking stacked cards.
+  const [drCollapsedIds, setDrCollapsedIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    setDrCollapsedIds(new Set(drVisitNumberMap.keys()));
+  }, [drVisitNumberMap]);
+
   // ── Focus-fetch: load the specific booking from a notification when it isn't
   //    in the currently-filtered displayBookings list (e.g. doctor is on "Today"
   //    filter but notification is for a past/upcoming booking).
@@ -1661,6 +1668,13 @@ export default function DoctorDashboard() {
                           bookingNumber={String(booking.id).padStart(4, '0')}
                           visitNumber={drVisitNumberMap.get(booking.id)?.n}
                           totalVisits={drVisitNumberMap.get(booking.id)?.total}
+                          isCollapsed={drCollapsedIds.has(booking.id)}
+                          onToggleCollapse={() => setDrCollapsedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(booking.id)) next.delete(booking.id);
+                            else next.add(booking.id);
+                            return next;
+                          })}
                           complaints={(() => {
                             const raw = booking.description ?? "";
                             const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
