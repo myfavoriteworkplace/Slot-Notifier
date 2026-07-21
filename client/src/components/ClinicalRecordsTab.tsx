@@ -781,8 +781,8 @@ export default function ClinicalRecordsTab({
                           setDxToothInput("");
                         }
                       }}
-                      placeholder="Tooth number (e.g. 14) → Enter to add"
-                      className="h-7 text-xs flex-1"
+                      placeholder="e.g. 14, 36"
+                      className="h-7 text-xs w-36"
                       data-testid="input-tooth-number"
                     />
                     <Button size="sm" type="button" variant="outline"
@@ -1075,8 +1075,8 @@ export default function ClinicalRecordsTab({
 
                   {/* Column headers */}
                   <div className="overflow-x-auto">
-                    <div className="min-w-[664px]">
-                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+                    <div className="min-w-[540px]">
+                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "20px 160px 56px 40px 52px 40px 58px 62px 20px" }}>
                         {["#", "Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
                           <span key={i} className="label-field/70 truncate">{h}</span>
                         ))}
@@ -1090,7 +1090,7 @@ export default function ClinicalRecordsTab({
                           <div key={idx} className="space-y-0.5" data-testid={`medicine-row-${idx}`}>
                             <div
                               className="grid gap-x-1 items-center"
-                              style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+                              style={{ gridTemplateColumns: "20px 160px 56px 40px 52px 40px 58px 62px 20px" }}>
 
                             {/* Serial number */}
                             <span className="text-xs text-muted-foreground/60 font-semibold text-center select-none">
@@ -1217,12 +1217,12 @@ export default function ClinicalRecordsTab({
 
           {/* Latest Prescription */}
           {latestRx && !(showRxForm && rxEditId === latestRx.id) && !rxLinkedToDxId ? (
-            <div className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden">
+            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
               {/* ── Single-row header ──────────────────────────────────── */}
-              <div className="px-3 py-1.5 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2 min-h-[36px]">
+              <div className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2 min-h-[36px]">
                 <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
-                  <Pill className="h-3 w-3 text-primary shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary shrink-0">Latest Prescription</span>
+                  <Pill className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-green-800 dark:text-green-300 shrink-0">Latest Prescription</span>
                   <span className="text-[10px] text-muted-foreground/70 font-medium shrink-0">
                     · {format(new Date(latestRx.createdAt!), "d MMM yyyy, h:mm a")}
                   </span>
