@@ -1616,6 +1616,29 @@ export default function DoctorDashboard() {
                   </div>
                 ) : displayBookings.length > 0 ? (
                   <>
+                    {displayBookings.length >= 2 && (
+                      <div className="flex items-center justify-end">
+                        <button
+                          onClick={() => {
+                            if (drCollapsedIds.size === 0) {
+                              setDrCollapsedIds(new Set(displayBookings.map((b: any) => b.id)));
+                            } else {
+                              setDrCollapsedIds(new Set());
+                            }
+                          }}
+                          className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                          data-testid="button-doctor-toggle-collapse-all"
+                        >
+                          {drCollapsedIds.size === 0 ? (
+                            <><Minimize2 className="h-3 w-3" />Collapse all</>
+                          ) : drCollapsedIds.size < displayBookings.length ? (
+                            <><Maximize2 className="h-3 w-3" />Expand remaining</>
+                          ) : (
+                            <><Maximize2 className="h-3 w-3" />Expand all</>
+                          )}
+                        </button>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {displayBookings.map((booking: any) => {
                       const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;

@@ -1749,19 +1749,21 @@ export default function BookingsPanel({
                 {filteredBookings.length >= 2 && (
                   <button
                     onClick={() => {
-                      if (collapsedBookingIds.size > 0) {
-                        setCollapsedBookingIds(new Set());
-                      } else {
+                      if (collapsedBookingIds.size === 0) {
                         setCollapsedBookingIds(new Set(bookingsForDialog.map((b: any) => b.id)));
+                      } else {
+                        setCollapsedBookingIds(new Set());
                       }
                     }}
                     className="shrink-0 text-xs font-semibold text-primary/70 hover:text-primary flex items-center gap-1 px-2 py-1 rounded-md hover:bg-primary/10 transition-colors"
                     data-testid="button-toggle-collapse-all"
                   >
-                    {collapsedBookingIds.size > 0 ? (
-                      <><Maximize2 className="h-3 w-3" />Expand all</>
-                    ) : (
+                    {collapsedBookingIds.size === 0 ? (
                       <><Minimize2 className="h-3 w-3" />Collapse all</>
+                    ) : collapsedBookingIds.size < filteredBookings.length ? (
+                      <><Maximize2 className="h-3 w-3" />Expand remaining</>
+                    ) : (
+                      <><Maximize2 className="h-3 w-3" />Expand all</>
                     )}
                   </button>
                 )}
