@@ -361,6 +361,9 @@ export default function BookingsPanel({
 
   // Collapsed state — when patient filter is active and 2+ bookings exist, cards
   // start collapsed so staff see a compact list rather than stacked full cards.
+  // Dependency uses the actual sorted IDs (not just the length) so the set is
+  // rebuilt whenever the booking list changes, not just when its size changes.
+  const filteredBookingIdsKey = filteredBookings.map(b => b.id).sort().join(',');
   const [collapsedBookingIds, setCollapsedBookingIds] = useState<Set<number>>(new Set());
   useEffect(() => {
     if (activePatientFilter && filteredBookings.length >= 2) {
@@ -368,7 +371,7 @@ export default function BookingsPanel({
     } else {
       setCollapsedBookingIds(new Set());
     }
-  }, [activePatientFilter?.id, filteredBookings.length]);
+  }, [activePatientFilter?.id, filteredBookingIdsKey]);
 
   // ── Focus booking — fetch when openBookingId is set but not in the current filtered list ──────
   // This allows the booking detail dialog to open from a notification even when the user is on

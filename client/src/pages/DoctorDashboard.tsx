@@ -651,12 +651,9 @@ export default function DoctorDashboard() {
     return map;
   }, [displayBookings]);
 
-  // Auto-collapse cards when the same patient appears 2+ times — so staff see a
-  // compact list rather than identical-looking stacked cards.
+  // Individual card collapse state — only toggled manually by the user;
+  // never auto-populated from chip/date filters.
   const [drCollapsedIds, setDrCollapsedIds] = useState<Set<number>>(new Set());
-  useEffect(() => {
-    setDrCollapsedIds(new Set(drVisitNumberMap.keys()));
-  }, [drVisitNumberMap]);
 
   // ── Focus-fetch: load the specific booking from a notification when it isn't
   //    in the currently-filtered displayBookings list (e.g. doctor is on "Today"
