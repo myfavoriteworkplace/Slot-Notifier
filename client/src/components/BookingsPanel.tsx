@@ -1975,6 +1975,13 @@ export default function BookingsPanel({
                     complaints={complaints}
                     visitNumber={visitNumberMap.get(booking.id)?.n}
                     totalVisits={visitNumberMap.get(booking.id)?.total}
+                    isCollapsed={collapsedBookingIds.has(booking.id)}
+                    onToggleCollapse={() => setCollapsedBookingIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(booking.id)) next.delete(booking.id);
+                      else next.add(booking.id);
+                      return next;
+                    })}
                     onCardClick={() => setOpenBookingId(booking.id)}
                     onConfirm={() => actionState.canConfirm && confirmBookingMutation.mutate(booking.id)}
                     onCancel={(reason) => actionState.canCancel && cancelBookingMutation.mutate({ id: booking.id, reason })}

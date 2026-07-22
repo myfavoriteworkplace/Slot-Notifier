@@ -148,6 +148,8 @@ export function AppointmentCard({
   consentRequestPending,
   visitNumber,
   totalVisits,
+  isCollapsed,
+  onToggleCollapse,
 }: AppointmentCardProps) {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
@@ -850,6 +852,17 @@ export function AppointmentCard({
                     )}
                   </PopoverContent>
                 </Popover>
+              )}
+              {onToggleCollapse && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
+                  className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60 transition-colors"
+                  data-testid={`button-collapse-${booking.id}`}
+                  title="Collapse to row"
+                  aria-label="Collapse to row"
+                >
+                  <ChevronUp className="h-3 w-3" />
+                </button>
               )}
             </div>
           </div>
