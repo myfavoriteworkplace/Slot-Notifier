@@ -77,6 +77,7 @@ export interface BookingStats {
   totalAllCount: number;
   totalOwnedCount?: number;
   awaitingApprovalCount?: number;
+  patientTotalCount?: number;
 }
 
 export interface BookingsPagedResult {
@@ -706,6 +707,16 @@ export class DatabaseStorage implements IStorage {
 
     const whereClause = and(clinicCondition, combinedFilterCond, searchCond, patientCond);
 
+    // Total bookings for the selected patient, ignoring tab/date/search (used for smart empty states)
+    let patientTotalCount: number | undefined;
+    if (patientId) {
+      const [patientCountRow] = await db.select({ total: count() })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(clinicCondition, patientCond));
+      patientTotalCount = Number(patientCountRow?.total ?? 0);
+    }
+
     // Count total matching rows
     const [countRow] = await db.select({ total: count() })
       .from(bookings)
@@ -763,6 +774,8 @@ export class DatabaseStorage implements IStorage {
       }
       if (isPending) stats.totalPendingCount++;
     }
+
+    stats.patientTotalCount = patientTotalCount;
 
     const data = results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
     return { data, total, page: safePage, pageSize, totalPages, stats };
@@ -875,6 +888,16 @@ export class DatabaseStorage implements IStorage {
 
     const whereClause = and(emailCond, clinicCond, combinedFilterCond, searchCond, patientCond);
 
+    // Total bookings for the selected patient, ignoring tab/date/search (used for smart empty states)
+    let patientTotalCount: number | undefined;
+    if (patientId) {
+      const [patientCountRow] = await db.select({ total: count() })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(emailCond, clinicCond, patientCond));
+      patientTotalCount = Number(patientCountRow?.total ?? 0);
+    }
+
     const [countRow] = await db.select({ total: count() })
       .from(bookings)
       .innerJoin(slots, eq(bookings.slotId, slots.id))
@@ -945,6 +968,8 @@ export class DatabaseStorage implements IStorage {
       }
       if (isPending) stats.totalPendingCount++;
     }
+
+    stats.patientTotalCount = patientTotalCount;
 
     const data = results.map(r => ({
       ...this.decryptBooking(r.booking),

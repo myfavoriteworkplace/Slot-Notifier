@@ -372,11 +372,11 @@ export default function BookingsPanel({
 
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
-    activePatientBookingsCount: bookingsTotal,
+    activePatientBookingsCount: bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount ?? 0,
     quickFilter,
     filterDate,
     filterEndDate,
-  }), [activePatientFilter, bookingsTotal, quickFilter, filterDate, filterEndDate]);
+  }), [activePatientFilter, bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount, quickFilter, filterDate, filterEndDate]);
   // ─────────────────────────────────────────────────────────────────────────
 
   const bookingNumber = (booking: BookingWithSlot) => {

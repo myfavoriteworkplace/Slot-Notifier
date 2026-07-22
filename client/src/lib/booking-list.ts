@@ -14,6 +14,7 @@ export interface BookingStats {
   totalAllCount: number;
   totalOwnedCount?: number;
   awaitingApprovalCount?: number;
+  patientTotalCount?: number;
 }
 
 export interface BookingsPagedResponse {
@@ -141,12 +142,14 @@ export function getBookingEmptyStateMeta({
   quickFilter,
   filterDate,
   filterEndDate,
+  clinicName,
 }: {
   activePatientFilter?: { id: number; name: string; patientCode?: string | null } | null;
   activePatientBookingsCount: number;
   quickFilter: string;
   filterDate?: Date;
   filterEndDate?: Date;
+  clinicName?: string;
 }) {
   const patientName = activePatientFilter?.name.split(" ")[0];
   const dateRangeText = filterDate && filterEndDate
@@ -156,23 +159,32 @@ export function getBookingEmptyStateMeta({
     : filterEndDate
     ? `before ${format(filterEndDate, "MMM d")}`
     : "";
+  const clinicSuffix = clinicName ? ` at ${clinicName}` : "";
+  const allBookingsHint = clinicName
+    ? "Try clearing the clinic filter or switching to All Bookings."
+    : "Try switching to All Bookings.";
 
   // Patient + tab + date combinations
   if (activePatientFilter) {
     const hasDate = !!(filterDate || filterEndDate);
+    const tabHint = quickFilter === "all"
+      ? ""
+      : ` Switching to All Bookings will show ${patientName}'s complete schedule${clinicSuffix}.`;
     if (activePatientBookingsCount === 0) {
+      const detail = hasDate
+        ? `${patientName} has no bookings ${dateRangeText}${clinicSuffix}. Clear the date filter or switch to All Bookings.`
+        : `${patientName} has no bookings${clinicSuffix} matching the active tab.${tabHint}`;
       return {
         title: `No bookings found for ${patientName}`,
-        detail: hasDate
-          ? `${patientName} has no bookings ${dateRangeText}. Try clearing the date filter or switching to All Bookings.`
-          : `${patientName} has no bookings matching the active tab. Try switching to All Bookings.`,
+        detail,
       };
     }
+    const detail = hasDate
+      ? `${patientName} has ${activePatientBookingsCount} booking${activePatientBookingsCount === 1 ? "" : "s"}${clinicSuffix}, but none ${dateRangeText}. Try adjusting the date range or tab.`
+      : `${patientName} has ${activePatientBookingsCount} booking${activePatientBookingsCount === 1 ? "" : "s"}${clinicSuffix}, but the active tab filter is hiding them.${tabHint}`;
     return {
       title: `No matching appointments for ${patientName}`,
-      detail: hasDate
-        ? `${patientName} has bookings, but none ${dateRangeText}. Try adjusting the date range or tab.`
-        : `${patientName} has bookings, but the active tab filter is hiding them. Try switching tabs.`,
+      detail,
     };
   }
 
@@ -186,28 +198,46 @@ export function getBookingEmptyStateMeta({
     ? "Nothing scheduled this week"
     : quickFilter === "next-week"
     ? "Nothing booked next week"
+    : quickFilter === "awaiting"
+    ? "No appointments awaiting approval"
+    : quickFilter === "pending-7days"
+    ? "No pending appointments in the next 7 days"
+    : quickFilter === "confirmed-7days"
+    ? "No confirmed appointments in the next 7 days"
+    : quickFilter === "owned"
+    ? "No owned appointments"
     : filterDate || filterEndDate
     ? "No appointments in this range"
     : "No bookings yet";
 
   const detail = quickFilter === "today"
     ? (filterDate || filterEndDate
-        ? `The Today tab only shows today's bookings. The selected date range ${dateRangeText} doesn't overlap with today. Try clearing the date filter or switching to All Bookings.`
-        : "No slots are booked for today. Check Upcoming for future appointments.")
+        ? `The Today tab only shows today's bookings${clinicSuffix}. The selected date range ${dateRangeText} doesn't overlap with today. ${allBookingsHint}`
+        : `No slots are booked for today${clinicSuffix}. Check Upcoming for future appointments.`)
     : quickFilter === "upcoming"
     ? (filterDate || filterEndDate
-        ? `No upcoming appointments ${dateRangeText}. Try clearing the date filter or switching to All Bookings.`
-        : "There are no future appointments. Past bookings may be in the Past filter.")
+        ? `No upcoming appointments ${dateRangeText}${clinicSuffix}. ${allBookingsHint}`
+        : `There are no future appointments${clinicSuffix}. Past bookings may be in the Past filter.`)
     : quickFilter === "past"
     ? (filterDate || filterEndDate
-        ? `No past appointments ${dateRangeText}. Try clearing the date filter or switching to All Bookings.`
-        : "No appointment history yet — your clinic is just getting started!")
+        ? `No past appointments ${dateRangeText}${clinicSuffix}. ${allBookingsHint}`
+        : `No appointment history yet${clinicSuffix} — your clinic is just getting started!`)
     : quickFilter === "this-week"
-    ? "No appointments fall within Mon–Sun of this week. Try Next Week or All Bookings."
+    ? `No appointments fall within Mon–Sun of this week${clinicSuffix}. Try Next Week or All Bookings.`
     : quickFilter === "next-week"
-    ? "No appointments are scheduled for next week yet."
+    ? `No appointments are scheduled for next week${clinicSuffix} yet.`
+    : quickFilter === "awaiting"
+    ? (filterDate || filterEndDate
+        ? `Nothing is awaiting your approval ${dateRangeText}${clinicSuffix}. ${allBookingsHint}`
+        : `You're all caught up${clinicSuffix} — nothing is waiting for your review.`)
+    : quickFilter === "pending-7days"
+    ? `No pending appointments in the next 7 days${clinicSuffix}. Switch to All Bookings to see every pending request.`
+    : quickFilter === "confirmed-7days"
+    ? `No confirmed appointments in the next 7 days${clinicSuffix}. Try Upcoming or All Bookings.`
+    : quickFilter === "owned"
+    ? `No appointments you have accepted${clinicSuffix}. The Awaiting tab shows requests still needing your approval.`
     : filterDate || filterEndDate
-    ? "No bookings fall in the selected date range. Clear the date filter to see all."
+    ? `No bookings fall in the selected date range${clinicSuffix}. Clear the date filter to see all.`
     : "Once patients book a slot, their appointments will appear here.";
 
   return { title, detail };

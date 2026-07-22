@@ -39,7 +39,7 @@ import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave, Patient } from "@shared/schema";
 import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
-import { type BookingsPagedResponse } from "@/lib/booking-list";
+import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
@@ -649,6 +649,15 @@ export default function DoctorDashboard() {
   }
 
   const displayBookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+
+  const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
+    activePatientFilter,
+    activePatientBookingsCount: bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount ?? 0,
+    quickFilter,
+    filterDate,
+    filterEndDate,
+    clinicName: appointmentClinicFilter !== "all" ? doctorClinics.find(c => c.id.toString() === appointmentClinicFilter)?.name : undefined,
+  }), [activePatientFilter, bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount, quickFilter, filterDate, filterEndDate, appointmentClinicFilter, doctorClinics]);
 
   // Visit-number map — when the same patient appears 2+ times in the current list,
   // tag each booking with "Visit #N of M" so staff can tell them apart at a glance.
@@ -1861,34 +1870,27 @@ export default function DoctorDashboard() {
                     <div ref={sentinelRef} className="h-2" />
                   </>
                 ) : (
-                  (() => {
-                    const filterLabel = quickFilter === "today" ? "today" : quickFilter === "upcoming" ? "upcoming" : quickFilter === "this-week" ? "this week" : quickFilter === "next-week" ? "next week" : quickFilter === "awaiting" ? "awaiting approval" : quickFilter === "pending-7days" ? "pending in the next 7 days" : quickFilter === "confirmed-7days" ? "confirmed in the next 7 days" : quickFilter === "owned" ? "owned" : "";
-                    const clinicName = appointmentClinicFilter !== "all" ? doctorClinics.find(c => c.id.toString() === appointmentClinicFilter)?.name : null;
-                    const dateRangeText = filterDate && filterEndDate
-                      ? `between ${format(filterDate, "MMM d")} and ${format(filterEndDate, "MMM d")}`
-                      : filterDate
-                      ? `on ${format(filterDate, "MMM d")}`
-                      : filterEndDate
-                      ? `before ${format(filterEndDate, "MMM d")}`
-                      : "";
-                    const patientName = activePatientFilter?.name;
-                    const parts = [filterLabel, clinicName ? `at ${clinicName}` : null, dateRangeText, patientName ? `for ${patientName}` : null].filter(Boolean);
-                    const suffix = parts.length > 0 ? ` ${parts.join(" · ")}` : "";
-                    const isAwaiting = quickFilter === "awaiting";
-                    return (
-                      <div className="flex flex-col items-center justify-center py-16 gap-3">
-                        <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${isAwaiting ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
-                          {isAwaiting ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
-                        </div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                          {isAwaiting ? `No appointments awaiting approval${suffix}` : `No ${filterLabel || "appointments"} found${suffix}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground/70">
-                          {isAwaiting ? "You're all caught up — nothing waiting for your review." : "Try adjusting your filters"}
-                        </p>
-                      </div>
-                    );
-                  })()
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
+                      {quickFilter === "awaiting" ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {emptyStateMeta.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 max-w-[340px] text-center leading-relaxed">
+                      {emptyStateMeta.detail}
+                    </p>
+                    {(quickFilter !== 'all' || filterDate || filterEndDate || activePatientFilter || appointmentClinicFilter !== 'all') && (
+                      <button
+                        onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); clearDoctorPatientFilter(); setAppointmentClinicFilter('all'); }}
+                        className="mt-1 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors"
+                        data-testid="button-clear-filters-empty"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Clear all filters
+                      </button>
+                    )}
+                  </div>
                 )}
                 </div>
               </div>
