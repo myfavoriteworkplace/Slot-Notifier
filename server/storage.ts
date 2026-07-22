@@ -172,7 +172,7 @@ export interface IStorage {
   getClinicDoctors(clinicId: number): Promise<Doctor[]>;
 
   // Patients
-  getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
+  getPatientsByDoctor(doctorEmail: string, query?: string): Promise<(Patient & { clinic: Clinic })[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
   upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
   upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient>;
@@ -1354,9 +1354,8 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => r.doctor);
   }
 
-  async getPatientsByDoctor(doctorId: number, query?: string): Promise<(Patient & { clinic: Clinic })[]> {
+  async getPatientsByDoctor(doctorEmail: string, query?: string): Promise<(Patient & { clinic: Clinic })[]> {
     const q = (query || "").trim();
-    const doctorCond = eq(patients.doctorId, doctorId);
     const searchCond = q.length >= 2
       ? or(
           ilike(patients.name, `%${q}%`),
@@ -1364,14 +1363,20 @@ export class DatabaseStorage implements IStorage {
           ilike(patients.patientCode, `%${q}%`),
         )
       : undefined;
+    // A doctor's patients are the patients linked to bookings assigned to that doctor.
     const results = await db.select({
       patient: patients,
       clinic: clinics
     })
-    .from(patients)
+    .from(bookings)
+    .innerJoin(patients, eq(bookings.patientId, patients.id))
     .innerJoin(clinics, eq(patients.clinicId, clinics.id))
-    .where(and(doctorCond, searchCond));
-    
+    .where(and(
+      eq(bookings.assignedDoctorEmail, doctorEmail),
+      searchCond,
+    ))
+    .groupBy(patients.id, clinics.id);
+
     return results.map(r => ({ ...r.patient, clinic: r.clinic }));
   }
 

@@ -4213,7 +4213,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const d = await storage.getDoctorByEmail(email);
       if (!d) return res.json([]);
       const q = ((req.query.q as string) || "").trim();
-      const ps = await storage.getPatientsByDoctor(d.id, q.length >= 2 ? q : undefined);
+      const ps = await storage.getPatientsByDoctor(d.email, q.length >= 2 ? q : undefined);
       res.json(ps);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
