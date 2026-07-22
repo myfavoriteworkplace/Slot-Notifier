@@ -247,8 +247,12 @@ export default function BookingsPanel({
   const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
   const dates = useMemo(() => Array.from({ length: 14 }, (_, idx) => addDays(startOfToday(), idx)), []);
 
+  // When a patient is selected the query always fetches "all" so the context
+  // switch is complete — no tab filter stacks on top of the patient filter.
+  const effectiveFilter = activePatientFilter ? 'all' : quickFilter;
+
   const bookingsQueryKey = ['/api/auth/clinic/bookings', {
-    filter: quickFilter,
+    filter: effectiveFilter,
     dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
     dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
     patientId: activePatientFilter?.id,
@@ -266,7 +270,7 @@ export default function BookingsPanel({
   } = useInfiniteQuery<BookingsPagedResponse>({
     queryKey: bookingsQueryKey,
     queryFn: async ({ pageParam }) => {
-      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
+      const params = new URLSearchParams({ filter: effectiveFilter, page: String(pageParam), pageSize: '20' });
       if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
       if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
       if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
@@ -370,206 +374,13 @@ export default function BookingsPanel({
     return [focusBookingData, ...filteredBookings];
   }, [filteredBookings, openBookingId, isFocusBookingInList, focusBookingData]);
 
-  // ── All-patient bookings (independent of quickFilter / date range) ─────────
-  // Fetched once per selected patient so we know their TRUE total across all
-  // tabs. The main query is already tab-filtered (e.g. "upcoming only"), so
-  // bookings.length would be 0 when the patient has no upcoming visits — even
-  // if they have 54 past ones. This separate query avoids that confusion.
-  const { data: allPatientBookingsData } = useQuery<BookingsPagedResponse>({
-    queryKey: ['/api/auth/clinic/bookings', 'patient-all', activePatientFilter?.id],
-    queryFn: async () => {
-      const params = new URLSearchParams({ filter: 'all', page: '1', pageSize: '500' });
-      params.set('patientId', String(activePatientFilter!.id));
-      const res = await apiRequest('GET', `/api/auth/clinic/bookings?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch patient bookings');
-      return res.json();
-    },
-    enabled: !!activePatientFilter && isAuthenticated,
-    staleTime: 5 * 60_000,
-  });
-  const allPatientBookings = useMemo(
-    () => allPatientBookingsData?.data ?? [],
-    [allPatientBookingsData],
-  );
-
-  // Patient time-bucket derivations — use allPatientBookings (full history, filter=all)
-  // so these are accurate regardless of which tab filter is currently active.
-  const patientPastBk = allPatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate < todayStart;
-  });
-  const patientUpcomingBk = allPatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed' && booking.visitStatus !== 'patient_left_early';
-  });
-  const patientTodayBk = allPatientBookings.filter(booking => format(new Date(booking.slot.startTime), 'yyyy-MM-dd') === todayStr);
-  const patientLatestPast = [...patientPastBk].sort((a, b) => new Date(b.slot.startTime).getTime() - new Date(a.slot.startTime).getTime())[0];
-  const patientNearestNext = [...patientUpcomingBk].sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
-  const patientNextWeekBk = allPatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
-  });
-  const patientThisWeekBk = allPatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
-  });
-
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
-    activePatientBookingsCount: allPatientBookings.length,
-    quickFilter,
+    activePatientBookingsCount: bookingsTotal,
+    quickFilter: effectiveFilter,
     filterDate,
     filterEndDate,
-  }), [activePatientFilter, allPatientBookings.length, quickFilter, filterDate, filterEndDate]);
-
-  const patientHint: {
-    color: 'amber' | 'blue' | 'slate';
-    headline: string;
-    detail: string;
-    actions: { label: string; onClick: () => void }[];
-  } | null = (() => {
-    if (!activePatientFilter) return null;
-    if ((filteredBookings?.length ?? 0) > 0) return null;
-
-    const first = activePatientFilter.name.split(' ')[0];
-    const clearAll = () => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); };
-    const bookingCount = allPatientBookings.length;
-
-    if (bookingCount === 0) {
-      return {
-        color: 'slate',
-        headline: `${first} hasn't booked at this clinic yet`,
-        detail: 'This patient is registered but has no appointment history here.',
-        actions: [],
-      };
-    }
-
-    if (quickFilter === 'today') {
-      const actions: { label: string; onClick: () => void }[] = [];
-      if (patientPastBk.length > 0) actions.push({ label: 'View Past Bookings', onClick: () => setQuickFilter('past') });
-      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
-      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
-      const detail = patientLatestPast && patientNearestNext
-        ? `Last visit: ${format(new Date(patientLatestPast.slot.startTime), 'MMM d')} · Next: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d')}`
-        : patientLatestPast
-        ? `Last visit was ${format(new Date(patientLatestPast.slot.startTime), 'MMM d, yyyy')}`
-        : `Next appointment: ${format(new Date(patientNearestNext!.slot.startTime), 'MMM d, yyyy')}`;
-      return { color: 'amber', headline: `${first} has no booking today`, detail, actions };
-    }
-
-    if (quickFilter === 'upcoming') {
-      const actions: { label: string; onClick: () => void }[] = [];
-      if (patientTodayBk.length > 0) actions.push({ label: 'View Today', onClick: () => setQuickFilter('today') });
-      if (patientPastBk.length > 0) actions.push({ label: 'View Past Bookings', onClick: () => setQuickFilter('past') });
-      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
-      const detail = patientLatestPast
-        ? `Last visit was ${format(new Date(patientLatestPast.slot.startTime), 'MMM d, yyyy')}`
-        : 'All their appointments have been completed or cancelled.';
-      return { color: 'amber', headline: `${first} has no upcoming appointments`, detail, actions };
-    }
-
-    if (quickFilter === 'past') {
-      const actions: { label: string; onClick: () => void }[] = [];
-      if (patientTodayBk.length > 0) actions.push({ label: 'View Today', onClick: () => setQuickFilter('today') });
-      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
-      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
-      const detail = patientNearestNext
-        ? `Next appointment: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d, yyyy')}`
-        : `${first} has ${bookingCount} booking(s) but none in the past.`;
-      return { color: 'amber', headline: `${first} has no past appointments`, detail, actions };
-    }
-
-    if (quickFilter === 'this-week') {
-      const actions: { label: string; onClick: () => void }[] = [];
-      if (patientNextWeekBk.length > 0) actions.push({ label: 'Check Next Week', onClick: () => setQuickFilter('next-week') });
-      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
-      else if (patientPastBk.length > 0) actions.push({ label: 'View Past', onClick: () => setQuickFilter('past') });
-      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
-      const detail = patientNextWeekBk.length > 0
-        ? `${first} has ${patientNextWeekBk.length} appointment(s) next week`
-        : patientNearestNext
-        ? `Next appointment: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d, yyyy')}`
-        : patientLatestPast
-        ? `Last visit: ${format(new Date(patientLatestPast.slot.startTime), 'MMM d, yyyy')}`
-        : `${bookingCount} total booking(s) — none fall this week`;
-      return { color: 'amber', headline: `${first} has no appointment this week`, detail, actions };
-    }
-
-    if (quickFilter === 'next-week') {
-      const actions: { label: string; onClick: () => void }[] = [];
-      if (patientThisWeekBk.length > 0) actions.push({ label: 'Check This Week', onClick: () => setQuickFilter('this-week') });
-      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
-      else if (patientPastBk.length > 0) actions.push({ label: 'View Past', onClick: () => setQuickFilter('past') });
-      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
-      const detail = patientThisWeekBk.length > 0
-        ? `${first} has ${patientThisWeekBk.length} appointment(s) this week`
-        : patientNearestNext
-        ? `Next appointment: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d, yyyy')}`
-        : `${bookingCount} total booking(s) — none fall next week`;
-      return { color: 'amber', headline: `${first} has no appointment next week`, detail, actions };
-    }
-
-    if (filterDate) {
-      const rangeLabel = filterEndDate
-        ? `${format(filterDate, 'MMM d')} – ${format(filterEndDate, 'MMM d')}`
-        : format(filterDate, 'MMM d, yyyy');
-      return {
-        color: 'amber',
-        headline: `No appointment for ${first} on ${rangeLabel}`,
-        detail: `${first} has ${bookingCount} total booking(s) at this clinic, but none fall in the selected range.`,
-        actions: [{ label: 'Clear date filter', onClick: () => { setFilterDate(undefined); setFilterEndDate(undefined); } }],
-      };
-    }
-
-    if (quickFilter === 'today-confirmed' && patientTodayBk.length > 0) {
-      return {
-        color: 'blue',
-        headline: `${first} has a booking today but it's not yet confirmed`,
-        detail: 'This view only shows confirmed appointments for today.',
-        actions: [{ label: 'View Today (all statuses)', onClick: () => setQuickFilter('today') }],
-      };
-    }
-
-    if (quickFilter === 'pending-7days') {
-      const hasConfirmedUpcoming = patientUpcomingBk.some(b => b.verificationStatus === 'confirmed' || !!(b as any).confirmedBy);
-      if (hasConfirmedUpcoming) {
-        return {
-          color: 'blue',
-          headline: `${first}'s upcoming bookings are already confirmed`,
-          detail: 'This view shows only unconfirmed bookings in the next 7 days.',
-          actions: [{ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') }],
-        };
-      }
-    }
-
-    if (quickFilter === 'confirmed-7days') {
-      return {
-        color: 'blue',
-        headline: `${first} has no confirmed bookings in the next 7 days`,
-        detail: `They have ${bookingCount} booking(s) total. Some may still be awaiting confirmation.`,
-        actions: [
-          { label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') },
-          { label: 'View All Bookings', onClick: clearAll },
-        ],
-      };
-    }
-
-    if (quickFilter === 'all-pending') {
-      return {
-        color: 'blue',
-        headline: `${first}'s bookings are all confirmed`,
-        detail: 'This view only shows unconfirmed bookings.',
-        actions: [{ label: 'View All Bookings', onClick: clearAll }],
-      };
-    }
-
-    return {
-      color: 'amber',
-      headline: `${first} has ${bookingCount} booking(s) but none match this filter`,
-      detail: 'Clear all filters to see their full appointment history.',
-      actions: [{ label: 'View All Bookings', onClick: clearAll }],
-    };
-  })();
+  }), [activePatientFilter, bookingsTotal, effectiveFilter, filterDate, filterEndDate]);
   // ─────────────────────────────────────────────────────────────────────────
 
   const bookingNumber = (booking: BookingWithSlot) => {
@@ -1029,9 +840,13 @@ export default function BookingsPanel({
           <div className="flex flex-wrap gap-1.5 w-full order-2 sm:contents">
           {/* Today */}
           <button
-            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
+            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
+            disabled={!!activePatientFilter}
+            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              quickFilter === 'today'
+              activePatientFilter
+                ? 'opacity-40 cursor-not-allowed bg-transparent border-sky-400/20 text-muted-foreground'
+                : quickFilter === 'today'
                 ? 'bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400'
                 : 'bg-transparent border-sky-400/30 text-muted-foreground hover:bg-sky-500/10 hover:text-sky-700 dark:hover:text-sky-400'
             }`}
@@ -1042,15 +857,19 @@ export default function BookingsPanel({
               <span className="truncate">Today</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'today' ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400' : 'bg-muted text-muted-foreground'
+              quickFilter === 'today' && !activePatientFilter ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400' : 'bg-muted text-muted-foreground'
             }`}>{todaysBookingsCount}</span>
           </button>
 
           {/* Upcoming */}
           <button
-            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming'); }}
+            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming'); }}
+            disabled={!!activePatientFilter}
+            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              quickFilter === 'upcoming'
+              activePatientFilter
+                ? 'opacity-40 cursor-not-allowed bg-transparent border-primary/20 text-muted-foreground'
+                : quickFilter === 'upcoming'
                 ? 'bg-primary/10 border-primary/40 text-primary'
                 : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
             }`}
@@ -1061,15 +880,19 @@ export default function BookingsPanel({
               <span className="truncate">Upcoming</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'upcoming' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+              quickFilter === 'upcoming' && !activePatientFilter ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{futureBookingsCount}</span>
           </button>
 
           {/* Awaiting Confirmation */}
           <button
-            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'all-pending' ? 'all' : 'all-pending'); }}
+            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'all-pending' ? 'all' : 'all-pending'); }}
+            disabled={!!activePatientFilter}
+            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              quickFilter === 'all-pending'
+              activePatientFilter
+                ? 'opacity-40 cursor-not-allowed bg-transparent border-amber-400/20 text-muted-foreground'
+                : quickFilter === 'all-pending'
                 ? 'bg-amber-500/10 border-amber-400/50 text-amber-700 dark:text-amber-400'
                 : 'bg-transparent border-amber-400/30 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400'
             }`}
@@ -1080,15 +903,19 @@ export default function BookingsPanel({
               <span className="truncate">Awaiting</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'all-pending' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground'
+              quickFilter === 'all-pending' && !activePatientFilter ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground'
             }`}>{bookingStats?.totalPendingCount ?? 0}</span>
           </button>
 
           {/* Past */}
           <button
-            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
+            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
+            disabled={!!activePatientFilter}
+            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              quickFilter === 'past'
+              activePatientFilter
+                ? 'opacity-40 cursor-not-allowed bg-transparent border-slate-400/20 text-muted-foreground'
+                : quickFilter === 'past'
                 ? 'bg-slate-500/10 border-slate-400/40 text-slate-600 dark:text-slate-400'
                 : 'bg-transparent border-slate-400/30 text-muted-foreground hover:bg-slate-500/10 hover:text-slate-600 dark:hover:text-slate-400'
             }`}
@@ -1099,15 +926,19 @@ export default function BookingsPanel({
               <span className="truncate">Past</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'past' ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400' : 'bg-muted text-muted-foreground'
+              quickFilter === 'past' && !activePatientFilter ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400' : 'bg-muted text-muted-foreground'
             }`}>{pastBookingsCount}</span>
           </button>
 
           {/* All Bookings */}
           <button
-            onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
+            onClick={() => { if (activePatientFilter) return; setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
+            disabled={!!activePatientFilter}
+            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              quickFilter === 'all'
+              activePatientFilter
+                ? 'opacity-40 cursor-not-allowed bg-transparent border-primary/20 text-muted-foreground'
+                : quickFilter === 'all'
                 ? 'bg-primary/10 border-primary/40 text-primary'
                 : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
             }`}
@@ -1118,7 +949,7 @@ export default function BookingsPanel({
               <span className="truncate">All Bookings</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+              quickFilter === 'all' && !activePatientFilter ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{bookingStats?.totalAllCount ?? 0}</span>
           </button>
           </div>)}
@@ -1139,7 +970,7 @@ export default function BookingsPanel({
                     </span>
                   )}
                   <span className="text-xs text-muted-foreground/70 shrink-0">
-                    · {allPatientBookings.length} visit{allPatientBookings.length !== 1 ? "s" : ""} total
+                    · {bookingsTotal} visit{bookingsTotal !== 1 ? "s" : ""} total
                   </span>
                 </div>
                 <button
@@ -1770,8 +1601,8 @@ export default function BookingsPanel({
                     <span className="ml-1.5 font-mono text-primary/70">{activePatientFilter.patientCode}</span>
                   )}
                   <span className="text-primary/60 font-normal ml-1.5">
-                    {allPatientBookings.length > 0 && filteredBookings.length < allPatientBookings.length
-                      ? `· Showing ${filteredBookings.length} of ${allPatientBookings.length} visit${allPatientBookings.length !== 1 ? 's' : ''}`
+                    {bookingsTotal > 0 && filteredBookings.length < bookingsTotal
+                      ? `· Showing ${filteredBookings.length} of ${bookingsTotal} visit${bookingsTotal !== 1 ? 's' : ''}`
                       : `· ${filteredBookings.length} visit${filteredBookings.length !== 1 ? 's' : ''} total`
                     }
                   </span>
@@ -1810,74 +1641,15 @@ export default function BookingsPanel({
                   />
                 </div>
 
-                {/* ── Headline + detail — suppressed when patientHint provides richer context ── */}
-                {!patientHint && (
-                  <div className="space-y-1.5 max-w-[280px]">
-                    <p className="text-base font-semibold text-foreground">
-                      {emptyStateMeta.title}
-                    </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {emptyStateMeta.detail}
-                    </p>
-                  </div>
-                )}
-
-                {/* ── Smart patient hint panel ── */}
-                {patientHint && (
-                  <div className={`w-full max-w-sm mx-auto rounded-xl border px-4 py-3 text-left ${
-                    patientHint.color === 'amber'
-                      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
-                      : patientHint.color === 'blue'
-                      ? 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-700'
-                      : 'bg-muted/40 border-border/60'
-                  }`}>
-                    <div className="flex items-start gap-2.5">
-                      <div className={`shrink-0 mt-0.5 ${
-                        patientHint.color === 'amber' ? 'text-amber-600 dark:text-amber-400'
-                        : patientHint.color === 'blue' ? 'text-sky-600 dark:text-sky-400'
-                        : 'text-muted-foreground'
-                      }`}>
-                        <Info className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold leading-snug ${
-                          patientHint.color === 'amber' ? 'text-amber-800 dark:text-amber-200'
-                          : patientHint.color === 'blue' ? 'text-sky-800 dark:text-sky-200'
-                          : 'text-foreground'
-                        }`}>
-                          {patientHint.headline}
-                        </p>
-                        <p className={`text-xs mt-1 leading-relaxed ${
-                          patientHint.color === 'amber' ? 'text-amber-700 dark:text-amber-300'
-                          : patientHint.color === 'blue' ? 'text-sky-700 dark:text-sky-300'
-                          : 'text-muted-foreground'
-                        }`}>
-                          {patientHint.detail}
-                        </p>
-                        {patientHint.actions.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2.5">
-                            {patientHint.actions.map(a => (
-                              <button
-                                key={a.label}
-                                onClick={a.onClick}
-                                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                                  patientHint.color === 'amber'
-                                    ? 'bg-amber-200/80 dark:bg-amber-800/50 text-amber-900 dark:text-amber-100 hover:bg-amber-300/80 dark:hover:bg-amber-700/60'
-                                    : patientHint.color === 'blue'
-                                    ? 'bg-sky-200/80 dark:bg-sky-800/50 text-sky-900 dark:text-sky-100 hover:bg-sky-300/80 dark:hover:bg-sky-700/60'
-                                    : 'bg-muted text-foreground hover:bg-muted/80'
-                                }`}
-                                data-testid={`button-patient-hint-${a.label.replace(/\s+/g, '-').toLowerCase()}`}
-                              >
-                                {a.label} →
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* ── Headline + detail ── */}
+                <div className="space-y-1.5 max-w-[280px]">
+                  <p className="text-base font-semibold text-foreground">
+                    {emptyStateMeta.title}
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {emptyStateMeta.detail}
+                  </p>
+                </div>
 
                 {/* ── Bottom action buttons ── */}
                 <div className="flex flex-wrap justify-center gap-2">
