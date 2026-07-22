@@ -404,79 +404,6 @@ export function AppointmentCard({
 
   const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState && !isVisitCompleted;
 
-  // ── Collapsed summary row (one line per visit when patient filter is active) ──
-  if (isCollapsed) {
-    const relDay = (() => {
-      if (isToday) return (
-        <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 px-1.5 py-px rounded-full shrink-0">Today</span>
-      );
-      const d = differenceInCalendarDays(startTime, new Date());
-      if (d === 1) return (
-        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-1.5 py-px rounded-full shrink-0">Tomorrow</span>
-      );
-      return null;
-    })();
-    const consentSigned = !!(booking as any).consentSignedAt;
-    const consentPending = !!(booking as any).consentToken && !consentSigned;
-    const middleLabel = [
-      treatmentCategory,
-      visitTypeLabel && visitTypeLabel !== treatmentCategory ? visitTypeLabel : null,
-    ].filter(Boolean).join(" · ") || null;
-
-    return (
-      <Card
-        className={`overflow-hidden border-border/50 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/30 transition-all duration-200 cursor-pointer ${cardBorderClass}`}
-        data-testid={`card-booking-${booking.id}-collapsed`}
-        onClick={onToggleCollapse}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onToggleCollapse?.(); }}
-      >
-        <div className={`h-[2px] ${accentBar}`} />
-        <div className="px-3 py-2.5 flex items-center gap-1.5 min-w-0 overflow-hidden">
-          {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
-            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-px rounded-md shrink-0">
-              <Repeat2 className="h-2.5 w-2.5" />{visitNumber}/{totalVisits}
-            </span>
-          )}
-          <span className="text-xs font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
-          {relDay}
-          <span className="text-xs text-muted-foreground shrink-0">{format(startTime, "h:mm a")}</span>
-          <span className="opacity-20 shrink-0">·</span>
-          {middleLabel ? (
-            <span className="text-xs font-semibold text-violet-700 dark:text-violet-400 flex-1 min-w-0 truncate">{middleLabel}</span>
-          ) : (
-            <span className="text-xs text-muted-foreground/40 flex-1 min-w-0">No treatment</span>
-          )}
-          {booking.assignedDoctor && (
-            <span className="text-xs text-muted-foreground/70 shrink-0">· Dr. {booking.assignedDoctor.split(" ")[0]}</span>
-          )}
-          {consentSigned && (
-            <span className="shrink-0 inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-px rounded-md">
-              <ShieldCheck className="h-2.5 w-2.5" />Consent
-            </span>
-          )}
-          {consentPending && (
-            <span className="shrink-0 inline-flex items-center gap-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-px rounded-md">
-              <Clock className="h-2.5 w-2.5" />Consent
-            </span>
-          )}
-          <StatusBadge />
-          {totalBillsCount > 0 && (
-            <span className={`shrink-0 inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-px rounded-md border ${
-              openBillsCount > 0
-                ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
-                : "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
-            }`}>
-              ₹ {openBillsCount > 0 ? "Due" : "Paid"}
-            </span>
-          )}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <Card
       className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
@@ -889,10 +816,10 @@ export function AppointmentCard({
         {/* ── Info Rows ── */}
         <div className="px-3 sm:px-4 py-2 space-y-1.5">
 
-          {/* Date + time — doubles as collapse toggle on mobile for clinic role (or doctor with no clinic name) */}
+          {/* Date + time — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
           <div
             className={`flex items-center gap-2 text-xs min-w-0 overflow-hidden ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
-            onClick={(role === "clinic" || (role === "doctor" && !displayClinicName)) ? (e) => { e.stopPropagation(); setMobileExpanded(v => !v); } : undefined}
+            onClick={(role === "clinic" || (role === "doctor" && !displayClinicName)) ? (e) => { e.stopPropagation(); isCollapsed ? onToggleCollapse?.() : setMobileExpanded(v => !v); } : undefined}
           >
             <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
@@ -922,11 +849,11 @@ export function AppointmentCard({
             )}
           </div>
 
-          {/* Clinic name — doctor view, just under date — doubles as collapse toggle on mobile */}
+          {/* Clinic name — doctor view, just under date — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
           {role === "doctor" && displayClinicName && (
             <div
               className="flex items-center gap-2 text-xs min-w-0 cursor-pointer sm:cursor-default"
-              onClick={(e) => { e.stopPropagation(); setMobileExpanded(v => !v); }}
+              onClick={(e) => { e.stopPropagation(); isCollapsed ? onToggleCollapse?.() : setMobileExpanded(v => !v); }}
             >
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
@@ -939,8 +866,8 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Collapsible detail rows — hidden on mobile until expanded */}
-          <div className={mobileExpanded ? "" : "hidden sm:block"}>
+          {/* Collapsible detail rows — hidden on mobile until expanded, always hidden when collapsed */}
+          <div className={isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")}>
 
           {/* Visit Type */}
           <div className="flex items-center gap-2 text-xs min-w-0">
@@ -1147,8 +1074,8 @@ export function AppointmentCard({
         </div>
       </div>
 
-      {/* Collapsible outer sections — banners, progress strip, footers; hidden on mobile until expanded */}
-      <div className={mobileExpanded ? "" : "hidden sm:block"}>
+      {/* Collapsible outer sections — banners, progress strip, footers; hidden on mobile until expanded, always hidden when collapsed */}
+      <div className={isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")}>
 
       {/* Past-due indicator — slot passed with no action taken */}
       {isPastDue && (
