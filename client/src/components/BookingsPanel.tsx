@@ -433,7 +433,7 @@ export default function BookingsPanel({
 
     const first = activePatientFilter.name.split(' ')[0];
     const clearAll = () => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); };
-    const bookingCount = activePatientBookings.length;
+    const bookingCount = allPatientBookings.length;
 
     if (bookingCount === 0) {
       return {
