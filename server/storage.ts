@@ -631,64 +631,68 @@ export class DatabaseStorage implements IStorage {
 
     const clinicCondition = eq(slots.clinicId, Number(clinicId));
 
-    // Build filter condition based on quick filter or date range
-    let filterCond;
+    // Build filter condition from the active quick-filter tab
+    let filterCond: ReturnType<typeof and> | undefined;
+    switch (filter) {
+      case 'today':
+        filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+        break;
+      case 'upcoming':
+        // Only confirmed appointments from tomorrow onwards.
+        // visitStatus is nullable — isNull guard required (NULL != x → NULL in SQL, not TRUE).
+        filterCond = and(
+          gte(slots.startTime, tomorrowStart),
+          or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
+          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
+        );
+        break;
+      case 'past':
+        filterCond = lt(slots.startTime, todayStart);
+        break;
+      case 'this-week':
+        filterCond = and(gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+        break;
+      case 'next-week':
+        filterCond = and(gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+        break;
+      case 'today-confirmed':
+        filterCond = and(
+          gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd),
+          or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+        );
+        break;
+      case 'pending-7days':
+        filterCond = and(
+          gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+          ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy),
+          ne(bookings.verificationStatus, 'cancelled'),
+        );
+        break;
+      case 'all-pending':
+        filterCond = and(ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy), ne(bookings.verificationStatus, 'cancelled'));
+        break;
+      case 'confirmed-7days':
+        filterCond = and(
+          gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+          or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+        );
+        break;
+      default:
+        filterCond = undefined;
+    }
+
+    // Date range condition — always applied ON TOP OF the active tab filter
+    let dateRangeCond;
     if (dateFrom || dateTo) {
       const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
       const to = dateTo ? endOfDay(new Date(dateTo)) : undefined;
-      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
-      else if (from) filterCond = gte(slots.startTime, from);
-      else if (to) filterCond = lte(slots.startTime, to);
-    } else {
-      switch (filter) {
-        case 'today':
-          filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
-          break;
-        case 'upcoming':
-          // Only confirmed appointments from tomorrow onwards.
-          // visitStatus is nullable — isNull guard required (NULL != x → NULL in SQL, not TRUE).
-          filterCond = and(
-            gte(slots.startTime, tomorrowStart),
-            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
-            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
-            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
-          );
-          break;
-        case 'past':
-          filterCond = lt(slots.startTime, todayStart);
-          break;
-        case 'this-week':
-          filterCond = and(gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
-          break;
-        case 'next-week':
-          filterCond = and(gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
-          break;
-        case 'today-confirmed':
-          filterCond = and(
-            gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd),
-            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
-          );
-          break;
-        case 'pending-7days':
-          filterCond = and(
-            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
-            ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy),
-            ne(bookings.verificationStatus, 'cancelled'),
-          );
-          break;
-        case 'all-pending':
-          filterCond = and(ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy), ne(bookings.verificationStatus, 'cancelled'));
-          break;
-        case 'confirmed-7days':
-          filterCond = and(
-            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
-            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
-          );
-          break;
-        default:
-          filterCond = undefined;
-      }
+      if (from && to) dateRangeCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from) dateRangeCond = gte(slots.startTime, from);
+      else if (to) dateRangeCond = lte(slots.startTime, to);
     }
+
+    const combinedFilterCond = and(filterCond, dateRangeCond);
 
     // Search condition (patient name, phone, email)
     let searchCond;
@@ -700,7 +704,7 @@ export class DatabaseStorage implements IStorage {
     // Patient filter
     const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
 
-    const whereClause = and(clinicCondition, filterCond, searchCond, patientCond);
+    const whereClause = and(clinicCondition, combinedFilterCond, searchCond, patientCond);
 
     // Count total matching rows
     const [countRow] = await db.select({ total: count() })
@@ -765,7 +769,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search, patientId } = params;
 
     const now = new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
@@ -807,63 +811,69 @@ export class DatabaseStorage implements IStorage {
         )
       : undefined;
 
-    let filterCond;
-    if (dateFrom || dateTo) {
-      // Date-range: show ALL assigned bookings in range (no approval filter)
-      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
-      const to   = dateTo   ? endOfDay(new Date(dateTo))     : undefined;
-      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
-      else if (from)  filterCond = and(gte(slots.startTime, from));
-      else            filterCond = and(lte(slots.startTime, to!));
-    } else {
-      switch (filter) {
-        case 'today':
-          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
-          break;
-        case 'upcoming':
-          // Doctor-approved (or admin_confirmed on their behalf), from tomorrow onwards, not terminal.
-          // No verificationStatus requirement — the doctor's own acceptance is sufficient; clinic-patient
-          // notification status is the clinic's concern, not the doctor's.
-          // visitStatus is nullable — isNull guard prevents SQL ne(NULL, x) → NULL silently dropping rows.
-          filterCond = and(
-            approvedCond,
-            gte(slots.startTime, tomorrowStart),
-            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
-            or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
-          );
-          break;
-        case 'past':
-          filterCond = and(approvedCond, lt(slots.startTime, todayStart));
-          break;
-        case 'this-week':
-          filterCond = and(approvedCond, gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
-          break;
-        case 'next-week':
-          filterCond = and(approvedCond, gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
-          break;
-        case 'confirmed-7days':
-          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
-          break;
-        case 'awaiting':
-          filterCond = awaitingCond;
-          break;
-        case 'pending-7days':
-          filterCond = and(awaitingCond, lt(slots.startTime, next7DaysEnd));
-          break;
-        case 'owned':
-          // "All Owned" = appointments the doctor has accepted (approved/admin_confirmed), all dates
-          filterCond = approvedCond;
-          break;
-        case 'all':
-          // "All Bookings" = every booking assigned to this doctor, any approval status
-          filterCond = undefined;
-          break;
-        default:
-          filterCond = approvedCond;
-      }
+    let filterCond: ReturnType<typeof and> | undefined;
+    switch (filter) {
+      case 'today':
+        filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+        break;
+      case 'upcoming':
+        // Doctor-approved (or admin_confirmed on their behalf), from tomorrow onwards, not terminal.
+        // No verificationStatus requirement — the doctor's own acceptance is sufficient; clinic-patient
+        // notification status is the clinic's concern, not the doctor's.
+        // visitStatus is nullable — isNull guard prevents SQL ne(NULL, x) → NULL silently dropping rows.
+        filterCond = and(
+          approvedCond,
+          gte(slots.startTime, tomorrowStart),
+          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
+          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
+        );
+        break;
+      case 'past':
+        filterCond = and(approvedCond, lt(slots.startTime, todayStart));
+        break;
+      case 'this-week':
+        filterCond = and(approvedCond, gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+        break;
+      case 'next-week':
+        filterCond = and(approvedCond, gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+        break;
+      case 'confirmed-7days':
+        filterCond = and(approvedCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
+        break;
+      case 'awaiting':
+        filterCond = awaitingCond;
+        break;
+      case 'pending-7days':
+        filterCond = and(awaitingCond, lt(slots.startTime, next7DaysEnd));
+        break;
+      case 'owned':
+        // "All Owned" = appointments the doctor has accepted (approved/admin_confirmed), all dates
+        filterCond = approvedCond;
+        break;
+      case 'all':
+        // "All Bookings" = every booking assigned to this doctor, any approval status
+        filterCond = undefined;
+        break;
+      default:
+        filterCond = approvedCond;
     }
 
-    const whereClause = and(emailCond, clinicCond, filterCond, searchCond);
+    // Date range condition — always applied ON TOP OF the active tab filter
+    let dateRangeCond;
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
+      const to   = dateTo   ? endOfDay(new Date(dateTo))     : undefined;
+      if (from && to) dateRangeCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from)  dateRangeCond = gte(slots.startTime, from);
+      else            dateRangeCond = lte(slots.startTime, to!);
+    }
+
+    const combinedFilterCond = and(filterCond, dateRangeCond);
+
+    // Patient filter
+    const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
+
+    const whereClause = and(emailCond, clinicCond, combinedFilterCond, searchCond, patientCond);
 
     const [countRow] = await db.select({ total: count() })
       .from(bookings)
@@ -1319,14 +1329,23 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => r.doctor);
   }
 
-  async getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]> {
+  async getPatientsByDoctor(doctorId: number, query?: string): Promise<(Patient & { clinic: Clinic })[]> {
+    const q = (query || "").trim();
+    const doctorCond = eq(patients.doctorId, doctorId);
+    const searchCond = q.length >= 2
+      ? or(
+          ilike(patients.name, `%${q}%`),
+          ilike(patients.phone, `%${q}%`),
+          ilike(patients.patientCode, `%${q}%`),
+        )
+      : undefined;
     const results = await db.select({
       patient: patients,
       clinic: clinics
     })
     .from(patients)
     .innerJoin(clinics, eq(patients.clinicId, clinics.id))
-    .where(eq(patients.doctorId, doctorId));
+    .where(and(doctorCond, searchCond));
     
     return results.map(r => ({ ...r.patient, clinic: r.clinic }));
   }

@@ -36,7 +36,7 @@ import {
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
-import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
+import { Clinic, DoctorCertification, DoctorCase, DoctorLeave, Patient } from "@shared/schema";
 import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
 import { type BookingsPagedResponse } from "@/lib/booking-list";
@@ -105,21 +105,27 @@ export default function DoctorDashboard() {
   const [chipsCollapsed, setChipsCollapsed] = useState(() => window.innerWidth < 640);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
-  const [apptSearch, setApptSearch] = useState("");
-  const [apptSearchInput, setApptSearchInput] = useState("");
   const [searchOpen, setSearchOpen] = useState(true);
-  const apptSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
-    apptSearchDebounceRef.current = setTimeout(() => {
-      setApptSearch(apptSearchInput.trim());
-    }, 300);
-    return () => {
-      if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
-    };
-  }, [apptSearchInput]);
+  const [activePatientFilter, setActivePatientFilter] = useState<{ id: number; name: string; patientCode: string | null } | null>(null);
+  const [patientSearchInput, setPatientSearchInput] = useState("");
+  const [patientSearchFocused, setPatientSearchFocused] = useState(false);
+  const [patientSearchHighlightIdx, setPatientSearchHighlightIdx] = useState(-1);
+  const patientSearchInputRef = useRef<HTMLInputElement>(null);
+
+
+  const applyDoctorPatientFilter = (p: Patient) => {
+    setActivePatientFilter({ id: p.id, name: p.name, patientCode: p.patientCode ?? null });
+    setPatientSearchInput("");
+    setPatientSearchFocused(false);
+    setPatientSearchHighlightIdx(-1);
+  };
+
+  const clearDoctorPatientFilter = () => {
+    setActivePatientFilter(null);
+    setPatientSearchInput("");
+    setPatientSearchHighlightIdx(-1);
+  };
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
@@ -272,12 +278,25 @@ export default function DoctorDashboard() {
     staleTime: 30_000,
   });
 
+  const { data: doctorPatientResults = [] } = useQuery<Patient[]>({
+    queryKey: ["/api/doctor/patients", patientSearchInput.trim()],
+    queryFn: async () => {
+      const q = patientSearchInput.trim();
+      if (q.length < 2) return [];
+      const res = await apiRequest("GET", `/api/doctor/patients?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error("Failed to search patients");
+      return res.json();
+    },
+    enabled: isAuthenticated && activeTab === "appointments" && patientSearchInput.trim().length >= 2 && !activePatientFilter,
+    staleTime: 60_000,
+  });
+
   const bookingsQueryKey = ["/api/auth/clinic/bookings", {
     filter: quickFilter,
     clinicId: appointmentClinicFilter !== "all" ? appointmentClinicFilter : undefined,
     dateFrom: filterDate ? format(filterDate, "yyyy-MM-dd") : undefined,
     dateTo: filterEndDate ? format(filterEndDate, "yyyy-MM-dd") : undefined,
-    search: apptSearch || undefined,
+    patientId: activePatientFilter?.id,
   }];
 
   const {
@@ -293,7 +312,7 @@ export default function DoctorDashboard() {
       if (appointmentClinicFilter !== "all") params.set("clinicId", appointmentClinicFilter);
       if (filterDate) params.set("dateFrom", format(filterDate, "yyyy-MM-dd"));
       if (filterEndDate) params.set("dateTo", format(filterEndDate, "yyyy-MM-dd"));
-      if (apptSearch) params.set("search", apptSearch);
+      if (activePatientFilter) params.set("patientId", String(activePatientFilter.id));
       const res = await apiRequest("GET", `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) return { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1, stats: { todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0, thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0, totalPendingCount: 0, totalAllCount: 0, awaitingApprovalCount: 0 } };
@@ -1306,44 +1325,139 @@ export default function DoctorDashboard() {
 
                 {/* Patient search — collapsed magnifier or expanded input */}
                 {searchOpen ? (
-                  <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all flex-1 min-w-[160px]">
-                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={apptSearchInput}
-                      onChange={(e) => setApptSearchInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') {
-                          setApptSearchInput("");
-                          setApptSearch("");
-                          setSearchOpen(false);
-                          searchInputRef.current?.blur();
-                        }
-                      }}
-                      placeholder="Search by patient name, phone or email…"
-                      className="flex-1 min-w-0 bg-transparent text-xs text-foreground outline-none border-none focus:ring-0 h-5 leading-none"
-                      data-testid="input-appointment-search"
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setApptSearchInput("");
-                        setApptSearch("");
-                        setSearchOpen(false);
-                      }}
-                      className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                      title="Close search"
-                      data-testid="button-clear-appointment-search"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
+                  activePatientFilter ? (
+                    <div className="flex items-center gap-2.5 bg-card border border-primary/40 rounded-xl px-3 min-h-[44px] shadow-sm ring-1 ring-primary/10 flex-1 min-w-[160px]">
+                      <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                        <User className="h-3 w-3 text-primary" />
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-foreground truncate">{activePatientFilter.name}</span>
+                        {activePatientFilter.patientCode && (
+                          <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md leading-none shrink-0">
+                            {activePatientFilter.patientCode}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); clearDoctorPatientFilter(); }}
+                        className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Clear patient filter"
+                        data-testid="button-clear-appointment-search"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative flex-1 min-w-[160px]">
+                      <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all">
+                        <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <input
+                          ref={patientSearchInputRef}
+                          type="text"
+                          value={patientSearchInput}
+                          onChange={(e) => setPatientSearchInput(e.target.value)}
+                          onFocus={() => setPatientSearchFocused(true)}
+                          onBlur={() => setTimeout(() => setPatientSearchFocused(false), 150)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setPatientSearchHighlightIdx(i => Math.min(i + 1, doctorPatientResults.length - 1));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
+                            } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && doctorPatientResults[patientSearchHighlightIdx]) {
+                              e.preventDefault();
+                              applyDoctorPatientFilter(doctorPatientResults[patientSearchHighlightIdx]);
+                            } else if (e.key === 'Escape') {
+                              setPatientSearchInput("");
+                              setPatientSearchFocused(false);
+                              setSearchOpen(false);
+                              patientSearchInputRef.current?.blur();
+                            }
+                          }}
+                          placeholder="Search patient — name, PAT code or phone…"
+                          className="flex-1 min-w-0 bg-transparent text-xs text-foreground outline-none border-none focus:ring-0 h-5 leading-none"
+                          data-testid="input-appointment-search"
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setPatientSearchInput("");
+                            setPatientSearchFocused(false);
+                            setSearchOpen(false);
+                          }}
+                          className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                          title="Close search"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      {/* Dropdown results */}
+                      {patientSearchFocused && !activePatientFilter && (
+                        <>
+                          {doctorPatientResults.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl overflow-hidden">
+                              {doctorPatientResults.map((p, i) => (
+                                <button
+                                  key={p.id}
+                                  onMouseDown={(e) => { e.preventDefault(); applyDoctorPatientFilter(p); }}
+                                  onMouseEnter={() => setPatientSearchHighlightIdx(i)}
+                                  className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors border-b border-border/30 last:border-0 ${
+                                    i === patientSearchHighlightIdx ? 'bg-primary/10' : 'hover:bg-muted/60'
+                                  }`}
+                                  data-testid={`result-patient-${p.id}`}
+                                >
+                                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-xs text-primary">
+                                    {p.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-xs font-semibold text-foreground">{p.name}</span>
+                                      {p.patientCode && (
+                                        <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1 py-0.5 rounded-md leading-none">
+                                          {p.patientCode}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      {p.phone && (
+                                        <span className="text-xs text-muted-foreground">
+                                          ••••• {p.phone.slice(-4)}
+                                        </span>
+                                      )}
+                                      {p.phone && p.email && <span className="text-muted-foreground/30">·</span>}
+                                      {p.email && (
+                                        <span className="text-xs text-muted-foreground truncate max-w-[160px]">{p.email}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {(p as any).visitCount > 0 && (
+                                    <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0 tabular-nums">
+                                      {(p as any).visitCount}v
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {patientSearchInput.trim().length >= 2 && doctorPatientResults.length === 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl px-4 py-3.5 text-center">
+                              <p className="text-xs text-muted-foreground">
+                                No patients found for{" "}
+                                <span className="font-semibold text-foreground">"{patientSearchInput.trim()}"</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground/60 mt-0.5">Try a different name, phone or PAT code</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
                 ) : (
                   <button
-                    onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+                    onClick={() => { setSearchOpen(true); setTimeout(() => patientSearchInputRef.current?.focus(), 50); }}
                     className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
                     data-testid="button-open-appointment-search"
                     title="Search patient"
@@ -1409,7 +1523,7 @@ export default function DoctorDashboard() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                        <CalendarPicker mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
+                        <CalendarPicker mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} initialFocus />
                       </PopoverContent>
                     </Popover>
 
@@ -1434,7 +1548,7 @@ export default function DoctorDashboard() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                        <CalendarPicker mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
+                        <CalendarPicker mode="single" selected={filterEndDate} onSelect={(d) => setFilterEndDate(d)} initialFocus />
                       </PopoverContent>
                     </Popover>
 
@@ -1747,17 +1861,34 @@ export default function DoctorDashboard() {
                     <div ref={sentinelRef} className="h-2" />
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
-                      {quickFilter === "awaiting" ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
-                    </div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {quickFilter === "awaiting" ? "No appointments awaiting approval" : "No appointments found"}
-                    </p>
-                    <p className="text-xs text-muted-foreground/70">
-                      {quickFilter === "awaiting" ? "You're all caught up — nothing waiting for your review." : "Try adjusting your filters"}
-                    </p>
-                  </div>
+                  (() => {
+                    const filterLabel = quickFilter === "today" ? "today" : quickFilter === "upcoming" ? "upcoming" : quickFilter === "this-week" ? "this week" : quickFilter === "next-week" ? "next week" : quickFilter === "awaiting" ? "awaiting approval" : quickFilter === "pending-7days" ? "pending in the next 7 days" : quickFilter === "confirmed-7days" ? "confirmed in the next 7 days" : quickFilter === "owned" ? "owned" : "";
+                    const clinicName = appointmentClinicFilter !== "all" ? doctorClinics.find(c => c.id.toString() === appointmentClinicFilter)?.name : null;
+                    const dateRangeText = filterDate && filterEndDate
+                      ? `between ${format(filterDate, "MMM d")} and ${format(filterEndDate, "MMM d")}`
+                      : filterDate
+                      ? `on ${format(filterDate, "MMM d")}`
+                      : filterEndDate
+                      ? `before ${format(filterEndDate, "MMM d")}`
+                      : "";
+                    const patientName = activePatientFilter?.name;
+                    const parts = [filterLabel, clinicName ? `at ${clinicName}` : null, dateRangeText, patientName ? `for ${patientName}` : null].filter(Boolean);
+                    const suffix = parts.length > 0 ? ` ${parts.join(" · ")}` : "";
+                    const isAwaiting = quickFilter === "awaiting";
+                    return (
+                      <div className="flex flex-col items-center justify-center py-16 gap-3">
+                        <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${isAwaiting ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
+                          {isAwaiting ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
+                        </div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {isAwaiting ? `No appointments awaiting approval${suffix}` : `No ${filterLabel || "appointments"} found${suffix}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground/70">
+                          {isAwaiting ? "You're all caught up — nothing waiting for your review." : "Try adjusting your filters"}
+                        </p>
+                      </div>
+                    );
+                  })()
                 )}
                 </div>
               </div>

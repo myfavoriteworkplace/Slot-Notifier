@@ -148,14 +148,31 @@ export function getBookingEmptyStateMeta({
   filterDate?: Date;
   filterEndDate?: Date;
 }) {
+  const patientName = activePatientFilter?.name.split(" ")[0];
+  const dateRangeText = filterDate && filterEndDate
+    ? `between ${format(filterDate, "MMM d")} and ${format(filterEndDate, "MMM d")}`
+    : filterDate
+    ? `on ${format(filterDate, "MMM d")}`
+    : filterEndDate
+    ? `before ${format(filterEndDate, "MMM d")}`
+    : "";
+
+  // Patient + tab + date combinations
   if (activePatientFilter) {
+    const hasDate = !!(filterDate || filterEndDate);
+    if (activePatientBookingsCount === 0) {
+      return {
+        title: `No bookings found for ${patientName}`,
+        detail: hasDate
+          ? `${patientName} has no bookings ${dateRangeText}. Try clearing the date filter or switching to All Bookings.`
+          : `${patientName} has no bookings matching the active tab. Try switching to All Bookings.`,
+      };
+    }
     return {
-      title: activePatientBookingsCount === 0
-        ? `${activePatientFilter.name.split(" ")[0]} has no bookings here`
-        : "No matching appointments",
-      detail: activePatientBookingsCount === 0
-        ? "This patient is registered but hasn't booked here yet."
-        : "Their appointments exist — the active filter is hiding them.",
+      title: `No matching appointments for ${patientName}`,
+      detail: hasDate
+        ? `${patientName} has bookings, but none ${dateRangeText}. Try adjusting the date range or tab.`
+        : `${patientName} has bookings, but the active tab filter is hiding them. Try switching tabs.`,
     };
   }
 
@@ -174,11 +191,17 @@ export function getBookingEmptyStateMeta({
     : "No bookings yet";
 
   const detail = quickFilter === "today"
-    ? "No slots are booked for today. Check Upcoming for future appointments."
+    ? (filterDate || filterEndDate
+        ? `The Today tab only shows today's bookings. The selected date range ${dateRangeText} doesn't overlap with today. Try clearing the date filter or switching to All Bookings.`
+        : "No slots are booked for today. Check Upcoming for future appointments.")
     : quickFilter === "upcoming"
-    ? "There are no future appointments. Past bookings may be in the Past filter."
+    ? (filterDate || filterEndDate
+        ? `No upcoming appointments ${dateRangeText}. Try clearing the date filter or switching to All Bookings.`
+        : "There are no future appointments. Past bookings may be in the Past filter.")
     : quickFilter === "past"
-    ? "No appointment history yet — your clinic is just getting started!"
+    ? (filterDate || filterEndDate
+        ? `No past appointments ${dateRangeText}. Try clearing the date filter or switching to All Bookings.`
+        : "No appointment history yet — your clinic is just getting started!")
     : quickFilter === "this-week"
     ? "No appointments fall within Mon–Sun of this week. Try Next Week or All Bookings."
     : quickFilter === "next-week"

@@ -2902,6 +2902,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           dateTo:   z.string().optional(),
           clinicId: z.coerce.number().optional(),
           search:   z.string().optional(),
+          patientId: z.coerce.number().optional(),
         }).safeParse(req.query);
         if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
         const paged = await storage.getDoctorBookingsPaged(email, parseResult.data);
@@ -4211,7 +4212,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const email = sess.doctorEmail;
       const d = await storage.getDoctorByEmail(email);
       if (!d) return res.json([]);
-      const ps = await storage.getPatientsByDoctor(d.id);
+      const q = ((req.query.q as string) || "").trim();
+      const ps = await storage.getPatientsByDoctor(d.id, q.length >= 2 ? q : undefined);
       res.json(ps);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

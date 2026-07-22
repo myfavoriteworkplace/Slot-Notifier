@@ -72,7 +72,7 @@ import {
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
-import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, type BookingsPagedResponse } from "@/lib/booking-list";
+import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
 function BookingCardSkeleton() {
@@ -247,12 +247,8 @@ export default function BookingsPanel({
   const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
   const dates = useMemo(() => Array.from({ length: 14 }, (_, idx) => addDays(startOfToday(), idx)), []);
 
-  // When a patient is selected the query always fetches "all" so the context
-  // switch is complete — no tab filter stacks on top of the patient filter.
-  const effectiveFilter = activePatientFilter ? 'all' : quickFilter;
-
   const bookingsQueryKey = ['/api/auth/clinic/bookings', {
-    filter: effectiveFilter,
+    filter: quickFilter,
     dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
     dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
     patientId: activePatientFilter?.id,
@@ -270,7 +266,7 @@ export default function BookingsPanel({
   } = useInfiniteQuery<BookingsPagedResponse>({
     queryKey: bookingsQueryKey,
     queryFn: async ({ pageParam }) => {
-      const params = new URLSearchParams({ filter: effectiveFilter, page: String(pageParam), pageSize: '20' });
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
       if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
       if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
       if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
@@ -377,10 +373,10 @@ export default function BookingsPanel({
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
     activePatientBookingsCount: bookingsTotal,
-    quickFilter: effectiveFilter,
+    quickFilter,
     filterDate,
     filterEndDate,
-  }), [activePatientFilter, bookingsTotal, effectiveFilter, filterDate, filterEndDate]);
+  }), [activePatientFilter, bookingsTotal, quickFilter, filterDate, filterEndDate]);
   // ─────────────────────────────────────────────────────────────────────────
 
   const bookingNumber = (booking: BookingWithSlot) => {
@@ -840,13 +836,9 @@ export default function BookingsPanel({
           <div className="flex flex-wrap gap-1.5 w-full order-2 sm:contents">
           {/* Today */}
           <button
-            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
-            disabled={!!activePatientFilter}
-            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              activePatientFilter
-                ? 'opacity-40 cursor-not-allowed bg-transparent border-sky-400/20 text-muted-foreground'
-                : quickFilter === 'today'
+              quickFilter === 'today'
                 ? 'bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400'
                 : 'bg-transparent border-sky-400/30 text-muted-foreground hover:bg-sky-500/10 hover:text-sky-700 dark:hover:text-sky-400'
             }`}
@@ -857,19 +849,15 @@ export default function BookingsPanel({
               <span className="truncate">Today</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'today' && !activePatientFilter ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400' : 'bg-muted text-muted-foreground'
+              quickFilter === 'today' ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400' : 'bg-muted text-muted-foreground'
             }`}>{todaysBookingsCount}</span>
           </button>
 
           {/* Upcoming */}
           <button
-            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming'); }}
-            disabled={!!activePatientFilter}
-            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming'); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              activePatientFilter
-                ? 'opacity-40 cursor-not-allowed bg-transparent border-primary/20 text-muted-foreground'
-                : quickFilter === 'upcoming'
+              quickFilter === 'upcoming'
                 ? 'bg-primary/10 border-primary/40 text-primary'
                 : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
             }`}
@@ -880,19 +868,15 @@ export default function BookingsPanel({
               <span className="truncate">Upcoming</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'upcoming' && !activePatientFilter ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+              quickFilter === 'upcoming' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{futureBookingsCount}</span>
           </button>
 
           {/* Awaiting Confirmation */}
           <button
-            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'all-pending' ? 'all' : 'all-pending'); }}
-            disabled={!!activePatientFilter}
-            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'all-pending' ? 'all' : 'all-pending'); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              activePatientFilter
-                ? 'opacity-40 cursor-not-allowed bg-transparent border-amber-400/20 text-muted-foreground'
-                : quickFilter === 'all-pending'
+              quickFilter === 'all-pending'
                 ? 'bg-amber-500/10 border-amber-400/50 text-amber-700 dark:text-amber-400'
                 : 'bg-transparent border-amber-400/30 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400'
             }`}
@@ -903,19 +887,15 @@ export default function BookingsPanel({
               <span className="truncate">Awaiting</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'all-pending' && !activePatientFilter ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground'
+              quickFilter === 'all-pending' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground'
             }`}>{bookingStats?.totalPendingCount ?? 0}</span>
           </button>
 
           {/* Past */}
           <button
-            onClick={() => { if (activePatientFilter) return; setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
-            disabled={!!activePatientFilter}
-            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              activePatientFilter
-                ? 'opacity-40 cursor-not-allowed bg-transparent border-slate-400/20 text-muted-foreground'
-                : quickFilter === 'past'
+              quickFilter === 'past'
                 ? 'bg-slate-500/10 border-slate-400/40 text-slate-600 dark:text-slate-400'
                 : 'bg-transparent border-slate-400/30 text-muted-foreground hover:bg-slate-500/10 hover:text-slate-600 dark:hover:text-slate-400'
             }`}
@@ -926,19 +906,15 @@ export default function BookingsPanel({
               <span className="truncate">Past</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'past' && !activePatientFilter ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400' : 'bg-muted text-muted-foreground'
+              quickFilter === 'past' ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400' : 'bg-muted text-muted-foreground'
             }`}>{pastBookingsCount}</span>
           </button>
 
           {/* All Bookings */}
           <button
-            onClick={() => { if (activePatientFilter) return; setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
-            disabled={!!activePatientFilter}
-            title={activePatientFilter ? `Viewing all visits for ${activePatientFilter.name} · Clear patient to use tabs` : undefined}
+            onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
-              activePatientFilter
-                ? 'opacity-40 cursor-not-allowed bg-transparent border-primary/20 text-muted-foreground'
-                : quickFilter === 'all'
+              quickFilter === 'all'
                 ? 'bg-primary/10 border-primary/40 text-primary'
                 : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
             }`}
@@ -949,7 +925,7 @@ export default function BookingsPanel({
               <span className="truncate">All Bookings</span>
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'all' && !activePatientFilter ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+              quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{bookingStats?.totalAllCount ?? 0}</span>
           </button>
           </div>)}
@@ -1216,7 +1192,7 @@ export default function BookingsPanel({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                  <Calendar mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
+                  <Calendar mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} initialFocus />
                 </PopoverContent>
               </Popover>
 
@@ -1241,7 +1217,7 @@ export default function BookingsPanel({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                  <Calendar mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
+                  <Calendar mode="single" selected={filterEndDate} onSelect={(d) => setFilterEndDate(d)} initialFocus />
                 </PopoverContent>
               </Popover>
 
