@@ -318,32 +318,6 @@ export default function BookingsPanel({
   const thisWeekCount       = bookingStats?.thisWeekCount ?? 0;
   const nextWeekCount       = bookingStats?.nextWeekCount ?? 0;
 
-  // Patient-context bookings for smart empty-state hints
-  // When a patient filter is active, `bookings` already only contains that patient's bookings
-  const activePatientBookings = activePatientFilter && bookings ? bookings : [];
-
-  const patientPastBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate < todayStart;
-  });
-
-  const patientUpcomingBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed' && booking.visitStatus !== 'patient_left_early';
-  });
-
-  const patientTodayBk = activePatientBookings.filter(booking => format(new Date(booking.slot.startTime), 'yyyy-MM-dd') === todayStr);
-  const patientLatestPast = [...patientPastBk].sort((a, b) => new Date(b.slot.startTime).getTime() - new Date(a.slot.startTime).getTime())[0];
-  const patientNearestNext = [...patientUpcomingBk].sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
-  const patientNextWeekBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
-  });
-  const patientThisWeekBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
-  });
-
   const filteredBookings = bookings;
 
   // Visit-number map — computed only when a patient filter is active.
@@ -396,13 +370,57 @@ export default function BookingsPanel({
     return [focusBookingData, ...filteredBookings];
   }, [filteredBookings, openBookingId, isFocusBookingInList, focusBookingData]);
 
+  // ── All-patient bookings (independent of quickFilter / date range) ─────────
+  // Fetched once per selected patient so we know their TRUE total across all
+  // tabs. The main query is already tab-filtered (e.g. "upcoming only"), so
+  // bookings.length would be 0 when the patient has no upcoming visits — even
+  // if they have 54 past ones. This separate query avoids that confusion.
+  const { data: allPatientBookingsData } = useQuery<BookingsPagedResponse>({
+    queryKey: ['/api/auth/clinic/bookings', 'patient-all', activePatientFilter?.id],
+    queryFn: async () => {
+      const params = new URLSearchParams({ filter: 'all', page: '1', pageSize: '500' });
+      params.set('patientId', String(activePatientFilter!.id));
+      const res = await apiRequest('GET', `/api/auth/clinic/bookings?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch patient bookings');
+      return res.json();
+    },
+    enabled: !!activePatientFilter && isAuthenticated,
+    staleTime: 5 * 60_000,
+  });
+  const allPatientBookings = useMemo(
+    () => allPatientBookingsData?.data ?? [],
+    [allPatientBookingsData],
+  );
+
+  // Patient time-bucket derivations — use allPatientBookings (full history, filter=all)
+  // so these are accurate regardless of which tab filter is currently active.
+  const patientPastBk = allPatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate < todayStart;
+  });
+  const patientUpcomingBk = allPatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed' && booking.visitStatus !== 'patient_left_early';
+  });
+  const patientTodayBk = allPatientBookings.filter(booking => format(new Date(booking.slot.startTime), 'yyyy-MM-dd') === todayStr);
+  const patientLatestPast = [...patientPastBk].sort((a, b) => new Date(b.slot.startTime).getTime() - new Date(a.slot.startTime).getTime())[0];
+  const patientNearestNext = [...patientUpcomingBk].sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
+  const patientNextWeekBk = allPatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
+  });
+  const patientThisWeekBk = allPatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
+  });
+
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
-    activePatientBookingsCount: activePatientBookings.length,
+    activePatientBookingsCount: allPatientBookings.length,
     quickFilter,
     filterDate,
     filterEndDate,
-  }), [activePatientFilter, activePatientBookings.length, quickFilter, filterDate, filterEndDate]);
+  }), [activePatientFilter, allPatientBookings.length, quickFilter, filterDate, filterEndDate]);
 
   const patientHint: {
     color: 'amber' | 'blue' | 'slate';
@@ -1121,7 +1139,7 @@ export default function BookingsPanel({
                     </span>
                   )}
                   <span className="text-xs text-muted-foreground/70 shrink-0">
-                    · {filteredBookings?.length ?? 0} booking{(filteredBookings?.length ?? 0) !== 1 ? "s" : ""}
+                    · {allPatientBookings.length} visit{allPatientBookings.length !== 1 ? "s" : ""} total
                   </span>
                 </div>
                 <button
@@ -1734,6 +1752,15 @@ export default function BookingsPanel({
         ) : (
           <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Date-only filter results count — shown when a date/week range is active but no patient is selected */}
+            {!activePatientFilter && (filterDate || filterEndDate || (quickFilter !== 'all' && quickFilter !== 'today' && quickFilter !== 'upcoming' && quickFilter !== 'past')) && bookingsForDialog.length > 0 && (
+              <div className="col-span-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground" data-testid="filter-results-count">
+                <Filter className="h-3 w-3 shrink-0" />
+                Showing {bookingsForDialog.length} result{bookingsForDialog.length !== 1 ? 's' : ''}
+                {filterDate && !filterEndDate && ` for ${format(filterDate, 'MMM d, yyyy')}`}
+                {filterDate && filterEndDate && ` for ${format(filterDate, 'MMM d')} – ${format(filterEndDate, 'MMM d, yyyy')}`}
+              </div>
+            )}
             {activePatientFilter && bookingsForDialog.length > 0 && (
               <div className="col-span-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-primary/5 border border-primary/15" data-testid="patient-filter-banner">
                 <Users className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -1743,7 +1770,10 @@ export default function BookingsPanel({
                     <span className="ml-1.5 font-mono text-primary/70">{activePatientFilter.patientCode}</span>
                   )}
                   <span className="text-primary/60 font-normal ml-1.5">
-                    · {filteredBookings.length} visit{filteredBookings.length !== 1 ? 's' : ''} at this clinic
+                    {allPatientBookings.length > 0 && filteredBookings.length < allPatientBookings.length
+                      ? `· Showing ${filteredBookings.length} of ${allPatientBookings.length} visit${allPatientBookings.length !== 1 ? 's' : ''}`
+                      : `· ${filteredBookings.length} visit${filteredBookings.length !== 1 ? 's' : ''} total`
+                    }
                   </span>
                 </span>
                 {filteredBookings.length >= 2 && (
@@ -1780,15 +1810,17 @@ export default function BookingsPanel({
                   />
                 </div>
 
-                {/* ── Headline + detail — context-aware per filter ── */}
-                <div className="space-y-1.5 max-w-[280px]">
-                  <p className="text-base font-semibold text-foreground">
-                    {emptyStateMeta.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {emptyStateMeta.detail}
-                  </p>
-                </div>
+                {/* ── Headline + detail — suppressed when patientHint provides richer context ── */}
+                {!patientHint && (
+                  <div className="space-y-1.5 max-w-[280px]">
+                    <p className="text-base font-semibold text-foreground">
+                      {emptyStateMeta.title}
+                    </p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {emptyStateMeta.detail}
+                    </p>
+                  </div>
+                )}
 
                 {/* ── Smart patient hint panel ── */}
                 {patientHint && (
