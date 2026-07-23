@@ -72,7 +72,7 @@ import {
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
-import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, type BookingsPagedResponse } from "@/lib/booking-list";
+import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
 function BookingCardSkeleton() {
@@ -1655,10 +1655,10 @@ export default function BookingsPanel({
               </div>
             ) : (
               (() => {
-                const isGrouped = quickFilter === 'all' && !filterDate;
+                // Group into Future/Today and Past for mixed-date filters (no date override applied)
+                const isGrouped = (quickFilter === 'all' || quickFilter === 'all-pending') && !filterDate && !filterEndDate;
                 const groupConfig = [
-                  { label: 'Pending', textColor: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800' },
-                  { label: 'Upcoming', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
+                  { label: 'Future / Today', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
                   { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
                 ];
                 let lastGroup = -1;
@@ -1725,7 +1725,7 @@ export default function BookingsPanel({
                   : [];
 
                 const isPending = !isConfirmed && !isBookingPast;
-                const group = isGrouped ? statusGroup(booking) : -1;
+                const group = isGrouped ? getTimeGroup(booking, todayStart) : -1;
                 const showDivider = isGrouped && group !== lastGroup;
                 const actionState = getActionState(booking);
                 if (isGrouped) lastGroup = group;
@@ -1736,7 +1736,7 @@ export default function BookingsPanel({
                       <div className="h-px flex-1 bg-border/50" />
                       <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
                         {groupCfg.label}
-                        <span className="font-black opacity-70">— {filteredBookings?.filter(b => statusGroup(b) === group).length ?? 0}</span>
+                        <span className="font-black opacity-70">— {filteredBookings?.filter(b => getTimeGroup(b, todayStart) === group).length ?? 0}</span>
                       </span>
                       <div className="h-px flex-1 bg-border/50" />
                       <button

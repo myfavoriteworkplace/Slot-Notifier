@@ -727,7 +727,18 @@ export class DatabaseStorage implements IStorage {
     const safePage = Math.min(page, totalPages);
     const offset = (safePage - 1) * pageSize;
 
-    // Fetch paginated data
+    // Fetch paginated data — order depends on the active filter:
+    //   all / all-pending : future/today first (group 0), then past (group 1);
+    //                        ascending by startTime within each group
+    //   past              : most-recent past first (descending)
+    //   all others        : ascending by startTime (closest slot first)
+    const clinicOrderBy: any[] =
+      (filter === 'all' || filter === 'all-pending')
+        ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`, asc(slots.startTime), asc(bookings.id)]
+        : filter === 'past'
+        ? [desc(slots.startTime), desc(bookings.id)]
+        : [asc(slots.startTime), asc(bookings.id)];
+
     const results = await db.select({
       booking: bookings,
       slot: slots,
@@ -737,7 +748,7 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(whereClause)
-    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .orderBy(...clinicOrderBy)
     .limit(pageSize)
     .offset(offset);
 
@@ -907,6 +918,15 @@ export class DatabaseStorage implements IStorage {
     const safePage = Math.min(page, totalPages);
     const offset = (safePage - 1) * pageSize;
 
+    // Order depends on filter: mixed (all/owned): future/today first then past;
+    // past: most-recent first (descending); awaiting/today/upcoming/others: ascending
+    const doctorOrderBy: any[] =
+      (filter === 'all' || filter === 'owned')
+        ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`, asc(slots.startTime), asc(bookings.id)]
+        : filter === 'past'
+        ? [desc(slots.startTime), desc(bookings.id)]
+        : [asc(slots.startTime), asc(bookings.id)];
+
     const results = await db.select({
       booking: bookings,
       slot: slots,
@@ -918,7 +938,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(clinics, eq(slots.clinicId, clinics.id))
     .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(whereClause)
-    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .orderBy(...doctorOrderBy)
     .limit(pageSize)
     .offset(offset);
 

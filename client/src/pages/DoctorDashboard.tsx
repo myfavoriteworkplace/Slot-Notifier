@@ -1763,7 +1763,15 @@ export default function DoctorDashboard() {
                       </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                      {displayBookings.map((booking: any) => {
+                      {(() => {
+                      // Group into Future/Today (0) and Past (1) for mixed-date filters
+                      const isGrouped = (quickFilter === 'all' || quickFilter === 'awaiting' || quickFilter === 'owned') && !filterDate && !filterEndDate;
+                      const drGroupConfig = [
+                        { label: 'Future / Today', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
+                        { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
+                      ];
+                      let drLastGroup = -1;
+                      return displayBookings.flatMap((booking: any) => {
                       const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
                       const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
                       const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
@@ -1803,7 +1811,27 @@ export default function DoctorDashboard() {
                         : isApptConfirmed
                         ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
                         : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
-                      return (
+                      // Determine which time group this card belongs to and whether to show a divider
+                      const drGroup = isGrouped ? (isApptPast ? 1 : 0) : -1;
+                      const drShowDivider = isGrouped && drGroup !== drLastGroup;
+                      if (isGrouped) drLastGroup = drGroup;
+                      const drGroupCfg = drGroupConfig[Math.max(0, drGroup)];
+                      return [
+                        drShowDivider ? (
+                          <div key={`divider-drgroup-${drGroup}`} className="col-span-full flex items-center gap-2 mb-1">
+                            <div className="h-px flex-1 bg-border/50" />
+                            <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${drGroupCfg.textColor} ${drGroupCfg.bg} ${drGroupCfg.border}`}>
+                              {drGroupCfg.label}
+                              <span className="font-black opacity-70">— {displayBookings.filter((b: any) => {
+                                const bt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+                                const bStr = bt ? bt.toISOString().split("T")[0] : "";
+                                const bIsToday = bStr === todayStr;
+                                return (bt && bt < todayStart && !bIsToday ? 1 : 0) === drGroup;
+                              }).length}</span>
+                            </span>
+                            <div className="h-px flex-1 bg-border/50" />
+                          </div>
+                        ) : null,
                         <AppointmentCard
                           key={booking.id}
                           role="doctor"
@@ -1838,9 +1866,10 @@ export default function DoctorDashboard() {
                           completeVisitPending={completeVisitMutation.isPending}
                           onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
                           consentRequestPending={requestConsentMutation.isPending}
-                        />
-                      );
-                    })}
+                        />,
+                      ];
+                    });
+                    })()}
                     </div>
                     {isFetchingNextPage && (
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">

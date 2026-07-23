@@ -49,6 +49,18 @@ function getStatusGroup(booking: BookingWithSlot, todayStart: Date, todayStr: st
   return 0;
 }
 
+/**
+ * Returns 0 for Future/Today slots, 1 for Past slots.
+ * Used to split mixed-date booking lists (All, All Pending, Owned) into
+ * a "Future / Today" group above and a "Past" group below, matching the
+ * server-side CASE WHEN sort order.
+ */
+export function getTimeGroup(booking: BookingWithSlot, todayStart: Date): number {
+  const d = new Date(booking.slot.startTime);
+  const isPast = d < todayStart && format(d, "yyyy-MM-dd") !== format(todayStart, "yyyy-MM-dd");
+  return isPast ? 1 : 0;
+}
+
 export function getBookingDisplayMeta({
   booking,
   todayStart,

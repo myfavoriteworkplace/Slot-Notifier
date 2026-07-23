@@ -3,7 +3,7 @@
 > **Where this applies:**
 > - **Clinic admin**: Bookings panel in the clinic dashboard (`BookingsPanel.tsx`)
 > - **Doctor admin**: Appointments section in the doctor dashboard (`DoctorDashboard.tsx`)
-> - **Shared helper**: `client/src/lib/booking-list.ts` (empty-state messages)
+> - **Shared helper**: `client/src/lib/booking-list.ts` (empty-state messages, group helpers)
 
 ---
 
@@ -42,6 +42,85 @@ Filters are **additive** (AND logic). This means each new filter makes the list 
 
 ---
 
+## Sort order — how appointments are ordered within each filter
+
+Sort order is **consistent and context-aware**. The SQL `ORDER BY` changes based on the active tab so the most relevant appointments always appear first.
+
+### Clinic admin — sort rules
+
+| Tab | Sort order |
+|---|---|
+| **All Bookings** | Future/today first (ascending by time), then past (ascending by time) |
+| **All Pending** | Future/today first (ascending by time), then past (ascending by time) |
+| **Today** | Ascending by slot start time (earliest first) |
+| **Today Confirmed** | Ascending by slot start time |
+| **Upcoming** | Ascending by slot start time (nearest next) |
+| **This Week** | Ascending by slot start time |
+| **Next Week** | Ascending by slot start time |
+| **Pending 7 Days** | Ascending by slot start time |
+| **Confirmed 7 Days** | Ascending by slot start time |
+| **Past** | Descending by slot start time (most recent past first) |
+
+### Doctor admin — sort rules
+
+| Tab | Sort order |
+|---|---|
+| **All Appointments** | Future/today first (ascending by time), then past (ascending by time) |
+| **All Owned** | Future/today first (ascending by time), then past (ascending by time) |
+| **Today** | Ascending by slot start time |
+| **Upcoming** | Ascending by slot start time |
+| **Awaiting** | Ascending by slot start time (all awaiting items are today or future) |
+| **Pending 7 Days** | Ascending by slot start time |
+| **Confirmed 7 Days** | Ascending by slot start time |
+| **Past** | Descending by slot start time (most recent past first) |
+
+### How the mixed sort works (All / All Pending / All Appointments / All Owned)
+
+These filters span both future and past dates. To keep the most actionable appointments at the top, the server uses a SQL `CASE WHEN` expression as the primary sort key:
+
+```sql
+CASE WHEN slots.startTime >= todayStart THEN 0 ELSE 1 END ASC,
+slots.startTime ASC,
+bookings.id ASC
+```
+
+This means:
+- All **future and today** appointments sort first (group 0), ordered by earliest time.
+- All **past** appointments sort second (group 1), ordered by oldest-to-newest within the past.
+
+The sort is **server-side only** — it applies to every page of paginated results. There is no client-side re-sorting.
+
+---
+
+## Section headers — Future / Today and Past groups
+
+When a mixed-date filter is active **without a date-range override**, the booking list is visually split into two labelled sections:
+
+| Section header | When it appears |
+|---|---|
+| **Future / Today** | At least one upcoming or today appointment is in the result set |
+| **Past** | At least one past appointment is in the result set |
+
+Each header shows the count of appointments in that group. Clinic admin headers also include a **collapse/expand** toggle so staff can hide the past group.
+
+### Which filters show section headers
+
+| Dashboard | Filters that show Future/Past headers |
+|---|---|
+| **Clinic admin** | All Bookings, All Pending (only when no date-range override is active) |
+| **Doctor admin** | All Appointments, Awaiting, All Owned (only when no date-range override is active) |
+
+> **Note — Doctor Awaiting:** The `awaiting` server filter already limits results to slots on or after today (`slots.startTime >= todayStart`), so the **Past** header will never appear for this tab. Only the **Future / Today** header will show when awaiting bookings exist.
+
+### When headers are hidden
+
+Headers are suppressed when:
+- A date-range filter is active (start or end date picked) — the date picker implies an intentional scope, so grouping adds no value.
+- A patient filter is active — the list may be too small to benefit from section breaks.
+- The active tab is not a mixed-date filter (e.g., Today, Upcoming, Past — these already have a fixed time scope).
+
+---
+
 ## Clinic admin dashboard
 
 ### Tabs available
@@ -58,7 +137,6 @@ Filters are **additive** (AND logic). This means each new filter makes the list 
 | **Pending 7 Days** | Unconfirmed bookings in the next 7 days |
 | **Confirmed 7 Days** | Confirmed bookings in the next 7 days |
 | **All Pending** | Every unconfirmed booking in the clinic |
-| **Awaiting** | Appointments waiting for approval |
 
 ### Patient search
 
@@ -86,7 +164,7 @@ Filters are **additive** (AND logic). This means each new filter makes the list 
 |---|---|
 | **Today** | Your appointments scheduled for today (approved by you) |
 | **Upcoming** | Your approved future appointments |
-| **Awaiting** | Appointments waiting for your approval |
+| **Awaiting** | Appointments waiting for your approval (today and future only) |
 | **All Appointments** | Every booking assigned to you, regardless of status or date |
 | **All Owned** | Every booking you have accepted or that is admin-confirmed on your behalf |
 | **Pending 7 Days** | Unconfirmed bookings assigned to you in the next 7 days |
@@ -215,32 +293,155 @@ This shows every appointment for that patient across all dates and statuses.
 
 - This is by design. Tab numbers are total counts, not filtered counts. They help you see the overall workload at a glance.
 
+### "Past appointments appear after future ones in the All tab — is that right?"
+
+- Yes, this is intentional. Mixed-date filters (All, All Pending, All Owned) always show **Future / Today** appointments first, then **Past** appointments. The section headers make this explicit.
+
 ---
 
 ## Implementation summary (for developers)
 
-### Backend
+### Backend — `server/storage.ts`
 
-- `storage.getClinicBookingsPaged` and `storage.getDoctorBookingsPaged` build a SQL `WHERE` clause that combines:
-  - clinic/doctor scope
-  - active tab filter (`filter`)
-  - date range (`dateFrom`, `dateTo`)
-  - patient filter (`patientId`)
-  - optional text search (`search`)
-- A separate count called `patientTotalCount` is returned when `patientId` is provided. It ignores tab and date filters but respects clinic/doctor scope, so the UI can say "Alice has 5 bookings but none match this filter."
+Both `getClinicBookingsPaged` and `getDoctorBookingsPaged` build a SQL `WHERE` clause from:
+- clinic/doctor scope condition
+- active tab filter (`filter` param → `filterCond`)
+- date range (`dateFrom`, `dateTo` → `dateRangeCond`)
+- patient filter (`patientId` → `patientCond`)
+- optional text search (`search` → `searchCond`)
 
-### Frontend
+All conditions are ANDed together via Drizzle's `and()`.
 
-- `BookingsPanel.tsx` (clinic) and `DoctorDashboard.tsx` (doctor) both send the same filter parameters to the server.
-- Date pickers no longer reset the active tab when selected.
-- `getBookingEmptyStateMeta` in `client/src/lib/booking-list.ts` builds the patient-aware and tab-aware empty-state messages.
-- Both dashboards show a **Clear all filters** button when filters are active and no results are found.
+#### Conditional ORDER BY (added in the sorting update)
+
+The `ORDER BY` clause is chosen dynamically before the paginated `SELECT` runs:
+
+```ts
+// Clinic (getClinicBookingsPaged)
+const clinicOrderBy: any[] =
+  (filter === 'all' || filter === 'all-pending')
+    ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`,
+       asc(slots.startTime), asc(bookings.id)]
+    : filter === 'past'
+    ? [desc(slots.startTime), desc(bookings.id)]
+    : [asc(slots.startTime), asc(bookings.id)];
+
+// Doctor (getDoctorBookingsPaged)
+const doctorOrderBy: any[] =
+  (filter === 'all' || filter === 'owned')
+    ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`,
+       asc(slots.startTime), asc(bookings.id)]
+    : filter === 'past'
+    ? [desc(slots.startTime), desc(bookings.id)]
+    : [asc(slots.startTime), asc(bookings.id)];
+```
+
+- **Count queries, stats queries, and `totalPages` are unchanged** — only the paginated `SELECT`'s `ORDER BY` changes.
+- The sort is **deterministic** (startTime + id tie-breaker), so there are no duplicate or skipped rows across pages.
+
+#### patientTotalCount
+
+A separate count is returned when `patientId` is provided. It ignores tab and date filters but respects clinic/doctor scope, so the UI can say "Alice has 5 bookings but none match this filter."
+
+---
+
+### Frontend — shared helper (`client/src/lib/booking-list.ts`)
+
+#### `getTimeGroup(booking, todayStart): 0 | 1`
+
+Returns `0` for Future/Today slots and `1` for Past slots. Used by both dashboards to assign each booking card to a section group, matching the server-side CASE WHEN sort:
+
+```ts
+export function getTimeGroup(booking: BookingWithSlot, todayStart: Date): number {
+  const d = new Date(booking.slot.startTime);
+  const isPast = d < todayStart && format(d, "yyyy-MM-dd") !== format(todayStart, "yyyy-MM-dd");
+  return isPast ? 1 : 0;
+}
+```
+
+#### `getStatusGroup(booking, todayStart, todayStr): 0 | 1 | 2`
+
+Unchanged — returns `0` (Pending), `1` (Confirmed/Upcoming), `2` (Past). Still used internally by `getBookingDisplayMeta`.
+
+#### `getBookingEmptyStateMeta`
+
+Unchanged — builds patient-aware and tab-aware empty-state messages.
+
+---
+
+### Frontend — clinic admin (`client/src/components/BookingsPanel.tsx`)
+
+#### `isGrouped` flag
+
+```ts
+const isGrouped = (quickFilter === 'all' || quickFilter === 'all-pending')
+  && !filterDate && !filterEndDate;
+```
+
+When `true`, `bookingsForDialog.flatMap` emits a section-header divider element before the first card of each new group.
+
+#### Group config (2 groups)
+
+```ts
+const groupConfig = [
+  { label: 'Future / Today', textColor: 'text-primary',           ... },
+  { label: 'Past',           textColor: 'text-muted-foreground',  ... },
+];
+```
+
+#### Group assignment per card
+
+```ts
+const group = isGrouped ? getTimeGroup(booking, todayStart) : -1;
+const showDivider = isGrouped && group !== lastGroup;
+if (isGrouped) lastGroup = group;
+```
+
+The divider counts bookings in the group using `filteredBookings.filter(b => getTimeGroup(b, todayStart) === group).length`.
+
+#### Collapse/expand
+
+Each section header has a chevron button that toggles `collapsedGroups[group]`. Cards in a collapsed group are hidden via `!collapsedGroups[group] && <AppointmentCard ...>`.
+
+---
+
+### Frontend — doctor admin (`client/src/pages/DoctorDashboard.tsx`)
+
+The booking grid uses an IIFE wrapping a `flatMap` to track group state across iterations:
+
+```tsx
+<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+  {(() => {
+    const isGrouped = (quickFilter === 'all' || quickFilter === 'awaiting' || quickFilter === 'owned')
+      && !filterDate && !filterEndDate;
+    const drGroupConfig = [
+      { label: 'Future / Today', ... },
+      { label: 'Past',           ... },
+    ];
+    let drLastGroup = -1;
+    return displayBookings.flatMap((booking) => {
+      // ...per-card vars (isApptToday, isApptPast, etc.)...
+      const drGroup = isGrouped ? (isApptPast ? 1 : 0) : -1;
+      const drShowDivider = isGrouped && drGroup !== drLastGroup;
+      if (isGrouped) drLastGroup = drGroup;
+      return [
+        drShowDivider ? <SectionDivider key={...} ... /> : null,
+        <AppointmentCard key={booking.id} ... />,
+      ];
+    });
+  })()}
+</div>
+```
+
+The section divider spans all grid columns via `col-span-full`. Group card counts are computed inline by filtering `displayBookings`.
 
 ---
 
 ## What has not changed
 
-- Booking cards themselves.
-- The backend API shape (only the addition of `patientTotalCount` in stats).
+- Booking cards themselves (styling, actions, modal behaviour).
+- The backend API shape (only the `ORDER BY` in the paginated query changed; no response fields added or removed).
 - The patient search dropdown experience (debounce, keyboard navigation, PAT code highlight).
-- Tab badge counts remain total counts, not filtered counts.
+- Tab badge counts — still total counts, not filtered counts.
+- Pagination — `total`, `totalPages`, `page`, `pageSize`, and all stats queries are unchanged. Only the paginated `SELECT`'s `ORDER BY` changes.
+- The `getStatusGroup` helper — still used internally by `getBookingDisplayMeta`; `getTimeGroup` is an addition, not a replacement.
