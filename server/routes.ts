@@ -3025,17 +3025,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         await db.update(bookings).set({ slotCost } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) { console.error('[ADMIN BOOKING] slot_cost update failed:', e.message); }
 
-      // Upsert patient record so they appear in the Patients tab
+      // Link booking to the correct patient profile
       try {
-        if (customerEmail && customerEmail.trim()) {
-          const patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone);
-          await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        const bodyPatientId = req.body.patientId;
+        const selectedId = bodyPatientId ? parseInt(bodyPatientId) : NaN;
+        let patient;
+
+        if (!isNaN(selectedId)) {
+          // Clinic explicitly selected an existing patient from search — use it directly
+          const existing = await storage.getPatientById(clinic.id, selectedId);
+          patient = existing
+            ? await storage.incrementPatientVisit(existing.id)
+            : await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName);
+        } else if (customerEmail && customerEmail.trim()) {
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone);
         } else {
-          const patient = await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName);
-          await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+          patient = await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName);
         }
+
+        await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
-        console.error('[ADMIN BOOKING] Patient upsert failed:', e.message);
+        console.error('[ADMIN BOOKING] Patient link failed:', e.message);
       }
 
       // Send confirmation email to patient if email provided

@@ -56,6 +56,8 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
   const [bookingEmail, setBookingEmail] = useState("");
   const [bookingAge, setBookingAge] = useState("");
   const [bookingGender, setBookingGender] = useState("");
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+  const [selectedPatientCode, setSelectedPatientCode] = useState<string | null>(null);
   const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -161,6 +163,11 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
 
   const handleBookingNameChange = (val: string) => {
     setBookingName(val);
+    // If the user edits the name after selecting an existing patient, treat it as a new patient entry
+    if (selectedPatientId !== null) {
+      setSelectedPatientId(null);
+      setSelectedPatientCode(null);
+    }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => fetchPatientSuggestions(val), 300);
   };
@@ -171,6 +178,10 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     setBookingEmail(p.email || "");
     setBookingAge(p.age ? String(p.age) : "");
     setBookingGender(p.gender || "");
+    setSelectedPatientId(p.id ?? null);
+    setSelectedPatientCode(p.patientCode ?? null);
+    // Auto-set visit type to Re-visit for existing patients; preserve manual override if already chosen
+    if (!bookingVisitType) setBookingVisitType("Re-visit");
     setPatientSuggestions([]);
     setShowSuggestions(false);
   };
@@ -181,6 +192,8 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     setBookingEmail("");
     setBookingAge("");
     setBookingGender("");
+    setSelectedPatientId(null);
+    setSelectedPatientCode(null);
     setBookingDescription("");
     setBookingDate(startOfToday());
     setSelectedSlot(null);
@@ -260,6 +273,7 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
       slotCost,
       verificationStatus: 'confirmed',
       confirmedBy: 'admin',
+      patientId: selectedPatientId ?? undefined,
     } as any);
   };
 
@@ -359,7 +373,15 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
                     autoComplete="off"
                     data-testid="input-booking-name"
+                    className={selectedPatientId !== null ? "border-primary/50 ring-1 ring-primary/20" : ""}
                   />
+                  {selectedPatientCode && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                        {selectedPatientCode}
+                      </span>
+                    </div>
+                  )}
                   {suggestionsLoading && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
