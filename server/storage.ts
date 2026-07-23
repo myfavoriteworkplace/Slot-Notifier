@@ -174,13 +174,13 @@ export interface IStorage {
   // Patients
   getPatientsByDoctor(doctorEmail: string, query?: string): Promise<(Patient & { clinic: Clinic })[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
-  upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
-  upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient>;
+  upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient>;
+  upsertPatientByPhone(clinicId: number, phone: string, name: string, age?: number | null, gender?: string | null): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
   getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]>;
   getPatientById(clinicId: number, patientId: number): Promise<Patient | null>;
-  createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
-  incrementPatientVisit(patientId: number): Promise<Patient>;
+  createNewPatient(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient>;
+  incrementPatientVisit(patientId: number, age?: number | null, gender?: string | null): Promise<Patient>;
   searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
   getPatientsByClinicPaged(clinicId: number, opts: { q?: string; sort?: string; lastVisitFrom?: string; lastVisitTo?: string; page?: number; pageSize?: number; exportAll?: boolean; }): Promise<{ data: (Patient & { totalBilled: number })[]; total: number; page: number; totalPages: number; stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number; }; }>;
@@ -2159,7 +2159,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+  async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient> {
     const normalizedEmail = email.toLowerCase().trim();
     const [existing] = await db.select().from(patients)
       .where(and(eq(patients.clinicId, clinicId), eq(patients.email, normalizedEmail)))
@@ -2172,6 +2172,8 @@ export class DatabaseStorage implements IStorage {
       };
       if (name && name.length > (existing.name ?? "").length) updates.name = name;
       if (phone && (!existing.phone || phone.length > (existing.phone ?? "").length)) updates.phone = phone;
+      if (age !== undefined && age !== null && existing.age == null) updates.age = age;
+      if (gender && !existing.gender) updates.gender = gender;
       const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
       return updated;
     }
@@ -2185,6 +2187,8 @@ export class DatabaseStorage implements IStorage {
       email: normalizedEmail,
       name,
       phone: phone || null,
+      age: age ?? null,
+      gender: gender ?? null,
       patientCode,
       visitCount: 1,
       lastVisitAt: new Date(),
@@ -2192,7 +2196,7 @@ export class DatabaseStorage implements IStorage {
     return newPatient;
   }
 
-  async upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient> {
+  async upsertPatientByPhone(clinicId: number, phone: string, name: string, age?: number | null, gender?: string | null): Promise<Patient> {
     const normalizedPhone = phone.trim();
     const [existing] = await db.select().from(patients)
       .where(and(eq(patients.clinicId, clinicId), eq(patients.phone, normalizedPhone)))
@@ -2204,6 +2208,8 @@ export class DatabaseStorage implements IStorage {
         lastVisitAt: new Date(),
       };
       if (name && name.length > (existing.name ?? "").length) updates.name = name;
+      if (age !== undefined && age !== null && existing.age == null) updates.age = age;
+      if (gender && !existing.gender) updates.gender = gender;
       const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
       return updated;
     }
@@ -2217,6 +2223,8 @@ export class DatabaseStorage implements IStorage {
       email: null,
       name,
       phone: normalizedPhone,
+      age: age ?? null,
+      gender: gender ?? null,
       patientCode,
       visitCount: 1,
       lastVisitAt: new Date(),
@@ -2238,15 +2246,19 @@ export class DatabaseStorage implements IStorage {
     return patient ?? null;
   }
 
-  async incrementPatientVisit(patientId: number): Promise<Patient> {
+  async incrementPatientVisit(patientId: number, age?: number | null, gender?: string | null): Promise<Patient> {
+    const [existing] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
+    const updates: any = { visitCount: sql`${patients.visitCount} + 1`, lastVisitAt: new Date() };
+    if (age !== undefined && age !== null && existing?.age == null) updates.age = age;
+    if (gender && !existing?.gender) updates.gender = gender;
     const [updated] = await db.update(patients)
-      .set({ visitCount: sql`${patients.visitCount} + 1`, lastVisitAt: new Date() })
+      .set(updates)
       .where(eq(patients.id, patientId))
       .returning();
     return updated;
   }
 
-  async createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+  async createNewPatient(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient> {
     const normalizedEmail = email.toLowerCase().trim();
     const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
     const seq = (Number(countRows[0]?.count) ?? 0) + 1;
@@ -2256,6 +2268,8 @@ export class DatabaseStorage implements IStorage {
       email: normalizedEmail,
       name,
       phone: phone || null,
+      age: age ?? null,
+      gender: gender ?? null,
       patientCode,
       visitCount: 1,
       lastVisitAt: new Date(),

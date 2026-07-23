@@ -1676,6 +1676,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         customerName, customerPhone, customerEmail,
+        customerAge, customerGender,
         clinicId, clinicName, startTime, endTime, description, verifiedToken,
       } = req.body;
 
@@ -1765,6 +1766,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             customerName,
             customerPhone,
             customerEmail,
+            customerAge: customerAge ? parseInt(customerAge) : null,
+            customerGender: customerGender || null,
             description: description || null,
             verificationCode: null,
             verificationExpiresAt: null,
@@ -1786,16 +1789,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const bodyPatientId = req.body.patientId;
         const isNewProfile = bodyPatientId === 'new';
         const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
+        const pubAge = customerAge ? parseInt(customerAge) : null;
+        const pubGender = customerGender || null;
         let patient;
         if (!isNaN(selectedId)) {
           const existing = await storage.getPatientById(clinic.id, selectedId);
           patient = existing
-            ? await storage.incrementPatientVisit(existing.id)
-            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+            ? await storage.incrementPatientVisit(existing.id, pubAge, pubGender)
+            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else if (isNewProfile) {
-          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else {
-          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
@@ -1999,16 +2004,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const bodyPatientId = req.body.patientId;
         const isNewProfile = bodyPatientId === 'new';
         const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
+        const pubAge = customerAge ? parseInt(customerAge) : null;
+        const pubGender = customerGender || null;
         let patient;
         if (!isNaN(selectedId)) {
           const existing = await storage.getPatientById(clinic.id, selectedId);
           patient = existing
-            ? await storage.incrementPatientVisit(existing.id)
-            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+            ? await storage.incrementPatientVisit(existing.id, pubAge, pubGender)
+            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else if (isNewProfile) {
-          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else {
-          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
@@ -3029,18 +3036,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         const bodyPatientId = req.body.patientId;
         const selectedId = bodyPatientId ? parseInt(bodyPatientId) : NaN;
+        const customerAge = rawCustomerAge ? parseInt(rawCustomerAge) : null;
+        const patientGender = customerGender || null;
         let patient;
 
         if (!isNaN(selectedId)) {
           // Clinic explicitly selected an existing patient from search — use it directly
           const existing = await storage.getPatientById(clinic.id, selectedId);
           patient = existing
-            ? await storage.incrementPatientVisit(existing.id)
-            : await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName);
+            ? await storage.incrementPatientVisit(existing.id, customerAge, patientGender)
+            : await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName, customerAge, patientGender);
         } else if (customerEmail && customerEmail.trim()) {
-          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone);
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone, customerAge, patientGender);
         } else {
-          patient = await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName);
+          patient = await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName, customerAge, patientGender);
         }
 
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
