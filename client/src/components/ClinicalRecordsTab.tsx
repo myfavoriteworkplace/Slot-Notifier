@@ -527,9 +527,9 @@ export default function ClinicalRecordsTab({
 
   // ── Derived record streams ─────────────────────────────────────────────────
   const dxRecords = records.filter(r => r.diagnosis && r.diagnosis.length > 0);
-  // Records that have BOTH diagnosis + prescription show inside the Dx card (linked).
-  // Standalone prescriptions (no diagnosis on the same row) get their own Rx section.
-  const rxRecords = records.filter(r => !!r.prescription && (!r.diagnosis || r.diagnosis.length === 0));
+  // Records that have BOTH diagnosis + prescription show inside the Dx card (linked)
+  // AND in the Prescription tab, so the prescription is visible from either tab.
+  const rxRecords = records.filter(r => !!r.prescription);
   const latestDx = dxRecords[0] ?? null;
   const historyDx = dxRecords.slice(1);
   const latestRx = rxRecords[0] ?? null;
@@ -1376,7 +1376,7 @@ export default function ClinicalRecordsTab({
             <div className="px-4 py-3 space-y-5 max-h-96 overflow-y-auto bg-violet-50/20 dark:bg-violet-900/10">
               {pastVisits.map((visit) => {
                 const visitDx = visit.records.filter(r => r.diagnosis && (r.diagnosis as string[]).length > 0);
-                const visitRx = visit.records.filter(r => !!r.prescription && (!r.diagnosis || (r.diagnosis as string[]).length === 0));
+                const visitRx = visit.records.filter(r => !!r.prescription);
                 return (
                   <div key={visit.bookingId}>
                     {/* Visit date divider */}
