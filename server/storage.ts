@@ -62,6 +62,9 @@ export interface BookingQueryParams {
   search?: string;
   patientId?: number;
   clinicId?: number;
+  /** Stable client-supplied date (yyyy-MM-dd) used as the CASE WHEN boundary so all
+   *  pages in the same session share the same future/past split even across midnight. */
+  todayDate?: string;
 }
 
 export interface BookingStats {
@@ -617,9 +620,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId, todayDate } = params;
 
-    const now = new Date();
+    // Use client-supplied todayDate if present so all pages in the same session share
+    // the same future/past boundary even when a request crosses midnight.
+    const now = todayDate ? new Date(todayDate + 'T00:00:00') : new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
@@ -793,9 +798,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search, patientId } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search, patientId, todayDate } = params;
 
-    const now = new Date();
+    // Use client-supplied todayDate if present so all pages in the same session share
+    // the same future/past boundary even when a request crosses midnight.
+    const now = todayDate ? new Date(todayDate + 'T00:00:00') : new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);

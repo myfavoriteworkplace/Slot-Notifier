@@ -249,6 +249,7 @@ export default function BookingsPanel({
 
   const bookingsQueryKey = ['/api/auth/clinic/bookings', {
     filter: quickFilter,
+    todayDate: todayStr,
     dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
     dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
     patientId: activePatientFilter?.id,
@@ -266,7 +267,7 @@ export default function BookingsPanel({
   } = useInfiniteQuery<BookingsPagedResponse>({
     queryKey: bookingsQueryKey,
     queryFn: async ({ pageParam }) => {
-      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20', todayDate: todayStr });
       if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
       if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
       if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
@@ -1728,7 +1729,9 @@ export default function BookingsPanel({
                 const group = isGrouped ? getTimeGroup(booking, todayStart) : -1;
                 const showDivider = isGrouped && group !== lastGroup;
                 const actionState = getActionState(booking);
-                if (isGrouped) lastGroup = group;
+                // Monotonic guard: once we enter the Past group, never step back to Future/Today
+                // even if a stale mis-sorted item arrives (e.g. cross-midnight pagination).
+                if (isGrouped) lastGroup = Math.max(lastGroup, group);
                 const groupCfg = groupConfig[Math.max(0, group)];
                 return [
                   showDivider ? (

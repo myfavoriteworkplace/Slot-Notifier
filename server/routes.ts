@@ -2907,6 +2907,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           pageSize: z.coerce.number().min(1).max(500).optional().default(20),
           dateFrom: z.string().optional(),
           dateTo:   z.string().optional(),
+          todayDate: z.string().optional(),
           clinicId: z.coerce.number().optional(),
           search:   z.string().optional(),
           patientId: z.coerce.number().optional(),
@@ -2937,6 +2938,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           pageSize: z.coerce.number().min(1).max(500).optional().default(20),
           dateFrom: z.string().optional(),
           dateTo:   z.string().optional(),
+          todayDate: z.string().optional(),
           search:   z.string().optional(),
           patientId: z.coerce.number().optional(),
         }).safeParse(req.query);

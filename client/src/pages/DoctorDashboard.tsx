@@ -293,6 +293,7 @@ export default function DoctorDashboard() {
 
   const bookingsQueryKey = ["/api/auth/clinic/bookings", {
     filter: quickFilter,
+    todayDate: todayStr,
     clinicId: appointmentClinicFilter !== "all" ? appointmentClinicFilter : undefined,
     dateFrom: filterDate ? format(filterDate, "yyyy-MM-dd") : undefined,
     dateTo: filterEndDate ? format(filterEndDate, "yyyy-MM-dd") : undefined,
@@ -308,7 +309,7 @@ export default function DoctorDashboard() {
   } = useInfiniteQuery<BookingsPagedResponse>({
     queryKey: bookingsQueryKey,
     queryFn: async ({ pageParam }) => {
-      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20', todayDate: todayStr });
       if (appointmentClinicFilter !== "all") params.set("clinicId", appointmentClinicFilter);
       if (filterDate) params.set("dateFrom", format(filterDate, "yyyy-MM-dd"));
       if (filterEndDate) params.set("dateTo", format(filterEndDate, "yyyy-MM-dd"));
@@ -1765,7 +1766,8 @@ export default function DoctorDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {(() => {
                       // Group into Future/Today (0) and Past (1) for mixed-date filters
-                      const isGrouped = (quickFilter === 'all' || quickFilter === 'awaiting' || quickFilter === 'owned') && !filterDate && !filterEndDate;
+                      // 'awaiting' is future-only by server definition — grouping adds a redundant "Future / Today" header with no Past section
+                      const isGrouped = (quickFilter === 'all' || quickFilter === 'owned') && !filterDate && !filterEndDate;
                       const drGroupConfig = [
                         { label: 'Future / Today', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
                         { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
@@ -1814,7 +1816,8 @@ export default function DoctorDashboard() {
                       // Determine which time group this card belongs to and whether to show a divider
                       const drGroup = isGrouped ? (isApptPast ? 1 : 0) : -1;
                       const drShowDivider = isGrouped && drGroup !== drLastGroup;
-                      if (isGrouped) drLastGroup = drGroup;
+                      // Monotonic guard: once in Past group never step back to Future/Today
+                      if (isGrouped) drLastGroup = Math.max(drLastGroup, drGroup);
                       const drGroupCfg = drGroupConfig[Math.max(0, drGroup)];
                       return [
                         drShowDivider ? (
