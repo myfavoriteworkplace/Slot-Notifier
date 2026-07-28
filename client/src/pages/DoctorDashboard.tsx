@@ -3358,7 +3358,19 @@ export default function DoctorDashboard() {
                   {patientModalTab === 'notes' && (
                     <div className="p-4 space-y-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                          <TooltipProvider delayDuration={400}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3 w-3 text-muted-foreground cursor-default" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs max-w-[240px]">
+                                Track the outcome of this case. 'Follow-up Required' = patient needs another visit. 'Case Closed' = treatment is complete.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <div className="flex gap-2">
                           <Select value={statusDraft} onValueChange={setStatusDraft}>
                             <SelectTrigger className="h-9 text-sm flex-1" data-testid="select-clinical-status">

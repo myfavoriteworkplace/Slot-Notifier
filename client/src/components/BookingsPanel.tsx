@@ -340,6 +340,7 @@ export default function BookingsPanel({
   // rebuilt whenever the booking list changes, not just when its size changes.
   const filteredBookingIdsKey = filteredBookings.map(b => b.id).sort().join(',');
   const [collapsedBookingIds, setCollapsedBookingIds] = useState<Set<number>>(new Set());
+  const [clinicalStatusDrafts, setClinicalStatusDrafts] = useState<Record<number, string>>({});
   useEffect(() => {
     if (activePatientFilter && filteredBookings.length >= 2) {
       setCollapsedBookingIds(new Set(filteredBookings.map(b => b.id)));
@@ -2487,83 +2488,59 @@ export default function BookingsPanel({
                         {getModalTab(booking.id) === 'clinical' && (
                           <div className="p-4 space-y-3">
 
-                            {/* Clinical Status — single chip + dropdown, editable by admin */}
+                            {/* Clinical Status — Select + Save (matches doctor pattern) */}
                             <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
                               <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center gap-1.5">
                                 <ClipboardCheck className="h-3 w-3 text-green-800 dark:text-green-300" />
                                 <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Clinical Status</span>
+                                <TooltipProvider delayDuration={400}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Info className="h-3 w-3 text-muted-foreground ml-0.5 cursor-default" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs max-w-[240px]">
+                                      Track the outcome of this case. 'Follow-up Required' = patient needs another visit. 'Case Closed' = treatment is complete.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                               <div className="px-3 py-3">
-                                {(() => {
-                                  const CLINICAL_STATUS_OPTIONS = [
-                                    { value: 'follow_up_required', label: 'Follow-up Required', dotClass: 'bg-amber-500' },
-                                    { value: 'case_closed',        label: 'Case Closed',        dotClass: 'bg-emerald-500' },
-                                  ] as const;
-                                  const current = CLINICAL_STATUS_OPTIONS.find(o => o.value === booking.clinicalStatus);
-                                  const chipCls = current
-                                    ? (OVERVIEW_CLINICAL_STATUS[current.value]?.cls ?? '')
-                                    : 'bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-800/30 dark:border-green-700/50';
-                                  return (
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <button
-                                          disabled={updateClinicalStatusMutation.isPending}
-                                          className={`inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[44px] rounded-full text-sm font-semibold border transition-all active:scale-[0.97] ${chipCls}`}
-                                          data-testid={`clinical-status-trigger-${booking.id}`}
-                                        >
-                                          <span className={`h-2 w-2 rounded-full shrink-0 ${current ? current.dotClass : 'bg-muted-foreground/40'}`} />
-                                          {current ? current.label : 'Not set'}
-                                          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                                        </button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="start" className="w-56">
-                                        {CLINICAL_STATUS_OPTIONS.map(({ value, label, dotClass }) => (
-                                          <DropdownMenuItem
-                                            key={value}
-                                            onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: value })}
-                                            className="gap-2 min-h-[44px]"
-                                            data-testid={`clinical-status-${value}-${booking.id}`}
-                                          >
-                                            <span className={`h-2 w-2 rounded-full shrink-0 ${dotClass}`} />
-                                            {label}
-                                            {booking.clinicalStatus === value && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-primary" />}
-                                          </DropdownMenuItem>
-                                        ))}
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: null })}
-                                          disabled={!booking.clinicalStatus}
-                                          className="gap-2 min-h-[44px] text-muted-foreground"
-                                          data-testid={`clinical-status-clear-${booking.id}`}
-                                        >
-                                          <X className="h-3.5 w-3.5 shrink-0" />
-                                          Clear status
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  );
-                                })()}
+                                <div className="flex gap-2">
+                                  <Select
+                                    value={clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus ?? ''}
+                                    onValueChange={(v) => setClinicalStatusDrafts(prev => ({ ...prev, [booking.id]: v }))}
+                                  >
+                                    <SelectTrigger className="h-9 text-sm flex-1" data-testid={`clinical-status-trigger-${booking.id}`}>
+                                      <SelectValue placeholder="Select status…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
+                                      <SelectItem value="case_closed">Case Closed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    size="sm"
+                                    className="h-9 px-4 text-sm shrink-0"
+                                    onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: (clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus) || null })}
+                                    disabled={updateClinicalStatusMutation.isPending}
+                                    data-testid={`clinical-status-save-${booking.id}`}
+                                  >
+                                    {updateClinicalStatusMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                                  </Button>
+                                </div>
                               </div>
                             </div>
 
-                            {/* Clinical Records */}
-                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                              <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center gap-1.5">
-                                <ClipboardList className="h-3 w-3 text-green-800 dark:text-green-300" />
-                                <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Clinical Records</span>
-                              </div>
-                              <div className="p-3">
-                                <ClinicalRecordsTab
-                                  bookingId={booking.id}
-                                  clinicId={clinic?.id ?? (booking.slot as any)?.clinicId}
-                                  patientName={booking.customerName}
-                                  patientPhone={booking.customerPhone}
-                                  doctorName={booking.assignedDoctor}
-                                  mode="admin"
-                                  clinicName={clinic?.name}
-                                />
-                              </div>
-                            </div>
+                            {/* Clinical Records — rendered directly, no outer card wrapper */}
+                            <ClinicalRecordsTab
+                              bookingId={booking.id}
+                              clinicId={clinic?.id ?? (booking.slot as any)?.clinicId}
+                              patientName={booking.customerName}
+                              patientPhone={booking.customerPhone}
+                              doctorName={booking.assignedDoctor}
+                              mode="admin"
+                              clinicName={clinic?.name}
+                            />
 
                           </div>
                         )}

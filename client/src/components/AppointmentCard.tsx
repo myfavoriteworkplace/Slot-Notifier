@@ -1184,158 +1184,117 @@ export function AppointmentCard({
           Primary button (full-width) + 2-button secondary row
           ═══════════════════════════════════════ */}
       {role === "clinic" && (
-        <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10 space-y-2" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10" onClick={(e) => e.stopPropagation()}>
 
-          {/* ── PRIMARY button — one of 7 states ── */}
-
-          {/* Terminal: Cancelled */}
+          {/* Terminal: Cancelled — banner + Rebook in one row */}
           {isCancelled && (
-            <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold">
-              <X className="h-3.5 w-3.5" />Appointment Cancelled
-            </div>
-          )}
-
-          {/* Terminal: No Show */}
-          {isNoShowState && (
-            <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold">
-              <UserX className="h-3.5 w-3.5" />Patient Did Not Arrive
-            </div>
-          )}
-
-          {/* Terminal: Patient Left Early */}
-          {isLeftEarlyState && (
-            <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-              <LogOut className="h-3.5 w-3.5" />Patient Left Before Completion
-            </div>
-          )}
-
-          {/* Stage 1 — Pending: Confirm Appointment (blue, active) */}
-          {!isTerminal && !isClinicConfirmed && !isVisitCompleted && !isTreatmentCompleted && !isCheckedIn && !isInConsultation && (
-            <TooltipProvider delayDuration={400}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="w-full">
-                    <Button
-                      className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => !isPast && onConfirm?.()}
-                      disabled={confirmPending || isPast}
-                      data-testid={`button-confirm-${booking.id}`}
-                    >
-                      {confirmPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                      {isPast ? "Past Appointment" : "Confirm Appointment"}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {isPast && (
-                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                    This appointment was on a past day. Use Reschedule to move it to a new slot.
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* Stage 1b — Confirmed, not yet arrived: Mark Arrived (sky, active) */}
-          {!isTerminal && isClinicConfirmed && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <Button
-              className="w-full h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={() => onCheckIn?.()}
-              disabled={checkInPending}
-              data-testid={`button-checkin-${booking.id}`}
-            >
-              {checkInPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
-              Mark Arrived
-            </Button>
-          )}
-
-          {/* Stage 2 — Arrived: Waiting for Doctor (grey, disabled) */}
-          {!isTerminal && isCheckedIn && (
-            <Button
-              variant="outline"
-              className="w-full h-10 text-sm font-medium text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed gap-2 pointer-events-none"
-              disabled
-              data-testid={`button-waiting-doctor-${booking.id}`}
-            >
-              <Clock className="h-3.5 w-3.5" />Waiting for Doctor
-            </Button>
-          )}
-
-          {/* Stage 3 — In Treatment (teal tint, disabled) */}
-          {!isTerminal && isInConsultation && (
-            <Button
-              variant="outline"
-              className="w-full h-10 text-sm font-medium text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-950/10 cursor-not-allowed gap-2 pointer-events-none"
-              disabled
-              data-testid={`button-in-treatment-${booking.id}`}
-            >
-              <Activity className="h-3.5 w-3.5" />In Treatment
-            </Button>
-          )}
-
-          {/* Stage 4 — Treatment Completed: Mark Visit Done (green, active) */}
-          {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
-            <Button
-              className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={() => handleMarkVisitDone()}
-              disabled={completeVisitPending}
-              data-testid={`button-mark-visit-done-${booking.id}`}
-            >
-              {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-              Mark Visit Done
-              {openBillsCount > 0 && (
-                <span className="text-xs font-semibold bg-white/20 rounded-full px-1.5 py-0.5 ml-1">
-                  {openBillsCount} unpaid
-                </span>
-              )}
-            </Button>
-          )}
-
-          {/* Stage 5 — Visit Completed */}
-          {!isTerminal && isVisitCompleted && (
-            noBill ? (
-              <Button
-                variant="outline"
-                className="w-full h-10 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default gap-2 pointer-events-none"
-                disabled
-                data-testid={`button-no-dues-${booking.id}`}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />No Dues
-              </Button>
-            ) : openBillsCount > 0 ? (
-              <Button
-                className="w-full h-10 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 gap-2 active:scale-[0.98] transition-all"
-                variant="outline"
-                onClick={() => onBill?.()}
-                title="Payment outstanding — tap to settle"
-                data-testid={`button-settle-bill-${booking.id}`}
-              >
-                Payment Pending
-              </Button>
-            ) : (
-              <Button
-                className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
-                onClick={() => onBill?.()}
-                title="Preview or download invoice"
-                data-testid={`button-bill-complete-${booking.id}`}
-              >
-                <Download className="h-3.5 w-3.5" />Paid
-              </Button>
-            )
-          )}
-
-          {/* ── SECONDARY buttons ── */}
-
-          {/* Stages 1 / 1b — View + Cancel */}
-          {!isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center justify-center gap-2 h-9 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+                <X className="h-3.5 w-3.5" />Appointment Cancelled
+              </div>
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                onClick={() => onBookAgain?.()}
+                data-testid={`button-rebook-terminal-${booking.id}`}>
+                <Repeat2 className="h-3 w-3" />Rebook
+              </Button>
+            </div>
+          )}
+
+          {/* Terminal: No Show — banner + Rebook */}
+          {isNoShowState && (
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center justify-center gap-2 h-9 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold">
+                <UserX className="h-3.5 w-3.5" />Patient Did Not Arrive
+              </div>
+              <Button variant="outline" size="sm"
+                className="shrink-0 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                onClick={() => onBookAgain?.()}
+                data-testid={`button-rebook-terminal-${booking.id}`}>
+                <Repeat2 className="h-3 w-3" />Rebook
+              </Button>
+            </div>
+          )}
+
+          {/* Terminal: Patient Left Early — banner + Rebook */}
+          {isLeftEarlyState && (
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center justify-center gap-2 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                <LogOut className="h-3.5 w-3.5" />Patient Left Before Completion
+              </div>
+              <Button variant="outline" size="sm"
+                className="shrink-0 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                onClick={() => onBookAgain?.()}
+                data-testid={`button-rebook-terminal-${booking.id}`}>
+                <Repeat2 className="h-3 w-3" />Rebook
+              </Button>
+            </div>
+          )}
+
+          {/* Stage 1 — Pending: [View] [Confirm / Past Appt flex-1] [Cancel (future only)] */}
+          {!isTerminal && !isClinicConfirmed && !isVisitCompleted && !isTreatmentCompleted && !isCheckedIn && !isInConsultation && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onCardClick()}
                 data-testid={`button-view-${booking.id}`}>
                 <FileText className="h-3 w-3" />View
               </Button>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex-1">
+                      <Button
+                        className="w-full h-9 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => !isPast && onConfirm?.()}
+                        disabled={confirmPending || isPast}
+                        data-testid={`button-confirm-${booking.id}`}
+                      >
+                        {confirmPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                        {isPast ? "Past Appointment" : "Confirm"}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {isPast && (
+                    <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                      This appointment was on a past day. Use Reschedule to move it to a new slot.
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+              {!isPast && (
+                <Button variant="ghost" size="sm"
+                  className="shrink-0 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                  onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
+                  disabled={cancelPending}
+                  data-testid={`button-cancel-booking-${booking.id}`}>
+                  {cancelPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                  Cancel
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Stage 1b — Confirmed, not arrived: [View] [Mark Arrived flex-1] [Cancel] */}
+          {!isTerminal && isClinicConfirmed && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onCardClick()}
+                data-testid={`button-view-${booking.id}`}>
+                <FileText className="h-3 w-3" />View
+              </Button>
+              <Button
+                className="flex-1 h-9 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
+                onClick={() => onCheckIn?.()}
+                disabled={checkInPending}
+                data-testid={`button-checkin-${booking.id}`}
+              >
+                {checkInPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
+                Mark Arrived
+              </Button>
               <Button variant="ghost" size="sm"
-                className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                 onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
                 disabled={cancelPending}
                 data-testid={`button-cancel-booking-${booking.id}`}>
@@ -1345,17 +1304,25 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stages 2 / 3a — ₹ Bill + Cancel (patient can still leave without treatment) */}
-          {!isTerminal && (isCheckedIn || isInConsultation) && (
-            <div className="flex gap-2">
+          {/* Stage 2 — Arrived (Waiting): [₹ Bill] [Waiting disabled flex-1] [Cancel] */}
+          {!isTerminal && isCheckedIn && (
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onBill?.()}
                 data-testid={`button-bill-${booking.id}`}>
                 <IndianRupee className="h-3 w-3" />₹ Bill
               </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-9 text-sm font-medium text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed gap-2 pointer-events-none"
+                disabled
+                data-testid={`button-waiting-doctor-${booking.id}`}
+              >
+                <Clock className="h-3.5 w-3.5" />Waiting for Doctor
+              </Button>
               <Button variant="ghost" size="sm"
-                className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                 onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
                 disabled={cancelPending}
                 data-testid={`button-cancel-booking-stage24-${booking.id}`}>
@@ -1365,42 +1332,105 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 3b — ₹ Bill only (doctor has already treated patient; Cancel is inappropriate here) */}
-          {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
-            <Button variant="outline" size="sm"
-              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-              onClick={() => onBill?.()}
-              data-testid={`button-bill-tmt-${booking.id}`}>
-              <IndianRupee className="h-3 w-3" />₹ Bill
-            </Button>
+          {/* Stage 3 — In Treatment: [₹ Bill] [In Treatment disabled flex-1] [Cancel] */}
+          {!isTerminal && isInConsultation && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onBill?.()}
+                data-testid={`button-bill-${booking.id}`}>
+                <IndianRupee className="h-3 w-3" />₹ Bill
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-9 text-sm font-medium text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-950/10 cursor-not-allowed gap-2 pointer-events-none"
+                disabled
+                data-testid={`button-in-treatment-${booking.id}`}
+              >
+                <Activity className="h-3.5 w-3.5" />In Treatment
+              </Button>
+              <Button variant="ghost" size="sm"
+                className="shrink-0 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
+                disabled={cancelPending}
+                data-testid={`button-cancel-booking-stage24-${booking.id}`}>
+                {cancelPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                Cancel
+              </Button>
+            </div>
           )}
 
-          {/* Stage 5 — View Summary + Rebook */}
-          {!isTerminal && isVisitCompleted && (
-            <div className="flex gap-2">
+          {/* Stage 3b — Treatment Completed: [₹ Bill] [Mark Visit Done flex-1] */}
+          {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onBill?.()}
+                data-testid={`button-bill-tmt-${booking.id}`}>
+                <IndianRupee className="h-3 w-3" />₹ Bill
+              </Button>
+              <Button
+                className="flex-1 h-9 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
+                onClick={() => handleMarkVisitDone()}
+                disabled={completeVisitPending}
+                data-testid={`button-mark-visit-done-${booking.id}`}
+              >
+                {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                Mark Visit Done
+                {openBillsCount > 0 && (
+                  <span className="text-xs font-semibold bg-white/20 rounded-full px-1.5 py-0.5 ml-1">
+                    {openBillsCount} unpaid
+                  </span>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Stage 5 — Visit Completed: [View Summary] [status flex-1] [Rebook] */}
+          {!isTerminal && isVisitCompleted && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onCardClick()}
                 data-testid={`button-view-summary-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />View Summary
               </Button>
+              {noBill ? (
+                <Button
+                  variant="outline"
+                  className="flex-1 h-9 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default gap-2 pointer-events-none"
+                  disabled
+                  data-testid={`button-no-dues-${booking.id}`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />No Dues
+                </Button>
+              ) : openBillsCount > 0 ? (
+                <Button
+                  className="flex-1 h-9 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 gap-2 active:scale-[0.98] transition-all"
+                  variant="outline"
+                  onClick={() => onBill?.()}
+                  title="Payment outstanding — tap to settle"
+                  data-testid={`button-settle-bill-${booking.id}`}
+                >
+                  Payment Pending
+                </Button>
+              ) : (
+                <Button
+                  className="flex-1 h-9 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
+                  onClick={() => onBill?.()}
+                  title="Preview or download invoice"
+                  data-testid={`button-bill-complete-${booking.id}`}
+                >
+                  <Download className="h-3.5 w-3.5" />Paid
+                </Button>
+              )}
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-${booking.id}`}>
                 <CalendarPlus className="h-3 w-3" />Rebook
               </Button>
             </div>
-          )}
-
-          {/* Terminal — Rebook only */}
-          {isTerminal && (
-            <Button variant="outline" size="sm"
-              className="w-full h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
-              onClick={() => onBookAgain?.()}
-              data-testid={`button-rebook-terminal-${booking.id}`}>
-              <Repeat2 className="h-3 w-3" />Rebook
-            </Button>
           )}
 
           {/* Cancel confirmation dialog (controlled, single instance) */}
@@ -1501,11 +1531,9 @@ export function AppointmentCard({
           Primary button (full-width) + secondary row
           ═════════════════════════════════════ */}
       {role === "doctor" && !isDoctorDeclined && (
-        <div className="px-3 sm:px-4 pb-3 pt-2 border-t border-border/40 space-y-2" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3 sm:px-4 pb-3 pt-2 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
 
-          {/* ── PRIMARY button ── */}
-
-          {/* Pending approval — Approve / Decline (two-button primary row) */}
+          {/* Pending approval — Approve / Decline (already a single flex row) */}
           {booking.doctorApprovalStatus === "pending" && !isVisitCompleted && !isTreatmentCompleted && !isTerminal && (
             <div className="flex gap-2">
               <Button size="sm"
@@ -1525,31 +1553,7 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 1 — Booked: approved/confirmed, not arrived, not a terminal state */}
-          {booking.doctorApprovalStatus !== "pending" && !isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <TooltipProvider delayDuration={700}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full cursor-not-allowed">
-                    <Button
-                      variant="outline"
-                      className="w-full h-10 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
-                      disabled
-                      tabIndex={-1}
-                      data-testid={`button-booked-readonly-${booking.id}`}
-                    >
-                      <CalendarDays className="h-3.5 w-3.5" />Booked
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                  Waiting for patient to arrive — no action required
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* Terminal state indicator — shown instead of Booked button */}
+          {/* Terminal state indicator */}
           {isTerminal && (
             <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-muted/40 border border-border/40">
               <span className="text-xs text-muted-foreground">
@@ -1562,127 +1566,91 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 2 — Arrived: Start Consultation (blue, active) */}
-          {isCheckedIn && (
-            <Button
-              className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={() => onStartConsultation?.()}
-              disabled={startConsultPending}
-              data-testid={`button-start-consultation-${booking.id}`}
-            >
-              {startConsultPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
-              Start Consultation
-            </Button>
-          )}
-
-          {/* Stage 3 — In Treatment: Done with Patient (violet, active) */}
-          {isInConsultation && (
-            <Button
-              className="w-full h-10 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={() => onDoctorCompleteVisit?.()}
-              disabled={completeVisitPending}
-              data-testid={`button-done-patient-${booking.id}`}
-            >
-              {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              Done with Patient
-            </Button>
-          )}
-
-          {/* Stage 4 — Treatment Completed */}
-          {isTreatmentCompleted && !isVisitCompleted && (
-            <TooltipProvider delayDuration={700}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full cursor-not-allowed">
-                    <Button
-                      variant="outline"
-                      className="w-full h-10 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 gap-2 pointer-events-none"
-                      disabled
-                      tabIndex={-1}
-                      data-testid={`button-consult-complete-${booking.id}`}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs max-w-[220px] text-center">
-                  Your consultation is done — waiting for the clinic to close the visit
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* Stage 5 — Visit Completed */}
-          {isVisitCompleted && (
-            <TooltipProvider delayDuration={700}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full cursor-not-allowed">
-                    <Button
-                      variant="outline"
-                      className="w-full h-10 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
-                      disabled
-                      tabIndex={-1}
-                      data-testid={`button-visit-complete-readonly-${booking.id}`}
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                  Visit complete — managed by the clinic
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* ── SECONDARY buttons ── */}
-
-          {/* Stage 1 — View Notes */}
-          {booking.doctorApprovalStatus !== "pending" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <Button variant="outline" size="sm"
-              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-              onClick={() => onOpenNotes?.()}
-              data-testid={`button-notes-${booking.id}`}>
-              <FileText className="h-3 w-3" />View Notes
-            </Button>
-          )}
-
-          {/* Stage 2 — View Notes + Add Observation */}
-          {isCheckedIn && (
-            <div className="flex gap-2">
+          {/* Stage 1 — Booked: [View Notes shrink-0] [Booked flex-1] */}
+          {booking.doctorApprovalStatus !== "pending" && !isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onOpenNotes?.()}
+                data-testid={`button-notes-${booking.id}`}>
+                <FileText className="h-3 w-3" />View Notes
+              </Button>
+              <TooltipProvider delayDuration={700}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex-1 cursor-not-allowed">
+                      <Button
+                        variant="outline"
+                        className="w-full h-9 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
+                        disabled
+                        tabIndex={-1}
+                        data-testid={`button-booked-readonly-${booking.id}`}
+                      >
+                        <CalendarDays className="h-3.5 w-3.5" />Booked
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                    Waiting for patient to arrive — no action required
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
+
+          {/* Stage 2 — Arrived: [View Notes] [Start Consultation flex-1] [Add Obs.] */}
+          {isCheckedIn && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenNotes?.()}
                 data-testid={`button-notes-arrived-${booking.id}`}>
                 <FileText className="h-3 w-3" />View Notes
               </Button>
+              <Button
+                className="flex-1 h-9 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                onClick={() => onStartConsultation?.()}
+                disabled={startConsultPending}
+                data-testid={`button-start-consultation-${booking.id}`}
+              >
+                {startConsultPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+                Start Consultation
+              </Button>
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-add-observation-${booking.id}`}>
-                <ClipboardList className="h-3 w-3" />Add Observation
+                <ClipboardList className="h-3 w-3" />Add Obs.
               </Button>
             </div>
           )}
 
-          {/* Stage 3 — Add Observation + Notes + Issue Rx/Rec */}
+          {/* Stage 3 — In Treatment: [Add Obs.] [Notes] [Done flex-1] [Issue Rx] */}
           {isInConsultation && (
-            <div className="flex gap-1.5">
+            <div className="flex items-center gap-1.5">
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-add-obs-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />Add Obs.
               </Button>
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                 onClick={() => onOpenNotes?.()}
                 data-testid={`button-notes-consult-${booking.id}`}>
                 <FileText className="h-3 w-3" />Notes
               </Button>
+              <Button
+                className="flex-1 h-9 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
+                onClick={() => onDoctorCompleteVisit?.()}
+                disabled={completeVisitPending}
+                data-testid={`button-done-patient-${booking.id}`}
+              >
+                {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Done
+              </Button>
               <Button size="sm"
-                className="flex-1 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-issue-rx-${booking.id}`}>
                 <Stethoscope className="h-3 w-3" />Issue Rx
@@ -1690,33 +1658,73 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 4 — View Notes + View Rx/Rec */}
+          {/* Stage 4 — Treatment Completed: [View Notes] [Consultation Completed flex-1] [View Rx] */}
           {isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenNotes?.()}
                 data-testid={`button-notes-tmt-${booking.id}`}>
                 <FileText className="h-3 w-3" />View Notes
               </Button>
+              <TooltipProvider delayDuration={700}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex-1 cursor-not-allowed">
+                      <Button
+                        variant="outline"
+                        className="w-full h-9 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 gap-2 pointer-events-none"
+                        disabled
+                        tabIndex={-1}
+                        data-testid={`button-consult-complete-${booking.id}`}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs max-w-[220px] text-center">
+                    Your consultation is done — waiting for the clinic to close the visit
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-view-rx-${booking.id}`}>
-                <ClipboardList className="h-3 w-3" />View Rx / Rec
+                <ClipboardList className="h-3 w-3" />View Rx
               </Button>
             </div>
           )}
 
-          {/* Stage 5 — View Summary (+ Rebook for clinic admin only) */}
+          {/* Stage 5 — Visit Completed: [View Summary shrink-0] [Visit Completed flex-1] */}
           {isVisitCompleted && (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="shrink-0 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onCardClick()}
                 data-testid={`button-view-summary-doc-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />View Summary
               </Button>
+              <TooltipProvider delayDuration={700}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex-1 cursor-not-allowed">
+                      <Button
+                        variant="outline"
+                        className="w-full h-9 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
+                        disabled
+                        tabIndex={-1}
+                        data-testid={`button-visit-complete-readonly-${booking.id}`}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                    Visit complete — managed by the clinic
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
 
