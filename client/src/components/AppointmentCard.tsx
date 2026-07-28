@@ -1231,15 +1231,9 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 1 — Pending: [View] [Confirm / Past Appt flex-1] [Cancel (future only)] */}
+          {/* Stage 1 — Pending: [Confirm / Past Appt flex-1] [Cancel (future only)] */}
           {!isTerminal && !isClinicConfirmed && !isVisitCompleted && !isTreatmentCompleted && !isCheckedIn && !isInConsultation && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
-                onClick={() => onCardClick()}
-                data-testid={`button-view-${booking.id}`}>
-                <FileText className="h-3 w-3" />View
-              </Button>
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1275,15 +1269,9 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 1b — Confirmed, not arrived: [View] [Mark Arrived flex-1] [Cancel] */}
+          {/* Stage 1b — Confirmed, not arrived: [Mark Arrived flex-1] [Cancel] */}
           {!isTerminal && isClinicConfirmed && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
-                onClick={() => onCardClick()}
-                data-testid={`button-view-${booking.id}`}>
-                <FileText className="h-3 w-3" />View
-              </Button>
               <Button
                 className="flex-1 h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onCheckIn?.()}
@@ -1386,15 +1374,9 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 5 — Visit Completed: [Summary] [status flex-1] [Rebook] */}
+          {/* Stage 5 — Visit Completed: [status flex-1] [Rebook] */}
           {!isTerminal && isVisitCompleted && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
-                onClick={() => onCardClick()}
-                data-testid={`button-view-summary-${booking.id}`}>
-                <ClipboardList className="h-3 w-3" />Summary
-              </Button>
               {noBill ? (
                 <Button
                   variant="outline"
@@ -1566,47 +1548,33 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 1 — Booked: [View Notes shrink-0] [Booked flex-1] */}
+          {/* Stage 1 — Booked: [Booked w-full] */}
           {booking.doctorApprovalStatus !== "pending" && !isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
-                onClick={() => onOpenNotes?.()}
-                data-testid={`button-notes-${booking.id}`}>
-                <FileText className="h-3 w-3" />View Notes
-              </Button>
-              <TooltipProvider delayDuration={700}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex-1 cursor-not-allowed">
-                      <Button
-                        variant="outline"
-                        className="w-full h-10 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
-                        disabled
-                        tabIndex={-1}
-                        data-testid={`button-booked-readonly-${booking.id}`}
-                      >
-                        <CalendarDays className="h-3.5 w-3.5" />Booked
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                    Waiting for patient to arrive — no action required
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-not-allowed">
+                    <Button
+                      variant="outline"
+                      className="w-full h-10 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
+                      disabled
+                      tabIndex={-1}
+                      data-testid={`button-booked-readonly-${booking.id}`}
+                    >
+                      <CalendarDays className="h-3.5 w-3.5" />Booked
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                  Waiting for patient to arrive — no action required
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
-          {/* Stage 2 — Arrived: [View Notes] [Start Consultation flex-1] [Add Obs.] */}
+          {/* Stage 2 — Arrived: [Start Consultation flex-1] [Add Obs.] */}
           {isCheckedIn && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
-                onClick={() => onOpenNotes?.()}
-                data-testid={`button-notes-arrived-${booking.id}`}>
-                <FileText className="h-3 w-3" />View Notes
-              </Button>
               <Button
                 className="flex-1 h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onStartConsultation?.()}
@@ -1679,15 +1647,9 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 4 — Treatment Completed: [View Notes] [Consultation Completed flex-1] [View Rx] */}
+          {/* Stage 4 — Treatment Completed: [Consult. Done flex-1] [View Rx] */}
           {isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
-                onClick={() => onOpenNotes?.()}
-                data-testid={`button-notes-tmt-${booking.id}`}>
-                <FileText className="h-3 w-3" />View Notes
-              </Button>
               <TooltipProvider delayDuration={700}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1717,36 +1679,28 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 5 — Visit Completed: [Summary shrink-0] [Visit Completed flex-1] */}
+          {/* Stage 5 — Visit Completed: [Visit Completed w-full] */}
           {isVisitCompleted && (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
-                onClick={() => onCardClick()}
-                data-testid={`button-view-summary-doc-${booking.id}`}>
-                <ClipboardList className="h-3 w-3" />Summary
-              </Button>
-              <TooltipProvider delayDuration={700}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex-1 cursor-not-allowed">
-                      <Button
-                        variant="outline"
-                        className="w-full h-10 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
-                        disabled
-                        tabIndex={-1}
-                        data-testid={`button-visit-complete-readonly-${booking.id}`}
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                    Visit complete — managed by the clinic
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-not-allowed">
+                    <Button
+                      variant="outline"
+                      className="w-full h-10 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
+                      disabled
+                      tabIndex={-1}
+                      data-testid={`button-visit-complete-readonly-${booking.id}`}
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                  Visit complete — managed by the clinic
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
         </div>
