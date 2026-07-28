@@ -3059,13 +3059,13 @@ export default function BookingsPanel({
                               )}
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
-                                  className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                   onClick={() => setOpenBookingId(null)}
                                   data-testid={`button-dialog-summary-${booking.id}`}>
                                   <ClipboardList className="h-3 w-3" />View Summary
                                 </Button>
                                 <Button variant="outline" size="sm"
-                                  className="flex-1 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                                  className="flex-1 h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                                   onClick={() => {
                                     const _d = booking.description ?? "";
                                     const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
@@ -3105,14 +3105,14 @@ export default function BookingsPanel({
                               </Button>
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
-                                  className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                   onClick={() => handleOpenBilling(booking)}
                                   data-testid={`button-dialog-bill-tmt-${booking.id}`}>
                                   <IndianRupee className="h-3 w-3" />₹ Bill
                                 </Button>
                                 <CancelDialog trigger={
                                   <Button variant="ghost" size="sm"
-                                    className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                    className="flex-1 h-10 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                                     data-testid={`button-dialog-cancel-tmt-${booking.id}`}>
                                     <X className="h-3 w-3" />Cancel
                                   </Button>
@@ -3131,14 +3131,14 @@ export default function BookingsPanel({
                               </Button>
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
-                                  className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                   onClick={() => handleOpenBilling(booking)}
                                   data-testid={`button-dialog-bill-consult-${booking.id}`}>
                                   <IndianRupee className="h-3 w-3" />₹ Bill
                                 </Button>
                                 <CancelDialog trigger={
                                   <Button variant="ghost" size="sm"
-                                    className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                    className="flex-1 h-10 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                                     data-testid={`button-dialog-cancel-consult-${booking.id}`}>
                                     <X className="h-3 w-3" />Cancel
                                   </Button>
@@ -3157,14 +3157,14 @@ export default function BookingsPanel({
                               </Button>
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
-                                  className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                   onClick={() => handleOpenBilling(booking)}
                                   data-testid={`button-dialog-bill-checkin-${booking.id}`}>
                                   <IndianRupee className="h-3 w-3" />₹ Bill
                                 </Button>
                                 <CancelDialog trigger={
                                   <Button variant="ghost" size="sm"
-                                    className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                    className="flex-1 h-10 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                                     data-testid={`button-dialog-cancel-checkin-${booking.id}`}>
                                     <X className="h-3 w-3" />Cancel
                                   </Button>
