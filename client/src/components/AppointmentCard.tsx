@@ -1245,7 +1245,7 @@ export function AppointmentCard({
                         data-testid={`button-confirm-${booking.id}`}
                       >
                         {confirmPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                        {isPast ? "Past Appt" : "Confirm"}
+                        {isPast ? "Past Appointment" : "Confirm"}
                       </Button>
                     </span>
                   </TooltipTrigger>
