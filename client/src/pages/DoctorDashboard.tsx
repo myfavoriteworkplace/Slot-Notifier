@@ -291,6 +291,16 @@ export default function DoctorDashboard() {
     staleTime: 60_000,
   });
 
+  // ── Date constants — must be declared BEFORE bookingsQueryKey and useInfiniteQuery
+  // which both reference todayStr. Declaring them here avoids a TDZ ReferenceError
+  // in the production bundle.
+  const todayStr     = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStart   = useMemo(() => startOfDay(new Date()), []);
+  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const thisWeekEnd   = useMemo(() => endOfWeek(new Date(),   { weekStartsOn: 1 }), []);
+  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
+  const nextWeekEnd   = useMemo(() => endOfWeek(addWeeks(new Date(), 1),   { weekStartsOn: 1 }), []);
+
   const bookingsQueryKey = ["/api/auth/clinic/bookings", {
     filter: quickFilter,
     todayDate: todayStr,
@@ -710,19 +720,13 @@ export default function DoctorDashboard() {
   const confirmedAllCount     = bookingStats?.totalAllCount ?? 0;
   const ownedCount            = bookingStats?.totalOwnedCount ?? 0;
 
-  const todayStr    = useMemo(() => new Date().toISOString().split("T")[0], []);
-  const todayStart  = useMemo(() => startOfDay(new Date()), []);
+  // todayStr, todayStart, thisWeek*, nextWeek* moved above bookingsQueryKey to avoid TDZ
   const statNext7DaysEnd = useMemo(() => addDays(todayStart, 7), [todayStart]);
 
   const pendingNext7Count    = bookingStats?.pendingNext7Count    ?? 0;
   const confirmedNext7Count  = bookingStats?.confirmedNext7Count  ?? 0;
   const thisWeekCount        = bookingStats?.thisWeekCount        ?? 0;
   const nextWeekCount        = bookingStats?.nextWeekCount        ?? 0;
-
-  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
-  const thisWeekEnd   = useMemo(() => endOfWeek(new Date(),   { weekStartsOn: 1 }), []);
-  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
-  const nextWeekEnd   = useMemo(() => endOfWeek(addWeeks(new Date(), 1),   { weekStartsOn: 1 }), []);
 
   const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
 
