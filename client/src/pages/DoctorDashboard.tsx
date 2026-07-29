@@ -104,6 +104,7 @@ export default function DoctorDashboard() {
   const [filterRowOpen, setFilterRowOpen] = useState(false);
   const [chipsCollapsed, setChipsCollapsed] = useState(() => window.innerWidth < 640);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<'' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show'>('');
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [searchOpen, setSearchOpen] = useState(true);
 
@@ -308,6 +309,7 @@ export default function DoctorDashboard() {
     dateFrom: filterDate ? format(filterDate, "yyyy-MM-dd") : undefined,
     dateTo: filterEndDate ? format(filterEndDate, "yyyy-MM-dd") : undefined,
     patientId: activePatientFilter?.id,
+    statusFilter: statusFilter || undefined,
   }];
 
   const {
@@ -324,6 +326,7 @@ export default function DoctorDashboard() {
       if (filterDate) params.set("dateFrom", format(filterDate, "yyyy-MM-dd"));
       if (filterEndDate) params.set("dateTo", format(filterEndDate, "yyyy-MM-dd"));
       if (activePatientFilter) params.set("patientId", String(activePatientFilter.id));
+      if (statusFilter) params.set("statusFilter", statusFilter);
       const res = await apiRequest("GET", `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) return { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1, stats: { todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0, thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0, totalPendingCount: 0, totalAllCount: 0, awaitingApprovalCount: 0 } };
@@ -1664,6 +1667,29 @@ export default function DoctorDashboard() {
                       Clear week
                     </button>
                   )}
+
+                  {/* Status filters */}
+                  <div className="w-full border-t border-border/40 pt-2 mt-1 flex flex-wrap items-center gap-2 sm:w-auto sm:border-0 sm:pt-0 sm:mt-0">
+                    <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status</span>
+                    {([
+                      ['in-clinic', 'In Clinic Now', Activity],
+                      ['completed', 'Visit Completed', CheckCircle2],
+                      ['cancelled', 'Cancelled', X],
+                      ['no-show', 'No Show', UserX],
+                    ] as const).map(([value, label, Icon]) => (
+                      <button
+                        key={value}
+                        onClick={() => setStatusFilter(statusFilter === value ? '' : value)}
+                        className={`flex-1 sm:flex-none min-h-[44px] px-3 rounded-full border text-xs font-semibold transition-all active:scale-[0.97] ${
+                          statusFilter === value ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50' : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400/40 hover:text-violet-600'
+                        }`}
+                        data-testid={`chip-status-${value}`}
+                      >
+                        <Icon className="inline h-3 w-3 mr-1" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
                   {/* Desktop-only divider before clinic select */}
                   <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />

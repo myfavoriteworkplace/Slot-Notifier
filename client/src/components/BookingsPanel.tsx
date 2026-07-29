@@ -131,6 +131,10 @@ interface BookingsPanelProps {
   setFilterDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
   filterEndDate: Date | undefined;
   setFilterEndDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
+  statusFilter: '' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show';
+  setStatusFilter: (f: '' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show') => void;
+  doctorFilter: string;
+  setDoctorFilter: (f: string) => void;
   setTabBadges: (f: Record<number, string[]> | ((p: Record<number, string[]>) => Record<number, string[]>)) => void;
   bookingsSectionRef: { current: HTMLDivElement | null };
   openBookingId: number | null;
@@ -155,6 +159,10 @@ export default function BookingsPanel({
   setFilterDate,
   filterEndDate,
   setFilterEndDate,
+  statusFilter,
+  setStatusFilter,
+  doctorFilter,
+  setDoctorFilter,
   bookingsSectionRef,
   openBookingId,
   setOpenBookingId,
@@ -253,6 +261,8 @@ export default function BookingsPanel({
     dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
     dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
     patientId: activePatientFilter?.id,
+    statusFilter: statusFilter || undefined,
+    doctorEmail: doctorFilter || undefined,
   }];
 
   const {
@@ -271,6 +281,8 @@ export default function BookingsPanel({
       if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
       if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
       if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
+      if (statusFilter) params.set('statusFilter', statusFilter);
+      if (doctorFilter) params.set('doctorEmail', doctorFilter);
       const res = await apiRequest('GET', `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
@@ -1321,6 +1333,75 @@ export default function BookingsPanel({
                 Clear week
               </button>
             )}
+
+            {/* Additional date presets */}
+            <div className="border-t border-border/40 pt-2 mt-1 flex flex-wrap gap-2 sm:contents sm:border-0 sm:pt-0 sm:mt-0">
+              {[
+                { key: 'tomorrow', label: 'Tomorrow', from: addDays(startOfToday(), 1), to: addDays(startOfToday(), 1) },
+                { key: 'last-7', label: 'Last 7 Days', from: addDays(startOfToday(), -6), to: startOfToday() },
+                { key: 'month', label: 'This Month', from: new Date(new Date().getFullYear(), new Date().getMonth(), 1), to: startOfToday() },
+              ].map(preset => {
+                const active = filterDate && filterEndDate &&
+                  format(filterDate, 'yyyy-MM-dd') === format(preset.from, 'yyyy-MM-dd') &&
+                  format(filterEndDate, 'yyyy-MM-dd') === format(preset.to, 'yyyy-MM-dd');
+                return (
+                  <button
+                    key={preset.key}
+                    onClick={() => {
+                      if (active) { setFilterDate(undefined); setFilterEndDate(undefined); }
+                      else { setQuickFilter('all'); setFilterDate(preset.from); setFilterEndDate(preset.to); }
+                    }}
+                    className={`flex-1 sm:flex-none min-h-[44px] px-3 rounded-full border text-xs font-semibold transition-all active:scale-[0.97] ${
+                      active ? 'bg-primary/10 text-primary border-primary/50' : 'bg-background text-muted-foreground border-border/60 hover:border-primary/40 hover:text-primary'
+                    }`}
+                    data-testid={`chip-date-${preset.key}`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Status filters */}
+            <div className="w-full border-t border-border/40 pt-2 mt-1 flex flex-wrap items-center gap-2 sm:w-auto sm:border-0 sm:pt-0 sm:mt-0">
+              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status</span>
+              {([
+                ['in-clinic', 'In Clinic Now', 'Activity'],
+                ['completed', 'Visit Completed', 'CheckCircle2'],
+                ['cancelled', 'Cancelled', 'X'],
+                ['no-show', 'No Show', 'UserX'],
+              ] as const).map(([value, label, icon]) => (
+                <button
+                  key={value}
+                  onClick={() => setStatusFilter(statusFilter === value ? '' : value)}
+                  className={`flex-1 sm:flex-none min-h-[44px] px-3 rounded-full border text-xs font-semibold transition-all active:scale-[0.97] ${
+                    statusFilter === value ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50' : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400/40 hover:text-violet-600'
+                  }`}
+                  data-testid={`chip-status-${value}`}
+                >
+                  {icon === 'Activity' ? <Activity className="inline h-3 w-3 mr-1" /> : icon === 'CheckCircle2' ? <CheckCircle2 className="inline h-3 w-3 mr-1" /> : icon === 'UserX' ? <UserX className="inline h-3 w-3 mr-1" /> : <X className="inline h-3 w-3 mr-1" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Doctor filter — clinic admin only */}
+            <div className="w-full border-t border-border/40 pt-2 mt-1 sm:w-auto sm:border-0 sm:pt-0 sm:mt-0">
+              <Select value={doctorFilter || 'all'} onValueChange={value => setDoctorFilter(value === 'all' ? '' : value)}>
+                <SelectTrigger className="h-11 w-full sm:w-[190px] text-xs rounded-lg" data-testid="select-doctor-filter">
+                  <SelectValue placeholder="All Doctors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Doctors</SelectItem>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {((clinic?.doctors as any[]) || []).map((doctor: any, index: number) => (
+                    <SelectItem key={`${doctor.email || doctor.name}-${index}`} value={doctor.email || doctor.name}>
+                      {doctor.name || doctor.email || 'Doctor'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Desktop-only close × at far right */}
             <div className="hidden sm:flex sm:ml-auto">

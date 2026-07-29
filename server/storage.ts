@@ -62,6 +62,8 @@ export interface BookingQueryParams {
   search?: string;
   patientId?: number;
   clinicId?: number;
+  doctorEmail?: string;
+  statusFilter?: 'in-clinic' | 'completed' | 'cancelled' | 'no-show';
   /** Stable client-supplied date (yyyy-MM-dd) used as the CASE WHEN boundary so all
    *  pages in the same session share the same future/past split even across midnight. */
   todayDate?: string;
@@ -620,7 +622,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId, todayDate } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId, todayDate, doctorEmail, statusFilter } = params;
 
     // Use client-supplied todayDate if present so all pages in the same session share
     // the same future/past boundary even when a request crosses midnight.
@@ -709,8 +711,25 @@ export class DatabaseStorage implements IStorage {
 
     // Patient filter
     const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
+    const doctorCond = doctorEmail === '__unassigned__'
+      ? isNull(bookings.assignedDoctorEmail)
+      : doctorEmail ? eq(bookings.assignedDoctorEmail, doctorEmail) : undefined;
+    const statusCond =
+      statusFilter === 'in-clinic'
+        ? and(
+              gte(slots.startTime, todayStart),
+              lte(slots.startTime, todayEnd),
+              or(
+              eq(bookings.visitStatus, 'checked_in'),
+              eq(bookings.visitStatus, 'in_consultation'),
+              ),
+            )
+        : statusFilter === 'completed' ? eq(bookings.visitStatus, 'completed')
+        : statusFilter === 'cancelled' ? eq(bookings.verificationStatus, 'cancelled')
+        : statusFilter === 'no-show' ? eq(bookings.verificationStatus, 'no_show')
+        : undefined;
 
-    const whereClause = and(clinicCondition, combinedFilterCond, searchCond, patientCond);
+    const whereClause = and(clinicCondition, combinedFilterCond, searchCond, patientCond, doctorCond, statusCond);
 
     // Total bookings for the selected patient, ignoring tab/date/search (used for smart empty states)
     let patientTotalCount: number | undefined;
@@ -798,7 +817,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search, patientId, todayDate } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search, patientId, todayDate, statusFilter } = params;
 
     // Use client-supplied todayDate if present so all pages in the same session share
     // the same future/past boundary even when a request crosses midnight.
@@ -903,8 +922,19 @@ export class DatabaseStorage implements IStorage {
 
     // Patient filter
     const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
+    const statusCond =
+      statusFilter === 'in-clinic'
+        ? and(
+            gte(slots.startTime, todayStart),
+            lte(slots.startTime, todayEnd),
+            or(eq(bookings.visitStatus, 'checked_in'), eq(bookings.visitStatus, 'in_consultation')),
+          )
+        : statusFilter === 'completed' ? eq(bookings.visitStatus, 'completed')
+        : statusFilter === 'cancelled' ? eq(bookings.verificationStatus, 'cancelled')
+        : statusFilter === 'no-show' ? eq(bookings.verificationStatus, 'no_show')
+        : undefined;
 
-    const whereClause = and(emailCond, clinicCond, combinedFilterCond, searchCond, patientCond);
+    const whereClause = and(emailCond, clinicCond, combinedFilterCond, searchCond, patientCond, statusCond);
 
     // Total bookings for the selected patient, ignoring tab/date/search (used for smart empty states)
     let patientTotalCount: number | undefined;

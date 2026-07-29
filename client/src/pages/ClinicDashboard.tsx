@@ -273,6 +273,8 @@ export default function ClinicDashboard() {
 
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<'' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show'>('');
+  const [doctorFilter, setDoctorFilter] = useState('');
   const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days'>('today');
   const bookingsSectionRef = useRef<HTMLDivElement>(null);
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
@@ -1521,6 +1523,10 @@ export default function ClinicDashboard() {
                 setFilterDate={setFilterDate}
                 filterEndDate={filterEndDate}
                 setFilterEndDate={setFilterEndDate}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                doctorFilter={doctorFilter}
+                setDoctorFilter={setDoctorFilter}
                 bookingsSectionRef={bookingsSectionRef}
                 openBookingId={openBookingId}
                 setOpenBookingId={setOpenBookingId}

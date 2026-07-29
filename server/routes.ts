@@ -2911,6 +2911,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinicId: z.coerce.number().optional(),
           search:   z.string().optional(),
           patientId: z.coerce.number().optional(),
+          statusFilter: z.enum(['in-clinic', 'completed', 'cancelled', 'no-show']).optional(),
         }).safeParse(req.query);
         if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
         const paged = await storage.getDoctorBookingsPaged(email, parseResult.data);
@@ -2941,6 +2942,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           todayDate: z.string().optional(),
           search:   z.string().optional(),
           patientId: z.coerce.number().optional(),
+          doctorEmail: z.string().optional(),
+          statusFilter: z.enum(['in-clinic', 'completed', 'cancelled', 'no-show']).optional(),
         }).safeParse(req.query);
         if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
         const paged = await storage.getClinicBookingsPaged(sess.clinicId, parseResult.data);
