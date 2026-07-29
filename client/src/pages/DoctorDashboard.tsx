@@ -41,6 +41,7 @@ import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, en
 import { compressImage } from "@/lib/imageCompression";
 import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
 
@@ -1510,7 +1511,26 @@ export default function DoctorDashboard() {
                 </button>
               </div>
 
-              {/* Date range + Quick week — collapsible filter row */}
+              <AppointmentFilters
+                role="doctor"
+                filterDate={filterDate}
+                setFilterDate={setFilterDate}
+                filterEndDate={filterEndDate}
+                setFilterEndDate={setFilterEndDate}
+                quickFilter={quickFilter}
+                setQuickFilter={setQuickFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                roleFilter={appointmentClinicFilter === "all" ? "" : appointmentClinicFilter}
+                setRoleFilter={(value) => setAppointmentClinicFilter(value || "all")}
+                roleOptions={doctorClinics.map(clinic => ({ value: clinic.id.toString(), label: clinic.name }))}
+                filterRowOpen={filterRowOpen}
+                onClose={() => setFilterRowOpen(false)}
+                thisWeekCount={thisWeekCount}
+                nextWeekCount={nextWeekCount}
+              />
+              {false && <>
+              {/* Legacy filter markup retained during shared filter migration */}
               {filterRowOpen && (
                 <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-3 shadow-sm">
 
@@ -1715,6 +1735,7 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
               )}
+              </>}
 
               {/* Dynamic section heading — dark green gradient, attached to cards (BookingsPanel style) */}
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">

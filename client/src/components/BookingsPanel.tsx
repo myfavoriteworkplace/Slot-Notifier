@@ -72,6 +72,7 @@ import {
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
@@ -1176,7 +1177,34 @@ export default function BookingsPanel({
           </div>
         </div>
 
-        {/* Date range + Quick week — collapsible filter row */}
+        <AppointmentFilters
+          role="clinic"
+          filterDate={filterDate}
+          setFilterDate={setFilterDate}
+          filterEndDate={filterEndDate}
+          setFilterEndDate={setFilterEndDate}
+          quickFilter={quickFilter}
+          setQuickFilter={setQuickFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          roleFilter={doctorFilter}
+          setRoleFilter={setDoctorFilter}
+          roleOptions={[
+            { value: "__unassigned__", label: "Unassigned" },
+            ...(((clinic?.doctors as any[]) || [])
+              .filter((doctor: any) => doctor.email)
+              .map((doctor: any, index: number) => ({
+                value: doctor.email,
+                label: doctor.name || doctor.email || `Doctor ${index + 1}`,
+              }))),
+          ]}
+          filterRowOpen={filterRowOpen}
+          onClose={() => setFilterRowOpen(false)}
+          thisWeekCount={thisWeekCount}
+          nextWeekCount={nextWeekCount}
+        />
+        {false && <>
+        {/* Legacy filter markup retained during shared filter migration */}
         {filterRowOpen && (
           <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-3 shadow-sm">
 
@@ -1416,6 +1444,7 @@ export default function BookingsPanel({
 
           </div>
         )}
+        </>}
 
         {/* Bookings Section */}
         <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">
