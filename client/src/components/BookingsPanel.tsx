@@ -1041,16 +1041,21 @@ export default function BookingsPanel({
                 >
                   <LayoutList className="h-4 w-4" />
                 </button>
-                {!filterRowOpen && (
-                  <button
-                    onClick={() => setFilterRowOpen(true)}
-                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
-                    data-testid="button-open-filter-row"
-                    title="Show date & week filters"
-                  >
-                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                )}
+                <button
+                  onClick={() => setFilterRowOpen(open => !open)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] shrink-0 ${
+                    filterRowOpen
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                  }`}
+                  data-testid="button-toggle-filter-row"
+                  title={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-label={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-expanded={filterRowOpen}
+                  aria-controls="appointment-filters"
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                </button>
                 {legendCollapsed && (
                   <button
                     onClick={() => setLegendCollapsed(false)}
@@ -1081,16 +1086,21 @@ export default function BookingsPanel({
                 >
                   <Search className="h-4 w-4 text-muted-foreground" />
                 </button>
-                {!filterRowOpen && (
-                  <button
-                    onClick={() => setFilterRowOpen(true)}
-                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97]"
-                    data-testid="button-open-filter-row"
-                    title="Show date & week filters"
-                  >
-                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                )}
+                <button
+                  onClick={() => setFilterRowOpen(open => !open)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] ${
+                    filterRowOpen
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                  }`}
+                  data-testid="button-toggle-filter-row"
+                  title={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-label={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-expanded={filterRowOpen}
+                  aria-controls="appointment-filters"
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                </button>
                 {/* Legend toggle — mini coloured-lines icon; only when legend is hidden */}
                 {legendCollapsed && (
                   <button

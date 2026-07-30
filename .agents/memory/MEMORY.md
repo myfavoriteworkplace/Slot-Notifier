@@ -9,3 +9,4 @@
 - [multer esbuild bundling](multer-esbuild.md) — multer v2.x cannot be bundled by esbuild; must be in the externals list (NOT in the allowlist in script/build.ts).
 - [Notification global overlay pattern](notif-overlay.md) — BookingsPanel is mounted hidden (display:none) when openBookingId != null and activePanel != bookings; Radix Dialog portal escapes display:none to document.body; focus booking fetched via separate query if not in current filter list.
 - [Patient Medical History Tab](medical-history-tab.md) — 6th tab in doctor appointment card; `patient_medical_history` table, 2 doctor-auth routes, MedicalHistoryTab component; edit auto-expands dialog; use `ReactNode` not `React.ReactNode`.
+- [Compact appointment filters](compact-appointment-filters.md) — persistent toolbar toggle and compact responsive grid are the shared clinic/doctor filter pattern.
