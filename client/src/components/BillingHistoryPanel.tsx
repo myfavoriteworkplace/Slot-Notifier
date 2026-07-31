@@ -1501,12 +1501,14 @@ export function BillingHistoryPanel({
                </div>
              )}
 
-             {/* Discount + optional GST — tax exempt is the default when taxPct is zero */}
-            {canEdit && services.length > 0 && (
-               <div className="px-3 py-2 border-t border-border/30 bg-muted/10 space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">Discount %</label>
+              {/* Discount + optional GST — tax exempt is the default when taxPct is zero */}
+             {canEdit && services.length > 0 && (
+                <div className="px-3 py-2.5 border-t border-border/30 bg-muted/10 space-y-2.5">
+                 <div className="flex items-center justify-between gap-3">
+                   <label htmlFor={`discount-pct-${bill.id}`} className="text-xs text-muted-foreground font-medium">Discount</label>
+                   <div className="flex items-center gap-1.5">
                   <Input type="number" min="0" max="100" step="0.5"
+                     id={`discount-pct-${bill.id}`}
                     defaultValue={String(bill.discountPct ?? 0)}
                     onBlur={e => {
                       const val = parseFloat(e.target.value) || 0;
@@ -1514,46 +1516,56 @@ export function BillingHistoryPanel({
                         updateDiscountTaxMutation.mutate({ bill, discountPct: val, taxPct: bill.taxPct ?? 0 });
                       }
                     }}
-                    className="h-7 w-16 text-xs" data-testid="input-discount-pct" />
+                     className="h-7 w-16 text-xs text-right" data-testid="input-discount-pct" />
+                     <span className="text-xs text-muted-foreground">%</span>
+                   </div>
                 </div>
-                 <div className="flex flex-wrap items-center gap-1.5">
-                   <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tax status</span>
-                   <Button type="button" size="sm" variant={(bill.taxPct ?? 0) === 0 ? "default" : "outline"}
+                  <div className="space-y-1.5">
+                    <span className="block text-xs text-muted-foreground font-medium">Tax status</span>
+                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg border border-border/50 bg-background/70">
+                    <Button type="button" size="sm" variant={(bill.taxPct ?? 0) === 0 ? "default" : "outline"}
                      onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: 0 })}
-                     className="h-7 px-2 text-xs gap-1"
+                      className="h-8 px-2 text-xs gap-1 justify-center"
                      data-testid="button-tax-exempt">
                      <CheckCircle2 className="h-3 w-3" /> Tax Exempt
                    </Button>
                    <Button type="button" size="sm" variant={(bill.taxPct ?? 0) > 0 ? "default" : "outline"}
                      onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: bill.taxPct > 0 ? bill.taxPct : 18 })}
-                     className="h-7 px-2 text-xs"
+                      className="h-8 px-2 text-xs justify-center"
                      data-testid="button-apply-gst">
                      Apply GST
                    </Button>
+                    </div>
                    {(bill.taxPct ?? 0) > 0 && (
-                     <div className="flex flex-wrap items-center gap-1 ml-1">
+                      <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-2 space-y-1.5">
+                        <span className="block text-xs font-medium text-muted-foreground">GST rate</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
                        {[5, 12, 18].map(rate => (
                          <Button key={rate} type="button" size="sm" variant={bill.taxPct === rate ? "default" : "outline"}
                            onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: rate })}
-                           className="h-7 min-w-9 px-1.5 text-xs"
+                            className="h-8 min-w-10 px-2 text-xs"
                            data-testid={`button-gst-rate-${rate}`}>
                            {rate}%
                          </Button>
                        ))}
-                       <Input type="number" min="0" max="100" step="0.5"
-                         defaultValue={String(bill.taxPct ?? 0)}
-                         onBlur={e => {
-                           const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
-                           if (val !== (bill.taxPct ?? 0)) {
-                             updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: val });
-                           }
-                         }}
-                         aria-label="Custom GST rate"
-                         className="h-7 w-16 text-xs" data-testid="input-tax-pct" />
-                       <span className="text-xs text-muted-foreground">%</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">Custom</span>
+                          <Input type="number" min="0" max="100" step="0.5"
+                            defaultValue={String(bill.taxPct ?? 0)}
+                            onBlur={e => {
+                              const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                              if (val !== (bill.taxPct ?? 0)) {
+                                updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: val });
+                              }
+                            }}
+                            aria-label="Custom GST rate"
+                            className="h-8 w-16 text-xs text-right" data-testid="input-tax-pct" />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                        </div>
                      </div>
                    )}
-                </div>
+                 </div>
               </div>
             )}
 
