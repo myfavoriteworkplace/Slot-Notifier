@@ -512,7 +512,9 @@ export default function BookingsPanel({
       services: mergedServices.length > 0 ? mergedServices : [{ description: "Dental Consultation", amount: "500", category: "Consultation" }],
       date: firstBill?.createdAt ? format(new Date(firstBill.createdAt), "PPP") : format(new Date(booking.slot.startTime), "PPP"),
       discount: String(firstBill?.discountPct ?? 0),
-      tax: String(firstBill?.taxPct ?? 0),
+       // Consolidated receipts use the explicit tax-exempt default; the
+       // individual bill editor remains the source of truth for bill taxes.
+       tax: "0",
       paymentMethod: firstBill?.paymentMethod || "Cash",
       transactionId: "",
       remarks: bills.map(b => b.notes).filter(Boolean).join(" | ") || "",

@@ -1501,9 +1501,9 @@ export function BillingHistoryPanel({
                </div>
              )}
 
-             {/* Discount + Tax — only for editable bills with items */}
+             {/* Discount + optional GST — tax exempt is the default when taxPct is zero */}
             {canEdit && services.length > 0 && (
-              <div className="px-3 py-2 border-t border-border/30 bg-muted/10 flex items-center gap-4 flex-wrap">
+               <div className="px-3 py-2 border-t border-border/30 bg-muted/10 space-y-2">
                 <div className="flex items-center gap-1.5">
                   <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">Discount %</label>
                   <Input type="number" min="0" max="100" step="0.5"
@@ -1516,17 +1516,43 @@ export function BillingHistoryPanel({
                     }}
                     className="h-7 w-16 text-xs" data-testid="input-discount-pct" />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tax %</label>
-                  <Input type="number" min="0" max="100" step="0.5"
-                    defaultValue={String(bill.taxPct ?? 0)}
-                    onBlur={e => {
-                      const val = parseFloat(e.target.value) || 0;
-                      if (val !== (bill.taxPct ?? 0)) {
-                        updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: val });
-                      }
-                    }}
-                    className="h-7 w-16 text-xs" data-testid="input-tax-pct" />
+                 <div className="flex flex-wrap items-center gap-1.5">
+                   <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tax status</span>
+                   <Button type="button" size="sm" variant={(bill.taxPct ?? 0) === 0 ? "default" : "outline"}
+                     onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: 0 })}
+                     className="h-7 px-2 text-xs gap-1"
+                     data-testid="button-tax-exempt">
+                     <CheckCircle2 className="h-3 w-3" /> Tax Exempt
+                   </Button>
+                   <Button type="button" size="sm" variant={(bill.taxPct ?? 0) > 0 ? "default" : "outline"}
+                     onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: bill.taxPct > 0 ? bill.taxPct : 18 })}
+                     className="h-7 px-2 text-xs"
+                     data-testid="button-apply-gst">
+                     Apply GST
+                   </Button>
+                   {(bill.taxPct ?? 0) > 0 && (
+                     <div className="flex flex-wrap items-center gap-1 ml-1">
+                       {[5, 12, 18].map(rate => (
+                         <Button key={rate} type="button" size="sm" variant={bill.taxPct === rate ? "default" : "outline"}
+                           onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: rate })}
+                           className="h-7 min-w-9 px-1.5 text-xs"
+                           data-testid={`button-gst-rate-${rate}`}>
+                           {rate}%
+                         </Button>
+                       ))}
+                       <Input type="number" min="0" max="100" step="0.5"
+                         defaultValue={String(bill.taxPct ?? 0)}
+                         onBlur={e => {
+                           const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                           if (val !== (bill.taxPct ?? 0)) {
+                             updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: val });
+                           }
+                         }}
+                         aria-label="Custom GST rate"
+                         className="h-7 w-16 text-xs" data-testid="input-tax-pct" />
+                       <span className="text-xs text-muted-foreground">%</span>
+                     </div>
+                   )}
                 </div>
               </div>
             )}
@@ -1546,14 +1572,19 @@ export function BillingHistoryPanel({
                     </span>
                   </div>
                 )}
-                {(bill.taxPct ?? 0) > 0 && (
+                 {(bill.taxPct ?? 0) > 0 ? (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Tax ({bill.taxPct}%)</span>
+                     <span className="text-xs text-muted-foreground">GST ({bill.taxPct}%)</span>
                     <span className="text-xs tabular-nums text-foreground">
                       +₹{((services.reduce((s, i) => s + i.amount, 0) * (1 - (bill.discountPct ?? 0) / 100)) * ((bill.taxPct ?? 0) / 100)).toFixed(0)}
                     </span>
                   </div>
-                )}
+                 ) : (
+                   <div className="flex items-center justify-between">
+                     <span className="text-xs text-muted-foreground">Tax status</span>
+                     <span className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Exempt from GST</span>
+                   </div>
+                 )}
                 {paidAmt > 0 && !allPaid && !isBillPaid && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Collected</span>
