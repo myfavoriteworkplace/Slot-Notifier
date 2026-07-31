@@ -955,29 +955,6 @@ export function BillingHistoryPanel({
             </div>
           </button>
 
-          {/* ── Action buttons in header — only for the active editable bill ── */}
-          {isActiveBill && canEdit && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Button size="sm"
-                onClick={e => { e.stopPropagation(); handleLoadPrescription(); }}
-                disabled={loadingPrescription}
-                className="h-7 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground px-2 sm:px-2.5"
-                aria-label="Load Prescription"
-                data-testid="button-load-prescription-header">
-                {loadingPrescription ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pill className="h-3 w-3" />}
-                <span className="hidden sm:inline">Load Prescription</span>
-              </Button>
-              <Button size="sm" variant="outline"
-                onClick={e => { e.stopPropagation(); setAddFormOpenInCard(v => !v); if (!isExpanded) toggleExpand(bill.id); }}
-                className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5 active:scale-[0.98] px-2 sm:px-2.5"
-                aria-label="Add Entry"
-                data-testid="button-toggle-add-entry-header">
-                <Plus className="h-3 w-3" />
-                <span className="hidden sm:inline">Add Entry</span>
-              </Button>
-            </div>
-          )}
-
           <span className="text-sm font-bold text-primary shrink-0">₹{totalAmt.toFixed(0)}</span>
           <button
             onClick={() => { setPreviewBill(bill); setPreviewModalOpen(true); }}
@@ -995,33 +972,6 @@ export function BillingHistoryPanel({
             data-testid={`button-print-bill-${bill.id}`}>
             <Printer className="h-3.5 w-3.5" />
           </button>
-          {!isBillPaid && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button
-                  className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 shrink-0 active:scale-95 transition-all"
-                  title="Delete bill"
-                  aria-label="Delete bill"
-                  data-testid={`button-delete-bill-${bill.id}`}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Back</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
           <button
             onClick={() => toggleExpand(bill.id)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground shrink-0"
@@ -1511,7 +1461,29 @@ export function BillingHistoryPanel({
               </p>
             )}
 
-            {/* Discount + Tax — only for editable bills with items */}
+             {/* Table-level actions — kept beside the item sections */}
+             {isActiveBill && canEdit && (
+               <div className="px-3 py-2 border-t border-border/30 flex flex-wrap items-center gap-2">
+                 <Button size="sm"
+                   onClick={handleLoadPrescription}
+                   disabled={loadingPrescription}
+                   className="h-8 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/50 text-primary-foreground"
+                   aria-label="Load Prescription"
+                   data-testid="button-load-prescription-header">
+                   {loadingPrescription ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pill className="h-3 w-3" />}
+                   Load Prescription
+                 </Button>
+                 <Button size="sm" variant="outline"
+                   onClick={() => setAddFormOpenInCard(v => !v)}
+                   className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/50"
+                   aria-label="Add Entry"
+                   data-testid="button-toggle-add-entry-header">
+                   <Plus className="h-3 w-3" /> Add Entry
+                 </Button>
+               </div>
+             )}
+
+             {/* Discount + Tax — only for editable bills with items */}
             {canEdit && services.length > 0 && (
               <div className="px-3 py-2 border-t border-border/30 bg-muted/10 flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-1.5">
@@ -1583,8 +1555,35 @@ export function BillingHistoryPanel({
             <div className="px-3 py-2.5 bg-muted/20 border-t border-border/30 space-y-2">
 
               {/* Primary CTA row */}
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-xs text-muted-foreground">
+               <div className="flex items-center justify-between gap-2 flex-wrap">
+                 {!isBillPaid ? (
+                   <AlertDialog>
+                     <AlertDialogTrigger asChild>
+                       <Button size="sm" variant="ghost"
+                         className="h-8 px-2 text-xs gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-destructive/50"
+                         aria-label="Delete bill"
+                         data-testid={`button-delete-bill-${bill.id}`}>
+                         <Trash2 className="h-3.5 w-3.5" /> Delete bill
+                       </Button>
+                     </AlertDialogTrigger>
+                     <AlertDialogContent>
+                       <AlertDialogHeader>
+                         <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+                         <AlertDialogDescription>
+                           This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
+                         </AlertDialogDescription>
+                       </AlertDialogHeader>
+                       <AlertDialogFooter>
+                         <AlertDialogCancel>Back</AlertDialogCancel>
+                         <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
+                           Delete
+                         </AlertDialogAction>
+                       </AlertDialogFooter>
+                     </AlertDialogContent>
+                   </AlertDialog>
+                 ) : <span />}
+
+                 <div className="text-xs text-muted-foreground">
                   {allPaid || isBillPaid ? (
                     <span className="flex flex-col">
                       <span className="text-emerald-600 font-bold flex items-center gap-1">
