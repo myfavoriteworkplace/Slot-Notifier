@@ -1398,28 +1398,6 @@ export function BillingHistoryPanel({
               </p>
             )}
 
-             {/* Table-level actions — kept beside the item sections */}
-             {isActiveBill && canEdit && (
-               <div className="px-3 py-2 border-t border-border/30 flex flex-wrap items-center gap-2">
-                 <Button size="sm"
-                   onClick={handleLoadPrescription}
-                   disabled={loadingPrescription}
-                   className="h-8 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/50 text-primary-foreground"
-                   aria-label="Load Prescription"
-                   data-testid="button-load-prescription-header">
-                   {loadingPrescription ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pill className="h-3 w-3" />}
-                   Load Prescription
-                 </Button>
-                 <Button size="sm" variant="outline"
-                   onClick={() => setAddFormOpenInCard(v => !v)}
-                   className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/50"
-                   aria-label="Add Entry"
-                   data-testid="button-toggle-add-entry-header">
-                   <Plus className="h-3 w-3" /> Add Entry
-                 </Button>
-               </div>
-             )}
-
              {/* Inline Add Entry row — aligned with the billing table and responsive on mobile */}
              {isActiveBill && canEdit && addFormOpenInCard && (
                <div className="mx-3 my-2.5 rounded-lg border border-primary/20 bg-primary/[0.03] p-2.5 animate-in slide-in-from-top-1 duration-150">
@@ -1498,6 +1476,28 @@ export function BillingHistoryPanel({
                      Add
                    </Button>
                  </div>
+               </div>
+             )}
+
+             {/* Table-level actions — kept below the add-entry row */}
+             {isActiveBill && canEdit && (
+               <div className="px-3 py-2 border-t border-border/30 flex flex-wrap items-center gap-2">
+                 <Button size="sm"
+                   onClick={handleLoadPrescription}
+                   disabled={loadingPrescription}
+                   className="h-8 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/50 text-primary-foreground"
+                   aria-label="Load Prescription"
+                   data-testid="button-load-prescription-header">
+                   {loadingPrescription ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pill className="h-3 w-3" />}
+                   Load Prescription
+                 </Button>
+                 <Button size="sm" variant="outline"
+                   onClick={() => setAddFormOpenInCard(v => !v)}
+                   className="h-8 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/50"
+                   aria-label="Add Entry"
+                   data-testid="button-toggle-add-entry-header">
+                   <Plus className="h-3 w-3" /> Add Entry
+                 </Button>
                </div>
              )}
 
@@ -1642,30 +1642,31 @@ export function BillingHistoryPanel({
                       <FileText className="h-3 w-3" /> This draft will be confirmed &amp; marked paid in one step.
                     </p>
                   )}
-                  {/* 2-column grid — responsive on all screen sizes */}
-                  <div className="grid grid-cols-2 gap-1.5">
+                  {/* Compact single-line payment fields on wider screens; wraps on mobile */}
+                  <div className="grid grid-cols-2 gap-1.5 md:grid-cols-[minmax(7rem,1fr)_minmax(8rem,1.1fr)_minmax(8rem,1.1fr)_minmax(9rem,1.4fr)]">
                     <div className="relative">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
                       <Input type="number" min="0"
                         value={cashierForm!.amountReceived}
                         onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
-                        className="pl-5 h-8 text-xs w-full" data-testid="input-cashier-amount" />
+                        inputMode="decimal"
+                        className="pl-5 h-9 text-base sm:text-sm w-full text-right" data-testid="input-cashier-amount" />
                     </div>
                     <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
-                      <SelectTrigger className="h-8 text-xs w-full" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-base sm:text-sm w-full" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
                       <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                     </Select>
                     <Input value={cashierForm!.cashierName}
                       onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
                       placeholder="Cashier name…"
-                      className="h-8 text-xs w-full" data-testid="input-cashier-name" />
+                      className="h-9 text-base sm:text-sm w-full" data-testid="input-cashier-name" />
                     <Input value={cashierForm!.notes}
                       onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
                       placeholder="Notes (optional)…"
-                      className="h-8 text-xs w-full" data-testid="input-cashier-notes" />
+                      className="h-9 text-base sm:text-sm w-full" data-testid="input-cashier-notes" />
                   </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-7 px-2 text-xs" disabled={markPaidMutation.isPending}>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-8 px-2 text-xs" disabled={markPaidMutation.isPending}>
                       Cancel
                     </Button>
                     <Button size="sm"
@@ -1677,7 +1678,7 @@ export function BillingHistoryPanel({
                         paymentMethod: cashierForm!.paymentMethod,
                       })}
                       disabled={markPaidMutation.isPending}
-                      className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                      className="h-8 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-emerald-500/50"
                       data-testid="button-confirm-payment">
                       {markPaidMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
                       Confirm &amp; Pay
