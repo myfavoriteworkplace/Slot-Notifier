@@ -1521,7 +1521,7 @@ export function BillingHistoryPanel({
                    </div>
                 </div>
                   <div className="space-y-1.5">
-                    <span className="block text-xs text-muted-foreground font-medium">Tax status</span>
+                    <span className="block text-xs text-muted-foreground font-medium">Tax configuration</span>
                     <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg border border-border/50 bg-background/70">
                     <Button type="button" size="sm" variant={(bill.taxPct ?? 0) === 0 ? "default" : "outline"}
                      onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: 0 })}
@@ -1593,7 +1593,7 @@ export function BillingHistoryPanel({
                   </div>
                  ) : (
                    <div className="flex items-center justify-between">
-                     <span className="text-xs text-muted-foreground">Tax status</span>
+                      <span className="text-xs text-muted-foreground">Tax</span>
                      <span className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Exempt from GST</span>
                    </div>
                  )}
@@ -1612,11 +1612,11 @@ export function BillingHistoryPanel({
               </div>
             )}
 
-            {/* Footer actions */}
-            <div className="px-3 py-2.5 bg-muted/20 border-t border-border/30 space-y-2">
+             {/* Bill actions — separate from the appointment modal's cancellation footer */}
+             <div className="px-3 py-2.5 bg-background border-t border-border/40 space-y-2">
 
               {/* Primary CTA row */}
-               <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-3">
                  {!isBillPaid ? (
                    <AlertDialog>
                      <AlertDialogTrigger asChild>
@@ -1644,25 +1644,25 @@ export function BillingHistoryPanel({
                    </AlertDialog>
                  ) : <span />}
 
-                 <div className="text-xs text-muted-foreground">
+                  <div className="min-w-0 text-center text-xs text-muted-foreground">
                   {allPaid || isBillPaid ? (
-                    <span className="flex flex-col">
-                      <span className="text-emerald-600 font-bold flex items-center gap-1">
+                     <span className="flex flex-col items-center">
+                       <span className="text-emerald-600 font-bold flex items-center gap-1 whitespace-nowrap">
                         <CheckCircle2 className="h-3 w-3" /> Fully settled
                       </span>
                       {(bill as PatientBill & { cashierId?: string }).cashierId && (
-                        <span className="text-xs text-muted-foreground mt-0.5">
+                       <span className="text-xs text-muted-foreground mt-0.5 truncate max-w-full">
                           Processed by {(bill as PatientBill & { cashierId?: string }).cashierId}
                         </span>
                       )}
                     </span>
                   ) : paidAmt > 0 ? (
-                    <span>
+                       <span className="whitespace-nowrap">
                       Collected <span className="font-bold text-emerald-600">₹{paidAmt.toFixed(0)}</span>
                       {" · "}Balance <span className="font-bold text-amber-600">₹{(totalAmt - paidAmt).toFixed(0)}</span>
                     </span>
                   ) : (
-                    <span className="text-muted-foreground">₹{totalAmt.toFixed(0)} outstanding</span>
+                     <span className="whitespace-nowrap">₹{totalAmt.toFixed(0)} outstanding</span>
                   )}
                 </div>
 
@@ -1670,7 +1670,7 @@ export function BillingHistoryPanel({
                 {!allPaid && !isBillPaid && services.length > 0 && !showCashierFor && (
                   <Button size="sm"
                     onClick={() => openCashierForm(bill)}
-                    className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98]"
+                     className="h-8 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98] whitespace-nowrap"
                     data-testid={`button-confirm-pay-${bill.id}`}>
                     <CreditCard className="h-3 w-3" /> Confirm &amp; Pay
                   </Button>
