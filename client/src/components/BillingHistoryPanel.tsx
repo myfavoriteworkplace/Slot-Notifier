@@ -1808,25 +1808,21 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {/* No bills yet — standalone action buttons */}
+      {/* No bills yet — one clear starting action */}
       {bills.length === 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" onClick={() => handleLoadPrescription()} disabled={loadingPrescription}
-            className="flex-1 h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground min-w-[130px]"
-            data-testid="button-load-prescription">
-            {loadingPrescription ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pill className="h-3.5 w-3.5" />}
-            Load Prescription
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setAddFormOpen(v => !v)}
-            className="flex-1 h-8 text-xs gap-1.5 active:scale-[0.98] min-w-[100px]"
-            data-testid="button-toggle-add-entry">
-            <Plus className="h-3.5 w-3.5" /> Add Entry
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => createNewBillMutation.mutate()} disabled={createNewBillMutation.isPending}
-            className="h-8 text-xs gap-1.5 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98]"
+        <div className="rounded-xl border border-dashed border-primary/25 bg-primary/[0.03] px-5 py-8 sm:py-10 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">No bills yet for this visit</p>
+          <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
+            Create a new bill to add consultation, procedure, treatment, or pharmacy charges.
+          </p>
+          <Button size="sm" onClick={() => createNewBillMutation.mutate()} disabled={createNewBillMutation.isPending}
+            className="mt-4 h-9 gap-1.5 px-4 text-xs bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground shadow-sm"
             data-testid="button-new-bill">
-            {createNewBillMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-            New Bill
+            {createNewBillMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Create New Bill
           </Button>
         </div>
       )}
@@ -1916,17 +1912,7 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {bills.length === 0 ? (
-        <div className="py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
-          <div className="p-2 bg-muted/40 rounded-full w-fit mx-auto mb-2">
-            <FileText className="h-4 w-4 text-muted-foreground/50" />
-          </div>
-          <p className="text-xs font-medium text-muted-foreground">No bills yet for this visit</p>
-          <p className="text-xs text-muted-foreground/60 mt-0.5">
-            Use "Load Prescription", "Add Entry", or "New Bill" above to start
-          </p>
-        </div>
-      ) : (
+      {bills.length === 0 ? null : (
         <div className="space-y-2">
           {latestBill && olderBills.length > 0 && (
             <div className="flex items-center gap-2 px-0.5 pb-1">
