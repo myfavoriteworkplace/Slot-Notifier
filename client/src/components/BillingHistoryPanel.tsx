@@ -1520,26 +1520,26 @@ export function BillingHistoryPanel({
                      <span className="text-xs text-muted-foreground">%</span>
                    </div>
                 </div>
-                  <div className="space-y-1.5">
-                    <span className="block text-xs text-muted-foreground font-medium">Tax configuration</span>
-                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg border border-border/50 bg-background/70">
+                   <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                     <span className="block text-xs text-muted-foreground font-medium">Tax configuration</span>
+                     <div className="inline-flex w-fit self-end rounded-lg border border-border/50 bg-background/70 p-1">
                     <Button type="button" size="sm" variant={(bill.taxPct ?? 0) === 0 ? "default" : "outline"}
                      onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: 0 })}
-                      className="h-8 px-2 text-xs gap-1 justify-center"
+                       className="h-8 min-w-[7.25rem] px-3 text-xs gap-1 justify-center"
                      data-testid="button-tax-exempt">
                      <CheckCircle2 className="h-3 w-3" /> Tax Exempt
                    </Button>
                    <Button type="button" size="sm" variant={(bill.taxPct ?? 0) > 0 ? "default" : "outline"}
                      onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: bill.taxPct > 0 ? bill.taxPct : 18 })}
-                      className="h-8 px-2 text-xs justify-center"
+                       className="h-8 min-w-[7.25rem] px-3 text-xs justify-center"
                      data-testid="button-apply-gst">
                      Apply GST
                    </Button>
-                    </div>
+                     </div>
                    {(bill.taxPct ?? 0) > 0 && (
-                      <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-2 space-y-1.5">
+                       <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-2 space-y-1.5 sm:col-span-2 sm:ml-auto sm:w-fit">
                         <span className="block text-xs font-medium text-muted-foreground">GST rate</span>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                         <div className="flex flex-wrap items-center justify-end gap-1.5">
                        {[5, 12, 18].map(rate => (
                          <Button key={rate} type="button" size="sm" variant={bill.taxPct === rate ? "default" : "outline"}
                            onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: rate })}
@@ -1571,7 +1571,8 @@ export function BillingHistoryPanel({
 
             {/* Totals */}
             {services.length > 0 && (
-              <div className="px-3 py-2 bg-muted/20 border-t border-border/30 space-y-0.5">
+               <div className="px-3 py-2 bg-muted/20 border-t border-border/30 space-y-0.5">
+                <div className="ml-auto w-full max-w-md space-y-0.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Subtotal</span>
                   <span className="text-xs tabular-nums text-foreground">₹{services.reduce((s, i) => s + i.amount, 0).toFixed(0)}</span>
@@ -1608,6 +1609,7 @@ export function BillingHistoryPanel({
                     {isBillPaid ? "PAID" : "Outstanding"}
                   </span>
                   <span className={`text-sm font-bold tabular-nums ${isBillPaid ? "text-emerald-600" : "text-primary"}`}>₹{totalAmt.toFixed(0)}</span>
+                </div>
                 </div>
               </div>
             )}
