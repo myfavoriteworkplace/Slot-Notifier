@@ -374,6 +374,7 @@ export function BillingHistoryPanel({
   const [previewBill, setPreviewBill] = useState<PatientBill | null>(null);
   const [showOlderBills, setShowOlderBills] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<number, Set<string>>>({});
+  const [optimisticTaxPct, setOptimisticTaxPct] = useState<Record<number, number>>({});
 
   const didAutoExpand = useRef(false);
 
@@ -636,8 +637,22 @@ export function BillingHistoryPanel({
       if (!res.ok) throw new Error("Failed to update");
       return res.json();
     },
-    onSuccess: () => invalidate(),
-    onError: () => notify.error("Could not update discount/tax"),
+    onSuccess: (_data, variables) => {
+      setOptimisticTaxPct(prev => {
+        const next = { ...prev };
+        delete next[variables.bill.id];
+        return next;
+      });
+      invalidate();
+    },
+    onError: (error, variables) => {
+      setOptimisticTaxPct(prev => {
+        const next = { ...prev };
+        delete next[variables.bill.id];
+        return next;
+      });
+      notify.error("Could not update discount/tax");
+    },
   });
 
   const createNewBillMutation = useMutation({
@@ -1502,8 +1517,16 @@ export function BillingHistoryPanel({
              )}
 
               {/* Discount + optional GST — tax exempt is the default when taxPct is zero */}
-             {canEdit && services.length > 0 && (
-                <div className="px-3 py-2.5 border-t border-border/30 bg-muted/10 space-y-2.5">
+              {canEdit && services.length > 0 && (
+                 <div className="px-3 py-2.5 border-t border-border/30 bg-muted/10 space-y-2.5">
+                 {(() => {
+                   const effectiveTaxPct = optimisticTaxPct[bill.id] ?? (bill.taxPct ?? 0);
+                   const setTaxPctImmediately = (taxPct: number) => {
+                     setOptimisticTaxPct(prev => ({ ...prev, [bill.id]: taxPct }));
+                     updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct });
+                   };
+                   return (
+                   <>
                  <div className="flex items-center justify-between gap-3">
                    <label htmlFor={`discount-pct-${bill.id}`} className="text-xs text-muted-foreground font-medium">Discount</label>
                    <div className="flex items-center gap-1.5">
@@ -1520,29 +1543,31 @@ export function BillingHistoryPanel({
                      <span className="text-xs text-muted-foreground">%</span>
                    </div>
                 </div>
-                   <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                   <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/60 p-2.5">
+                     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                      <span className="block text-xs text-muted-foreground font-medium">Tax configuration</span>
                      <div className="inline-flex w-fit self-end rounded-lg border border-border/50 bg-background/70 p-1">
-                    <Button type="button" size="sm" variant={(bill.taxPct ?? 0) === 0 ? "default" : "outline"}
-                     onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: 0 })}
+                     <Button type="button" size="sm" variant={effectiveTaxPct === 0 ? "default" : "outline"}
+                      onClick={() => setTaxPctImmediately(0)}
                        className="h-8 min-w-[7.25rem] px-3 text-xs gap-1 justify-center"
                      data-testid="button-tax-exempt">
                      <CheckCircle2 className="h-3 w-3" /> Tax Exempt
                    </Button>
-                   <Button type="button" size="sm" variant={(bill.taxPct ?? 0) > 0 ? "default" : "outline"}
-                     onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: bill.taxPct > 0 ? bill.taxPct : 18 })}
+                    <Button type="button" size="sm" variant={effectiveTaxPct > 0 ? "default" : "outline"}
+                      onClick={() => setTaxPctImmediately(effectiveTaxPct > 0 ? effectiveTaxPct : 18)}
                        className="h-8 min-w-[7.25rem] px-3 text-xs justify-center"
                      data-testid="button-apply-gst">
                      Apply GST
                    </Button>
                      </div>
-                   {(bill.taxPct ?? 0) > 0 && (
-                       <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-2 space-y-1.5 sm:col-span-2 sm:ml-auto sm:w-fit">
+                     </div>
+                    {effectiveTaxPct > 0 && (
+                        <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-2 space-y-1.5 sm:ml-auto sm:w-fit">
                         <span className="block text-xs font-medium text-muted-foreground">GST rate</span>
                          <div className="flex flex-wrap items-center justify-end gap-1.5">
                        {[5, 12, 18].map(rate => (
-                         <Button key={rate} type="button" size="sm" variant={bill.taxPct === rate ? "default" : "outline"}
-                           onClick={() => updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: rate })}
+                          <Button key={rate} type="button" size="sm" variant={effectiveTaxPct === rate ? "default" : "outline"}
+                            onClick={() => setTaxPctImmediately(rate)}
                             className="h-8 min-w-10 px-2 text-xs"
                            data-testid={`button-gst-rate-${rate}`}>
                            {rate}%
@@ -1551,11 +1576,11 @@ export function BillingHistoryPanel({
                         <div className="flex items-center gap-1">
                           <span className="text-xs text-muted-foreground">Custom</span>
                           <Input type="number" min="0" max="100" step="0.5"
-                            defaultValue={String(bill.taxPct ?? 0)}
+                             value={String(effectiveTaxPct)}
                             onBlur={e => {
                               const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
-                              if (val !== (bill.taxPct ?? 0)) {
-                                updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: val });
+                            if (val !== effectiveTaxPct) {
+                              setTaxPctImmediately(val);
                               }
                             }}
                             aria-label="Custom GST rate"
@@ -1566,12 +1591,15 @@ export function BillingHistoryPanel({
                      </div>
                    )}
                  </div>
+                   </>
+                   );
+                 })()}
               </div>
             )}
 
             {/* Totals */}
             {services.length > 0 && (
-               <div className="px-3 py-2 bg-muted/20 border-t border-border/30 space-y-0.5">
+               <div className="mx-3 my-2 rounded-lg border border-border/60 bg-card px-3 py-2.5 space-y-0.5">
                 <div className="ml-auto w-full max-w-md space-y-0.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Subtotal</span>
