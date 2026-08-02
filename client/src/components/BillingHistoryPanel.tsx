@@ -374,7 +374,7 @@ export function BillingHistoryPanel({
   const [previewBill, setPreviewBill] = useState<PatientBill | null>(null);
   const [showOlderBills, setShowOlderBills] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<number, Set<string>>>({});
-  const [optimisticTaxPct, setOptimisticTaxPct] = useState<Record<number, number>>({});
+  const [pendingBilling, setPendingBilling] = useState<Record<number, { discountPct: number; taxPct: number; customTax: boolean }>>({});
 
   const didAutoExpand = useRef(false);
 
@@ -578,11 +578,11 @@ export function BillingHistoryPanel({
   });
 
   const markPaidMutation = useMutation({
-    mutationFn: async ({ bill, cashierName, amountReceived, cashierNotes, paymentMethod }: {
-      bill: PatientBill; cashierName: string; amountReceived: number; cashierNotes: string; paymentMethod: string;
+    mutationFn: async ({ bill, cashierName, amountReceived, cashierNotes, paymentMethod, discountPct, taxPct }: {
+      bill: PatientBill; cashierName: string; amountReceived: number; cashierNotes: string; paymentMethod: string; discountPct: number; taxPct: number;
     }) => {
       const services = ((bill.services ?? []) as ServiceItem[]).map(s => ({ ...s, paid: true }));
-      const { subtotal, total } = computeTotals(services, bill.discountPct ?? 0, bill.taxPct ?? 0);
+      const { subtotal, total } = computeTotals(services, discountPct, taxPct);
       // If paying a draft directly (skipping separate "Confirm Bill"), rename DFT- → INV- in one shot
       const billNumber = bill.billNumber.startsWith("DFT-")
         ? bill.billNumber.replace("DFT-", "INV-")
@@ -592,6 +592,7 @@ export function BillingHistoryPanel({
         paymentStatus: "paid",
         billNumber,
         subtotal, total,
+        discountPct, taxPct,
         cashierId: cashierName || "Admin",
         cashierNotes: cashierNotes || null,
         amountReceived: amountReceived || total,
@@ -839,10 +840,14 @@ export function BillingHistoryPanel({
 
   const openCashierForm = (bill: PatientBill) => {
     const services = (bill.services ?? []) as ServiceItem[];
+    const pending = pendingBilling[bill.id];
+    const discountPct = pending?.discountPct ?? (bill.discountPct ?? 0);
+    const taxPct = pending?.taxPct ?? (bill.taxPct ?? 0);
+    const { total } = computeTotals(services, discountPct, taxPct);
     const unpaidTotal = services.filter(s => !s.paid).reduce((s, i) => s + i.amount, 0);
     setCashierForm({
       billId: bill.id,
-      amountReceived: String((unpaidTotal > 0 ? unpaidTotal : bill.total ?? 0).toFixed(0)),
+      amountReceived: String((unpaidTotal > 0 ? Math.min(unpaidTotal, total) : total).toFixed(0)),
       cashierName: "",
       notes: "",
       paymentMethod: "Cash",
@@ -903,7 +908,11 @@ export function BillingHistoryPanel({
     const services = (bill.services ?? []) as ServiceItem[];
     const isExpanded = expandedIds.has(bill.id);
     const paidAmt = services.filter(s => s.paid).reduce((s, i) => s + i.amount, 0);
-    const totalAmt = bill.total ?? 0;
+    const pending = pendingBilling[bill.id];
+    const effectiveDiscountPct = pending?.discountPct ?? (bill.discountPct ?? 0);
+    const effectiveTaxPct = pending?.taxPct ?? (bill.taxPct ?? 0);
+    const { total: calculatedTotal } = computeTotals(services, effectiveDiscountPct, effectiveTaxPct);
+    const totalAmt = pending ? calculatedTotal : (bill.total ?? calculatedTotal);
     const allPaid = services.length > 0 && services.every(s => s.paid);
     const isDraft = bill.paymentStatus === "draft";
     const isBillPaid = bill.paymentStatus === "paid";
@@ -1519,11 +1528,10 @@ export function BillingHistoryPanel({
               {/* Discount + optional GST — tax exempt is the default when taxPct is zero */}
               {canEdit && services.length > 0 && (
                  <div className="px-3 py-2.5 border-t border-border/30 bg-muted/10 space-y-2.5">
-                 {(() => {
-                   const effectiveTaxPct = optimisticTaxPct[bill.id] ?? (bill.taxPct ?? 0);
-                   const setTaxPctImmediately = (taxPct: number) => {
-                     setOptimisticTaxPct(prev => ({ ...prev, [bill.id]: taxPct }));
-                     updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct });
+              {(() => {
+                    const customTax = pending?.customTax ?? ![5, 12, 18].includes(effectiveTaxPct);
+                    const setBillingDraft = (discountPct: number, taxPct: number, custom = customTax) => {
+                      setPendingBilling(prev => ({ ...prev, [bill.id]: { discountPct, taxPct, customTax: custom } }));
                    };
                    return (
                    <>
@@ -1532,12 +1540,10 @@ export function BillingHistoryPanel({
                    <div className="flex items-center gap-1.5">
                   <Input type="number" min="0" max="100" step="0.5"
                      id={`discount-pct-${bill.id}`}
-                    defaultValue={String(bill.discountPct ?? 0)}
+                     value={String(effectiveDiscountPct)}
                     onBlur={e => {
                       const val = parseFloat(e.target.value) || 0;
-                      if (val !== (bill.discountPct ?? 0)) {
-                        updateDiscountTaxMutation.mutate({ bill, discountPct: val, taxPct: bill.taxPct ?? 0 });
-                      }
+                       setBillingDraft(val, effectiveTaxPct);
                     }}
                      className="h-7 w-16 text-xs text-right" data-testid="input-discount-pct" />
                      <span className="text-xs text-muted-foreground">%</span>
@@ -1548,13 +1554,13 @@ export function BillingHistoryPanel({
                      <span className="block text-xs text-muted-foreground font-medium">Tax configuration</span>
                      <div className="inline-flex w-fit self-end rounded-lg border border-border/50 bg-background/70 p-1">
                      <Button type="button" size="sm" variant={effectiveTaxPct === 0 ? "default" : "outline"}
-                      onClick={() => setTaxPctImmediately(0)}
+                       onClick={() => setBillingDraft(effectiveDiscountPct, 0, false)}
                        className="h-8 min-w-[7.25rem] px-3 text-xs gap-1 justify-center"
                      data-testid="button-tax-exempt">
                      <CheckCircle2 className="h-3 w-3" /> Tax Exempt
                    </Button>
                     <Button type="button" size="sm" variant={effectiveTaxPct > 0 ? "default" : "outline"}
-                      onClick={() => setTaxPctImmediately(effectiveTaxPct > 0 ? effectiveTaxPct : 18)}
+                       onClick={() => setBillingDraft(effectiveDiscountPct, effectiveTaxPct > 0 ? effectiveTaxPct : 18, customTax)}
                        className="h-8 min-w-[7.25rem] px-3 text-xs justify-center"
                      data-testid="button-apply-gst">
                      Apply GST
@@ -1567,14 +1573,18 @@ export function BillingHistoryPanel({
                          <div className="flex flex-wrap items-center justify-end gap-1.5">
                        {[5, 12, 18].map(rate => (
                           <Button key={rate} type="button" size="sm" variant={effectiveTaxPct === rate ? "default" : "outline"}
-                            onClick={() => setTaxPctImmediately(rate)}
+                           onClick={() => setBillingDraft(effectiveDiscountPct, rate, false)}
                             className="h-8 min-w-10 px-2 text-xs"
                            data-testid={`button-gst-rate-${rate}`}>
                            {rate}%
                          </Button>
-                       ))}
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground">Custom</span>
+                        ))}
+                        <Button type="button" size="sm" variant={customTax ? "default" : "outline"}
+                          onClick={() => setBillingDraft(effectiveDiscountPct, customTax ? effectiveTaxPct : effectiveTaxPct, true)}
+                          className="h-8 px-2 text-xs" data-testid="button-gst-custom">
+                          Custom
+                        </Button>
+                        {customTax && <div className="flex items-center gap-1">
                           <Input type="number" min="0" max="100" step="0.5"
                              value={String(effectiveTaxPct)}
                             onBlur={e => {
@@ -1586,7 +1596,7 @@ export function BillingHistoryPanel({
                             aria-label="Custom GST rate"
                             className="h-8 w-16 text-xs text-right" data-testid="input-tax-pct" />
                           <span className="text-xs text-muted-foreground">%</span>
-                        </div>
+                         </div>}
                         </div>
                      </div>
                    )}
@@ -1605,19 +1615,19 @@ export function BillingHistoryPanel({
                   <span className="text-xs text-muted-foreground">Subtotal</span>
                   <span className="text-xs tabular-nums text-foreground">₹{services.reduce((s, i) => s + i.amount, 0).toFixed(0)}</span>
                 </div>
-                {(bill.discountPct ?? 0) > 0 && (
+                 {effectiveDiscountPct > 0 && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Discount ({bill.discountPct}%)</span>
+                     <span className="text-xs text-muted-foreground">Discount ({effectiveDiscountPct}%)</span>
                     <span className="text-xs tabular-nums text-emerald-600">
-                      −₹{(services.reduce((s, i) => s + i.amount, 0) * ((bill.discountPct ?? 0) / 100)).toFixed(0)}
+                       −₹{(services.reduce((s, i) => s + i.amount, 0) * (effectiveDiscountPct / 100)).toFixed(0)}
                     </span>
                   </div>
                 )}
-                 {(bill.taxPct ?? 0) > 0 ? (
+                  {effectiveTaxPct > 0 ? (
                   <div className="flex items-center justify-between">
-                     <span className="text-xs text-muted-foreground">GST ({bill.taxPct}%)</span>
+                      <span className="text-xs text-muted-foreground">GST ({effectiveTaxPct}%)</span>
                     <span className="text-xs tabular-nums text-foreground">
-                      +₹{((services.reduce((s, i) => s + i.amount, 0) * (1 - (bill.discountPct ?? 0) / 100)) * ((bill.taxPct ?? 0) / 100)).toFixed(0)}
+                       +₹{((services.reduce((s, i) => s + i.amount, 0) * (1 - effectiveDiscountPct / 100)) * (effectiveTaxPct / 100)).toFixed(0)}
                     </span>
                   </div>
                  ) : (
@@ -1743,12 +1753,14 @@ export function BillingHistoryPanel({
                       Cancel
                     </Button>
                     <Button size="sm"
-                      onClick={() => markPaidMutation.mutate({
+                     onClick={() => markPaidMutation.mutate({
                         bill,
                         cashierName: cashierForm!.cashierName,
-                        amountReceived: parseFloat(cashierForm!.amountReceived) || (bill.total ?? 0),
+                        amountReceived: parseFloat(cashierForm!.amountReceived) || totalAmt,
                         cashierNotes: cashierForm!.notes,
                         paymentMethod: cashierForm!.paymentMethod,
+                        discountPct: pendingBilling[bill.id]?.discountPct ?? (bill.discountPct ?? 0),
+                        taxPct: pendingBilling[bill.id]?.taxPct ?? (bill.taxPct ?? 0),
                       })}
                       disabled={markPaidMutation.isPending}
                       className="h-8 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-emerald-500/50"
