@@ -1552,38 +1552,36 @@ export function BillingHistoryPanel({
                    <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/60 p-2.5">
                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                      <span className="block text-xs text-muted-foreground font-medium">Tax configuration</span>
-                     <div className="inline-flex w-fit self-end rounded-lg border border-border/50 bg-background/70 p-1">
-                     <Button type="button" size="sm" variant={effectiveTaxPct === 0 ? "default" : "outline"}
+                      <div className="inline-flex w-fit self-end rounded-lg border border-slate-200 bg-slate-100/80 p-1 shadow-inner">
+                      <Button type="button" size="sm" variant="ghost"
                        onClick={() => setBillingDraft(effectiveDiscountPct, 0, false)}
-                       className="h-8 min-w-[7.25rem] px-3 text-xs gap-1 justify-center"
+                        className={`h-8 min-w-[7.25rem] px-3 text-xs gap-1 justify-center rounded-md ${effectiveTaxPct === 0 ? "bg-white text-emerald-600 shadow-sm hover:bg-white" : "text-slate-500 hover:bg-transparent"}`}
                      data-testid="button-tax-exempt">
                      <CheckCircle2 className="h-3 w-3" /> Tax Exempt
                    </Button>
-                    <Button type="button" size="sm" variant={effectiveTaxPct > 0 ? "default" : "outline"}
+                     <Button type="button" size="sm" variant="ghost"
                        onClick={() => setBillingDraft(effectiveDiscountPct, effectiveTaxPct > 0 ? effectiveTaxPct : 18, customTax)}
-                       className="h-8 min-w-[7.25rem] px-3 text-xs justify-center"
+                        className={`h-8 min-w-[7.25rem] px-3 text-xs justify-center rounded-md ${effectiveTaxPct > 0 ? "bg-white text-emerald-600 shadow-sm hover:bg-white" : "text-slate-500 hover:bg-transparent"}`}
                      data-testid="button-apply-gst">
                      Apply GST
                    </Button>
                      </div>
                      </div>
                     {effectiveTaxPct > 0 && (
-                        <div className="rounded-lg border border-primary/15 bg-primary/[0.04] p-2 space-y-1.5 sm:ml-auto sm:w-fit">
-                        <span className="block text-xs font-medium text-muted-foreground">GST rate</span>
-                         <div className="flex flex-wrap items-center justify-end gap-1.5">
-                       {[5, 12, 18].map(rate => (
-                          <Button key={rate} type="button" size="sm" variant={effectiveTaxPct === rate ? "default" : "outline"}
-                           onClick={() => setBillingDraft(effectiveDiscountPct, rate, false)}
-                            className="h-8 min-w-10 px-2 text-xs"
-                           data-testid={`button-gst-rate-${rate}`}>
-                           {rate}%
-                         </Button>
-                        ))}
-                        <Button type="button" size="sm" variant={customTax ? "default" : "outline"}
-                          onClick={() => setBillingDraft(effectiveDiscountPct, customTax ? effectiveTaxPct : effectiveTaxPct, true)}
-                          className="h-8 px-2 text-xs" data-testid="button-gst-custom">
-                          Custom
-                        </Button>
+                         <div className="flex items-center justify-end gap-2 sm:ml-auto sm:w-fit">
+                         <span className="text-xs font-medium text-muted-foreground">GST rate</span>
+                          <Select value={customTax ? "custom" : String(effectiveTaxPct)}
+                            onValueChange={value => value === "custom"
+                              ? setBillingDraft(effectiveDiscountPct, effectiveTaxPct, true)
+                              : setBillingDraft(effectiveDiscountPct, Number(value), false)}>
+                            <SelectTrigger className="h-8 w-28 text-xs" data-testid="select-gst-rate"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="5">5%</SelectItem>
+                              <SelectItem value="12">12%</SelectItem>
+                              <SelectItem value="18">18%</SelectItem>
+                              <SelectItem value="custom">Custom…</SelectItem>
+                            </SelectContent>
+                          </Select>
                         {customTax && <div className="flex items-center gap-1">
                           <Input type="number" min="0" max="100" step="0.5"
                              value={String(effectiveTaxPct)}
@@ -1598,7 +1596,6 @@ export function BillingHistoryPanel({
                           <span className="text-xs text-muted-foreground">%</span>
                          </div>}
                         </div>
-                     </div>
                    )}
                  </div>
                    </>
@@ -1609,14 +1606,14 @@ export function BillingHistoryPanel({
 
             {/* Totals */}
             {services.length > 0 && (
-               <div className="mx-3 my-2 rounded-lg border border-border/60 bg-card px-3 py-2.5 space-y-0.5">
-                <div className="ml-auto w-full max-w-md space-y-0.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Subtotal</span>
+               <div className="mx-3 my-2 rounded-lg border border-border/60 bg-card px-3 py-2.5">
+                 <div className="ml-auto w-full max-w-md">
+                 <div className="flex items-center justify-between py-2">
+                   <span className="text-xs text-muted-foreground">Subtotal</span>
                   <span className="text-xs tabular-nums text-foreground">₹{services.reduce((s, i) => s + i.amount, 0).toFixed(0)}</span>
                 </div>
                  {effectiveDiscountPct > 0 && (
-                  <div className="flex items-center justify-between">
+                   <div className="flex items-center justify-between py-2">
                      <span className="text-xs text-muted-foreground">Discount ({effectiveDiscountPct}%)</span>
                     <span className="text-xs tabular-nums text-emerald-600">
                        −₹{(services.reduce((s, i) => s + i.amount, 0) * (effectiveDiscountPct / 100)).toFixed(0)}
@@ -1624,25 +1621,25 @@ export function BillingHistoryPanel({
                   </div>
                 )}
                   {effectiveTaxPct > 0 ? (
-                  <div className="flex items-center justify-between">
+                   <div className="flex items-center justify-between py-2">
                       <span className="text-xs text-muted-foreground">GST ({effectiveTaxPct}%)</span>
                     <span className="text-xs tabular-nums text-foreground">
                        +₹{((services.reduce((s, i) => s + i.amount, 0) * (1 - effectiveDiscountPct / 100)) * (effectiveTaxPct / 100)).toFixed(0)}
                     </span>
                   </div>
                  ) : (
-                   <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between py-2">
                       <span className="text-xs text-muted-foreground">Tax</span>
                      <span className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Exempt from GST</span>
                    </div>
                  )}
                 {paidAmt > 0 && !allPaid && !isBillPaid && (
-                  <div className="flex items-center justify-between">
+                   <div className="flex items-center justify-between py-2">
                     <span className="text-xs text-muted-foreground">Collected</span>
                     <span className="text-xs tabular-nums text-emerald-600 font-semibold">₹{paidAmt.toFixed(0)}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between pt-0.5 border-t border-border/30">
+                 <div className="flex items-center justify-between mt-2 pt-3 border-t border-border/30">
                   <span className={`text-sm font-black tracking-wide ${isBillPaid ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
                     {isBillPaid ? "PAID" : "Outstanding"}
                   </span>
