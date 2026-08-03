@@ -1655,13 +1655,13 @@ export function BillingHistoryPanel({
              {/* Bill actions — separate from the appointment modal's cancellation footer */}
             <div className="mt-auto px-3 py-2.5 bg-background border-t border-border/40 space-y-2">
 
-              {/* Primary CTA row */}
-                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-3">
+              {/* Stable footer header row: delete, status, and the entry CTA stay aligned. */}
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
                  {!isBillPaid ? (
                    <AlertDialog>
                      <AlertDialogTrigger asChild>
                        <Button size="sm" variant="ghost"
-                         className="h-8 px-2 text-xs gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-destructive/50"
+                          className="h-8 justify-self-start px-2 text-xs gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-destructive/50"
                          aria-label="Delete bill"
                          data-testid={`button-delete-bill-${bill.id}`}>
                          <Trash2 className="h-3.5 w-3.5" /> Delete bill
@@ -1684,7 +1684,7 @@ export function BillingHistoryPanel({
                    </AlertDialog>
                  ) : <span />}
 
-                  <div className="min-w-0 text-center text-xs text-muted-foreground">
+                   <div className="min-w-0 justify-self-center text-center text-xs text-muted-foreground">
                   {allPaid || isBillPaid ? (
                      <span className="flex flex-col items-center">
                        <span className="text-emerald-600 font-bold flex items-center gap-1 whitespace-nowrap">
@@ -1708,9 +1708,9 @@ export function BillingHistoryPanel({
 
                 {/* Single Confirm & Pay CTA — hidden once the payment form is open */}
                 {!allPaid && !isBillPaid && services.length > 0 && !showCashierFor && (
-                  <Button size="sm"
+                   <Button size="sm"
                     onClick={() => openCashierForm(bill)}
-                     className="h-8 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98] whitespace-nowrap"
+                      className="h-8 justify-self-end px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98] whitespace-nowrap"
                     data-testid={`button-confirm-pay-${bill.id}`}>
                     <CreditCard className="h-3 w-3" /> Confirm &amp; Pay
                   </Button>
@@ -1748,7 +1748,7 @@ export function BillingHistoryPanel({
                       placeholder="Notes (optional)…"
                       className="h-9 text-base sm:text-sm w-full" data-testid="input-cashier-notes" />
                   </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-emerald-400/20 pt-1">
                     <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-8 px-2 text-xs" disabled={markPaidMutation.isPending}>
                       Cancel
                     </Button>
