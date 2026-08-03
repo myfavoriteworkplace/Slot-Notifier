@@ -1653,10 +1653,44 @@ export function BillingHistoryPanel({
             )}
 
              {/* Bill actions — separate from the appointment modal's cancellation footer */}
-            <div className="mt-auto px-3 py-2.5 bg-background border-t border-border/40 space-y-2">
+             <div className="mt-auto flex flex-col px-3 py-2.5 bg-background border-t border-border/40 space-y-2">
 
-              {/* Stable footer header row: delete, status, and the entry CTA stay aligned. */}
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
+              {/* Payment form appears first; the billing action row stays below it. */}
+              {showCashierFor && (
+                <div className="order-1 rounded-lg border border-emerald-400/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-2.5 space-y-2 animate-in slide-in-from-top-1 duration-150">
+                  {isDraft && (
+                    <p className="text-xs text-blue-600 flex items-center gap-1">
+                      <FileText className="h-3 w-3" /> This draft will be confirmed &amp; marked paid in one step.
+                    </p>
+                  )}
+                  <div className="grid grid-cols-2 gap-1.5 md:grid-cols-[minmax(7rem,1fr)_minmax(8rem,1.1fr)_minmax(8rem,1.1fr)_minmax(9rem,1.4fr)]">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                      <Input type="number" min="0" value={cashierForm!.amountReceived}
+                        onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
+                        inputMode="decimal" className="pl-5 h-9 text-base sm:text-sm w-full text-right" data-testid="input-cashier-amount" />
+                    </div>
+                    <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
+                      <SelectTrigger className="h-9 text-base sm:text-sm w-full" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
+                      <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input value={cashierForm!.cashierName}
+                      onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
+                      placeholder="Cashier name…" className="h-9 text-base sm:text-sm w-full" data-testid="input-cashier-name" />
+                    <Input value={cashierForm!.notes}
+                      onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
+                      placeholder="Notes (optional)…" className="h-9 text-base sm:text-sm w-full" data-testid="input-cashier-notes" />
+                  </div>
+                  <div className="flex justify-end border-t border-emerald-400/20 pt-1">
+                    <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-8 px-2 text-xs" disabled={markPaidMutation.isPending}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom billing row: delete, outstanding, and the single payment CTA. */}
+              <div className={`${showCashierFor ? "order-2" : ""} grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3`}>
                  {!isBillPaid ? (
                    <AlertDialog>
                      <AlertDialogTrigger asChild>
@@ -1706,71 +1740,30 @@ export function BillingHistoryPanel({
                   )}
                 </div>
 
-                {/* Single Confirm & Pay CTA — hidden once the payment form is open */}
-                {!allPaid && !isBillPaid && services.length > 0 && !showCashierFor && (
+                 {!allPaid && !isBillPaid && services.length > 0 && (
                    <Button size="sm"
-                    onClick={() => openCashierForm(bill)}
+                     onClick={() => {
+                       if (!showCashierFor) {
+                         openCashierForm(bill);
+                         return;
+                       }
+                       markPaidMutation.mutate({
+                         bill,
+                         cashierName: cashierForm!.cashierName,
+                         amountReceived: parseFloat(cashierForm!.amountReceived) || totalAmt,
+                         cashierNotes: cashierForm!.notes,
+                         paymentMethod: cashierForm!.paymentMethod,
+                         discountPct: pendingBilling[bill.id]?.discountPct ?? (bill.discountPct ?? 0),
+                         taxPct: pendingBilling[bill.id]?.taxPct ?? (bill.taxPct ?? 0),
+                       });
+                     }}
+                     disabled={showCashierFor && markPaidMutation.isPending}
                       className="h-8 justify-self-end px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98] whitespace-nowrap"
                     data-testid={`button-confirm-pay-${bill.id}`}>
                     <CreditCard className="h-3 w-3" /> Confirm &amp; Pay
                   </Button>
                 )}
               </div>
-
-              {/* Record Payment form */}
-              {showCashierFor && (
-                <div className="rounded-lg border border-emerald-400/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-2.5 space-y-2 animate-in slide-in-from-top-1 duration-150">
-                  {isDraft && (
-                    <p className="text-xs text-blue-600 flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> This draft will be confirmed &amp; marked paid in one step.
-                    </p>
-                  )}
-                  {/* Compact single-line payment fields on wider screens; wraps on mobile */}
-                  <div className="grid grid-cols-2 gap-1.5 md:grid-cols-[minmax(7rem,1fr)_minmax(8rem,1.1fr)_minmax(8rem,1.1fr)_minmax(9rem,1.4fr)]">
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
-                      <Input type="number" min="0"
-                        value={cashierForm!.amountReceived}
-                        onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
-                        inputMode="decimal"
-                        className="pl-5 h-9 text-base sm:text-sm w-full text-right" data-testid="input-cashier-amount" />
-                    </div>
-                    <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
-                      <SelectTrigger className="h-9 text-base sm:text-sm w-full" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
-                      <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Input value={cashierForm!.cashierName}
-                      onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
-                      placeholder="Cashier name…"
-                      className="h-9 text-base sm:text-sm w-full" data-testid="input-cashier-name" />
-                    <Input value={cashierForm!.notes}
-                      onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
-                      placeholder="Notes (optional)…"
-                      className="h-9 text-base sm:text-sm w-full" data-testid="input-cashier-notes" />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-emerald-400/20 pt-1">
-                    <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-8 px-2 text-xs" disabled={markPaidMutation.isPending}>
-                      Cancel
-                    </Button>
-                    <Button size="sm"
-                     onClick={() => markPaidMutation.mutate({
-                        bill,
-                        cashierName: cashierForm!.cashierName,
-                        amountReceived: parseFloat(cashierForm!.amountReceived) || totalAmt,
-                        cashierNotes: cashierForm!.notes,
-                        paymentMethod: cashierForm!.paymentMethod,
-                        discountPct: pendingBilling[bill.id]?.discountPct ?? (bill.discountPct ?? 0),
-                        taxPct: pendingBilling[bill.id]?.taxPct ?? (bill.taxPct ?? 0),
-                      })}
-                      disabled={markPaidMutation.isPending}
-                      className="h-8 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-emerald-500/50"
-                      data-testid="button-confirm-payment">
-                      {markPaidMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                      Confirm &amp; Pay
-                    </Button>
-                  </div>
-                </div>
-              )}
 
             </div>
 
