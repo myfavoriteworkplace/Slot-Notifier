@@ -3422,6 +3422,7 @@ export default function DoctorDashboard() {
                           cancellationReason={b.cancellationReason}
                           visitCompletionNote={(b as any).visitCompletionNote}
                           billingStatusKnown={false}
+                          confirmedBy={b.confirmedBy ? (b.confirmedBy === "doctor" ? `Dr. ${b.assignedDoctor?.split(" ")[0] || "Doctor"}` : "Clinic Admin") : null}
                         />
 
                       </div>

@@ -1110,6 +1110,7 @@ export function AppointmentCard({
         openBillsCount={openBillsCount}
         onBilling={onBill}
         onReschedule={onOpenActionTab}
+        confirmedBy={(booking as any).confirmedBy ? ((booking as any).confirmedBy === "doctor" ? `Dr. ${booking.assignedDoctor?.split(" ")[0] || "Doctor"}` : "Clinic Admin") : null}
       />
 
       {/* ── Progress Strip ── */}

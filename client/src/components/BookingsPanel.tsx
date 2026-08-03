@@ -2531,8 +2531,10 @@ export default function BookingsPanel({
                                 visitCompletionNote={(booking as any).visitCompletionNote}
                                 totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}
                                 openBillsCount={allBills.filter(b => b.bookingId === booking.id && b.paymentStatus !== 'paid').length}
+                                billingStatusKnown
                                 onBilling={() => setModalTab(booking.id, 'billing')}
                                 onReschedule={() => setModalTab(booking.id, 'actions')}
+                                confirmedBy={booking.confirmedBy ? (booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor?.split(' ')[0] || 'Doctor'}` : 'Clinic Admin') : null}
                               />
 
                               {/* ── Progress strip ── */}
@@ -3120,7 +3122,7 @@ export default function BookingsPanel({
                             const modalOpenBills = modalBookingBills.filter(b => b.paymentStatus !== 'paid').length;
                             return (
                             <>
-                              {modalNoBill ? (
+                              {modalNoBill ? null : modalOpenBills > 0 ? (
                                 <Button
                                   variant="outline"
                                   className="w-full gap-1.5 h-11 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default pointer-events-none border-0"
@@ -3146,18 +3148,12 @@ export default function BookingsPanel({
                                   title="Preview or download invoice"
                                   data-testid={`button-dialog-bill-done-${booking.id}`}
                                 >
-                                  <Download className="h-4 w-4" />Paid
+                                  <Download className="h-4 w-4" />View Invoice
                                 </Button>
                               )}
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
-                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                  onClick={() => setOpenBookingId(null)}
-                                  data-testid={`button-dialog-summary-${booking.id}`}>
-                                  <ClipboardList className="h-3 w-3" />View Summary
-                                </Button>
-                                <Button variant="outline" size="sm"
-                                  className="flex-1 h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                                  className="w-full h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                                   onClick={() => {
                                     const _d = booking.description ?? "";
                                     const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
@@ -3216,11 +3212,6 @@ export default function BookingsPanel({
                           /* ── Stage 3: In Consultation ── */
                           if (modalIsInConsultation) return (
                             <>
-                              <Button variant="outline"
-                                className="w-full h-11 text-sm font-medium text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-950/10 cursor-not-allowed gap-2 pointer-events-none"
-                                disabled data-testid={`button-dialog-in-tmt-${booking.id}`}>
-                                <Activity className="h-4 w-4" />In Treatment
-                              </Button>
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
                                   className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
@@ -3242,11 +3233,6 @@ export default function BookingsPanel({
                           /* ── Stage 2: Checked In / Arrived ── */
                           if (modalIsCheckedIn) return (
                             <>
-                              <Button variant="outline"
-                                className="w-full h-11 text-sm font-medium text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed gap-2 pointer-events-none"
-                                disabled data-testid={`button-dialog-waiting-${booking.id}`}>
-                                <Clock className="h-4 w-4" />Waiting for Doctor
-                              </Button>
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
                                   className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
@@ -3304,15 +3290,6 @@ export default function BookingsPanel({
                                   {confirmBookingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                                   Confirm
                                 </Button>
-                              )}
-                              {isConfirmed && (
-                                <div className="flex items-center gap-1.5 px-3 h-11 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                                  <span className="text-xs font-semibold">Confirmed</span>
-                                  {booking.confirmedBy && (
-                                    <span className="text-xs font-normal opacity-75">· by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}</span>
-                                  )}
-                                </div>
                               )}
                               <CancelDialog trigger={
                                 <Button
