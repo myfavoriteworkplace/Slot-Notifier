@@ -3410,6 +3410,7 @@ export default function DoctorDashboard() {
                         <AppointmentInfoSection
                           role="doctor"
                           isPastDue={Date.now() - new Date(b.slot.startTime).getTime() > 2 * 60 * 60 * 1000}
+                          isExpiredConfirmed={new Date(b.slot.startTime) < new Date(new Date().setHours(0, 0, 0, 0)) && (b.verificationStatus === "confirmed" || !!b.confirmedBy)}
                           isCancelled={b.verificationStatus === "cancelled"}
                           isNoShow={b.verificationStatus === "no_show"}
                           isLeftEarly={(b as any).visitStatus === "patient_left_early"}
@@ -3566,6 +3567,7 @@ export default function DoctorDashboard() {
                     const bIsCheckedIn = (b as any).visitStatus === 'checked_in';
                     const bIsPending = b.doctorApprovalStatus === 'pending';
                     const bIsDeclined = b.doctorApprovalStatus === 'declined';
+                    const bIsPast = new Date(b.slot.startTime) < new Date(new Date().setHours(0, 0, 0, 0));
 
                     return (
                       <>
@@ -3575,7 +3577,7 @@ export default function DoctorDashboard() {
                           </div>
                         )}
 
-                        {bIsPending && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
+                        {bIsPending && !bIsPast && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
                           <div className="flex gap-2">
                             <Button size="sm"
                               className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
@@ -3602,7 +3604,7 @@ export default function DoctorDashboard() {
                           </div>
                         )}
 
-                        {!bIsPending && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && (
+                        {!bIsPending && !bIsPast && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && (
                           <TooltipProvider delayDuration={700}>
                             <Tooltip>
                               <TooltipTrigger asChild>

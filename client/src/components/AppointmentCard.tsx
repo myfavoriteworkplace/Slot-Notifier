@@ -1097,6 +1097,7 @@ export function AppointmentCard({
       <AppointmentInfoSection
         role={role}
         isPastDue={isPastDue}
+        isExpiredConfirmed={isAutoNoShow}
         isCancelled={isCancelled}
         isNoShow={isNoShowState}
         isLeftEarly={isLeftEarlyState}
@@ -1240,7 +1241,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 1 — Confirmed, not arrived: [Mark Arrived flex-1] [Send Reminder] [Cancel → three-dot] */}
-          {!isTerminal && isClinicConfirmed && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+          {!isTerminal && isClinicConfirmed && !isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex items-center gap-2">
               <Button
                 className="flex-1 h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"

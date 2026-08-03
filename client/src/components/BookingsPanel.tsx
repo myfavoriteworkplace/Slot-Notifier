@@ -1544,12 +1544,12 @@ export default function BookingsPanel({
               <Download className="h-3.5 w-3.5" />
               <span>Export</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setNoShowReviewOpen(true)}
+            {(noShowCandidatesQuery.data?.length ?? 0) > 0 && <Button variant="ghost" size="sm" onClick={() => setNoShowReviewOpen(true)}
               className="gap-2 text-white/90 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
               data-testid="button-review-no-shows">
               <UserX className="h-3.5 w-3.5" />
-              <span>No-Shows{(noShowCandidatesQuery.data?.length ?? 0) > 0 ? ` (${noShowCandidatesQuery.data!.length})` : ""}</span>
-            </Button>
+              <span>Review No-Shows ({noShowCandidatesQuery.data!.length})</span>
+            </Button>}
           </div>
 
           <Dialog open={noShowReviewOpen} onOpenChange={setNoShowReviewOpen}>
@@ -2605,6 +2605,7 @@ export default function BookingsPanel({
                               <AppointmentInfoSection
                                 role="clinic"
                                 isPastDue={ovIsPastDue}
+                                isExpiredConfirmed={isBookingPast && (booking.verificationStatus === "confirmed" || !!booking.confirmedBy)}
                                 isCancelled={isCancelled}
                                 isNoShow={booking.verificationStatus === 'no_show'}
                                 isLeftEarly={(booking as any).visitStatus === 'patient_left_early'}
