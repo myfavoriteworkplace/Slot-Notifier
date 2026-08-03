@@ -2873,6 +2873,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Static route must precede /:id routes so "no-show-candidates" is not parsed as a booking id.
+  app.get("/api/auth/clinic/bookings/no-show-candidates", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      res.json(await storage.getClinicNoShowCandidates(Number(sess.clinicId)));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/auth/clinic/bookings/:id — fetch a single booking (with slot) for the notification-click focus flow
   // Shared by clinic-owner and doctor sessions (DoctorDashboard also focus-fetches via this same path).
   app.get("/api/auth/clinic/bookings/:id", isAuthenticated, async (req, res) => {
@@ -4747,14 +4756,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
-  });
-
-  app.get("/api/auth/clinic/bookings/no-show-candidates", isAuthenticated, async (req, res) => {
-    const sess = req.session as any;
-    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
-    try {
-      res.json(await storage.getClinicNoShowCandidates(Number(sess.clinicId)));
-    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   app.post("/api/auth/clinic/bookings/mark-no-show-batch", isAuthenticated, async (req, res) => {

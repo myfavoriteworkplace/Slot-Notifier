@@ -1544,12 +1544,12 @@ export default function BookingsPanel({
               <Download className="h-3.5 w-3.5" />
               <span>Export</span>
             </Button>
-            {(noShowCandidatesQuery.data?.length ?? 0) > 0 && <Button variant="ghost" size="sm" onClick={() => setNoShowReviewOpen(true)}
+            <Button variant="ghost" size="sm" onClick={() => setNoShowReviewOpen(true)}
               className="gap-2 text-white/90 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
               data-testid="button-review-no-shows">
-              <UserX className="h-3.5 w-3.5" />
-              <span>Review No-Shows ({noShowCandidatesQuery.data!.length})</span>
-            </Button>}
+              {noShowCandidatesQuery.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
+              <span>Review No-Shows{noShowCandidatesQuery.data ? ` (${noShowCandidatesQuery.data.length})` : ""}</span>
+            </Button>
           </div>
 
           <Dialog open={noShowReviewOpen} onOpenChange={setNoShowReviewOpen}>
@@ -1567,7 +1567,8 @@ export default function BookingsPanel({
                 <span className="text-xs text-muted-foreground">{selectedNoShowIds.size} selected</span>
               </div>
               <div className="max-h-[50vh] overflow-y-auto space-y-1">
-                {noShowCandidatesQuery.isLoading ? <div className="py-8 text-center text-sm text-muted-foreground">Loading appointments…</div>
+                {noShowCandidatesQuery.isError ? <div className="py-8 text-center text-sm text-destructive">Unable to load past appointments. Please try again.</div>
+                  : noShowCandidatesQuery.isLoading ? <div className="py-8 text-center text-sm text-muted-foreground">Loading appointments…</div>
                   : !noShowCandidatesQuery.data?.length ? <div className="py-8 text-center text-sm text-muted-foreground">No past confirmed appointments need review.</div>
                   : noShowCandidatesQuery.data.map(b => (
                     <label key={b.id} className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/40 cursor-pointer">

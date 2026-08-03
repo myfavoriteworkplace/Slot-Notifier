@@ -1055,11 +1055,16 @@ export class DatabaseStorage implements IStorage {
         or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
         ne(bookings.verificationStatus, 'cancelled'),
         ne(bookings.verificationStatus, 'no_show'),
-        ne(bookings.visitStatus, 'checked_in'),
-        ne(bookings.visitStatus, 'in_consultation'),
-        ne(bookings.visitStatus, 'treatment_completed'),
-        ne(bookings.visitStatus, 'completed'),
-        ne(bookings.visitStatus, 'patient_left_early'),
+        or(
+          isNull(bookings.visitStatus),
+          and(
+            ne(bookings.visitStatus, 'checked_in'),
+            ne(bookings.visitStatus, 'in_consultation'),
+            ne(bookings.visitStatus, 'treatment_completed'),
+            ne(bookings.visitStatus, 'completed'),
+            ne(bookings.visitStatus, 'patient_left_early'),
+          ),
+        ),
         isNull(bookings.checkedInAt),
       ))
       .orderBy(asc(slots.startTime));
