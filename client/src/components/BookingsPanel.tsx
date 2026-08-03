@@ -1983,7 +1983,13 @@ export default function BookingsPanel({
                     onCardClick={() => setOpenBookingId(booking.id)}
                     onConfirm={() => actionState.canConfirm && confirmBookingMutation.mutate(booking.id)}
                     onCancel={(reason) => actionState.canCancel && cancelBookingMutation.mutate({ id: booking.id, reason })}
-                    onBill={() => handleOpenBilling(booking)}
+                    onBill={() => {
+                      // The card lives inside the booking dialog shell. Open the
+                      // rendered Billing tab rather than the legacy receipt-editor
+                      // state, which is intentionally not mounted in this panel.
+                      setOpenBookingId(booking.id);
+                      setModalTab(booking.id, 'billing');
+                    }}
                     onAssignDoctor={(name, email) => actionState.canAssignDoctor && assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: name, doctorEmail: email })}
                     assignDoctorPending={assignDoctorMutation.isPending}
                     confirmPending={confirmBookingMutation.isPending}
