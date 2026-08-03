@@ -41,6 +41,7 @@ import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, en
 import { compressImage } from "@/lib/imageCompression";
 import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
@@ -3405,6 +3406,23 @@ export default function DoctorDashboard() {
                           })()}
 
                         </div>
+
+                        <AppointmentInfoSection
+                          role="doctor"
+                          isPastDue={Date.now() - new Date(b.slot.startTime).getTime() > 2 * 60 * 60 * 1000}
+                          isCancelled={b.verificationStatus === "cancelled"}
+                          isNoShow={b.verificationStatus === "no_show"}
+                          isLeftEarly={(b as any).visitStatus === "patient_left_early"}
+                          isVisitCompleted={(b as any).visitStatus === "completed"}
+                          isTreatmentCompleted={(b as any).visitStatus === "treatment_completed"}
+                          isInConsultation={(b as any).visitStatus === "in_consultation"}
+                          isCheckedIn={(b as any).visitStatus === "checked_in"}
+                          isCheckedInLate={!!b.checkedInAt && new Date(b.checkedInAt) > new Date(b.slot.endTime)}
+                          doctorApprovalPending={b.doctorApprovalStatus === "pending"}
+                          cancellationReason={b.cancellationReason}
+                          visitCompletionNote={(b as any).visitCompletionNote}
+                          billingStatusKnown={false}
+                        />
 
                       </div>
                     );

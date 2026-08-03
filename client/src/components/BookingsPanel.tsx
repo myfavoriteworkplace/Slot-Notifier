@@ -72,6 +72,7 @@ import {
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
@@ -2514,56 +2515,25 @@ export default function BookingsPanel({
 
                               </div>
 
-                              {/* ── Past-due banner ── */}
-                              {ovIsPastDue && (
-                                <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
-                                  <AlertTriangle className="h-3 w-3 shrink-0" />
-                                  <span className="min-w-0 flex-1">Slot time has passed — please action this booking</span>
-                                  <button
-                                    onClick={() => setModalTab(booking.id, 'actions')}
-                                    className="shrink-0 text-xs underline underline-offset-2 hover:no-underline"
-                                  >
-                                    Reschedule
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* ── Terminal reason banner ── */}
-                              {booking.cancellationReason && (
-                                <div className={`flex items-start gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border ${
-                                  booking.verificationStatus === 'no_show'
-                                    ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
-                                    : (booking as any).visitStatus === 'patient_left_early'
-                                    ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
-                                    : "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
-                                }`}>
-                                  <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
-                                  <span className="leading-snug">{booking.cancellationReason}</span>
-                                </div>
-                              )}
-
-                              {/* ── Visit completion note banner ── */}
-                              {(booking as any).visitCompletionNote && (booking as any).visitStatus === 'completed' && (
-                                <div className="flex items-start gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
-                                  <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
-                                  <span className="leading-snug">{(booking as any).visitCompletionNote}</span>
-                                </div>
-                              )}
-
-                              {/* ── Unpaid bills banner (visit complete) ── */}
-                              {(() => {
-                                const ovBills = allBills.filter(b => b.bookingId === booking.id);
-                                const ovOpen = ovBills.filter(b => b.paymentStatus !== 'paid').length;
-                                return (booking as any).visitStatus === 'completed' && ovOpen > 0 ? (
-                                  <div
-                                    className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors"
-                                    onClick={() => setModalTab(booking.id, 'billing')}
-                                  >
-                                    <IndianRupee className="h-3 w-3 shrink-0" />
-                                    <span className="flex-1">{ovOpen} unpaid bill{ovOpen > 1 ? 's' : ''} — tap to settle</span>
-                                  </div>
-                                ) : null;
-                              })()}
+                              <AppointmentInfoSection
+                                role="clinic"
+                                isPastDue={ovIsPastDue}
+                                isCancelled={isCancelled}
+                                isNoShow={booking.verificationStatus === 'no_show'}
+                                isLeftEarly={(booking as any).visitStatus === 'patient_left_early'}
+                                isVisitCompleted={(booking as any).visitStatus === 'completed'}
+                                isTreatmentCompleted={(booking as any).visitStatus === 'treatment_completed'}
+                                isInConsultation={(booking as any).visitStatus === 'in_consultation'}
+                                isCheckedIn={(booking as any).visitStatus === 'checked_in'}
+                                isCheckedInLate={!!booking.checkedInAt && new Date(booking.checkedInAt) > new Date(booking.slot.endTime)}
+                                doctorApprovalPending={booking.doctorApprovalStatus === 'pending'}
+                                cancellationReason={booking.cancellationReason}
+                                visitCompletionNote={(booking as any).visitCompletionNote}
+                                totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}
+                                openBillsCount={allBills.filter(b => b.bookingId === booking.id && b.paymentStatus !== 'paid').length}
+                                onBilling={() => setModalTab(booking.id, 'billing')}
+                                onReschedule={() => setModalTab(booking.id, 'actions')}
+                              />
 
                               {/* ── Progress strip ── */}
                               <div className="pt-1">

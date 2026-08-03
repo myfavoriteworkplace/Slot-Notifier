@@ -7,7 +7,7 @@ import {
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
   LogOut, AlertTriangle, ChevronDown, ChevronUp, Download,
-  Receipt, Info,
+  Receipt,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import type { BookingWithSlot } from "@/lib/clinic-constants";
+import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
 
 export type AppointmentCardRole = "clinic" | "doctor";
 
@@ -1091,150 +1092,25 @@ export function AppointmentCard({
       {/* Collapsible outer sections — banners, progress strip, footers; hidden on mobile until expanded, always hidden when collapsed */}
       <div className={isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")}>
 
-      {/* ── Appointment information ──
-          One responsive wrapper keeps lifecycle context together above the progress strip.
-          Actions remain in the role-specific footer below. */}
-      <section
-        aria-label="Appointment information"
-        className="mx-3 sm:mx-4 mb-1 space-y-1.5 rounded-lg border border-border/40 bg-muted/10 p-2 sm:p-2.5"
-      >
-        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          <Info className="h-3 w-3 shrink-0" />
-          <span>Appointment Information</span>
-        </div>
-        <div className="space-y-1.5 min-w-0">
-      {/* Past-due indicator — slot passed with no action taken */}
-      {isPastDue && (
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
-          <AlertTriangle className="h-3 w-3 shrink-0" />
-          <span className="min-w-0 flex-1">Slot time has passed — {role === "clinic" ? "please reschedule or update this booking" : "waiting for clinic action"}</span>
-          {role === "clinic" && onOpenActionTab && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onOpenActionTab?.(); }}
-              className="shrink-0 underline underline-offset-2 hover:no-underline"
-              data-testid={`link-reschedule-pastdue-${booking.id}`}
-            >
-              Reschedule
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ── Reason banner — terminal cancellation/no-show/left-early reasons ── */}
-      {(isCancelled || isNoShowState || isLeftEarlyState) && booking.cancellationReason && (
-        <TooltipProvider delayDuration={600}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className={`mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border ${
-                isNoShowState
-                  ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
-                  : isLeftEarlyState
-                  ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
-                  : "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
-              }`}>
-                <AlertCircle className="h-3 w-3 shrink-0" />
-                <span className="truncate min-w-0">{booking.cancellationReason}</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
-              {booking.cancellationReason}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-
-      {/* ── Visit completion note banner — shown when visit is done and a note was recorded ── */}
-      {isVisitCompleted && (booking as any).visitCompletionNote && (
-        <TooltipProvider delayDuration={600}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
-                <AlertCircle className="h-3 w-3 shrink-0" />
-                <span className="truncate min-w-0">{(booking as any).visitCompletionNote}</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
-              {(booking as any).visitCompletionNote}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-
-      {/* ── Persistent billing status — billing actions remain clinic-admin-only ── */}
-      {role === "clinic" && isVisitCompleted && openBillsCount > 0 && (
-        <div
-          className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 cursor-pointer hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors"
-          onClick={(e) => { e.stopPropagation(); onBill?.(); }}
-          data-testid={`banner-unpaid-bill-${booking.id}`}
-        >
-          <span className="truncate min-w-0 flex-1">Payment Pending</span>
-        </div>
-      )}
-      {role === "doctor" && isVisitCompleted && openBillsCount > 0 && (
-        <div className="flex min-w-0 items-start gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
-          <Clock className="h-3 w-3 shrink-0" />
-          <span className="min-w-0">Visit closed — payment is pending with the clinic</span>
-        </div>
-      )}
-
-      {/* ── Delayed check-in banner — patient arrived after the slot end time ── */}
-      {isCheckedInLate && !isTerminal && !isVisitCompleted && (
-        <div className="flex min-w-0 items-start gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-2.5 py-1.5">
-          <Clock className="h-3 w-3 shrink-0" />
-          <span className="min-w-0">{role === "clinic" ? "Patient arrived after scheduled slot time — waiting for doctor" : "Patient arrived late — ready for consultation"}</span>
-        </div>
-      )}
-
-      {/* ── Status Info Strips — stage context messages replacing disabled buttons ── */}
-
-      {/* Clinic: Stage 2 — patient waiting for doctor */}
-      {role === "clinic" && isCheckedIn && !isTerminal && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg px-2.5 py-1">
-          <Clock className="h-3 w-3 shrink-0" />
-          <span>Patient is waiting for the doctor</span>
-        </div>
-      )}
-
-      {/* Clinic: Stage 3 — consultation in progress */}
-      {role === "clinic" && isInConsultation && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 rounded-lg px-2.5 py-1">
-          <Activity className="h-3 w-3 shrink-0" />
-          <span>Consultation is in progress</span>
-        </div>
-      )}
-
-      {/* Doctor: Stage 1 — booked, waiting for patient to arrive */}
-      {role === "doctor" && !isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && booking.doctorApprovalStatus !== "pending" && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg px-2.5 py-1">
-          <Clock className="h-3 w-3 shrink-0" />
-          <span>Waiting for patient to arrive — no action needed</span>
-        </div>
-      )}
-
-      {/* Doctor: Stage 4 — treatment done, waiting for clinic to close */}
-      {role === "doctor" && isTreatmentCompleted && !isVisitCompleted && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
-          <Clock className="h-3 w-3 shrink-0" />
-          <span>Consultation done — awaiting clinic to close the visit</span>
-        </div>
-      )}
-
-      {/* Doctor: Stage 5 — visit fully closed */}
-      {role === "doctor" && isVisitCompleted && openBillsCount === 0 && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1">
-          <ShieldCheck className="h-3 w-3 shrink-0" />
-          <span>
-            Visit closed successfully
-            {totalBillsCount === 0
-              ? " — no billing recorded"
-              : openBillsCount === 0
-              ? " — payment settled"
-              : ""}
-          </span>
-        </div>
-      )}
-        </div>
-      </section>
+      <AppointmentInfoSection
+        role={role}
+        isPastDue={isPastDue}
+        isCancelled={isCancelled}
+        isNoShow={isNoShowState}
+        isLeftEarly={isLeftEarlyState}
+        isVisitCompleted={isVisitCompleted}
+        isTreatmentCompleted={isTreatmentCompleted}
+        isInConsultation={isInConsultation}
+        isCheckedIn={isCheckedIn}
+        isCheckedInLate={isCheckedInLate}
+        doctorApprovalPending={booking.doctorApprovalStatus === "pending"}
+        cancellationReason={booking.cancellationReason}
+        visitCompletionNote={(booking as any).visitCompletionNote}
+        totalBillsCount={totalBillsCount}
+        openBillsCount={openBillsCount}
+        onBilling={onBill}
+        onReschedule={onOpenActionTab}
+      />
 
       {/* ── Progress Strip ── */}
       <div className="px-3 sm:px-4 pt-1.5 pb-0.5 border-t border-border/30">
