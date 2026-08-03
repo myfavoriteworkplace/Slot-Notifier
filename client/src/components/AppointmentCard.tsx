@@ -1110,7 +1110,6 @@ export function AppointmentCard({
         openBillsCount={openBillsCount}
         onBilling={onBill}
         onReschedule={onOpenActionTab}
-        confirmedBy={(booking as any).confirmedBy ? ((booking as any).confirmedBy === "doctor" ? `Dr. ${booking.assignedDoctor?.split(" ")[0] || "Doctor"}` : "Clinic Admin") : null}
       />
 
       {/* ── Progress Strip ── */}
@@ -1146,12 +1145,9 @@ export function AppointmentCard({
       {role === "clinic" && (
         <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10" onClick={(e) => e.stopPropagation()}>
 
-          {/* Terminal: Cancelled — banner + [View Bill if exists] + Rebook */}
+           {/* Terminal: Cancelled — functional billing/rebook actions only */}
           {isCancelled && (
             <div className="flex items-center gap-2">
-              <div className="flex flex-1 items-center justify-center gap-2 h-9 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold">
-                <X className="h-3.5 w-3.5" />Appointment Cancelled
-              </div>
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
                   className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
@@ -1169,14 +1165,11 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Terminal: No Show — banner + Rebook */}
+           {/* Terminal: No Show — functional actions only */}
           {isNoShowState && (
             <div className="flex items-center gap-2">
-              <div className="flex flex-1 items-center justify-center gap-2 h-9 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold">
-                <UserX className="h-3.5 w-3.5" />Patient Did Not Arrive
-              </div>
               <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                 className="w-full h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-terminal-${booking.id}`}>
                 <Repeat2 className="h-3 w-3" />Rebook
@@ -1184,12 +1177,9 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Terminal: Patient Left Early — banner + [View Bill if exists] + Rebook */}
+           {/* Terminal: Patient Left Early — functional billing/rebook actions only */}
           {isLeftEarlyState && (
             <div className="flex items-center gap-2">
-              <div className="flex flex-1 items-center justify-center gap-2 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-                <LogOut className="h-3.5 w-3.5" />Patient Left Before Completion
-              </div>
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
                   className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
@@ -1318,16 +1308,7 @@ export function AppointmentCard({
           {/* Stage 5 — Visit Completed: [status flex-1] [Rebook] */}
           {!isTerminal && isVisitCompleted && (
             <div className="flex items-center gap-2">
-              {noBill ? (
-                <Button
-                  variant="outline"
-                  className="flex-1 h-10 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default gap-2 pointer-events-none"
-                  disabled
-                  data-testid={`button-no-dues-${booking.id}`}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />No Dues
-                </Button>
-              ) : openBillsCount > 0 ? (
+              {noBill ? null : openBillsCount > 0 ? (
                 <Button
                   className="flex-1 h-10 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 gap-2 active:scale-[0.98] transition-all"
                   variant="outline"
@@ -1335,7 +1316,7 @@ export function AppointmentCard({
                   title="Payment outstanding — tap to settle"
                   data-testid={`button-settle-bill-${booking.id}`}
                 >
-                  Payment Pending
+                  Settle Payment
                 </Button>
               ) : (
                 <Button

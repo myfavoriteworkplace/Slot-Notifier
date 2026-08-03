@@ -3122,16 +3122,7 @@ export default function BookingsPanel({
                             const modalOpenBills = modalBookingBills.filter(b => b.paymentStatus !== 'paid').length;
                             return (
                             <>
-                              {modalNoBill ? null : modalOpenBills > 0 ? (
-                                <Button
-                                  variant="outline"
-                                  className="w-full gap-1.5 h-11 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default pointer-events-none border-0"
-                                  disabled
-                                  data-testid={`button-dialog-no-dues-${booking.id}`}
-                                >
-                                  <CheckCircle2 className="h-4 w-4" />No Dues
-                                </Button>
-                              ) : modalOpenBills > 0 ? (
+                              {modalOpenBills > 0 ? (
                                 <Button
                                   className="w-full gap-1.5 h-11 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 active:scale-[0.98] transition-all"
                                   variant="outline"
@@ -3139,7 +3130,7 @@ export default function BookingsPanel({
                                   title="Payment outstanding — tap to settle"
                                   data-testid={`button-dialog-settle-bill-${booking.id}`}
                                 >
-                                  Payment Pending
+                                  Settle Payment
                                 </Button>
                               ) : (
                                 <Button

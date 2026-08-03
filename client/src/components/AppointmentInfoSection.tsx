@@ -52,9 +52,19 @@ export function AppointmentInfoSection({
       <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /><span className="min-w-0 break-words">{cancellationReason}</span>
     </div>
   );
-  if (confirmedBy && !terminal) messages.push(
-    <div key="confirmed-by" className="flex w-full min-w-0 items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400">
-      <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0" /><span className="min-w-0 break-words">Confirmed{confirmedBy !== "confirmed" ? ` · by ${confirmedBy}` : ""}</span>
+  if (isNoShow && !cancellationReason) messages.push(
+    <div key="no-show" className="flex w-full min-w-0 items-start gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/20 dark:text-slate-400">
+      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /><span>Patient did not arrive</span>
+    </div>
+  );
+  if (isLeftEarly && !cancellationReason) messages.push(
+    <div key="left-early" className="flex w-full min-w-0 items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /><span>Patient left before completion</span>
+    </div>
+  );
+  if (isCancelled && !cancellationReason) messages.push(
+    <div key="cancelled" className="flex w-full min-w-0 items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-400">
+      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /><span>Appointment cancelled</span>
     </div>
   );
   if (isVisitCompleted && visitCompletionNote) messages.push(
