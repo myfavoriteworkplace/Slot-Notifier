@@ -143,6 +143,9 @@ export interface IStorage {
   getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult>;
   getClinicBookingStats(clinicId: number): Promise<BookingStats>;
   getBooking(id: number): Promise<Booking | undefined>;
+  getClinicNoShowCandidates(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  batchMarkNoShows(clinicId: number, bookingIds: number[]): Promise<{ marked: Booking[]; skipped: { bookingId: number; reason: string }[] }>;
+  revertBatchNoShow(clinicId: number, bookingId: number): Promise<Booking>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
   updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking>;
   updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking>;
@@ -1040,6 +1043,72 @@ export class DatabaseStorage implements IStorage {
 
   async getBooking(id: number): Promise<Booking | undefined> {
     return this.getBookingById(id);
+  }
+
+  async getClinicNoShowCandidates(clinicId: number): Promise<(Booking & { slot: Slot })[]> {
+    const today = startOfDay(new Date());
+    const rows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(
+        eq(slots.clinicId, clinicId),
+        lt(slots.startTime, today),
+        or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+        ne(bookings.verificationStatus, 'cancelled'),
+        ne(bookings.verificationStatus, 'no_show'),
+        ne(bookings.visitStatus, 'checked_in'),
+        ne(bookings.visitStatus, 'in_consultation'),
+        ne(bookings.visitStatus, 'treatment_completed'),
+        ne(bookings.visitStatus, 'completed'),
+        ne(bookings.visitStatus, 'patient_left_early'),
+        isNull(bookings.checkedInAt),
+      ))
+      .orderBy(asc(slots.startTime));
+    return rows.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
+  }
+
+  async batchMarkNoShows(clinicId: number, bookingIds: number[]) {
+    const marked: Booking[] = [];
+    const skipped: { bookingId: number; reason: string }[] = [];
+    const today = startOfDay(new Date());
+    for (const bookingId of [...new Set(bookingIds)]) {
+      const [row] = await db.select({ booking: bookings, slot: slots })
+        .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(eq(bookings.id, bookingId), eq(slots.clinicId, clinicId))).limit(1);
+      if (!row) { skipped.push({ bookingId, reason: "Booking not found" }); continue; }
+      const b = row.booking;
+      const eligible = row.slot.startTime < today &&
+        (b.verificationStatus === 'confirmed' || !!b.confirmedBy) &&
+        !['cancelled','no_show'].includes(b.verificationStatus) &&
+        !['checked_in','in_consultation','treatment_completed','completed','patient_left_early'].includes(b.visitStatus || '') &&
+        !b.checkedInAt;
+      if (!eligible) { skipped.push({ bookingId, reason: "Appointment is no longer eligible" }); continue; }
+      const [updated] = await db.update(bookings).set({
+        verificationStatus: 'no_show',
+        noShowSource: 'batch_admin',
+        noShowMarkedAt: new Date(),
+        noShowPreviousStatus: b.verificationStatus,
+        noShowPreviousConfirmedBy: b.confirmedBy,
+      }).where(eq(bookings.id, bookingId)).returning();
+      if (updated) marked.push(this.decryptBooking(updated)); else skipped.push({ bookingId, reason: "Update conflict" });
+    }
+    return { marked, skipped };
+  }
+
+  async revertBatchNoShow(clinicId: number, bookingId: number) {
+    const [row] = await db.select({ booking: bookings, slot: slots }).from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(eq(bookings.id, bookingId), eq(slots.clinicId, clinicId))).limit(1);
+    if (!row) throw new Error("Booking not found");
+    if (row.booking.verificationStatus !== 'no_show' || row.booking.noShowSource !== 'batch_admin') {
+      throw new Error("Only batch-marked no-shows can be reverted");
+    }
+    const [updated] = await db.update(bookings).set({
+      verificationStatus: row.booking.noShowPreviousStatus || 'confirmed',
+      confirmedBy: row.booking.noShowPreviousConfirmedBy || null,
+      noShowSource: null, noShowMarkedAt: null,
+      noShowPreviousStatus: null, noShowPreviousConfirmedBy: null,
+    }).where(eq(bookings.id, bookingId)).returning();
+    return this.decryptBooking(updated);
   }
 
   async updateBookingStatus(id: number, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking> {

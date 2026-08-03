@@ -4749,6 +4749,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/auth/clinic/bookings/no-show-candidates", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      res.json(await storage.getClinicNoShowCandidates(Number(sess.clinicId)));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/auth/clinic/bookings/mark-no-show-batch", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const ids = z.array(z.number().int().positive()).safeParse(req.body?.bookingIds);
+    if (!ids.success) return res.status(400).json({ message: "bookingIds must be an array of positive integers" });
+    try {
+      const result = await storage.batchMarkNoShows(Number(sess.clinicId), ids.data);
+      for (const booking of result.marked) {
+        const notification = await storage.createNotification({
+          userId: clinicUid(Number(sess.clinicId)),
+          message: `${booking.customerName}'s appointment was marked as No-Show by clinic admin`,
+          read: false, type: "patient_no_show", bookingId: booking.id,
+        });
+        broadcastToClinic(String(sess.clinicId), { type: "patient_no_show", bookingId: booking.id, notification });
+      }
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/revert-no-show", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const updated = await storage.revertBatchNoShow(Number(sess.clinicId), parseInt(req.params.id));
+      broadcastToClinic(String(sess.clinicId), { type: "booking_no_show_reverted", bookingId: updated.id });
+      res.json(updated);
+    } catch (err: any) {
+      const status = err.message === "Booking not found" ? 404 : 409;
+      res.status(status).json({ message: err.message });
+    }
+  });
+
   // PATCH /api/auth/clinic/bookings/:id/send-reminder — WhatsApp/email nudge
   app.patch("/api/auth/clinic/bookings/:id/send-reminder", isAuthenticated, async (req, res) => {
     const sess = req.session as any;

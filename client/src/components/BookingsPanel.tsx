@@ -191,6 +191,8 @@ export default function BookingsPanel({
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
+  const [noShowReviewOpen, setNoShowReviewOpen] = useState(false);
+  const [selectedNoShowIds, setSelectedNoShowIds] = useState<Set<number>>(new Set());
 
   const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
   const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions' | 'billing') =>
@@ -304,6 +306,16 @@ export default function BookingsPanel({
   const { data: allDoctorLeaves = [] } = useQuery<{ doctorEmail?: string; doctorName?: string; leaveDate: string; reason?: string | null }[]>({
     queryKey: ['/api/clinic/doctor-leaves/all'],
     enabled: isAuthenticated,
+  });
+  const noShowCandidatesQuery = useQuery<BookingWithSlot[]>({
+    queryKey: ['/api/auth/clinic/bookings/no-show-candidates'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/bookings/no-show-candidates');
+      if (!res.ok) throw new Error('Failed to load no-show candidates');
+      return res.json();
+    },
+    enabled: isAuthenticated,
+    staleTime: 30_000,
   });
 
   const { data: rescheduleSlotAvailability, isFetching: rescheduleAvailFetching } = useQuery<RescheduleSlotAvailRow[]>({
@@ -721,6 +733,36 @@ export default function BookingsPanel({
       notify.success("Marked as no-show");
     },
     onError: (error: any) => notify.apiError(error, "Failed to mark no-show"),
+  });
+
+  const batchNoShowMutation = useMutation({
+    mutationFn: async (bookingIds: number[]) => {
+      const res = await apiRequest('POST', '/api/auth/clinic/bookings/mark-no-show-batch', { bookingIds });
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to mark no-shows');
+      return res.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings/no-show-candidates'] });
+      setSelectedNoShowIds(new Set());
+      setNoShowReviewOpen(false);
+      notify.success(`${result.marked.length} appointment${result.marked.length === 1 ? '' : 's'} marked as No-Show`,
+        result.skipped.length ? { description: `${result.skipped.length} skipped because their status changed.` } : undefined);
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to mark no-shows"),
+  });
+
+  const revertNoShowMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const res = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/revert-no-show`, {});
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to revert no-show');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("No-Show reverted");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to revert no-show"),
   });
 
   const sendReminderMutation = useMutation({
@@ -1502,7 +1544,50 @@ export default function BookingsPanel({
               <Download className="h-3.5 w-3.5" />
               <span>Export</span>
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => setNoShowReviewOpen(true)}
+              className="gap-2 text-white/90 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
+              data-testid="button-review-no-shows">
+              <UserX className="h-3.5 w-3.5" />
+              <span>No-Shows{(noShowCandidatesQuery.data?.length ?? 0) > 0 ? ` (${noShowCandidatesQuery.data!.length})` : ""}</span>
+            </Button>
           </div>
+
+          <Dialog open={noShowReviewOpen} onOpenChange={setNoShowReviewOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Review past appointments</DialogTitle>
+                <DialogDescription>Select appointments where the patient did not arrive, then mark them as No-Show.</DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center justify-between border-b pb-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={(noShowCandidatesQuery.data?.length ?? 0) > 0 && selectedNoShowIds.size === noShowCandidatesQuery.data!.length}
+                    onChange={(e) => setSelectedNoShowIds(e.target.checked ? new Set(noShowCandidatesQuery.data!.map(b => b.id)) : new Set())} />
+                  Select all
+                </label>
+                <span className="text-xs text-muted-foreground">{selectedNoShowIds.size} selected</span>
+              </div>
+              <div className="max-h-[50vh] overflow-y-auto space-y-1">
+                {noShowCandidatesQuery.isLoading ? <div className="py-8 text-center text-sm text-muted-foreground">Loading appointments…</div>
+                  : !noShowCandidatesQuery.data?.length ? <div className="py-8 text-center text-sm text-muted-foreground">No past confirmed appointments need review.</div>
+                  : noShowCandidatesQuery.data.map(b => (
+                    <label key={b.id} className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/40 cursor-pointer">
+                      <input type="checkbox" checked={selectedNoShowIds.has(b.id)}
+                        onChange={(e) => setSelectedNoShowIds(prev => { const next = new Set(prev); e.target.checked ? next.add(b.id) : next.delete(b.id); return next; })} />
+                      <span className="min-w-0 flex-1"><span className="block text-sm font-semibold truncate">{b.customerName}</span>
+                        <span className="block text-xs text-muted-foreground">{format(new Date(b.slot.startTime), "EEE, d MMM yyyy · h:mm a")} · {b.assignedDoctor || "No doctor assigned"}</span></span>
+                    </label>
+                  ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setNoShowReviewOpen(false)}>Cancel</Button>
+                <Button disabled={!selectedNoShowIds.size || batchNoShowMutation.isPending}
+                  onClick={() => batchNoShowMutation.mutate([...selectedNoShowIds])}>
+                  {batchNoShowMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Mark {selectedNoShowIds.size || ""} as No-Show
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
         <div className="p-5 space-y-5">
         {/* ── Colour key: ─ horizontal dash = accentBar (top header strip)  │ vertical bar = left border ── */}
@@ -1906,6 +1991,8 @@ export default function BookingsPanel({
                     onCompleteVisit={(note) => actionState.canCompleteVisit && completeVisitMutation.mutate({ bookingId: booking.id, note })}
                     onNoShow={(reason) => actionState.canNoShow && noShowMutation.mutate({ bookingId: booking.id, reason })}
                     noShowPending={noShowMutation.isPending}
+                    onRevertNoShow={() => revertNoShowMutation.mutate(booking.id)}
+                    revertNoShowPending={revertNoShowMutation.isPending && revertNoShowMutation.variables === booking.id}
                     onSendReminder={() => actionState.canSendReminder && sendReminderMutation.mutate(booking.id)}
                     sendReminderPending={sendReminderMutation.isPending}
                     onOverrideComplete={(reason) => actionState.canOverrideComplete && overrideCompleteMutation.mutate({ bookingId: booking.id, reason })}
@@ -3244,6 +3331,15 @@ export default function BookingsPanel({
 
                           /* ── Terminal: Cancelled / No-show / Left Early ── */
                           if (modalIsTerminal) return (
+                            <>
+                            {booking.noShowSource === 'batch_admin' && modalIsNoShow && (
+                              <Button variant="outline" className="w-full h-11 text-sm font-medium gap-2"
+                                onClick={() => revertNoShowMutation.mutate(booking.id)}
+                                disabled={revertNoShowMutation.isPending}>
+                                {revertNoShowMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                Revert No-Show
+                              </Button>
+                            )}
                             <Button variant="outline"
                               className="w-full h-11 text-sm font-medium text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98] transition-all"
                               onClick={() => {
@@ -3266,6 +3362,7 @@ export default function BookingsPanel({
                               data-testid={`button-dialog-rebook-terminal-${booking.id}`}>
                               <Repeat2 className="h-4 w-4" />Rebook
                             </Button>
+                            </>
                           );
 
                           /* ── Stage 0/1: Pre-arrival (unconfirmed or confirmed) ── */

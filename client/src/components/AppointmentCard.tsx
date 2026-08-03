@@ -54,6 +54,8 @@ export interface AppointmentCardProps {
   onSendReminder?: () => void;
   onOverrideComplete?: (reason: string) => void;
   onBookAgain?: () => void;
+  onRevertNoShow?: () => void;
+  revertNoShowPending?: boolean;
   totalBillsCount?: number;
   // Doctor actions
   onApprove?: () => void;
@@ -1168,8 +1170,15 @@ export function AppointmentCard({
            {/* Terminal: No Show — functional actions only */}
           {isNoShowState && (
             <div className="flex items-center gap-2">
+              {(booking as any).noShowSource === "batch_admin" && (
+                <Button variant="outline" size="sm" className="flex-1 h-10 text-xs font-medium gap-1.5"
+                  onClick={() => onRevertNoShow?.()} disabled={revertNoShowPending}>
+                  {revertNoShowPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Revert No-Show
+                </Button>
+              )}
               <Button variant="outline" size="sm"
-                 className="w-full h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                 className="flex-1 h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-terminal-${booking.id}`}>
                 <Repeat2 className="h-3 w-3" />Rebook

@@ -234,6 +234,18 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='clinic_reg_cert_url') THEN
             ALTER TABLE clinics ADD COLUMN clinic_reg_cert_url varchar(1000);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_source') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_source varchar(20);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_marked_at') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_marked_at timestamp;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_previous_status') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_previous_status varchar(20);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_previous_confirmed_by') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_previous_confirmed_by varchar(20);
+          END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='trust_score') THEN
             ALTER TABLE clinics ADD COLUMN trust_score integer DEFAULT 0;
           END IF;
