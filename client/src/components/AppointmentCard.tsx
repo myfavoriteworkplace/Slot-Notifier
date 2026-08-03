@@ -1148,14 +1148,20 @@ export function AppointmentCard({
         </TooltipProvider>
       )}
 
-      {/* ── Persistent unpaid bill banner — visit complete but bills outstanding ── */}
-      {isVisitCompleted && openBillsCount > 0 && (
+      {/* ── Persistent billing status — billing actions remain clinic-admin-only ── */}
+      {role === "clinic" && isVisitCompleted && openBillsCount > 0 && (
         <div
           className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 cursor-pointer hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors"
           onClick={(e) => { e.stopPropagation(); onBill?.(); }}
           data-testid={`banner-unpaid-bill-${booking.id}`}
         >
           <span className="truncate min-w-0 flex-1">Payment Pending</span>
+        </div>
+      )}
+      {role === "doctor" && isVisitCompleted && openBillsCount > 0 && (
+        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
+          <Clock className="h-3 w-3 shrink-0" />
+          <span className="truncate min-w-0">Visit closed — payment is pending with the clinic</span>
         </div>
       )}
 
@@ -1205,7 +1211,14 @@ export function AppointmentCard({
       {role === "doctor" && isVisitCompleted && (
         <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1">
           <ShieldCheck className="h-3 w-3 shrink-0" />
-          <span>Visit closed successfully</span>
+          <span>
+            Visit closed successfully
+            {totalBillsCount === 0
+              ? " — no billing recorded"
+              : openBillsCount === 0
+              ? " — payment settled"
+              : ""}
+          </span>
         </div>
       )}
 
