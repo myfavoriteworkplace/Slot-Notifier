@@ -1091,11 +1091,23 @@ export function AppointmentCard({
       {/* Collapsible outer sections — banners, progress strip, footers; hidden on mobile until expanded, always hidden when collapsed */}
       <div className={isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")}>
 
+      {/* ── Appointment information ──
+          One responsive wrapper keeps lifecycle context together above the progress strip.
+          Actions remain in the role-specific footer below. */}
+      <section
+        aria-label="Appointment information"
+        className="mx-3 sm:mx-4 mb-1 space-y-1.5 rounded-lg border border-border/40 bg-muted/10 p-2 sm:p-2.5"
+      >
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <Info className="h-3 w-3 shrink-0" />
+          <span>Appointment Information</span>
+        </div>
+        <div className="space-y-1.5 min-w-0">
       {/* Past-due indicator — slot passed with no action taken */}
       {isPastDue && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
           <AlertTriangle className="h-3 w-3 shrink-0" />
-          <span className="truncate min-w-0 flex-1">Slot time has passed — please action this booking</span>
+          <span className="min-w-0 flex-1">Slot time has passed — {role === "clinic" ? "please reschedule or update this booking" : "waiting for clinic action"}</span>
           {role === "clinic" && onOpenActionTab && (
             <button
               onClick={(e) => { e.stopPropagation(); onOpenActionTab?.(); }}
@@ -1159,17 +1171,17 @@ export function AppointmentCard({
         </div>
       )}
       {role === "doctor" && isVisitCompleted && openBillsCount > 0 && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
+        <div className="flex min-w-0 items-start gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
           <Clock className="h-3 w-3 shrink-0" />
-          <span className="truncate min-w-0">Visit closed — payment is pending with the clinic</span>
+          <span className="min-w-0">Visit closed — payment is pending with the clinic</span>
         </div>
       )}
 
       {/* ── Delayed check-in banner — patient arrived after the slot end time ── */}
       {isCheckedInLate && !isTerminal && !isVisitCompleted && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-2.5 py-1">
+        <div className="flex min-w-0 items-start gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-2.5 py-1.5">
           <Clock className="h-3 w-3 shrink-0" />
-          <span className="truncate min-w-0">Arrived after scheduled slot time</span>
+          <span className="min-w-0">{role === "clinic" ? "Patient arrived after scheduled slot time — waiting for doctor" : "Patient arrived late — ready for consultation"}</span>
         </div>
       )}
 
@@ -1208,7 +1220,7 @@ export function AppointmentCard({
       )}
 
       {/* Doctor: Stage 5 — visit fully closed */}
-      {role === "doctor" && isVisitCompleted && (
+      {role === "doctor" && isVisitCompleted && openBillsCount === 0 && (
         <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1">
           <ShieldCheck className="h-3 w-3 shrink-0" />
           <span>
@@ -1221,6 +1233,8 @@ export function AppointmentCard({
           </span>
         </div>
       )}
+        </div>
+      </section>
 
       {/* ── Progress Strip ── */}
       <div className="px-3 sm:px-4 pt-1.5 pb-0.5 border-t border-border/30">
