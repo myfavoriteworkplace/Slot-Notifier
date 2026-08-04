@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
+import PatientDocumentsTab from "@/components/PatientDocumentsTab";
 import MedicalHistoryTab from "@/components/MedicalHistoryTab";
 import VisitTimelineTab from "@/components/VisitTimelineTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
@@ -154,7 +155,7 @@ export default function DoctorDashboard() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
   const [dialogExpanded, setDialogExpanded] = useState(false);
-  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart' | 'medical' | 'timeline'>('overview');
+  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart' | 'medical' | 'documents' | 'timeline'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
   const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number; notifType?: string } | null>(() => {
     if (typeof window === "undefined") return null;
@@ -3209,6 +3210,7 @@ export default function DoctorDashboard() {
                     { key: 'prescription' as const, label: 'Rx',          icon: <Pill className="h-3.5 w-3.5" /> },
                     { key: 'chart'        as const, label: 'Chart',       icon: <Layers className="h-3.5 w-3.5" /> },
                     { key: 'medical'      as const, label: 'Medical',     icon: <Activity className="h-3.5 w-3.5" /> },
+                    { key: 'documents'    as const, label: 'Documents',   icon: <FileText className="h-3.5 w-3.5" /> },
                     { key: 'timeline'     as const, label: 'Timeline',    icon: <CalendarDays className="h-3.5 w-3.5" /> },
                   ]).map(({ key, label, icon }) => {
                     const isActive = patientModalTab === key;
@@ -3517,6 +3519,17 @@ export default function DoctorDashboard() {
                         defaultTab="prescription"
                       />
                     </div>
+                  )}
+
+                  {/* CHART TAB — Odontogram */}
+                  {patientModalTab === 'documents' && (
+                    <PatientDocumentsTab
+                      bookingId={b.id}
+                      patientName={b.customerName}
+                      doctorName={profName || b.assignedDoctor}
+                      visitDate={startTime?.toISOString()}
+                      authorRole="doctor"
+                    />
                   )}
 
                   {/* CHART TAB — Odontogram */}

@@ -6210,5 +6210,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Visit documents are stored with the patient's medical history, but retain
+  // the booking context so the patient card can present them by visit.
+  app.get("/api/patient-documents/booking/:bookingId", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.params.bookingId));
+      if (!booking?.patientId) return res.json([]);
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.json([]);
+      const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
+      res.json(((history?.attachments ?? []) as any[]).filter(a => Number(a.bookingId) === Number(booking.id)));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/patient-documents/booking/:bookingId", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.params.bookingId));
+      if (!booking?.patientId) return res.status(400).json({ message: "Booking is not linked to a patient" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(400).json({ message: "Clinic not found" });
+      const body = req.body ?? {};
+      if (!body.url || !body.name || !body.type) return res.status(400).json({ message: "File metadata is required" });
+      const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
+      const attachments = [...((history?.attachments ?? []) as any[]), {
+        url: body.publicUrl || body.url, name: body.name, type: body.type, size: body.size,
+        category: body.category || "Other", description: body.description || "",
+        bookingId: booking.id, visitDate: slot.startTime, doctorName: booking.assignedDoctor || null,
+        uploadedBy: sess.doctorEmail || sess.adminEmail || null,
+        uploadedByRole: body.uploadedByRole || (sess.doctorLoggedIn ? "doctor" : "clinic_admin"),
+        uploadedAt: new Date().toISOString(),
+      }];
+      const saved = await storage.upsertPatientMedicalHistory(booking.patientId, slot.clinicId, { attachments } as any);
+      res.status(201).json(attachments[attachments.length - 1]);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return createServer(app);
 }

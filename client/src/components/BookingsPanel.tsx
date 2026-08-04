@@ -10,6 +10,7 @@ import {
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
+import PatientDocumentsTab from "@/components/PatientDocumentsTab";
 import {
   SlotTiming, BookingWithSlot,
   OVERVIEW_VISIT_TYPE_LABELS, OVERVIEW_CLINICAL_STATUS,
@@ -120,7 +121,7 @@ type RescheduleSlotAvailRow = {
   slotIndex: number; label: string; startTimeISO: string;
   count: number; max: number; isCancelled: boolean; spotsLeft: number;
 };
-type ModalTabType = 'overview' | 'clinical' | 'notes' | 'actions' | 'billing';
+type ModalTabType = 'overview' | 'clinical' | 'documents' | 'notes' | 'actions' | 'billing';
 
 interface BookingsPanelProps {
   clinic: any;
@@ -2186,6 +2187,7 @@ export default function BookingsPanel({
                         {([
                           { key: 'overview', label: 'Overview', icon: <User className="h-3.5 w-3.5" /> },
                           { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3.5 w-3.5" /> },
+                          { key: 'documents', label: 'Documents', icon: <FileText className="h-3.5 w-3.5" /> },
                           { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3.5 w-3.5" /> },
                           { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3.5 w-3.5" /> },
                           { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3.5 w-3.5" /> },
@@ -2697,6 +2699,16 @@ export default function BookingsPanel({
                         )}
 
                         {/* NOTES TAB */}
+                        {getModalTab(booking.id) === 'documents' && (
+                          <PatientDocumentsTab
+                            bookingId={booking.id}
+                            patientName={booking.patientName}
+                            doctorName={booking.assignedDoctor}
+                            visitDate={booking.slot?.startTime}
+                            authorRole="clinic_admin"
+                          />
+                        )}
+
                         {getModalTab(booking.id) === 'notes' && (
                           <div className="px-2 sm:px-3">
                             <BookingNotesThread bookingId={booking.id} authorType="clinic_admin" />

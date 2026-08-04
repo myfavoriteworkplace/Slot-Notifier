@@ -758,7 +758,12 @@ export type MedHistLifestyle   = { smoking?: string; alcohol?: string; tobacco?:
 export type MedHistClearance   = { required?: string; requestedOn?: string; receivedOn?: string; documentUrl?: string };
 export type MedHistInsurance   = { provider?: string; policyNumber?: string; expiryDate?: string };
 export type MedHistEmergency   = { name?: string; relationship?: string; phone?: string };
-export type MedHistAttachment  = { url: string; name: string; type: string; uploadedAt: string };
+export type MedHistAttachment  = {
+  url: string; name: string; type: string; uploadedAt: string;
+  size?: number; category?: string; description?: string;
+  bookingId?: number | null; visitDate?: string | null; doctorName?: string | null;
+  uploadedBy?: string | null; uploadedByRole?: string | null;
+};
 
 export const patientMedicalHistory = pgTable("patient_medical_history", {
   id:                 serial("id").primaryKey(),
