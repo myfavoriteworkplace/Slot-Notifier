@@ -1779,17 +1779,18 @@ export function BillingHistoryPanel({
             </span>
           )}
         </div>
-        {bills.length > 0 && (
-          <Button size="sm" variant="outline"
-            onClick={() => createNewBillMutation.mutate()}
-            disabled={createNewBillMutation.isPending}
-            className="h-8 shrink-0 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98]"
-            data-testid="button-new-bill">
-            {createNewBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
-            New Bill
-          </Button>
-        )}
       </div>
+
+      {bills.length > 0 && (
+        <Button size="sm" variant="outline"
+          onClick={() => createNewBillMutation.mutate()}
+          disabled={createNewBillMutation.isPending}
+          className="w-full h-8 text-xs gap-1.5 border-dashed border-primary/40 text-primary hover:bg-primary/5 active:scale-[0.98]"
+          data-testid="button-new-bill">
+          {createNewBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+          Add New Bill
+        </Button>
+      )}
 
       {/* Settled banner — when all bills are paid */}
       {bills.length > 0 && allCurrentFullyPaid && (
@@ -1846,11 +1847,11 @@ export function BillingHistoryPanel({
           <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
             Create a new bill to add consultation, procedure, treatment, or pharmacy charges.
           </p>
-          <Button size="sm" onClick={() => createNewBillMutation.mutate()} disabled={createNewBillMutation.isPending}
-            className="mt-4 h-9 gap-1.5 px-4 text-xs bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground shadow-sm"
+          <Button size="sm" variant="outline" onClick={() => createNewBillMutation.mutate()} disabled={createNewBillMutation.isPending}
+            className="mt-4 h-8 w-full gap-1.5 border-dashed border-primary/40 text-primary hover:bg-primary/5 active:scale-[0.98] text-xs"
             data-testid="button-new-bill">
             {createNewBillMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-            Create New Bill
+            Add New Bill
           </Button>
         </div>
       )}
