@@ -1373,7 +1373,7 @@ export default function ClinicalRecordsTab({
           </button>
 
           {showPastVisits && (
-            <div className="border-t border-slate-300 bg-slate-50/60 dark:border-slate-600 dark:bg-slate-900/20 px-3 py-3 space-y-4">
+            <div className="border-t border-slate-300 bg-slate-50/60 dark:border-slate-600 dark:bg-slate-900/20 px-0 py-3 space-y-4">
               {pastVisits.map((visit) => {
                 const visitDx = visit.records.filter(r => r.diagnosis && (r.diagnosis as string[]).length > 0);
                 const visitRx = visit.records.filter(r => !!r.prescription);
