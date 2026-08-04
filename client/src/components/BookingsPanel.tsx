@@ -3036,11 +3036,41 @@ export default function BookingsPanel({
                                 </div>
                               )}
                               {rescheduleBookingId === booking.id && (
-                                <div className="px-3 py-3 space-y-3">
+                                  <div className="px-3.5 sm:px-4 py-3.5 space-y-4">
                                   <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
                                       <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
-                                      <span className="text-xs text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-8 px-2.5 gap-1.5 text-xs font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                                              data-testid="button-reschedule-date-picker"
+                                            >
+                                              <CalendarIcon className="h-3.5 w-3.5" />
+                                              <span className="hidden xs:inline">Choose date</span>
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0 rounded-xl" align="end">
+                                            <Calendar
+                                              mode="single"
+                                              selected={rescheduleDate}
+                                              onSelect={(date) => {
+                                                if (date) {
+                                                  setRescheduleDate(date);
+                                                  setRescheduleSlot(null);
+                                                }
+                                              }}
+                                              disabled={(date) => date < startOfToday()}
+                                              initialFocus
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
                                     </div>
                                     <ScrollArea className="w-full whitespace-nowrap pb-1">
                                       <div className="flex space-x-1.5 w-max pb-1">
@@ -3076,7 +3106,7 @@ export default function BookingsPanel({
                                         <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                                       )}
                                     </div>
-                                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                                    <div className="grid grid-cols-2 min-[420px]:grid-cols-3 sm:grid-cols-5 gap-2">
                                       {slotTimings.map((slot, slotIdx) => {
                                         const avail = rescheduleSlotAvailability?.find(a => a.slotIndex === slotIdx);
                                         const isSlotCancelled = avail?.isCancelled ?? false;
@@ -3089,22 +3119,32 @@ export default function BookingsPanel({
                                             key={slot.id}
                                             onClick={() => !isFull && setRescheduleSlot(slot.id)}
                                             disabled={isFull}
-                                            className={`relative flex flex-col items-center justify-center h-14 rounded-xl border text-center transition-all active:scale-[0.96] ${
+                                            className={`relative flex flex-col items-center justify-center min-h-[74px] rounded-xl border text-center transition-all active:scale-[0.96] ${
                                               isSelected
-                                                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
                                                 : isFull
                                                 ? 'bg-muted/30 border-border/40 opacity-50 cursor-not-allowed'
-                                                : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
+                                                : 'bg-background border-border/60 hover:border-emerald-400 hover:bg-emerald-50/50 active:bg-emerald-50 dark:hover:bg-emerald-500/10'
                                             }`}
                                             data-testid={`reschedule-slot-${slot.id}`}
                                           >
                                             <span className="text-xs font-bold leading-tight px-1 text-center">{slot.label}</span>
-                                            <span className="text-xs opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
+                                            <span className={`text-xs leading-tight mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>{formatTime(slot.startHour, slot.startMinute)}</span>
                                             {isFull ? (
-                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
-                                            ) : avail && spotsLeft <= 2 ? (
-                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-amber-500 text-white px-1 rounded-full">{spotsLeft} left</span>
-                                            ) : null}
+                                              <span className="mt-1 text-[10px] font-bold text-destructive">FULL</span>
+                                            ) : (
+                                              <span className={`mt-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                                isSelected
+                                                  ? 'bg-white/20 text-white'
+                                                  : spotsLeft <= 1
+                                                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300'
+                                                  : spotsLeft <= 2
+                                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                                                  : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                                              }`}>
+                                                {spotsLeft} {spotsLeft === 1 ? 'left' : 'available'}
+                                              </span>
+                                            )}
                                           </button>
                                         );
                                       })}
