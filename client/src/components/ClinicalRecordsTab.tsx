@@ -99,16 +99,16 @@ const DIAGNOSIS_TAGS = [
 
 // ─── Prescription table display ───────────────────────────────────────────────
 
-function PrescriptionDisplay({ prescription }: { prescription: string | null | undefined }) {
+function PrescriptionDisplay({ prescription, historical = false }: { prescription: string | null | undefined; historical?: boolean }) {
   const rows = parsePrescription(prescription);
   if (rows && rows.length > 0) {
     const hasRoute = rows.some(r => r.route && r.route !== 'Oral');
     const hasRemarks = rows.some(r => r.remarks);
     return (
-      <div className="overflow-x-auto rounded-lg border border-border/50">
+      <div className={`overflow-x-auto rounded-lg border ${historical ? "border-slate-300 dark:border-slate-600" : "border-border/50"}`}>
         <table className="w-full text-xs">
           <thead>
-            <tr className="bg-muted/40 border-b border-border/40">
+            <tr className={historical ? "bg-slate-100/70 dark:bg-slate-800/50 border-b border-slate-300 dark:border-slate-600" : "bg-muted/40 border-b border-border/40"}>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Medicine</th>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Dosage</th>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Qty</th>
@@ -122,8 +122,8 @@ function PrescriptionDisplay({ prescription }: { prescription: string | null | u
             {rows.map((r, i) => {
               const durStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '—');
               return (
-                <tr key={i} className="bg-background">
-                  <td className="px-2 py-1.5 font-medium text-foreground">{r.name || '—'}</td>
+                <tr key={i} className={historical ? "bg-slate-50/80 dark:bg-slate-900/30" : "bg-background"}>
+                  <td className={`px-2 py-1.5 font-medium ${historical ? "text-slate-700 dark:text-slate-300" : "text-foreground"}`}>{r.name || '—'}</td>
                   <td className="px-2 py-1.5 text-muted-foreground">{r.dosage || '—'}</td>
                   <td className="px-2 py-1.5 text-muted-foreground">{r.qty || '—'}</td>
                   <td className="px-2 py-1.5 text-muted-foreground">{r.frequency || '—'}</td>
@@ -278,12 +278,14 @@ function HistoryRow({
   onEdit,
   onPdf,
   mode,
+  historical = false,
 }: {
   record: ClinicalRecord;
   type: "diagnosis" | "prescription";
   onEdit?: () => void;
   onPdf: () => void;
   mode: "doctor" | "admin";
+  historical?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const teeth = (record.affectedTeeth as string[] | null) ?? [];
@@ -329,17 +331,17 @@ function HistoryRow({
         {type === "diagnosis" && (
           <>
             {teeth.length > 0 && (
-              <span className="text-[10px] px-1.5 py-0 rounded-full border border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50 font-semibold leading-5 shrink-0">
+                <span className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 shrink-0 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50"}`}>
                 [{teeth.join(", ")}]
               </span>
             )}
             {(record.diagnosis ?? []).map(d => (
-              <span key={d} className="text-[10px] px-1.5 py-0 rounded-full border border-green-700/25 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-semibold leading-5">
+              <span key={d} className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-green-700/25 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300"}`}>
                 {d}
               </span>
             ))}
             {record.prescription && (
-              <span className="text-[10px] px-1.5 py-0 rounded-full bg-primary/10 text-primary font-semibold leading-5 shrink-0">Rx ✓</span>
+              <span className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 shrink-0 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-transparent bg-primary/10 text-primary"}`}>Rx ✓</span>
             )}
           </>
         )}
@@ -378,7 +380,7 @@ function HistoryRow({
               <div className="flex flex-wrap gap-1 flex-1">
                 {teeth.map(t => (
                   <span key={t}
-                    className="text-[10px] px-1.5 py-0 rounded-full border border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50 font-semibold leading-5">
+                    className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50"}`}>
                     {t}
                   </span>
                 ))}
@@ -393,7 +395,7 @@ function HistoryRow({
               <div className="flex flex-wrap gap-1 flex-1">
                 {(record.diagnosis ?? []).map(d => (
                   <Badge key={d} variant="outline"
-                    className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 dark:border-green-700/50 font-semibold">
+                    className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-green-800/30 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 dark:border-green-700/50"}`}>
                     {d}
                   </Badge>
                 ))}
@@ -414,7 +416,7 @@ function HistoryRow({
             <div className="flex items-start gap-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Medicines</span>
               <div className="flex-1">
-                <PrescriptionDisplay prescription={record.prescription} />
+                <PrescriptionDisplay prescription={record.prescription} historical={historical} />
               </div>
             </div>
           )}
@@ -425,7 +427,7 @@ function HistoryRow({
         <div className="flex items-start gap-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Medicines</span>
           <div className="flex-1">
-            <PrescriptionDisplay prescription={record.prescription} />
+            <PrescriptionDisplay prescription={record.prescription} historical={historical} />
           </div>
         </div>
       )}
@@ -1400,6 +1402,7 @@ export default function ClinicalRecordsTab({
                               record={record}
                               type="diagnosis"
                               mode={mode}
+                              historical
                               onPdf={() => printClinicalRecord({
                                 type: "diagnosis",
                                 clinicName,
@@ -1428,6 +1431,7 @@ export default function ClinicalRecordsTab({
                               record={record}
                               type="prescription"
                               mode={mode}
+                              historical
                               onPdf={() => printClinicalRecord({
                                 type: "prescription",
                                 clinicName,
