@@ -77,6 +77,11 @@ import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
+const formatDoctorName = (name?: string | null) => {
+  const clean = (name || "").replace(/^dr\.?\s*/i, "").trim();
+  return clean ? `Dr. ${clean}` : "Doctor";
+};
+
 function BookingCardSkeleton() {
   return (
     <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
@@ -2675,7 +2680,7 @@ export default function BookingsPanel({
 
                         {/* CLINICAL TAB */}
                         {getModalTab(booking.id) === 'clinical' && (
-                          <div className="p-4 space-y-3">
+                          <div className="p-4 sm:p-5 space-y-4 bg-slate-50/60 dark:bg-slate-950/20">
 
                             {/* Clinical Status — Select + Save (matches doctor pattern) */}
                             <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
@@ -2759,17 +2764,17 @@ export default function BookingsPanel({
                                   ((email && l.doctorEmail === email) || (name && l.doctorName === name))
                                 )?.reason;
                               return (
-                                <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                                  <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
+                                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                                  <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5">
-                                      <Stethoscope className="h-3 w-3 text-green-800 dark:text-green-300" aria-hidden="true" />
-                                      <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Assign Doctor</span>
+                                      <Stethoscope className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                      <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Assign Doctor</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {booking.assignedDoctor && (
                                         <span className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full truncate max-w-[120px]">
                                           <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                          <span className="truncate">{booking.assignedDoctor}</span>
+                                          <span className="truncate">{formatDoctorName(booking.assignedDoctor)}</span>
                                         </span>
                                       )}
                                       <span className="text-xs text-muted-foreground shrink-0">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
@@ -2781,7 +2786,7 @@ export default function BookingsPanel({
                                     const suggested = getRecommendedSpecialists(booking.description || "");
                                     if (!suggested.length) return null;
                                     return (
-                                      <div className="mx-2.5 mt-2.5 px-3 py-2 rounded-lg bg-primary/6 border border-primary/20 flex items-start gap-2">
+                                      <div className="mx-3.5 mt-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 flex items-start gap-2">
                                         <Lightbulb className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
                                         <div className="min-w-0">
                                           <p className="text-xs font-bold uppercase tracking-wider text-primary/70 mb-1">Suggested specialization</p>
@@ -2797,7 +2802,7 @@ export default function BookingsPanel({
                                     );
                                   })()}
 
-                                  <div className="p-2.5 space-y-1.5">
+                                  <div className="p-3.5 space-y-2">
                                     {clinic?.doctorName && (() => {
                                       const isAssigned = booking.assignedDoctor === clinic.doctorName;
                                       const outOfOffice = isOOO(undefined, clinic.doctorName);
@@ -2811,11 +2816,11 @@ export default function BookingsPanel({
                                         <button
                                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                                             isAssigned
-                                              ? 'bg-primary border-primary shadow-md shadow-primary/20'
+                                              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-600 shadow-none'
                                               : outOfOffice
                                               ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
                                               : isBestMatch
-                                              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-400 hover:shadow-sm'
+                                              ? 'bg-white dark:bg-background border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-500 hover:bg-emerald-50/40'
                                               : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                           }`}
                                           onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
@@ -2864,26 +2869,26 @@ export default function BookingsPanel({
                                           key={idx}
                                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                                             isAssigned
-                                              ? 'bg-primary border-primary shadow-md shadow-primary/20'
+                                              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-600 shadow-none'
                                               : outOfOffice
                                               ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
                                               : isBestMatchDoc
-                                              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-400 hover:shadow-sm'
+                                              ? 'bg-white dark:bg-background border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-500 hover:bg-emerald-50/40'
                                               : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                           }`}
                                           onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doctor.name, doctorEmail: doctor.email }); }}
                                           disabled={assignDoctorMutation.isPending}
                                         >
-                                          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-300/30'}`}>
-                                            <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-emerald-600'}`}>{doctor.name.charAt(0)}</span>
+                                          <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${isAssigned ? 'bg-emerald-600' : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}>
+                                            <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>{doctor.name.replace(/^dr\.?\s*/i, '').charAt(0).toUpperCase()}</span>
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>Dr. {doctor.name}</p>
-                                            <p className={`text-xs ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                            <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-emerald-900 dark:text-emerald-100' : 'text-foreground'}`}>{formatDoctorName(doctor.name)}</p>
+                                            <p className={`text-xs ${isAssigned ? 'text-emerald-700 dark:text-emerald-200' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
                                               {outOfOffice ? <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" />Out of office</span> : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
                                             </p>
                                           </div>
-                                          {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
+                                          {isAssigned && <span className="h-6 w-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0"><Check className="h-3.5 w-3.5" /></span>}
                                           {!isAssigned && isBestMatchDoc && (
                                             <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
                                               Best match
@@ -2909,11 +2914,14 @@ export default function BookingsPanel({
                             })()}
 
                             {/* Digital Consent */}
-                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                              <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
+                            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                              <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-1.5">
-                                  <ClipboardCheck className="h-3 w-3 text-green-800 dark:text-green-300" aria-hidden="true" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Digital Consent</span>
+                                  <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                  <div>
+                                    <span className="block text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Digital Consent</span>
+                                    {!booking.consentSignedAt && <span className="text-[11px] text-muted-foreground normal-case tracking-normal">Send securely to the patient</span>}
+                                  </div>
                                 </div>
                                 {booking.consentSignedAt ? (
                                   <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-1 rounded-full border border-green-200 dark:border-green-600/30">
@@ -2922,7 +2930,7 @@ export default function BookingsPanel({
                                 ) : (
                                   <Button
                                     size="sm"
-                                    className="h-9 px-3.5 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.97] text-primary-foreground border-0 transition-all disabled:opacity-50"
+                                    className="h-9 px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white border-0 transition-all disabled:opacity-50"
                                     onClick={() => requestConsentMutation.mutate(booking.id)}
                                     disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
                                     data-testid={`button-request-consent-${booking.id}`}
@@ -2933,6 +2941,11 @@ export default function BookingsPanel({
                                   </Button>
                                 )}
                               </div>
+                              {!booking.consentSignedAt && (
+                                <div className="px-3.5 pt-3 flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-full px-2 py-1">WhatsApp &amp; SMS ready</span>
+                                </div>
+                              )}
                               {!booking.consentSignedAt && (
                                 <div className="px-3 py-2.5">
                                   {booking.consentToken ? (
@@ -2981,11 +2994,11 @@ export default function BookingsPanel({
                             </div>
 
                             {/* Reschedule */}
-                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                              <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center justify-between gap-2">
+                            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                              <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5">
-                                  <CalendarDays className="h-3 w-3 text-green-800 dark:text-green-300" aria-hidden="true" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Appointment</span>
+                                  <CalendarDays className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                  <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Appointment Slot</span>
                                 </div>
                                 {rescheduleBookingId === booking.id ? (
                                   <Button
@@ -3001,7 +3014,7 @@ export default function BookingsPanel({
                                 ) : (
                                   <Button
                                     size="sm"
-                                    className="h-9 px-3.5 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.97] text-primary-foreground border-0 transition-all"
+                                    className="h-9 px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white border-0 transition-all"
                                     onClick={() => {
                                       const orig = new Date(booking.slot.startTime);
                                       setRescheduleBookingId(booking.id);
@@ -3015,7 +3028,11 @@ export default function BookingsPanel({
                               </div>
                               {rescheduleBookingId !== booking.id && (
                                 <div className="px-3 py-2.5">
-                                  <p className="text-xs text-muted-foreground">Current: <span className="font-medium text-foreground">{format(bookingDateTime, "EEE, MMM d")} · {format(bookingDateTime, "h:mm a")} → {format(new Date(booking.slot.endTime), "h:mm a")}</span></p>
+                                  <div className="px-1 py-1">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Current appointment</p>
+                                    <p className="mt-1 text-sm font-semibold text-foreground">{format(bookingDateTime, "EEE, MMM d, yyyy")}</p>
+                                    <p className="text-xs text-muted-foreground">{format(bookingDateTime, "h:mm a")} – {format(new Date(booking.slot.endTime), "h:mm a")}</p>
+                                  </div>
                                 </div>
                               )}
                               {rescheduleBookingId === booking.id && (
