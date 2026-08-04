@@ -2786,13 +2786,14 @@ export default function BookingsPanel({
                                     const suggested = getRecommendedSpecialists(booking.description || "");
                                     if (!suggested.length) return null;
                                     return (
-                                      <div className="mx-3.5 mt-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 flex items-start gap-2">
-                                        <Lightbulb className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
+                                      <div className="mx-3.5 mt-3 px-3 py-2.5 rounded-lg bg-indigo-50/70 dark:bg-indigo-500/10 border border-dashed border-indigo-200 dark:border-indigo-500/30 flex items-start gap-2">
+                                        <Lightbulb className="h-4 w-4 text-indigo-600 dark:text-indigo-300 shrink-0 mt-0.5" />
                                         <div className="min-w-0">
-                                          <p className="text-xs font-bold uppercase tracking-wider text-primary/70 mb-1">Suggested specialization</p>
-                                          <div className="flex flex-wrap gap-1">
+                                          <p className="text-xs font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-200 mb-0.5">Suggested based on patient request</p>
+                                          <p className="text-[11px] leading-snug text-indigo-700/80 dark:text-indigo-200/80 mb-2">These specialties match the stated treatment need. You can still choose any available doctor.</p>
+                                          <div className="flex flex-wrap gap-1.5">
                                             {suggested.map(sp => (
-                                              <span key={sp} className="text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
+                                              <span key={sp} className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-200 bg-white/70 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-400/30 px-2 py-0.5 rounded-full">
                                                 {sp}
                                               </span>
                                             ))}
@@ -2820,7 +2821,7 @@ export default function BookingsPanel({
                                               : outOfOffice
                                               ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
                                               : isBestMatch
-                                              ? 'bg-white dark:bg-background border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-500 hover:bg-emerald-50/40'
+                                              ? 'bg-white dark:bg-background border-indigo-200 dark:border-indigo-500/40 hover:border-indigo-400 hover:bg-indigo-50/50'
                                               : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                           }`}
                                           onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
@@ -2837,8 +2838,8 @@ export default function BookingsPanel({
                                           </div>
                                           {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
                                           {!isAssigned && isBestMatch && (
-                                            <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
-                                              Best match
+                                            <span className="shrink-0 text-[11px] font-bold text-indigo-700 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-400/30 px-1.5 py-0.5 rounded-full">
+                                              Specialty match
                                             </span>
                                           )}
                                         </button>
