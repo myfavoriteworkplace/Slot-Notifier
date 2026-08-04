@@ -18,7 +18,7 @@ export default function PatientDocumentsTab({ bookingId, patientName, doctorName
   }});
   const upload = useMutation({
     mutationFn: async (file: File) => {
-      const signed = await (await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileType: file.type, fileSize: file.size, folder: "patient-documents" })).json();
+      const signed = await (await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileType: file.type, fileSize: file.size, folder: "patient-docs" })).json();
       const put = await fetch(signed.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       if (!put.ok) throw new Error("File upload failed");
       const r = await apiRequest("POST", `/api/patient-documents/booking/${bookingId}`, { ...signed, name: file.name, type: file.type, size: file.size, category, description, doctorName, visitDate, uploadedByRole: authorRole });

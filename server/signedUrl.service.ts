@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const ALLOWED_DOC_TYPES   = [...ALLOWED_IMAGE_TYPES, "application/pdf"];
 
-const ALLOWED_FOLDERS = ["clinics", "doctors", "users", "smile-deals", "case-media", "clinic-docs"];
+const ALLOWED_FOLDERS = ["clinics", "doctors", "users", "smile-deals", "case-media", "clinic-docs", "patient-docs"];
 
 const FOLDER_MAX_BYTES: Record<string, number> = {
   "doctors":     1 * 1024 * 1024,  // 1 MB  — profile photos
@@ -15,6 +15,7 @@ const FOLDER_MAX_BYTES: Record<string, number> = {
   "case-media":  3 * 1024 * 1024,  // 3 MB  — before/after clinical photos
   "smile-deals": 2 * 1024 * 1024,  // 2 MB  — marketing images
   "clinic-docs": 5 * 1024 * 1024,  // 5 MB  — registration documents / PDFs
+  "patient-docs": 10 * 1024 * 1024, // 10 MB — patient medical documents and images
 };
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
 
@@ -45,7 +46,9 @@ export async function generateSignedUploadUrl(
     );
   }
 
-  const allowedTypes = folder === "clinic-docs" ? ALLOWED_DOC_TYPES : ALLOWED_IMAGE_TYPES;
+  const allowedTypes = ["clinic-docs", "patient-docs"].includes(folder)
+    ? ALLOWED_DOC_TYPES
+    : ALLOWED_IMAGE_TYPES;
   if (!normalizedType || !allowedTypes.includes(normalizedType)) {
     throw new Error(
       `Invalid file type: ${fileType}. Allowed: ${allowedTypes.join(", ")}`
