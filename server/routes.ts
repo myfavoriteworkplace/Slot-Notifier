@@ -6271,5 +6271,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  app.delete("/api/patient-documents/booking/:bookingId", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.params.bookingId));
+      if (!booking?.patientId) return res.status(404).json({ message: "Booking not found" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
+      const url = typeof req.body?.url === "string" ? req.body.url : "";
+      if (!url) return res.status(400).json({ message: "Document URL is required" });
+      const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
+      const attachments = ((history?.attachments ?? []) as any[]);
+      const exists = attachments.some(a => a.url === url && Number(a.bookingId) === booking.id);
+      if (!exists) return res.status(404).json({ message: "Document not found for this visit" });
+      const updated = attachments.filter(a => !(a.url === url && Number(a.bookingId) === booking.id));
+      await storage.upsertPatientMedicalHistory(booking.patientId, slot.clinicId, { attachments: updated } as any);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return createServer(app);
 }
