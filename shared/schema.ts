@@ -762,6 +762,7 @@ export type MedHistAttachment  = {
   url: string; name: string; type: string; uploadedAt: string;
   size?: number; category?: string; description?: string;
   bookingId?: number | null; visitDate?: string | null; doctorName?: string | null;
+  clinicalRecordId?: number | null; diagnosisSnapshot?: string[]; affectedTeethSnapshot?: string[];
   uploadedBy?: string | null; uploadedByRole?: string | null;
 };
 

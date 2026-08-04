@@ -6236,6 +6236,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const body = req.body ?? {};
       const documentUrl = body.publicUrl || body.url;
       if (!documentUrl || !body.name || !body.type) return res.status(400).json({ message: "File metadata is required" });
+      let linkedRecord: any = null;
+      if (body.clinicalRecordId != null) {
+        const records = await storage.getClinicalRecordsByBookingId(booking.id);
+        linkedRecord = records.find(r => Number(r.id) === Number(body.clinicalRecordId)) ?? null;
+        if (!linkedRecord) {
+          const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
+          if (!history) return res.status(400).json({ message: "Linked diagnosis record not found for this patient" });
+          const patientBookings = await db.select({ bookingId: bookings.id }).from(bookings)
+            .innerJoin(slots, eq(bookings.slotId, slots.id))
+            .where(and(eq(bookings.patientId, booking.patientId), eq(slots.clinicId, slot.clinicId)));
+          for (const row of patientBookings) {
+            const pastRecords = await storage.getClinicalRecordsByBookingId(row.bookingId);
+            linkedRecord = pastRecords.find(r => Number(r.id) === Number(body.clinicalRecordId)) ?? null;
+            if (linkedRecord) break;
+          }
+        }
+        if (!linkedRecord) return res.status(400).json({ message: "Linked diagnosis record not found for this patient" });
+      }
       const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
       const attachments = [...((history?.attachments ?? []) as any[]), {
         url: documentUrl, name: body.name, type: body.type, size: body.size,
@@ -6243,6 +6261,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         bookingId: booking.id, visitDate: slot.startTime, doctorName: booking.assignedDoctor || null,
         uploadedBy: sess.doctorEmail || sess.adminEmail || null,
         uploadedByRole: body.uploadedByRole || (sess.doctorLoggedIn ? "doctor" : "clinic_admin"),
+        clinicalRecordId: linkedRecord?.id ?? null,
+        diagnosisSnapshot: linkedRecord?.diagnosis ?? body.diagnosisSnapshot ?? [],
+        affectedTeethSnapshot: linkedRecord?.affectedTeeth ?? body.affectedTeethSnapshot ?? [],
         uploadedAt: new Date().toISOString(),
       }];
       const saved = await storage.upsertPatientMedicalHistory(booking.patientId, slot.clinicId, { attachments } as any);
