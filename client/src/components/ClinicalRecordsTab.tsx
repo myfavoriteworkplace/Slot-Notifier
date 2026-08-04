@@ -1373,25 +1373,27 @@ export default function ClinicalRecordsTab({
           </button>
 
           {showPastVisits && (
-            <div className="px-0 py-3 space-y-5 bg-slate-50/60 dark:bg-slate-900/20">
+            <div className="border-t border-slate-300 bg-slate-50/60 dark:border-slate-600 dark:bg-slate-900/20 px-3 py-3 space-y-4">
               {pastVisits.map((visit) => {
                 const visitDx = visit.records.filter(r => r.diagnosis && (r.diagnosis as string[]).length > 0);
                 const visitRx = visit.records.filter(r => !!r.prescription);
                 return (
-                  <div key={visit.bookingId}>
-                    {/* Visit date divider */}
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
-                      <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-                      Visit — {format(new Date(visit.slotDate), "d MMM yyyy, h:mm a")}
-                      <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-                    </p>
+                  <div key={visit.bookingId} className="rounded-md border border-slate-300 bg-slate-50/80 dark:border-slate-600 dark:bg-slate-900/30 overflow-hidden">
+                    {/* Visit date header */}
+                    <div className="px-3 py-2 bg-slate-100/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                        Visit — {format(new Date(visit.slotDate), "d MMM yyyy, h:mm a")}
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                      </p>
+                    </div>
 
                     {visitDx.length > 0 && (
-                      <div className="mb-3">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <div>
+                        <p className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                           <Stethoscope className="h-3 w-3" /> Diagnosis
                         </p>
-                        <div className="border-t border-border/50 bg-muted/20 overflow-hidden divide-y divide-border/30">
+                        <div className="border-t border-slate-200 dark:border-slate-700 bg-muted/20 overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
                           {visitDx.map(record => (
                             <HistoryRow
                               key={record.id}
@@ -1416,10 +1418,10 @@ export default function ClinicalRecordsTab({
 
                     {visitRx.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <p className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                           <Pill className="h-3 w-3" /> Prescription
                         </p>
-                        <div className="border-t border-border/50 bg-muted/20 overflow-hidden divide-y divide-border/30">
+                        <div className="border-t border-slate-200 dark:border-slate-700 bg-muted/20 overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
                           {visitRx.map(record => (
                             <HistoryRow
                               key={record.id}
