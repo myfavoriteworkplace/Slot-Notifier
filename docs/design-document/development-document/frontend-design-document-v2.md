@@ -808,6 +808,9 @@ className="text-sm"  // also triggers zoom (14px < 16px)
 - Keep only a minimal radius, or no radius, on the outer historical record
   boundary. Rounded corners remain appropriate for controls, inputs, badges, and
   active editable panels.
+- Use the same light `rounded-md` outer boundary for current Clinical latest
+  records and Billing bill records. Keep inner record sections flat; do not use
+  large-radius containers for active or historical document records.
 
 ### Row action visibility
 

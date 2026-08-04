@@ -953,7 +953,7 @@ export function BillingHistoryPanel({
 
     return (
       <div key={bill.id}
-        className={`border overflow-hidden flex flex-col ${isHistorical ? "border-slate-300 bg-slate-50/80 shadow-none dark:border-slate-600 dark:bg-slate-900/30" : isActiveBill && !isBillPaid ? "border-primary/40 bg-primary/[0.02] shadow-sm" : "border-border/50 bg-card shadow-sm"}`}
+        className={`rounded-md border overflow-hidden flex flex-col ${isHistorical ? "border-slate-300 bg-slate-50/80 shadow-none dark:border-slate-600 dark:bg-slate-900/30" : isActiveBill && !isBillPaid ? "border-primary/40 bg-primary/[0.02] shadow-sm" : "border-border/50 bg-card shadow-sm"}`}
         data-testid={`billing-card-${bill.id}`}>
 
         {/* ── HEADER ── */}

@@ -873,7 +873,7 @@ export default function ClinicalRecordsTab({
 
           {/* Latest Diagnosis */}
           {latestDx && !(showDxForm && dxEditId === latestDx.id) ? (
-            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
+            <div className="rounded-md border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
               {/* ── Consolidated single-row header ─────────────────────── */}
               <div className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2 min-h-[36px]">
                 <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
@@ -1232,7 +1232,7 @@ export default function ClinicalRecordsTab({
 
           {/* Latest Prescription */}
           {latestRx && !(showRxForm && rxEditId === latestRx.id) && !rxLinkedToDxId ? (
-            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
+            <div className="rounded-md border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
               {/* ── Single-row header ──────────────────────────────────── */}
               <div className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2 min-h-[36px]">
                 <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
