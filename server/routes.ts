@@ -6234,10 +6234,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const slot = await storage.getSlot(booking.slotId);
       if (!slot?.clinicId) return res.status(400).json({ message: "Clinic not found" });
       const body = req.body ?? {};
-      if (!body.url || !body.name || !body.type) return res.status(400).json({ message: "File metadata is required" });
+      const documentUrl = body.publicUrl || body.url;
+      if (!documentUrl || !body.name || !body.type) return res.status(400).json({ message: "File metadata is required" });
       const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
       const attachments = [...((history?.attachments ?? []) as any[]), {
-        url: body.publicUrl || body.url, name: body.name, type: body.type, size: body.size,
+        url: documentUrl, name: body.name, type: body.type, size: body.size,
         category: body.category || "Other", description: body.description || "",
         bookingId: booking.id, visitDate: slot.startTime, doctorName: booking.assignedDoctor || null,
         uploadedBy: sess.doctorEmail || sess.adminEmail || null,
