@@ -767,6 +767,42 @@ className="text-sm"  // also triggers zoom (14px < 16px)
 | Dates | `text-left` |
 | Actions column | No heading; cells use `justify-end` flex |
 
+### Spacing and readability
+
+- Use consistent cell padding across a table. The default dashboard pattern is
+  approximately `px-4 py-2.5` for headers and body cells; reduce to `px-3 py-2`
+  only when the table must fit a constrained mobile viewport.
+- Give normal data rows a minimum visual target of approximately `44px` when they
+  contain interactive controls or are read frequently. This is a readability and
+  touch-target baseline, not a requirement to force every dense, non-interactive
+  table row to exactly 44px.
+- Keep horizontal padding at the outer table edges so text does not touch the
+  border. Do not compensate for missing edge padding with arbitrary nested
+  wrappers.
+- Use `min-w-0`, truncation, wrapping, or an internal `overflow-x-auto` wrapper
+  deliberately. Do not squeeze readable text into extremely narrow columns.
+- For related metadata that would create large empty columns (for example,
+  medicine dosage, frequency, and duration), combine it under the primary label
+  as a secondary line such as `500 mg · OD · 20 days`.
+
+### Section tables and summary rows
+
+- Section banners should use consistent vertical/horizontal padding (normally
+  `px-4 py-2.5`), a subtle divider, and a flat background. Avoid rounded cards
+  nested inside the same document or record.
+- Prefer a full-width section footer with a left-aligned count and right-aligned
+  subtotal over a pseudo-row that repeats table columns solely to display a
+  summary.
+- Financial summaries should align labels and values to the same right-side
+  measure as the table's financial columns. Use a consistent vertical rhythm
+  such as `mt-4` with `gap-2`, and separate the final total with a divider.
+- Do not place decorative status icons inside currency values. Represent paid or
+  settled state with an explicit status label/badge and, where useful, an icon
+  in the status or action area.
+- Historical/read-only table content must apply its neutral state to rows,
+  section footers, totals, and nested status text; active green/brand accents
+  must not leak into historical descendants.
+
 ### Row action visibility
 
 ```tsx
