@@ -1518,7 +1518,7 @@ export function BillingHistoryPanel({
 
               {/* Discount + optional GST — tax exempt is the default when taxPct is zero */}
               {canEdit && services.length > 0 && (
-                 <div className="px-3 py-2.5 border-t border-border/30 bg-muted/10 space-y-2.5">
+                 <div className="px-3 py-2 border-t border-border/30 bg-muted/10 space-y-2">
               {(() => {
                     const customTax = pending?.customTax ?? ![5, 12, 18].includes(effectiveTaxPct);
                     const setBillingDraft = (discountPct: number, taxPct: number, custom = customTax) => {
@@ -1540,7 +1540,7 @@ export function BillingHistoryPanel({
                      <span className="text-xs text-muted-foreground">%</span>
                    </div>
                 </div>
-                   <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/60 p-2.5">
+                   <div className="flex flex-col gap-1.5 rounded-lg border border-border/50 bg-background/60 p-2">
                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                      <span className="block text-xs text-muted-foreground font-medium">Tax configuration</span>
                       <div className="inline-flex w-fit self-end rounded-lg border border-slate-200 bg-slate-100/80 p-1 shadow-inner">
@@ -1599,7 +1599,7 @@ export function BillingHistoryPanel({
             {services.length > 0 && (
                <div className="border-t border-border/50 bg-card px-3 py-2.5">
                  <div className="ml-auto w-full max-w-md">
-                 <div className="flex items-center justify-between py-2">
+                 <div className="flex items-center justify-between py-1.5">
                    <span className="text-xs text-muted-foreground">Subtotal</span>
                   <span className="text-xs tabular-nums text-foreground">₹{services.reduce((s, i) => s + i.amount, 0).toFixed(0)}</span>
                 </div>
@@ -1630,7 +1630,7 @@ export function BillingHistoryPanel({
                     <span className={`text-xs tabular-nums font-semibold ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-emerald-600"}`}>₹{paidAmt.toFixed(0)}</span>
                   </div>
                 )}
-                 <div className="flex items-center justify-between mt-2 pt-3 border-t border-border/30">
+                 <div className="flex items-center justify-between mt-1.5 pt-2.5 border-t border-border/30">
                   <span className={`text-sm font-black tracking-wide ${isBillPaid && !isHistorical ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
                     {isBillPaid ? "PAID" : "Outstanding"}
                   </span>
