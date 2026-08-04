@@ -86,12 +86,64 @@ export interface BookingStats {
 }
 
 export interface BookingsPagedResult {
-  data: (Booking & { slot: Slot; patientCode?: string | null })[];
+  data: (Booking & { slot: Slot; patientCode?: string | null; visitNumber?: number; totalVisits?: number; latestLabel?: 'latest_visit' | 'latest_booked' })[];
   total: number;
   page: number;
   pageSize: number;
   totalPages: number;
   stats: BookingStats;
+}
+
+type VisitHistoryMeta = {
+  visitNumber: number;
+  totalVisits: number;
+  latestLabel?: 'latest_visit' | 'latest_booked';
+};
+
+function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): Map<number, VisitHistoryMeta> {
+  const groups = new Map<string, Array<{ booking: Booking; slot: Slot }>>();
+  for (const row of rows) {
+    const b = row.booking as any;
+    const key = b.patientId != null
+      ? `id:${b.patientId}`
+      : b.customerEmail
+        ? `email:${String(b.customerEmail).trim().toLowerCase()}`
+        : b.customerPhone
+          ? `phone:${String(b.customerPhone).replace(/\D/g, '')}`
+          : `name:${String(b.customerName ?? '').trim().toLowerCase()}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+  const result = new Map<number, VisitHistoryMeta>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const sorted = [...group].sort((a, b) =>
+      new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime() ||
+      a.booking.id - b.booking.id
+    );
+    const completed = sorted.filter(({ booking }) => (booking as any).visitStatus === 'completed');
+    const active = sorted.filter(({ booking }) => {
+      const b = booking as any;
+      return b.visitStatus !== 'completed' &&
+        b.verificationStatus !== 'cancelled' &&
+        b.verificationStatus !== 'no_show';
+    });
+    const latestCompleted = completed[completed.length - 1]?.booking.id;
+    const latestBooked = active[active.length - 1]?.booking.id;
+    for (let i = 0; i < sorted.length; i++) {
+      const id = sorted[i].booking.id;
+      result.set(id, {
+        visitNumber: i + 1,
+        totalVisits: sorted.length,
+        ...(id === latestCompleted
+          ? { latestLabel: 'latest_visit' as const }
+          : id === latestBooked
+            ? { latestLabel: 'latest_booked' as const }
+            : {}),
+      });
+    }
+  }
+  return result;
 }
 
 export interface IStorage {
@@ -779,6 +831,12 @@ export class DatabaseStorage implements IStorage {
     .limit(pageSize)
     .offset(offset);
 
+    const historyRows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(clinicCondition);
+    const historyMeta = buildVisitHistoryMeta(historyRows);
+
     // Lightweight stats across ALL clinic bookings (independent of current filter)
     const statRows = await db.select({
       startTime: slots.startTime,
@@ -815,7 +873,12 @@ export class DatabaseStorage implements IStorage {
 
     stats.patientTotalCount = patientTotalCount;
 
-    const data = results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+    const data = results.map(r => ({
+      ...this.decryptBooking(r.booking),
+      slot: r.slot,
+      patientCode: r.patientCode,
+      ...historyMeta.get(r.booking.id),
+    }));
     return { data, total, page: safePage, pageSize, totalPages, stats };
   }
 
@@ -994,6 +1057,12 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .where(and(emailCond, clinicCond));
 
+    const historyRows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(emailCond, clinicCond));
+    const historyMeta = buildVisitHistoryMeta(historyRows);
+
     const stats: BookingStats = {
       todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
       thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
@@ -1037,6 +1106,7 @@ export class DatabaseStorage implements IStorage {
       clinic: (r as any).clinic,
       clinicId: r.slot.clinicId,
       patientCode: r.patientCode,
+      ...historyMeta.get(r.booking.id),
     }));
     return { data, total, page: safePage, pageSize, totalPages, stats };
   }

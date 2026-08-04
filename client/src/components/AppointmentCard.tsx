@@ -83,6 +83,7 @@ export interface AppointmentCardProps {
   consentRequestPending?: boolean;
   visitNumber?: number;
   totalVisits?: number;
+  latestLabel?: "latest_visit" | "latest_booked";
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -154,6 +155,7 @@ export function AppointmentCard({
   consentRequestPending,
   visitNumber,
   totalVisits,
+  latestLabel,
   isCollapsed,
   onToggleCollapse,
 }: AppointmentCardProps) {
@@ -426,7 +428,7 @@ export function AppointmentCard({
       >
         {/* ── Header ── */}
         <div className={`px-3 sm:px-4 pt-2.5 pb-2 ${headerBg} transition-colors`}>
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -476,6 +478,15 @@ export function AppointmentCard({
                 </div>
               </div>
             </div>
+            {latestLabel && (
+              <span className={`absolute -top-5 right-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide ${
+                latestLabel === "latest_visit"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+                  : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-400"
+              }`}>
+                {latestLabel === "latest_visit" ? "✓ LATEST VISIT" : "◷ LATEST BOOKED"}
+              </span>
+            )}
 
             {/* Status + ⋮ menu */}
             <div className="flex flex-col items-end gap-1 shrink-0">

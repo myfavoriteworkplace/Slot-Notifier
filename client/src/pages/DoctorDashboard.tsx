@@ -678,23 +678,13 @@ export default function DoctorDashboard() {
 
   // Visit-number map — when the same patient appears 2+ times in the current list,
   // tag each booking with "Visit #N of M" so staff can tell them apart at a glance.
-  const drVisitNumberMap = useMemo<Map<number, { n: number; total: number }>>(() => {
-    const patientGroups = new Map<string | number, any[]>();
-    displayBookings.forEach((b: any) => {
-      const key = b.patientId ?? b.customerPhone ?? b.customerName;
-      if (!patientGroups.has(key)) patientGroups.set(key, []);
-      patientGroups.get(key)!.push(b);
-    });
-    const map = new Map<number, { n: number; total: number }>();
-    patientGroups.forEach((group) => {
-      if (group.length < 2) return;
-      const sorted = [...group].sort((a: any, b: any) =>
-        new Date(a.slot?.startTime ?? 0).getTime() - new Date(b.slot?.startTime ?? 0).getTime()
-      );
-      sorted.forEach((b: any, i: number) => map.set(b.id, { n: i + 1, total: sorted.length }));
-    });
-    return map;
-  }, [displayBookings]);
+  const drVisitNumberMap = useMemo(() => new Map(
+    displayBookings.map((b: any) => [b.id, {
+      n: b.visitNumber,
+      total: b.totalVisits,
+      latestLabel: b.latestLabel,
+    }])
+  ), [displayBookings]);
 
   // Individual card collapse state — only toggled manually by the user;
   // never auto-populated from chip/date filters.
@@ -1900,6 +1890,7 @@ export default function DoctorDashboard() {
                           bookingNumber={String(booking.id).padStart(4, '0')}
                           visitNumber={drVisitNumberMap.get(booking.id)?.n}
                           totalVisits={drVisitNumberMap.get(booking.id)?.total}
+                          latestLabel={drVisitNumberMap.get(booking.id)?.latestLabel}
                           isCollapsed={drCollapsedIds.has(booking.id)}
                           onToggleCollapse={() => setDrCollapsedIds(prev => {
                             const next = new Set(prev);

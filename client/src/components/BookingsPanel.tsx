@@ -353,18 +353,16 @@ export default function BookingsPanel({
 
   const filteredBookings = bookings;
 
-  // Visit-number map — computed only when a patient filter is active.
+  // Visit metadata is calculated server-side from the patient's complete history.
   // Sorts all the patient's bookings chronologically and assigns Visit #1, #2… so
   // staff can immediately tell these are different appointments, not duplicates.
-  const visitNumberMap = useMemo<Map<number, { n: number; total: number }>>(() => {
-    if (!activePatientFilter) return new Map();
-    const sorted = [...filteredBookings].sort(
-      (a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime()
-    );
-    const map = new Map<number, { n: number; total: number }>();
-    sorted.forEach((b, i) => map.set(b.id, { n: i + 1, total: sorted.length }));
-    return map;
-  }, [activePatientFilter, filteredBookings]);
+  const visitNumberMap = useMemo(() => new Map(
+    filteredBookings.map((b: any) => [b.id, {
+      n: b.visitNumber,
+      total: b.totalVisits,
+      latestLabel: b.latestLabel,
+    }])
+  ), [filteredBookings]);
 
   // Collapsed state — when patient filter is active and 2+ bookings exist, cards
   // start collapsed so staff see a compact list rather than stacked full cards.
@@ -1977,8 +1975,9 @@ export default function BookingsPanel({
                     booking={booking}
                     bookingNumber={bookingNumber(booking)}
                     complaints={complaints}
-                    visitNumber={visitNumberMap.get(booking.id)?.n}
-                    totalVisits={visitNumberMap.get(booking.id)?.total}
+                          visitNumber={visitNumberMap.get(booking.id)?.n}
+                          totalVisits={visitNumberMap.get(booking.id)?.total}
+                          latestLabel={visitNumberMap.get(booking.id)?.latestLabel}
                     isCollapsed={collapsedBookingIds.has(booking.id)}
                     onToggleCollapse={() => setCollapsedBookingIds(prev => {
                       const next = new Set(prev);
