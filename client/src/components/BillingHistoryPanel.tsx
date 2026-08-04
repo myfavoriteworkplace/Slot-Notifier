@@ -1061,12 +1061,12 @@ export function BillingHistoryPanel({
                               </colgroup>
                               <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-border/50 bg-muted/60">
-                                  <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
-                                  <th colSpan={3} className="text-left py-1 px-2 font-semibold text-muted-foreground">Description</th>
-                                  <th className="text-right py-1 px-2 font-semibold text-muted-foreground">₹/Unit</th>
-                                  <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
-                                  <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
-                                  <th></th>
+                                  <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground">#</th>
+                                  <th colSpan={3} className="text-left py-2.5 px-4 font-semibold text-muted-foreground">Description</th>
+                                  <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground">₹/Unit</th>
+                                  <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground">Qty</th>
+                                  <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground">Total</th>
+                                  <th className="py-2.5 px-4"></th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border/30">
@@ -1077,18 +1077,17 @@ export function BillingHistoryPanel({
                                   return (
                                       <tr key={origIdx} className={`group/row transition-colors ${isHistorical ? "bg-slate-50 dark:bg-slate-900/30" : isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                      <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
-                                      <td colSpan={3} className="py-1 px-2 text-foreground">
+                                      <td className="min-h-[44px] py-2.5 px-4 text-left tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
+                                      <td colSpan={3} className="min-h-[44px] py-2.5 px-4 text-left text-foreground">
                                         <span className="flex items-center gap-1 min-w-0">
-                                          {isItemPaid && <CheckCircle2 className={`h-2.5 w-2.5 shrink-0 ${isHistorical ? "text-slate-400" : "text-emerald-500"}`} />}
                                           <span className="truncate">{svc.description}</span>
                                         </span>
                                       </td>
-                                      <td className="py-1 px-2 text-right tabular-nums text-muted-foreground">
+                                      <td className="min-h-[44px] py-2.5 px-4 text-right tabular-nums text-muted-foreground">
                                         {svc.unitPrice ? `₹${Number(svc.unitPrice).toFixed(0)}` : "—"}
                                       </td>
-                                      <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                      <td className="py-1 px-2 text-right tabular-nums">
+                                      <td className="min-h-[44px] py-2.5 px-4 text-right tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                      <td className="min-h-[44px] py-2.5 px-4 text-right tabular-nums">
                                         {isEditing ? (
                                           <div className="relative inline-block">
                                             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
@@ -1100,14 +1099,14 @@ export function BillingHistoryPanel({
                                               data-testid={`input-item-amount-${itemKey}`} />
                                           </div>
                                         ) : isItemPaid ? (
-                                          <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                            <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                          <span className={isHistorical ? "text-slate-700 dark:text-slate-300" : "text-foreground"}>
+                                            ₹{svc.amount.toFixed(0)}
                                           </span>
                                         ) : (
                                           <span className="tabular-nums text-foreground">₹{svc.amount.toFixed(0)}</span>
                                         )}
                                       </td>
-                                      <td className="py-1 px-1">
+                                      <td className="py-2.5 px-4 text-center">
                                         {isItemPaid ? (
                                           <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
                                         ) : (
@@ -1136,14 +1135,11 @@ export function BillingHistoryPanel({
                                 })}
                               </tbody>
                               <tfoot>
-                                <tr className="bg-primary/5 border-t border-border/40">
-                                  <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                <tr className={isHistorical ? "bg-slate-100/70 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700" : "bg-muted/30 border-t border-border/40"}>
+                                  <td colSpan={6} className="py-2 px-4 text-left text-xs font-semibold text-muted-foreground">
                                     {consultItems.length} service{consultItems.length !== 1 ? "s" : ""}
                                   </td>
-                                  <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                                    {consultItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
-                                  </td>
-                                  <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
+                                  <td className="py-2 px-4 text-right tabular-nums text-xs font-bold text-foreground">
                                     ₹{consultTotal.toFixed(0)}
                                   </td>
                                   <td></td>
@@ -1187,14 +1183,14 @@ export function BillingHistoryPanel({
                               </colgroup>
                               <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-border/50 bg-muted/60">
-                                  <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Medicine</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dos.</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Freq.</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dur.</th>
-                                  <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
-                                  <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
-                                  <th></th>
+                                  <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground">#</th>
+                                  <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground">Medicine</th>
+                                  <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground">Dos.</th>
+                                  <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground">Freq.</th>
+                                  <th className="text-left py-2.5 px-4 font-semibold text-muted-foreground">Dur.</th>
+                                  <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground">Qty</th>
+                                  <th className="text-right py-2.5 px-4 font-semibold text-muted-foreground">Total</th>
+                                  <th className="py-2.5 px-4"></th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border/30 [&>tr:last-child>td]:border-b-0">
@@ -1208,18 +1204,17 @@ export function BillingHistoryPanel({
                                     <tr key={origIdx}
                                       className={`group/row transition-colors ${isHistorical ? "bg-slate-50 dark:bg-slate-900/30" : isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : isUnpriced ? "bg-amber-50/60 dark:bg-amber-950/15 hover:bg-amber-50/80" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                      <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
-                                      <td className="py-1 px-2 font-medium text-foreground">
+                                      <td className="min-h-[44px] py-2.5 px-4 text-left tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
+                                      <td className="min-h-[44px] py-2.5 px-4 text-left font-medium text-foreground">
                                         <span className="flex items-center gap-1 min-w-0">
-                                          {isItemPaid && <CheckCircle2 className={`h-2.5 w-2.5 shrink-0 ${isHistorical ? "text-slate-400" : "text-emerald-500"}`} />}
                                           <span className="truncate">{medicine}</span>
                                         </span>
                                       </td>
-                                      <td className="py-1 px-2 text-muted-foreground truncate">{dosage || "—"}</td>
-                                      <td className="py-1 px-2 text-muted-foreground truncate">{frequency || "—"}</td>
-                                      <td className="py-1 px-2 text-muted-foreground truncate">{duration || "—"}</td>
-                                      <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                      <td className="py-1 px-2 text-right tabular-nums">
+                                      <td className="min-h-[44px] py-2.5 px-4 text-left text-muted-foreground truncate">{dosage || "—"}</td>
+                                      <td className="min-h-[44px] py-2.5 px-4 text-left text-muted-foreground truncate">{frequency || "—"}</td>
+                                      <td className="min-h-[44px] py-2.5 px-4 text-left text-muted-foreground truncate">{duration || "—"}</td>
+                                      <td className="min-h-[44px] py-2.5 px-4 text-right tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                      <td className="min-h-[44px] py-2.5 px-4 text-right tabular-nums">
                                         {isEditing ? (
                                           <div className="relative inline-block">
                                             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
@@ -1231,8 +1226,8 @@ export function BillingHistoryPanel({
                                               data-testid={`input-item-amount-${itemKey}`} />
                                           </div>
                                         ) : isItemPaid ? (
-                                          <span className={`flex items-center gap-0.5 justify-end ${isHistorical ? "text-slate-700 dark:text-slate-300" : "text-emerald-600"}`}>
-                                            <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                          <span className={isHistorical ? "text-slate-700 dark:text-slate-300" : "text-foreground"}>
+                                            ₹{svc.amount.toFixed(0)}
                                           </span>
                                         ) : (
                                           <span className={`tabular-nums ${isUnpriced ? "text-amber-600" : "text-foreground"}`}>
@@ -1240,7 +1235,7 @@ export function BillingHistoryPanel({
                                           </span>
                                         )}
                                       </td>
-                                      <td className="py-1 px-1">
+                                      <td className="py-2.5 px-4">
                                         {isItemPaid ? (
                                           <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
                                         ) : (
@@ -1269,14 +1264,11 @@ export function BillingHistoryPanel({
                                 })}
                               </tbody>
                               <tfoot>
-                                <tr className="bg-primary/5 border-t border-border/40">
-                                  <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                <tr className={isHistorical ? "bg-slate-100/70 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700" : "bg-muted/30 border-t border-border/40"}>
+                                  <td colSpan={6} className="py-2 px-4 text-left text-xs font-semibold text-muted-foreground">
                                     {pharmacyItems.length} medicine{pharmacyItems.length !== 1 ? "s" : ""}
                                   </td>
-                                  <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                                    {pharmacyItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
-                                  </td>
-                                  <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
+                                  <td className="py-2 px-4 text-right tabular-nums text-xs font-bold text-foreground">
                                     ₹{pharmacyTotal.toFixed(0)}
                                   </td>
                                   <td></td>
@@ -1358,14 +1350,14 @@ export function BillingHistoryPanel({
                                               data-testid={`input-item-amount-${itemKey}`} />
                                           </div>
                                         ) : isItemPaid ? (
-                                          <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                            <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                          <span className={isHistorical ? "text-slate-700 dark:text-slate-300" : "text-foreground"}>
+                                            ₹{svc.amount.toFixed(0)}
                                           </span>
                                         ) : (
                                           <span className="tabular-nums text-foreground">₹{svc.amount.toFixed(0)}</span>
                                         )}
                                       </td>
-                                      <td className="py-1 px-1">
+                                      <td className="py-2.5 px-4 text-center">
                                         {isItemPaid ? (
                                           <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
                                         ) : (
@@ -1394,14 +1386,11 @@ export function BillingHistoryPanel({
                                 })}
                               </tbody>
                               <tfoot>
-                                <tr className="bg-primary/5 border-t border-border/40">
-                                  <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                <tr className={isHistorical ? "bg-slate-100/70 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700" : "bg-muted/30 border-t border-border/40"}>
+                                  <td colSpan={6} className="py-2 px-4 text-left text-xs font-semibold text-muted-foreground">
                                     {otherItems.length} item{otherItems.length !== 1 ? "s" : ""}
                                   </td>
-                                  <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                                    {otherItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
-                                  </td>
-                                  <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
+                                  <td className="py-2 px-4 text-right tabular-nums text-xs font-bold text-foreground">
                                     ₹{otherTotal.toFixed(0)}
                                   </td>
                                   <td></td>
@@ -1720,7 +1709,7 @@ export function BillingHistoryPanel({
                    <div className="min-w-0 justify-self-center text-center text-xs text-muted-foreground">
                   {allPaid || isBillPaid ? (
                      <span className="flex flex-col items-center">
-                       <span className="text-emerald-600 font-bold flex items-center gap-1 whitespace-nowrap">
+                       <span className={isHistorical ? "text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1 whitespace-nowrap" : "text-emerald-600 font-bold flex items-center gap-1 whitespace-nowrap"}>
                         <CheckCircle2 className="h-3 w-3" /> Fully settled
                       </span>
                       {(bill as PatientBill & { cashierId?: string }).cashierId && (
@@ -1731,7 +1720,7 @@ export function BillingHistoryPanel({
                     </span>
                   ) : paidAmt > 0 ? (
                        <span className="whitespace-nowrap">
-                      Collected <span className="font-bold text-emerald-600">₹{paidAmt.toFixed(0)}</span>
+                      Collected <span className={`font-bold ${isHistorical ? "text-slate-700 dark:text-slate-300" : "text-emerald-600"}`}>₹{paidAmt.toFixed(0)}</span>
                       {" · "}Balance <span className="font-bold text-amber-600">₹{(totalAmt - paidAmt).toFixed(0)}</span>
                     </span>
                   ) : (
