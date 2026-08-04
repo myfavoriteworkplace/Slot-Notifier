@@ -802,6 +802,12 @@ className="text-sm"  // also triggers zoom (14px < 16px)
 - Historical/read-only table content must apply its neutral state to rows,
   section footers, totals, and nested status text; active green/brand accents
   must not leak into historical descendants.
+- Clinical and billing history sections should share the same flat document-flow
+  treatment: remove decorative left/right inset wrappers and rounded inner
+  record borders, using section dividers and row separators instead.
+- Keep only a minimal radius, or no radius, on the outer historical record
+  boundary. Rounded corners remain appropriate for controls, inputs, badges, and
+  active editable panels.
 
 ### Row action visibility
 

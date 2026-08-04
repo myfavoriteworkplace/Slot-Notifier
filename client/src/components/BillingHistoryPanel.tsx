@@ -1956,7 +1956,7 @@ export function BillingHistoryPanel({
                   : <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
               </button>
               {showOlderBills && (
-                <div className="border-t border-slate-300 bg-slate-50/60 dark:border-slate-600 dark:bg-slate-900/20 px-4 py-3 space-y-5">
+                <div className="border-t border-slate-300 bg-slate-50/60 dark:border-slate-600 dark:bg-slate-900/20 px-0 py-3 space-y-5">
                   {Array.from(groupByDate(olderBills)).map(([dateLabel, dateBills]) => (
                     <div key={dateLabel} className="space-y-1.5">
                       <div className="flex items-center gap-2">
