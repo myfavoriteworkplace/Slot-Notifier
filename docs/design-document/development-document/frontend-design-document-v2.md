@@ -1461,6 +1461,11 @@ look deleted, invalid, or unavailable.
   slate text and icons.
 - Historical presentation must not change permissions, editability, payment mutations,
   calculations, invoice generation, print output, or audit behavior.
+- Historical state must propagate through nested descendants: section headers, paid
+  line-item rows, status badges, table totals, sub-section labels, and history wrappers.
+  A muted outer card is incomplete if bright active-record accents remain inside it.
+- Genuine warnings and meaningful clinical classifications may retain semantic color,
+  but decorative success/brand accents must not leak into historical read-only content.
 - If a role is still allowed to edit a record, historical styling must not hide or
   disable that role-appropriate edit action.
 

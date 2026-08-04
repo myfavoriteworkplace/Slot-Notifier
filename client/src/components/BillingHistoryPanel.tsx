@@ -1075,12 +1075,12 @@ export function BillingHistoryPanel({
                                   const isEditing = editingKey === itemKey;
                                   const isItemPaid = svc.paid || isBillPaid;
                                   return (
-                                    <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card hover:bg-muted/20"}`}
+                                      <tr key={origIdx} className={`group/row transition-colors ${isHistorical ? "bg-slate-50 dark:bg-slate-900/30" : isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
                                       <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
                                       <td colSpan={3} className="py-1 px-2 text-foreground">
                                         <span className="flex items-center gap-1 min-w-0">
-                                          {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                          {isItemPaid && <CheckCircle2 className={`h-2.5 w-2.5 shrink-0 ${isHistorical ? "text-slate-400" : "text-emerald-500"}`} />}
                                           <span className="truncate">{svc.description}</span>
                                         </span>
                                       </td>
