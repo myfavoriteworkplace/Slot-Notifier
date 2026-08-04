@@ -2682,49 +2682,6 @@ export default function BookingsPanel({
                         {getModalTab(booking.id) === 'clinical' && (
                           <div className="p-4 sm:p-5 space-y-4 bg-slate-50/60 dark:bg-slate-950/20">
 
-                            {/* Clinical Status — Select + Save (matches doctor pattern) */}
-                            <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
-                              <div className="px-3 py-2.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 flex items-center gap-1.5">
-                                <ClipboardCheck className="h-3 w-3 text-green-800 dark:text-green-300" />
-                                <span className="text-xs font-semibold uppercase tracking-wide text-green-800 dark:text-green-300">Clinical Status</span>
-                                <TooltipProvider delayDuration={400}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Info className="h-3 w-3 text-muted-foreground ml-0.5 cursor-default" />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="text-xs max-w-[240px]">
-                                      Track the outcome of this case. 'Follow-up Required' = patient needs another visit. 'Case Closed' = treatment is complete.
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              </div>
-                              <div className="px-3 py-3">
-                                <div className="flex gap-2">
-                                  <Select
-                                    value={clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus ?? ''}
-                                    onValueChange={(v) => setClinicalStatusDrafts(prev => ({ ...prev, [booking.id]: v }))}
-                                  >
-                                    <SelectTrigger className="h-9 text-sm flex-1" data-testid={`clinical-status-trigger-${booking.id}`}>
-                                      <SelectValue placeholder="Select status…" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
-                                      <SelectItem value="case_closed">Case Closed</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    size="sm"
-                                    className="h-9 px-4 text-sm shrink-0"
-                                    onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: (clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus) || null })}
-                                    disabled={updateClinicalStatusMutation.isPending}
-                                    data-testid={`clinical-status-save-${booking.id}`}
-                                  >
-                                    {updateClinicalStatusMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-
                             {/* Clinical Records — rendered directly, no outer card wrapper */}
                             <ClinicalRecordsTab
                               bookingId={booking.id}
@@ -3185,6 +3142,49 @@ export default function BookingsPanel({
                                   </Button>
                                 </div>
                               )}
+                            </div>
+
+                            {/* Clinical Status */}
+                            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                              <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                                <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Clinical Status</span>
+                                <TooltipProvider delayDuration={400}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Info className="h-3 w-3 text-muted-foreground ml-0.5 cursor-default" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs max-w-[240px]">
+                                      Track the outcome of this case. 'Follow-up Required' = patient needs another visit. 'Case Closed' = treatment is complete.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                              <div className="px-3.5 py-3">
+                                <div className="flex gap-2">
+                                  <Select
+                                    value={clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus ?? ''}
+                                    onValueChange={(v) => setClinicalStatusDrafts(prev => ({ ...prev, [booking.id]: v }))}
+                                  >
+                                    <SelectTrigger className="h-9 text-sm flex-1" data-testid={`clinical-status-trigger-${booking.id}`}>
+                                      <SelectValue placeholder="Select status…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
+                                      <SelectItem value="case_closed">Case Closed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    size="sm"
+                                    className="h-9 px-4 text-sm shrink-0"
+                                    onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: (clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus) || null })}
+                                    disabled={updateClinicalStatusMutation.isPending}
+                                    data-testid={`clinical-status-save-${booking.id}`}
+                                  >
+                                    {updateClinicalStatusMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
 
                           </div>
