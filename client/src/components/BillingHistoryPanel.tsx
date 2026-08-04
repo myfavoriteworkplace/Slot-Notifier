@@ -1162,12 +1162,12 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("pharmacy")}
-                      className="w-full px-3 py-2 bg-green-50 dark:bg-green-900/30 flex items-center gap-1.5 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-left"
+                      className={`w-full px-3 py-2 flex items-center gap-1.5 transition-colors text-left ${isHistorical ? "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/70 dark:hover:bg-slate-800" : "bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50"}`}
                       data-testid={`button-section-pharmacy-${bill.id}`}
                     >
-                      <Pill className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300 flex-1">Pharmacy</span>
-                      <ChevronDown className={`h-3 w-3 text-green-800 dark:text-green-300 ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
+                      <Pill className={`h-3 w-3 shrink-0 ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-green-800 dark:text-green-300"}`} />
+                      <span className={`text-xs font-semibold uppercase tracking-wider flex-1 ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-green-800 dark:text-green-300"}`}>Pharmacy</span>
+                      <ChevronDown className={`h-3 w-3 ml-1 shrink-0 transition-transform duration-200 ${isHistorical ? "text-slate-500" : "text-green-800 dark:text-green-300"} ${pharmacyOpen ? "rotate-180" : ""}`} />
                     </button>
                     {pharmacyOpen && (
                       <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
@@ -1206,12 +1206,12 @@ export function BillingHistoryPanel({
                                   const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
                                   return (
                                     <tr key={origIdx}
-                                      className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : isUnpriced ? "bg-amber-50/60 dark:bg-amber-950/15 hover:bg-amber-50/80" : "bg-card hover:bg-muted/20"}`}
+                                      className={`group/row transition-colors ${isHistorical ? "bg-slate-50 dark:bg-slate-900/30" : isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : isUnpriced ? "bg-amber-50/60 dark:bg-amber-950/15 hover:bg-amber-50/80" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
                                       <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
                                       <td className="py-1 px-2 font-medium text-foreground">
                                         <span className="flex items-center gap-1 min-w-0">
-                                          {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                          {isItemPaid && <CheckCircle2 className={`h-2.5 w-2.5 shrink-0 ${isHistorical ? "text-slate-400" : "text-emerald-500"}`} />}
                                           <span className="truncate">{medicine}</span>
                                         </span>
                                       </td>
@@ -1231,7 +1231,7 @@ export function BillingHistoryPanel({
                                               data-testid={`input-item-amount-${itemKey}`} />
                                           </div>
                                         ) : isItemPaid ? (
-                                          <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                          <span className={`flex items-center gap-0.5 justify-end ${isHistorical ? "text-slate-700 dark:text-slate-300" : "text-emerald-600"}`}>
                                             <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
                                           </span>
                                         ) : (
@@ -1295,12 +1295,12 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("other")}
-                      className="w-full px-3 py-2 bg-green-50 dark:bg-green-900/30 flex items-center gap-1.5 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-left"
+                      className={`w-full px-3 py-2 flex items-center gap-1.5 transition-colors text-left ${isHistorical ? "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/70 dark:hover:bg-slate-800" : "bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50"}`}
                       data-testid={`button-section-other-${bill.id}`}
                     >
-                      <ClipboardList className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300 flex-1">Other</span>
-                      <ChevronDown className={`h-3 w-3 text-green-800 dark:text-green-300 ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
+                      <ClipboardList className={`h-3 w-3 shrink-0 ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-green-800 dark:text-green-300"}`} />
+                      <span className={`text-xs font-semibold uppercase tracking-wider flex-1 ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-green-800 dark:text-green-300"}`}>Other</span>
+                      <ChevronDown className={`h-3 w-3 ml-1 shrink-0 transition-transform duration-200 ${isHistorical ? "text-slate-500" : "text-green-800 dark:text-green-300"} ${otherOpen ? "rotate-180" : ""}`} />
                     </button>
                     {otherOpen && (
                       <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
@@ -1333,7 +1333,7 @@ export function BillingHistoryPanel({
                                   const isEditing = editingKey === itemKey;
                                   const isItemPaid = svc.paid || isBillPaid;
                                   return (
-                                    <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card hover:bg-muted/20"}`}
+                                    <tr key={origIdx} className={`group/row transition-colors ${isHistorical ? "bg-slate-50 dark:bg-slate-900/30" : isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
                                       <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
                                       <td colSpan={3} className="py-1 px-2 text-foreground">
@@ -1617,7 +1617,7 @@ export function BillingHistoryPanel({
                  {effectiveDiscountPct > 0 && (
                    <div className="flex items-center justify-between py-2">
                      <span className="text-xs text-muted-foreground">Discount ({effectiveDiscountPct}%)</span>
-                    <span className="text-xs tabular-nums text-emerald-600">
+                <span className={`text-xs tabular-nums ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-emerald-600"}`}>
                        −₹{(services.reduce((s, i) => s + i.amount, 0) * (effectiveDiscountPct / 100)).toFixed(0)}
                     </span>
                   </div>
@@ -1632,20 +1632,20 @@ export function BillingHistoryPanel({
                  ) : (
                     <div className="flex items-center justify-between py-2">
                       <span className="text-xs text-muted-foreground">Tax</span>
-                     <span className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Exempt from GST</span>
+                     <span className={`text-xs flex items-center gap-1 ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-emerald-600"}`}><CheckCircle2 className="h-3 w-3" /> Exempt from GST</span>
                    </div>
                  )}
                 {paidAmt > 0 && !allPaid && !isBillPaid && (
                    <div className="flex items-center justify-between py-2">
                     <span className="text-xs text-muted-foreground">Collected</span>
-                    <span className="text-xs tabular-nums text-emerald-600 font-semibold">₹{paidAmt.toFixed(0)}</span>
+                    <span className={`text-xs tabular-nums font-semibold ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-emerald-600"}`}>₹{paidAmt.toFixed(0)}</span>
                   </div>
                 )}
                  <div className="flex items-center justify-between mt-2 pt-3 border-t border-border/30">
-                  <span className={`text-sm font-black tracking-wide ${isBillPaid ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
+                  <span className={`text-sm font-black tracking-wide ${isBillPaid && !isHistorical ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
                     {isBillPaid ? "PAID" : "Outstanding"}
                   </span>
-                  <span className={`text-sm font-bold tabular-nums ${isBillPaid ? "text-emerald-600" : "text-primary"}`}>₹{totalAmt.toFixed(0)}</span>
+                  <span className={`text-sm font-bold tabular-nums ${isBillPaid && !isHistorical ? "text-emerald-600" : "text-foreground"}`}>₹{totalAmt.toFixed(0)}</span>
                 </div>
                 </div>
               </div>
