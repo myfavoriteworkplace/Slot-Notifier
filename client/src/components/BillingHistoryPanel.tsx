@@ -1930,7 +1930,7 @@ export function BillingHistoryPanel({
       )}
 
       {bills.length === 0 ? null : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {latestBill && olderBills.length > 0 && (
             <div className="flex items-center gap-2 px-0.5 pb-1">
               <span className="text-xs font-bold uppercase tracking-wider text-primary">Latest Bill</span>
@@ -2014,7 +2014,7 @@ export function BillingHistoryPanel({
       <div className="border-t border-border/40 pt-3">
         <button
           onClick={() => setAuditExpanded(v => !v)}
-          className="w-full flex items-center justify-between gap-2"
+          className="w-full flex items-center justify-between gap-2 px-4"
           data-testid="button-toggle-audit">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
