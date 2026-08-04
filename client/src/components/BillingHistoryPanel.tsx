@@ -904,7 +904,7 @@ export function BillingHistoryPanel({
   const olderBills = sortedBills.slice(1);
 
   // ── Bill card renderer ───────────────────────────────────────────────────
-  const renderBillCard = (bill: PatientBill) => {
+  const renderBillCard = (bill: PatientBill, isHistorical = false) => {
     const services = (bill.services ?? []) as ServiceItem[];
     const isExpanded = expandedIds.has(bill.id);
     const paidAmt = services.filter(s => s.paid).reduce((s, i) => s + i.amount, 0);
@@ -953,15 +953,17 @@ export function BillingHistoryPanel({
 
     return (
       <div key={bill.id}
-        className={`rounded-xl border overflow-hidden shadow-sm flex flex-col ${isActiveBill && !isBillPaid ? "border-primary/40 bg-primary/[0.02]" : "border-border/50 bg-card"}`}
+        className={`rounded-xl border overflow-hidden flex flex-col ${isHistorical ? "border-slate-200 bg-slate-50/80 shadow-none dark:border-slate-700 dark:bg-slate-900/30" : isActiveBill && !isBillPaid ? "border-primary/40 bg-primary/[0.02] shadow-sm" : "border-border/50 bg-card shadow-sm"}`}
         data-testid={`billing-card-${bill.id}`}>
 
         {/* ── HEADER ── */}
-        <div className={`px-3 py-2.5 flex items-center gap-2 ${isActiveBill && !isBillPaid ? "bg-primary/10" : ""}`}>
+        <div className={`px-3 py-2.5 flex items-center gap-2 ${isHistorical ? "bg-slate-50 dark:bg-slate-900/50" : isActiveBill && !isBillPaid ? "bg-primary/10" : ""}`}>
           <button className="flex-1 min-w-0 text-left" onClick={() => toggleExpand(bill.id)}>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-foreground font-mono">{bill.billNumber}</span>
-              <StatusBadge status={bill.paymentStatus ?? "pending"} />
+              <span className={`text-xs font-semibold font-mono ${isHistorical ? "text-slate-600 dark:text-slate-300" : "font-bold text-foreground"}`}>{bill.billNumber}</span>
+              {isHistorical && isBillPaid ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600"><CheckCircle2 className="h-3 w-3" />Paid</span>
+              ) : <StatusBadge status={bill.paymentStatus ?? "pending"} />}
               {isActiveBill && !isBillPaid && (
                 <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                   Active
@@ -979,10 +981,10 @@ export function BillingHistoryPanel({
             </div>
           </button>
 
-          <span className="text-sm font-bold text-primary shrink-0">₹{totalAmt.toFixed(0)}</span>
+          <span className={`text-sm font-bold shrink-0 ${isHistorical ? "text-slate-800 dark:text-slate-200" : "text-primary"}`}>₹{totalAmt.toFixed(0)}</span>
           <button
             onClick={() => { setPreviewBill(bill); setPreviewModalOpen(true); }}
-            className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
+            className={`p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 shrink-0 active:scale-95 transition-colors ${isHistorical ? "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" : "text-muted-foreground hover:text-primary"}`}
             title="Preview bill"
             aria-label="Preview bill"
             data-testid={`button-preview-bill-${bill.id}`}>
@@ -990,7 +992,7 @@ export function BillingHistoryPanel({
           </button>
           <button
             onClick={() => onPrintBill(bill)}
-            className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
+            className={`p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 shrink-0 active:scale-95 transition-colors ${isHistorical ? "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" : "text-muted-foreground hover:text-primary"}`}
             title="Print receipt"
             aria-label="Print receipt"
             data-testid={`button-print-bill-${bill.id}`}>
@@ -998,7 +1000,7 @@ export function BillingHistoryPanel({
           </button>
           <button
             onClick={() => toggleExpand(bill.id)}
-            className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground shrink-0"
+            className={`p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 shrink-0 ${isHistorical ? "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300" : "text-muted-foreground"}`}
             aria-label={isExpanded ? "Collapse bill" : "Expand bill"}
             data-testid={`button-expand-bill-${bill.id}`}>
             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -1007,7 +1009,7 @@ export function BillingHistoryPanel({
 
         {/* ── EXPANDED BODY ── */}
         {isExpanded && (
-          <div className="border-t border-border/40 flex-1 flex flex-col min-h-0">
+          <div className={`border-t flex-1 flex flex-col min-h-0 ${isHistorical ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/20" : "border-border/40"}`}>
 
 
             {/* Unpriced pharmacy warning */}
@@ -1034,12 +1036,12 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("consultation")}
-                      className="w-full px-3 py-2 bg-green-50 dark:bg-green-900/30 flex items-center gap-1.5 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-left"
+                      className={`w-full px-3 py-2 flex items-center gap-1.5 transition-colors text-left ${isHistorical ? "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/70 dark:hover:bg-slate-800" : "bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50"}`}
                       data-testid={`button-section-consultation-${bill.id}`}
                     >
-                      <Stethoscope className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300 flex-1">Consultation &amp; Procedures</span>
-                      <ChevronDown className={`h-3 w-3 text-green-800 dark:text-green-300 ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
+                      <Stethoscope className={`h-3 w-3 shrink-0 ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-green-800 dark:text-green-300"}`} />
+                      <span className={`text-xs font-semibold uppercase tracking-wider flex-1 ${isHistorical ? "text-slate-600 dark:text-slate-300" : "text-green-800 dark:text-green-300"}`}>Consultation &amp; Procedures</span>
+                      <ChevronDown className={`h-3 w-3 ml-1 shrink-0 transition-transform duration-200 ${isHistorical ? "text-slate-500" : "text-green-800 dark:text-green-300"} ${consultOpen ? "rotate-180" : ""}`} />
                     </button>
                     {consultOpen && (
                       <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
@@ -1950,23 +1952,23 @@ export function BillingHistoryPanel({
           {olderBills.length > 0 && (
             <>
               {/* Older Bills section label — matches "Latest Bill" left-label style */}
-              <div className="flex items-center gap-2 px-0.5 pt-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-primary">Older Bills</span>
-                <div className="h-px flex-1 bg-primary/20" />
+              <div className="flex items-center gap-2 px-0.5 pt-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Older Bills &amp; History</span>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
               </div>
               <button
                 onClick={() => setShowOlderBills(v => !v)}
-                className="w-full flex items-center gap-2 px-1 py-1 text-left"
+                className="w-full flex items-center gap-2 px-1 py-2 text-left min-h-[44px]"
                 data-testid="button-toggle-older-bills">
-                <span className="text-xs text-primary hover:text-primary/70 font-medium transition-colors flex-1">
+                <span className="text-xs text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium transition-colors flex-1">
                   {showOlderBills ? "Hide" : "Show"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
                 </span>
                 {showOlderBills
-                  ? <ChevronUp className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-primary/70 shrink-0" />}
+                  ? <ChevronUp className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
               </button>
               {showOlderBills && (
-                <div className="rounded-xl border border-border/50 bg-muted/50 dark:bg-muted/20 p-2.5 space-y-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-100/60 dark:border-slate-700 dark:bg-slate-900/30 p-2.5 space-y-2">
                   {Array.from(groupByDate(olderBills)).map(([dateLabel, dateBills]) => (
                     <div key={dateLabel} className="space-y-1.5">
                       <div className="flex items-center gap-2">
@@ -1975,7 +1977,7 @@ export function BillingHistoryPanel({
                         <div className="h-px flex-1 bg-border/30" />
                       </div>
                       {dateBills.map(bill => (
-                        <div key={bill.id}>{renderBillCard(bill)}</div>
+                        <div key={bill.id}>{renderBillCard(bill, true)}</div>
                       ))}
                     </div>
                   ))}

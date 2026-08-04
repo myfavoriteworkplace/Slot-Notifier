@@ -316,9 +316,9 @@ function HistoryRow({
   /* ── Collapsed summary row (common to both types) ── */
   const summaryRow = (
     <button
-      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors min-h-[36px]"
+      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors min-h-[44px]"
       onClick={() => setExpanded(v => !v)}>
-      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${type === "diagnosis" ? "bg-primary/30" : "bg-slate-300"}`} />
+      <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600" />
       <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
         <span className="text-[11px] text-muted-foreground font-medium shrink-0">
           {format(new Date(record.createdAt!), "d MMM yyyy")}
@@ -1010,7 +1010,7 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowDxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-dx-history">
                 {mode === "admin" ? (
                   <>View all old diagnosis ({historyDx.length + 1}) <ChevronRight className="h-3 w-3" /></>
@@ -1022,7 +1022,7 @@ export default function ClinicalRecordsTab({
                 )}
               </button>
               {showDxHistory && (
-                <div className="rounded-xl border border-border/60 bg-muted/30 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/30 overflow-hidden mt-1 divide-y divide-slate-200 dark:divide-slate-700 animate-in slide-in-from-top-1 duration-150">
                   {historyDx.map(record => (
                     <HistoryRow
                       key={record.id}
@@ -1312,7 +1312,7 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowRxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-rx-history">
                 {mode === "admin" ? (
                   <>View all old prescriptions ({historyRx.length + 1}) <ChevronRight className="h-3 w-3" /></>

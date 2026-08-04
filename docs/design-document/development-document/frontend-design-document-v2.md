@@ -1420,7 +1420,62 @@ Promote to full icon + heading treatment only when the sub-section has ≥ 4 fie
 
 ---
 
-## 34. Code Quality & Readability
+## 34. Historical / Older Data States
+
+Historical records include older bills, past clinical records, previous visits, and any
+read-only record that is no longer the active/current item in a patient detail view.
+Historical styling must communicate “reference information” without making the record
+look deleted, invalid, or unavailable.
+
+### 34.1 Visual treatment
+
+- Use a neutral slate surface for historical cards: `bg-slate-50` or the semantic
+  equivalent, with a thin `border-slate-200` border and no heavy shadow.
+- Use muted slate typography for record IDs, dates, quantities, prices, and section labels.
+- Keep active/current records in the normal application hierarchy; do not mute the latest
+  bill or the current clinical record.
+- Paid historical billing status uses a neutral badge with an icon and text, not a bright
+  success-green badge. Payment meaning must remain explicit.
+- Historical totals use dark slate text. Do not use green as a decorative accent for a
+  settled historical total.
+- Historical action icons remain usable when they are safe and supported (for example,
+  Preview, Print, and Download). Use muted gray with hover and focus-visible states;
+  do not imply that a usable action is disabled.
+
+### 34.2 Section dividers and accordions
+
+- Use a subtle slate divider and an uppercase `text-xs` label for sections such as
+  “Older Bills & History” and “Past Records”.
+- The toggle must have a minimum 44px touch target, a visible chevron, and
+  `aria-expanded` when it controls an expanded region.
+- Historical accordions may use slate headers and borders, while active/actionable
+  popup sections retain the established two-tier green section-card pattern.
+- Do not introduce a separate global historical component or replace the popup layout
+  with standalone HTML; apply the state to the existing component structure.
+
+### 34.3 Read-only detail content
+
+- Expanded historical tables use muted slate headers, white or very light slate rows,
+  and subtle slate dividers.
+- Historical section titles such as Consultation & Procedures and Pharmacy use neutral
+  slate text and icons.
+- Historical presentation must not change permissions, editability, payment mutations,
+  calculations, invoice generation, print output, or audit behavior.
+- If a role is still allowed to edit a record, historical styling must not hide or
+  disable that role-appropriate edit action.
+
+### 34.4 Responsive and accessibility requirements
+
+- Historical headers and metadata must wrap at 375px without page-level horizontal
+  scrolling. Tables may scroll within their own overflow wrapper when necessary.
+- Maintain at least `text-xs` for production labels and a minimum 44px target for
+  toggles and interactive utilities.
+- Never communicate historical, paid, or read-only state through color alone; pair
+  status color with text and an icon where applicable.
+- Include dark-mode variants, visible keyboard focus, accessible labels for icon-only
+  actions, and preserved `data-testid` attributes.
+
+## 35. Code Quality & Readability
 
 ### Naming conventions
 
