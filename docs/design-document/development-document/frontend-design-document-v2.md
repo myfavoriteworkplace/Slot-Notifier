@@ -1466,6 +1466,12 @@ look deleted, invalid, or unavailable.
   A muted outer card is incomplete if bright active-record accents remain inside it.
 - Genuine warnings and meaningful clinical classifications may retain semantic color,
   but decorative success/brand accents must not leak into historical read-only content.
+- Expanded billing documents use one outer bill boundary. Do not nest rounded cards
+  around Consultation, Pharmacy, Other, or totals sections; use flat dividers and
+  section headers within the bill flow instead.
+- Preserve only structural overflow wrappers for responsive tables. Avoid duplicate
+  padding, inner shadows, and rounded borders that make one bill appear as multiple
+  unrelated cards.
 - If a role is still allowed to edit a record, historical styling must not hide or
   disable that role-appropriate edit action.
 

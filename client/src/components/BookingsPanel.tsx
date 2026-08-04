@@ -2741,7 +2741,7 @@ export default function BookingsPanel({
 
                         {/* NOTES TAB */}
                         {getModalTab(booking.id) === 'notes' && (
-                          <div className="p-4">
+                          <div className="px-2 sm:px-3">
                             <BookingNotesThread bookingId={booking.id} authorType="clinic_admin" />
                           </div>
                         )}
