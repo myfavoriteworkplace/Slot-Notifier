@@ -1303,6 +1303,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Patient files use a server-derived clinic/patient/visit path. The browser
+  // supplies only the booking; it cannot choose another clinic or patient.
+  app.post("/api/patient-documents/upload-url", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.body?.bookingId));
+      if (!booking?.patientId) return res.status(404).json({ message: "Booking is not linked to a patient" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
+      const { fileName, contentType, fileSize } = req.body;
+      const result = await generateSignedUploadUrl({
+        fileName: fileName || `upload-${Date.now()}`,
+        fileType: contentType,
+        fileSize,
+        folder: "patient-docs",
+        keyPrefix: `private/clinics/${slot.clinicId}/patients/${booking.patientId}/visits/${booking.id}/documents`,
+      });
+      res.json(result);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
   app.post("/api/clinics/:id/doctors", isAuthenticated, async (req, res) => {
     const clinicId = parseInt(req.params.id);
     const { name, email, specialization, degree } = req.body;

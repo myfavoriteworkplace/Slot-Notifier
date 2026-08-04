@@ -26,6 +26,7 @@ interface SignedUrlRequest {
   fileType: string;
   fileSize: number;
   folder: string;
+  keyPrefix?: string;
 }
 
 interface SignedUrlResponse {
@@ -37,7 +38,7 @@ interface SignedUrlResponse {
 export async function generateSignedUploadUrl(
   request: SignedUrlRequest
 ): Promise<SignedUrlResponse> {
-  const { fileName, fileType, fileSize, folder } = request;
+  const { fileName, fileType, fileSize, folder, keyPrefix } = request;
   const normalizedType = fileType?.toLowerCase();
 
   if (!ALLOWED_FOLDERS.includes(folder)) {
@@ -65,7 +66,10 @@ export async function generateSignedUploadUrl(
 
   const extension = fileName.split(".").pop()?.toLowerCase() || "jpg";
   const uniqueFileName = `${uuidv4()}.${extension}`;
-  const key = `${folder}/${uniqueFileName}`;
+  const safePrefix = keyPrefix
+    ? keyPrefix.split("/").filter(part => /^[a-zA-Z0-9_-]+$/.test(part)).join("/")
+    : folder;
+  const key = `${safePrefix}/${uniqueFileName}`;
 
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET_NAME,
