@@ -1482,6 +1482,12 @@ look deleted, invalid, or unavailable.
 
 - Use a subtle slate divider and an uppercase `text-xs` label for sections such as
   “Older Bills & History” and “Past Records”.
+- Keep related history accordions consistent within a patient card: use one
+  clickable slate header containing the history icon, uppercase label, inline
+  count, and chevron, followed by a matching slate content surface.
+- Historical bill boundaries should be distinguishable from their surrounding
+  surface with a visible muted-slate border (for example, `border-slate-300`);
+  do not rely on nearly identical background tones alone.
 - The toggle must have a minimum 44px touch target, a visible chevron, and
   `aria-expanded` when it controls an expanded region.
 - Historical accordions may use slate headers and borders, while active/actionable
@@ -1497,6 +1503,9 @@ look deleted, invalid, or unavailable.
   slate text and icons.
 - Historical presentation must not change permissions, editability, payment mutations,
   calculations, invoice generation, print output, or audit behavior.
+- Settled status and processor metadata should remain a single inline status group
+  where space permits (for example, “Fully settled · Processed by Admin”), with
+  wrapping only as a narrow-screen fallback.
 - Historical state must propagate through nested descendants: section headers, paid
   line-item rows, status badges, table totals, sub-section labels, and history wrappers.
   A muted outer card is incomplete if bright active-record accents remain inside it.
