@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -2248,11 +2248,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const clinicId = Number(sess.clinicId);
       const quota = await getClinicStorageQuota(clinicId);
-      const historyRows = await db.select({ attachments: patientMedicalHistory.attachments })
-        .from(patientMedicalHistory).where(eq(patientMedicalHistory.clinicId, clinicId));
-      const trackedBytes = historyRows.reduce((sum, row) =>
-        sum + ((row.attachments as any[] | null) ?? []).reduce((n, file: any) => n + Number(file.fileSize ?? file.size ?? 0), 0), 0);
-      const trackedFiles = historyRows.reduce((sum, row) => sum + (((row.attachments as any[] | null) ?? []).length), 0);
+      const documentRows = await db.select({ fileSize: patientDocuments.fileSize })
+        .from(patientDocuments)
+        .where(and(eq(patientDocuments.clinicId, clinicId), sql`${patientDocuments.deletedAt} IS NULL`));
+      const trackedBytes = documentRows.reduce((sum, row) => sum + Number(row.fileSize ?? 0), 0);
+      const trackedFiles = documentRows.length;
 
       let exact: any = null;
       if (R2_CONFIGURED) {
@@ -2292,19 +2292,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const clinicId = Number(sess.clinicId);
       const prefix = `private/clinics/${clinicId}/`;
-      const rows = await db.select({ attachments: patientMedicalHistory.attachments })
-        .from(patientMedicalHistory).where(eq(patientMedicalHistory.clinicId, clinicId));
       const trackedKeys = new Set<string>();
-      for (const row of rows) {
-        for (const file of ((row.attachments as any[] | null) ?? [])) {
-          if (typeof file.key === "string") trackedKeys.add(file.key);
-          if (typeof file.url === "string") {
-            try {
-              const url = new URL(file.url);
-              const key = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-              if (key.startsWith(prefix)) trackedKeys.add(key);
-            } catch { /* Ignore legacy malformed URLs. */ }
-          }
+      const documents = await db.select({ storageKey: patientDocuments.storageKey, publicUrl: patientDocuments.publicUrl })
+        .from(patientDocuments).where(and(eq(patientDocuments.clinicId, clinicId), sql`${patientDocuments.deletedAt} IS NULL`));
+      for (const file of documents) {
+        if (file.storageKey?.startsWith(prefix)) trackedKeys.add(file.storageKey);
+        if (file.publicUrl) {
+          try { const key = decodeURIComponent(new URL(file.publicUrl).pathname.replace(/^\/+/, "")); if (key.startsWith(prefix)) trackedKeys.add(key); } catch {}
         }
       }
       const candidates: any[] = [];
@@ -2338,19 +2332,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const keys = Array.isArray(req.body?.keys) ? req.body.keys.filter((key: unknown): key is string => typeof key === "string") : [];
       if (!keys.length || keys.length > 100) return res.status(400).json({ message: "Select between 1 and 100 files" });
       if (keys.some(key => !key.startsWith(prefix) || key.includes(".."))) return res.status(400).json({ message: "Only this clinic's private files can be deleted" });
-      const rows = await db.select({ attachments: patientMedicalHistory.attachments })
-        .from(patientMedicalHistory).where(eq(patientMedicalHistory.clinicId, clinicId));
       const trackedKeys = new Set<string>();
-      for (const row of rows) {
-        for (const file of ((row.attachments as any[] | null) ?? [])) {
-          if (typeof file.key === "string") trackedKeys.add(file.key);
-          if (typeof file.url === "string") {
-            try {
-              const url = new URL(file.url);
-              const key = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-              if (key.startsWith(prefix)) trackedKeys.add(key);
-            } catch { /* Ignore legacy malformed URLs. */ }
-          }
+      const documents = await db.select({ storageKey: patientDocuments.storageKey, publicUrl: patientDocuments.publicUrl })
+        .from(patientDocuments).where(and(eq(patientDocuments.clinicId, clinicId), sql`${patientDocuments.deletedAt} IS NULL`));
+      for (const file of documents) {
+        if (file.storageKey?.startsWith(prefix)) trackedKeys.add(file.storageKey);
+        if (file.publicUrl) {
+          try { const key = decodeURIComponent(new URL(file.publicUrl).pathname.replace(/^\/+/, "")); if (key.startsWith(prefix)) trackedKeys.add(key); } catch {}
         }
       }
       const deletable = keys.filter(key => !trackedKeys.has(key));
@@ -6381,8 +6369,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!booking?.patientId) return res.json([]);
       const slot = await storage.getSlot(booking.slotId);
       if (!slot?.clinicId) return res.json([]);
-      const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
-      res.json(((history?.attachments ?? []) as any[]).filter(a => Number(a.bookingId) === Number(booking.id)));
+      const docs = await db.select().from(patientDocuments).where(and(
+        eq(patientDocuments.patientId, booking.patientId), eq(patientDocuments.clinicId, slot.clinicId),
+        eq(patientDocuments.bookingId, booking.id), sql`${patientDocuments.deletedAt} IS NULL`,
+      ));
+      res.json(docs.map(d => ({ ...d, url: d.publicUrl, name: d.originalName, type: d.mimeType, size: d.fileSize, fileSize: d.fileSize, key: d.storageKey, uploadedAt: d.createdAt })));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
@@ -6419,20 +6410,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
         if (!linkedRecord) return res.status(400).json({ message: "Linked diagnosis record not found for this patient" });
       }
-      const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
-      const attachments = [...((history?.attachments ?? []) as any[]), {
-        url: documentUrl, name: body.name, type: body.type, size: trustedSize, fileSize: trustedSize, key,
+      const [saved] = await db.insert(patientDocuments).values({
+        clinicId: slot.clinicId, patientId: booking.patientId, bookingId: booking.id,
+        clinicalRecordId: linkedRecord?.id ?? null, storageKey: key, publicUrl: documentUrl,
+        originalName: body.name, mimeType: body.type, fileSize: trustedSize,
         category: body.category || "Other", description: body.description || "",
-        bookingId: booking.id, visitDate: slot.startTime, doctorName: booking.assignedDoctor || null,
+        visitDate: slot.startTime, doctorName: booking.assignedDoctor || null,
         uploadedBy: sess.doctorEmail || sess.adminEmail || null,
         uploadedByRole: body.uploadedByRole || (sess.doctorLoggedIn ? "doctor" : "clinic_admin"),
-        clinicalRecordId: linkedRecord?.id ?? null,
         diagnosisSnapshot: linkedRecord?.diagnosis ?? body.diagnosisSnapshot ?? [],
         affectedTeethSnapshot: linkedRecord?.affectedTeeth ?? body.affectedTeethSnapshot ?? [],
-        uploadedAt: new Date().toISOString(),
-      }];
-      const saved = await storage.upsertPatientMedicalHistory(booking.patientId, slot.clinicId, { attachments } as any);
-      res.status(201).json(attachments[attachments.length - 1]);
+      }).returning();
+      res.status(201).json({ ...saved, url: saved.publicUrl, name: saved.originalName, type: saved.mimeType, size: saved.fileSize, key: saved.storageKey, uploadedAt: saved.createdAt });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
@@ -6444,14 +6433,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!booking?.patientId) return res.status(404).json({ message: "Booking not found" });
       const slot = await storage.getSlot(booking.slotId);
       if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
+      const id = Number(req.body?.id);
       const url = typeof req.body?.url === "string" ? req.body.url : "";
-      if (!url) return res.status(400).json({ message: "Document URL is required" });
-      const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
-      const attachments = ((history?.attachments ?? []) as any[]);
-      const exists = attachments.some(a => a.url === url && Number(a.bookingId) === booking.id);
-      if (!exists) return res.status(404).json({ message: "Document not found for this visit" });
-      const updated = attachments.filter(a => !(a.url === url && Number(a.bookingId) === booking.id));
-      await storage.upsertPatientMedicalHistory(booking.patientId, slot.clinicId, { attachments: updated } as any);
+      if (!id && !url) return res.status(400).json({ message: "Document ID is required" });
+      const [doc] = await db.select({ id: patientDocuments.id }).from(patientDocuments).where(and(
+        id ? eq(patientDocuments.id, id) : eq(patientDocuments.publicUrl, url),
+        eq(patientDocuments.patientId, booking.patientId), eq(patientDocuments.clinicId, slot.clinicId),
+        eq(patientDocuments.bookingId, booking.id), sql`${patientDocuments.deletedAt} IS NULL`,
+      ));
+      if (!doc) return res.status(404).json({ message: "Document not found for this visit" });
+      await db.update(patientDocuments).set({ deletedAt: new Date(), deletedBy: sess.doctorEmail || sess.adminEmail || "clinic_user" }).where(eq(patientDocuments.id, doc.id));
       res.json({ success: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });

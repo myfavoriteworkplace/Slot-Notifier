@@ -18,8 +18,8 @@ export default function PatientDocumentsTab({ bookingId, patientName, doctorName
   const [category, setCategory] = useState("X-ray"); const [description, setDescription] = useState(""); const [linkedRecordId, setLinkedRecordId] = useState("none");
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const deleteMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const r = await apiRequest("DELETE", `/api/patient-documents/booking/${bookingId}`, { url });
+    mutationFn: async (id: number) => {
+      const r = await apiRequest("DELETE", `/api/patient-documents/booking/${bookingId}`, { id });
       if (!r.ok) throw new Error((await r.json()).message || "Could not delete document");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/patient-documents", bookingId] }); notify.success("Document deleted"); },
@@ -79,7 +79,7 @@ export default function PatientDocumentsTab({ bookingId, patientName, doctorName
     <div className="rounded-md border border-slate-300 dark:border-slate-600 overflow-hidden">
       <div className="px-3 py-2 bg-slate-100/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2"><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Uploaded Documents</span><span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-300">{data?.length ?? 0} {data?.length === 1 ? "file" : "files"}</span></div>
       {isLoading || upload.isPending ? <div className="p-4 text-xs text-muted-foreground flex gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading/loading…</div> : !data?.length ? <p className="p-4 text-xs text-muted-foreground text-center">No documents attached to this visit yet.</p> :
-        <div className="divide-y divide-slate-200 dark:divide-slate-700">{data.map((doc: any) => <div key={doc.url} className="px-3 py-2.5 flex items-center gap-2">
+        <div className="divide-y divide-slate-200 dark:divide-slate-700">{data.map((doc: any) => <div key={doc.id ?? doc.url} className="px-3 py-2.5 flex items-center gap-2">
           <button type="button" onClick={() => setPreviewDoc(doc)} className="h-9 w-9 rounded-md border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Preview ${doc.name}`}>
             {doc.type?.startsWith("image/") ? <img src={doc.url} alt="" className="h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <FileText className="h-3.5 w-3.5 text-slate-500" />}
           </button>
@@ -88,7 +88,7 @@ export default function PatientDocumentsTab({ bookingId, patientName, doctorName
           </button>
           <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setPreviewDoc(doc)} aria-label={`Preview ${doc.name}`}><Eye className="h-3.5 w-3.5" /></Button>
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild><a href={doc.url} target="_blank" rel="noreferrer" aria-label={`Open ${doc.name}`}><ExternalLink className="h-3.5 w-3.5" /></a></Button>
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-slate-500 hover:bg-red-50 hover:text-red-600" onClick={() => { if (window.confirm(`Delete "${doc.name}"?`)) deleteMutation.mutate(doc.url); }} disabled={deleteMutation.isPending} aria-label={`Delete ${doc.name}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+           <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-slate-500 hover:bg-red-50 hover:text-red-600" onClick={() => { if (window.confirm(`Delete "${doc.name}"?`)) deleteMutation.mutate(doc.id); }} disabled={deleteMutation.isPending} aria-label={`Delete ${doc.name}`}><Trash2 className="h-3.5 w-3.5" /></Button>
         </div>)}</div>}
     </div>
     <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>

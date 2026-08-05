@@ -790,6 +790,31 @@ export const patientMedicalHistory = pgTable("patient_medical_history", {
 });
 export type PatientMedicalHistory = typeof patientMedicalHistory.$inferSelect;
 
+export const patientDocuments = pgTable("patient_documents", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  clinicalRecordId: integer("clinical_record_id"),
+  storageKey: text("storage_key"),
+  publicUrl: text("public_url"),
+  originalName: varchar("original_name", { length: 500 }).notNull(),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type", { length: 255 }),
+  category: varchar("category", { length: 100 }),
+  description: text("description"),
+  visitDate: timestamp("visit_date"),
+  doctorName: varchar("doctor_name", { length: 255 }),
+  uploadedBy: varchar("uploaded_by", { length: 255 }),
+  uploadedByRole: varchar("uploaded_by_role", { length: 50 }),
+  diagnosisSnapshot: jsonb("diagnosis_snapshot").$type<string[]>().default([]),
+  affectedTeethSnapshot: jsonb("affected_teeth_snapshot").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by", { length: 255 }),
+});
+export type PatientDocument = typeof patientDocuments.$inferSelect;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {

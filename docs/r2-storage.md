@@ -484,10 +484,11 @@ override. Patient-document uploads are checked against remaining capacity
 before a signed upload URL is issued; the existing 10 MB per-file limit still
 applies.
 
-Quota usage is based on sizes recorded in clinic-owned patient medical-history
-attachments. Legacy records without a size contribute zero. The exact R2
-bucket scan is not used for clinic quotas because a shared bucket may contain
-other clinics and public assets.
+Quota usage is based on active rows in the normalized `patient_documents`
+inventory. Legacy JSON attachment records are backfilled at startup; records
+without a usable size contribute zero. The exact R2 bucket scan is not used for
+clinic quotas because a shared bucket may contain other clinics and public
+assets.
 
 ## 17. Settings security boundary
 
@@ -525,13 +526,20 @@ The implementation is intentionally staged:
 - Authenticated clinic-scoped report endpoint
 - No destructive controls
 
-### Phase 2 — Recommended next
+### Phase 2 — Implemented
 
 - Clinic-only untracked-file scan and explicit selected-file deletion
 - Restrict candidate visibility to the current clinic's private namespace
 - Recheck tracked references immediately before permanent deletion
 - See `docs/settings/clinic-storage-cleanup.md` for the detailed workflow and
   future implementation roadmap
+- Normalized `patient_documents` table with stable document IDs
+- Legacy JSON attachment backfill with duplicate protection
+- New uploads saved as individual document rows
+- Document reads scoped by booking and active (`deleted_at IS NULL`) state
+- Document deletion by ID with soft-delete metadata (`deleted_at`, `deleted_by`)
+- Quota calculations based on normalized active document rows
+- Clinic cleanup comparison based on canonical storage keys and normalized URLs
 
 - Persist scan results server-side with a timestamp
 - Add a background/manual scan history
@@ -540,14 +548,15 @@ The implementation is intentionally staged:
 - Add missing-file and missing-size warnings
 - Make exact reports clinic-safe when a bucket is shared
 
-### Phase 3 — Safe management
+### Phase 3 — Pending: safe management
 
-- Dedicated normalized patient-document records
-- Stable document IDs and storage keys
 - Deletion audit events
 - Delayed physical deletion
 - Retention-period review queue
 - Restore or recovery workflow
+- Migration report and manual-review tooling for malformed or ambiguous legacy URLs
+- Complete legacy read fallback and retirement of the JSON attachment field after
+  production reconciliation
 
 ### Phase 4 — Configurable policies
 

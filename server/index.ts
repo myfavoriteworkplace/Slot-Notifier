@@ -1066,6 +1066,65 @@ By signing below, I confirm that I have read and understood the above and volunt
       } catch (e: any) {
         log(`patient_medical_history migration warning: ${e.message}`, "system");
       }
+      // ── normalized patient document inventory ─────────────────────────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS patient_documents (
+            id SERIAL PRIMARY KEY,
+            clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+            patient_id INTEGER NOT NULL REFERENCES patients(id),
+            booking_id INTEGER REFERENCES bookings(id),
+            clinical_record_id INTEGER,
+            storage_key TEXT,
+            public_url TEXT,
+            original_name VARCHAR(500) NOT NULL,
+            file_size INTEGER,
+            mime_type VARCHAR(255),
+            category VARCHAR(100),
+            description TEXT,
+            visit_date TIMESTAMP,
+            doctor_name VARCHAR(255),
+            uploaded_by VARCHAR(255),
+            uploaded_by_role VARCHAR(50),
+            diagnosis_snapshot JSONB DEFAULT '[]',
+            affected_teeth_snapshot JSONB DEFAULT '[]',
+            created_at TIMESTAMP DEFAULT NOW(),
+            deleted_at TIMESTAMP,
+            deleted_by VARCHAR(255)
+          );
+          CREATE INDEX IF NOT EXISTS patient_documents_clinic_idx ON patient_documents(clinic_id);
+          CREATE INDEX IF NOT EXISTS patient_documents_booking_idx ON patient_documents(booking_id);
+          CREATE INDEX IF NOT EXISTS patient_documents_storage_key_idx ON patient_documents(storage_key);
+          CREATE INDEX IF NOT EXISTS patient_documents_deleted_at_idx ON patient_documents(deleted_at);
+        `);
+        await db.execute(sql`
+          INSERT INTO patient_documents
+            (clinic_id, patient_id, booking_id, clinical_record_id, storage_key, public_url,
+             original_name, file_size, mime_type, category, description, visit_date, doctor_name,
+             uploaded_by, uploaded_by_role, diagnosis_snapshot, affected_teeth_snapshot, created_at)
+          SELECT pmh.clinic_id, pmh.patient_id,
+            CASE WHEN a->>'bookingId' ~ '^[0-9]+$' THEN (a->>'bookingId')::integer END,
+            CASE WHEN a->>'clinicalRecordId' ~ '^[0-9]+$' THEN (a->>'clinicalRecordId')::integer END,
+            NULLIF(a->>'key', ''), NULLIF(a->>'url', ''), COALESCE(NULLIF(a->>'name', ''), 'Legacy document'),
+            CASE WHEN COALESCE(a->>'fileSize', a->>'size') ~ '^[0-9]+$' THEN COALESCE(a->>'fileSize', a->>'size')::integer END,
+            NULLIF(a->>'type', ''), NULLIF(a->>'category', ''), NULLIF(a->>'description', ''),
+            CASE WHEN a->>'visitDate' <> '' THEN (a->>'visitDate')::timestamp END,
+            NULLIF(a->>'doctorName', ''), NULLIF(a->>'uploadedBy', ''), NULLIF(a->>'uploadedByRole', ''),
+            COALESCE(a->'diagnosisSnapshot', '[]'::jsonb), COALESCE(a->'affectedTeethSnapshot', '[]'::jsonb),
+            CASE WHEN a->>'uploadedAt' <> '' THEN (a->>'uploadedAt')::timestamp ELSE NOW() END
+          FROM patient_medical_history pmh
+          CROSS JOIN LATERAL jsonb_array_elements(COALESCE(pmh.attachments, '[]'::jsonb)) a
+          WHERE NOT EXISTS (
+            SELECT 1 FROM patient_documents pd
+            WHERE pd.clinic_id = pmh.clinic_id
+              AND pd.patient_id = pmh.patient_id
+              AND COALESCE(pd.storage_key, pd.public_url) = COALESCE(NULLIF(a->>'key', ''), NULLIF(a->>'url', ''))
+          );
+        `);
+        log("patient_documents table and legacy backfill ensured", "system");
+      } catch (e: any) {
+        log(`patient_documents migration warning: ${e.message}`, "system");
+      }
 
       // ── Add unit_price column to inventory_items ──────────────────────────
       try {

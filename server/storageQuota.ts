@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { patientMedicalHistory, clinics } from "@shared/schema";
+import { patientDocuments, clinics } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export const DEFAULT_STORAGE_LIMIT_BYTES = 100 * 1024 * 1024;
@@ -30,10 +30,9 @@ export async function getClinicStorageQuota(clinicId: number) {
     overrideBytes: clinics.storageLimitBytes,
   }).from(clinics).where(eq(clinics.id, clinicId));
   const limitBytes = Number(clinic?.overrideBytes || PLAN_STORAGE_LIMITS[clinic?.plan || "starter"] || DEFAULT_STORAGE_LIMIT_BYTES);
-  const rows = await db.select({ attachments: patientMedicalHistory.attachments })
-    .from(patientMedicalHistory).where(eq(patientMedicalHistory.clinicId, clinicId));
-  const usedBytes = rows.reduce((sum, row) => sum + ((row.attachments as any[] | null) ?? [])
-    .reduce((n, file: any) => n + Number(file.fileSize ?? file.size ?? 0), 0), 0);
+  const rows = await db.select({ fileSize: patientDocuments.fileSize })
+    .from(patientDocuments).where(eq(patientDocuments.clinicId, clinicId));
+  const usedBytes = rows.reduce((sum, row) => sum + Number(row.fileSize ?? 0), 0);
   return {
     usedBytes,
     limitBytes,
