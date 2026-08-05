@@ -95,5 +95,19 @@ export function AppointmentInfoSection({
   if (role === "clinic" && isVisitCompleted && billingStatusKnown && totalBillsCount > 0 && openBillsCount === 0) messages.push(<div key="paid" className="flex w-full min-w-0 items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"><ShieldCheck className="mt-0.5 h-3 w-3 shrink-0" /><span>Payment settled</span></div>);
 
   if (!messages.length) return null;
-  return <section aria-label="Appointment status" className="mx-3 mb-1 space-y-1.5 rounded-lg border border-border/40 bg-muted/10 p-2 sm:mx-4 sm:p-2.5"><div className="space-y-1.5 min-w-0">{messages}</div></section>;
+
+  const panelTone = isCancelled || isNoShow || isLeftEarly || isPastDue || openBillsCount > 0
+    ? "border-l-[#ca8a04] bg-[#fefce8] text-[#854d0e] dark:bg-yellow-950/20 dark:text-yellow-200"
+    : isVisitCompleted
+    ? "border-l-[#16a34a] bg-[#f0fdf4] text-[#166534] dark:bg-emerald-950/20 dark:text-emerald-200"
+    : "border-l-[#0284c7] bg-[#f0f9ff] text-[#075985] dark:bg-sky-950/20 dark:text-sky-200";
+
+  return (
+    <section
+      aria-label="Appointment status"
+      className={`mx-3 mb-1 space-y-1.5 rounded-r-md border-l-[3px] px-2.5 py-2 text-left sm:mx-4 sm:px-3 ${panelTone} [&>div>div]:!rounded-none [&>div>div]:!border-0 [&>div>div]:!bg-transparent [&>div>div]:!px-0 [&>div>div]:!py-0 [&>div>div]:!text-inherit`}
+    >
+      <div className="space-y-1.5 min-w-0">{messages}</div>
+    </section>
+  );
 }
