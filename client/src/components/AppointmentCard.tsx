@@ -446,7 +446,7 @@ export function AppointmentCard({
       data-testid={`card-booking-${booking.id}`}
     >
       {latestLabel && (
-        <span className={`absolute top-0 right-3 z-20 inline-flex -translate-y-1/2 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${latestPillTone}`}>
+        <span className={`absolute -top-4 right-3 z-20 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${latestPillTone}`}>
           {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
         </span>
       )}
