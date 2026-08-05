@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   Activity, AlertCircle, AlertTriangle, Clock, ShieldCheck,
 } from "lucide-react";
@@ -35,6 +36,10 @@ export function AppointmentInfoSection({
   onBilling, onReschedule,
 }: Props) {
   const messages: React.ReactNode[] = [];
+  const [expanded, setExpanded] = useState(false);
+  const [hasMoreContent, setHasMoreContent] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const terminal = isCancelled || isNoShow || isLeftEarly;
 
   if (isPastDue && !terminal) messages.push(
@@ -94,20 +99,77 @@ export function AppointmentInfoSection({
   if (role === "clinic" && isVisitCompleted && billingStatusKnown && totalBillsCount === 0) messages.push(<div key="no-dues" className="flex w-full min-w-0 items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"><ShieldCheck className="mt-0.5 h-3 w-3 shrink-0" /><span>No dues recorded</span></div>);
   if (role === "clinic" && isVisitCompleted && billingStatusKnown && totalBillsCount > 0 && openBillsCount === 0) messages.push(<div key="paid" className="flex w-full min-w-0 items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"><ShieldCheck className="mt-0.5 h-3 w-3 shrink-0" /><span>Payment settled</span></div>);
 
-  if (!messages.length) return null;
-
   const panelTone = isCancelled || isNoShow || isLeftEarly || isPastDue || openBillsCount > 0
-    ? "border-[#ca8a04] bg-[#fefce8] text-[#854d0e] dark:border-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-200"
+    ? "border-yellow-200 bg-[#fefce8] text-[#9a7b36] dark:border-yellow-800/60 dark:bg-yellow-950/20 dark:text-yellow-200"
     : isVisitCompleted
-    ? "border-[#16a34a] bg-[#f0fdf4] text-[#166534] dark:border-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-200"
-    : "border-[#0284c7] bg-[#f0f9ff] text-[#075985] dark:border-sky-700 dark:bg-sky-950/20 dark:text-sky-200";
+    ? "border-emerald-200 bg-[#f0fdf4] text-[#4d8b62] dark:border-emerald-800/60 dark:bg-emerald-950/20 dark:text-emerald-200"
+    : "border-sky-200 bg-[#f0f9ff] text-[#397894] dark:border-sky-800/60 dark:bg-sky-950/20 dark:text-sky-200";
+
+  useEffect(() => {
+    const measure = () => {
+      const element = contentRef.current;
+      if (!element) return;
+      // The compact preview is intentionally two rows tall; measure the
+      // content against that preview height rather than its unconstrained
+      // natural height.
+      setHasMoreContent(element.scrollHeight > 48);
+    };
+    measure();
+    const observer = typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(measure)
+      : null;
+    if (observer && contentRef.current) observer.observe(contentRef.current);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, [messages.length]);
+
+  const startHoverExpand = () => {
+    if (!hasMoreContent) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setExpanded(true), 800);
+  };
+
+  const stopHoverExpand = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setExpanded(false);
+  };
+
+  if (!messages.length) return null;
 
   return (
     <section
       aria-label="Appointment status"
-      className={`mx-3 mb-1 space-y-1.5 rounded-md border px-2.5 py-2 text-left sm:mx-4 sm:px-3 ${panelTone} [&>div>div]:!rounded-none [&>div>div]:!border-0 [&>div>div]:!bg-transparent [&>div>div]:!px-0 [&>div>div]:!py-0 [&>div>div]:!text-inherit`}
+      tabIndex={hasMoreContent ? 0 : undefined}
+      onMouseEnter={startHoverExpand}
+      onMouseLeave={stopHoverExpand}
+      onFocus={() => hasMoreContent && setExpanded(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setExpanded(false);
+      }}
+      onClick={(event) => {
+        if (hasMoreContent && !(event.target as HTMLElement).closest("button")) {
+          setExpanded((value) => !value);
+        }
+      }}
+      className={`mx-3 mb-1 space-y-1.5 rounded-md border px-2.5 py-2 text-left text-[11.5px] transition-[max-height] duration-200 sm:mx-4 sm:px-3 ${panelTone} ${expanded || !hasMoreContent ? "max-h-[1000px]" : "max-h-[68px] overflow-hidden"} [&>div>div]:!rounded-none [&>div>div]:!border-0 [&>div>div]:!bg-transparent [&>div>div]:!px-0 [&>div>div]:!py-0 [&>div>div]:!text-inherit`}
     >
-      <div className="space-y-1.5 min-w-0">{messages}</div>
+      <div ref={contentRef} className="min-w-0 space-y-1.5">
+        {messages}
+      </div>
+      {hasMoreContent && (
+        <button
+          type="button"
+          className="mt-1 text-[11px] font-semibold underline underline-offset-2 opacity-75 hover:opacity-100 focus:outline-none"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
     </section>
   );
 }
