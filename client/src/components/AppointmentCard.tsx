@@ -83,7 +83,7 @@ export interface AppointmentCardProps {
   consentRequestPending?: boolean;
   visitNumber?: number;
   totalVisits?: number;
-  latestLabel?: "latest_visit" | "latest_booked";
+  latestLabel?: "latest_visit" | "latest_booked" | "latest_cancelled" | "latest_no_show";
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -482,9 +482,17 @@ export function AppointmentCard({
               <span className={`absolute -top-5 right-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide ${
                 latestLabel === "latest_visit"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
-                  : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-400"
+                  : latestLabel === "latest_booked"
+                    ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-400"
+                    : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400"
               }`}>
-                {latestLabel === "latest_visit" ? "✓ LATEST VISIT" : "◷ LATEST BOOKED"}
+                {latestLabel === "latest_visit"
+                  ? "✓ LATEST VISIT"
+                  : latestLabel === "latest_booked"
+                    ? "◷ LATEST BOOKED"
+                    : latestLabel === "latest_cancelled"
+                      ? "LATEST RECORD · CANCELLED"
+                      : "LATEST RECORD · NO-SHOW"}
               </span>
             )}
 

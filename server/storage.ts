@@ -86,7 +86,7 @@ export interface BookingStats {
 }
 
 export interface BookingsPagedResult {
-  data: (Booking & { slot: Slot; patientCode?: string | null; visitNumber?: number; totalVisits?: number; latestLabel?: 'latest_visit' | 'latest_booked' })[];
+  data: (Booking & { slot: Slot; patientCode?: string | null; visitNumber?: number; totalVisits?: number; latestLabel?: 'latest_visit' | 'latest_booked' | 'latest_cancelled' | 'latest_no_show' })[];
   total: number;
   page: number;
   pageSize: number;
@@ -97,7 +97,7 @@ export interface BookingsPagedResult {
 type VisitHistoryMeta = {
   visitNumber: number;
   totalVisits: number;
-  latestLabel?: 'latest_visit' | 'latest_booked';
+  latestLabel?: 'latest_visit' | 'latest_booked' | 'latest_cancelled' | 'latest_no_show';
 };
 
 function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): Map<number, VisitHistoryMeta> {
@@ -130,6 +130,7 @@ function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): M
     });
     const latestCompleted = completed[completed.length - 1]?.booking.id;
     const latestBooked = active[active.length - 1]?.booking.id;
+    const latestRecord = sorted[sorted.length - 1]?.booking as any;
     for (let i = 0; i < sorted.length; i++) {
       const id = sorted[i].booking.id;
       result.set(id, {
@@ -139,6 +140,10 @@ function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): M
           ? { latestLabel: 'latest_visit' as const }
           : id === latestBooked
             ? { latestLabel: 'latest_booked' as const }
+            : id === latestRecord.id && latestRecord.verificationStatus === 'cancelled'
+              ? { latestLabel: 'latest_cancelled' as const }
+              : id === latestRecord.id && latestRecord.verificationStatus === 'no_show'
+                ? { latestLabel: 'latest_no_show' as const }
             : {}),
       });
     }

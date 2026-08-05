@@ -2,6 +2,36 @@
 
 This document describes every visual element, button, tooltip, banner, and progress state on the appointment card as it appears in both the **Clinic Admin** dashboard and the **Doctor Admin** dashboard, at every stage of the booking lifecycle.
 
+## Patient visit-history labels
+
+When a patient has more than one booking in the clinic/doctor's complete
+authorized history, the card shows a chronological `Visit n/total` badge.
+This numbering is calculated from the complete history, so search, date/status
+filters, pagination, and the normal appointment flow do not change the
+underlying visit order.
+
+The latest-history pill is separate from the card border. Existing borders,
+time accents, opacity, status badges, lifecycle strips, and action styling keep
+their original meanings and are not changed by these labels.
+
+Exactly one of these labels may be assigned to a given booking:
+
+| Label | Applied when | Colour |
+|---|---|---|
+| `✓ LATEST VISIT` | The booking is the most recent booking with `visitStatus = completed` | Green |
+| `◷ LATEST BOOKED` | The booking is the newest non-cancelled, non-no-show booking that is not completed | Blue/teal |
+| `LATEST RECORD · CANCELLED` | The booking is the newest overall record and its verification status is `cancelled` | Red/rose |
+| `LATEST RECORD · NO-SHOW` | The booking is the newest overall record and its verification status is `no_show` | Red/rose |
+
+Cancelled and no-show bookings remain included in the visit count, but they
+never qualify as `LATEST BOOKED`. A cancelled or no-show label is shown only
+when that record is the newest booking overall. If a later booking exists, the
+older terminal record has no latest-record label.
+
+`LATEST VISIT` and `LATEST BOOKED` may appear on different cards for the same
+patient. For example, a completed historical booking can remain the latest
+completed visit while a newer confirmed booking is the latest booked visit.
+
 ---
 
 ## 1. Lifecycle Stages — Overview
