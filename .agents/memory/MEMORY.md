@@ -11,3 +11,4 @@
 - [Patient Medical History Tab](medical-history-tab.md) — 6th tab in doctor appointment card; `patient_medical_history` table, 2 doctor-auth routes, MedicalHistoryTab component; edit auto-expands dialog; use `ReactNode` not `React.ReactNode`.
 - [Compact appointment filters](compact-appointment-filters.md) — persistent toolbar toggle and compact responsive grid are the shared clinic/doctor filter pattern.
 - [R2 storage organization](r2-storage.md) — new patient uploads use server-derived private clinic/patient/visit keys; public assets remain separate.
+- [Clinic storage settings](clinic-storage-settings.md) — clinic Settings shows tracked metadata usage and optional exact R2 bucket scan; destructive controls remain future work.

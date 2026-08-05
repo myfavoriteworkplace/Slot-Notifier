@@ -410,3 +410,122 @@ permissions decide who is actually allowed to see them.
 That separation is important. A well-named folder is useful, but it is not a
 substitute for authentication, authorization, signed URLs, auditing, and
 careful database relationships.
+
+## 15. Clinic Admin Settings: storage overview
+
+The Clinic Admin now has a **Settings** section focused initially on storage
+visibility and upload information. It is read-only and does not delete files,
+change upload rules, or change R2 permissions.
+
+It shows two different measurements:
+
+### Tracked storage estimate
+
+This is calculated from file metadata saved in the database, currently
+including patient medical-history attachments that record a file size.
+
+It shows:
+
+- Total tracked bytes
+- Number of saved file records
+
+This number is useful and fast, but it is an estimate. Older metadata may not
+contain a size, and an R2 object can exist without a database record.
+
+### Exact R2 bucket scan
+
+When R2 credentials are configured, the Settings page can scan the bucket
+using the R2-compatible object listing API. It follows pagination and sums the
+actual object sizes.
+
+The scan reports:
+
+- Total R2 object count
+- Total R2 bytes
+- Scan timestamp
+- Top-level namespace breakdown, for example `public`, `private`, or a legacy
+  folder such as `patient-docs`
+
+The scan is triggered by the Settings page's Refresh button. It is not run on
+every application request. The result is cached in the browser for five
+minutes during the current session.
+
+If R2 credentials are missing, the page clearly reports that the exact scan is
+unavailable instead of presenting the estimate as exact.
+
+### Current read-only upload information
+
+The Settings page currently displays the server-enforced limits:
+
+- Patient documents: 10 MB
+- Clinic documents: 5 MB
+- Case media: 3 MB
+- Patient documents support JPG, JPEG, PNG, WebP, and PDF
+
+These values are informational at this stage. They are not editable from the
+clinic interface.
+
+## 16. Settings security boundary
+
+The storage report endpoint is clinic-admin-only. The server obtains the
+clinic ID from the authenticated session rather than from a browser-supplied
+clinic ID.
+
+The tracked report is limited to records belonging to that clinic. The exact
+R2 scan currently reports the configured bucket's object inventory, so it
+should be treated as a bucket-level operational report when a bucket is shared
+by multiple clinics. A future multi-tenant inventory layer must filter or
+partition exact results by clinic before showing them as clinic-specific.
+
+The Settings page has no destructive storage action. In particular, it does
+not expose:
+
+- Delete-object controls
+- Orphan cleanup
+- Retention changes
+- Quota changes
+- Upload-policy changes
+
+## 17. Future Settings roadmap
+
+The implementation is intentionally staged:
+
+### Phase 1 — Implemented
+
+- Clinic Admin Settings navigation item
+- Tracked database-metadata estimate
+- Exact R2 object scan when credentials are configured
+- Object count and byte totals
+- Scan timestamp
+- Read-only upload limits
+- Authenticated clinic-scoped report endpoint
+- No destructive controls
+
+### Phase 2 — Recommended next
+
+- Persist scan results server-side with a timestamp
+- Add a background/manual scan history
+- Show public/private and clinic namespace breakdowns
+- Add explicit orphan candidates by comparing R2 keys with database keys
+- Add missing-file and missing-size warnings
+- Make exact reports clinic-safe when a bucket is shared
+
+### Phase 3 — Safe management
+
+- Dedicated normalized patient-document records
+- Stable document IDs and storage keys
+- Deletion audit events
+- Delayed physical deletion
+- Retention-period review queue
+- Restore or recovery workflow
+
+### Phase 4 — Configurable policies
+
+- Clinic storage quotas, if product plans define them
+- Server-enforced per-clinic upload limits
+- Category and MIME-type policies
+- Doctor upload permissions
+- Retention configuration
+
+Quota or policy controls must be enforced on the server before a signed upload
+URL is issued. A browser-only setting would not provide protection.

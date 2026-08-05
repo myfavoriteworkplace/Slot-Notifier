@@ -10,6 +10,7 @@ import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
+import ClinicStorageSettingsPanel from "@/components/ClinicStorageSettingsPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import ConsentFormPanel from "@/components/ConsentFormPanel";
@@ -309,7 +310,7 @@ export default function ClinicDashboard() {
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   // Booking form state
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics' | 'consent-form'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics' | 'consent-form' | 'settings'>('bookings');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
 
@@ -1346,6 +1347,22 @@ export default function ClinicDashboard() {
                 {activePanel === 'inventory' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
               </button>
 
+              {/* Settings */}
+              <button
+                onClick={() => setActivePanel('settings')}
+                data-testid="nav-settings"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'settings' ? 'bg-slate-500/10 border border-slate-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'settings' ? 'bg-slate-500/10 border-slate-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Settings className={`h-4 w-4 ${activePanel === 'settings' ? 'text-slate-600 dark:text-slate-300' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'settings' ? 'text-slate-700 dark:text-slate-300' : 'text-foreground'}`}>Settings</p>
+                  <p className="text-xs text-muted-foreground">Storage & upload info</p>
+                </div>
+                {activePanel === 'settings' && <div className="h-1.5 w-1.5 rounded-full bg-slate-500 shrink-0" />}
+              </button>
+
               {/* 8 — Pharmacy Stock */}
               <button
                 onClick={() => setActivePanel('pharmacy-stock')}
@@ -1554,6 +1571,8 @@ export default function ClinicDashboard() {
           {activePanel === 'clinic-profile' && (
             <ClinicProfilePanel clinic={clinic} refetchClinic={refetchClinic} />
           )}
+
+          {activePanel === 'settings' && <ClinicStorageSettingsPanel />}
 
           {/* BOOK A SLOT PANEL */}
           {activePanel === 'book-a-slot' && (

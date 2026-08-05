@@ -5,13 +5,15 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { format } from 'date-fns';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
+import { ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
@@ -2229,6 +2231,49 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(setting || { key: req.params.key, value: "" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/auth/clinic/settings/storage", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
+    try {
+      const clinicId = Number(sess.clinicId);
+      const historyRows = await db.select({ attachments: patientMedicalHistory.attachments })
+        .from(patientMedicalHistory)
+        .where(eq(patientMedicalHistory.clinicId, clinicId));
+      const trackedBytes = historyRows.reduce((sum, row) =>
+        sum + ((row.attachments as any[] | null) ?? []).reduce((n, file: any) => n + Number(file.fileSize ?? file.size ?? 0), 0), 0);
+      const trackedFiles = historyRows.reduce((sum, row) => sum + (((row.attachments as any[] | null) ?? []).length), 0);
+
+      let exact: any = null;
+      if (R2_CONFIGURED) {
+        let continuationToken: string | undefined;
+        let bytes = 0;
+        let files = 0;
+        const byPrefix: Record<string, { files: number; bytes: number }> = {};
+        do {
+          const page = await r2Client.send(new ListObjectsV2Command({
+            Bucket: R2_BUCKET_NAME,
+            ContinuationToken: continuationToken,
+          }));
+          for (const object of page.Contents ?? []) {
+            const key = object.Key ?? "";
+            const root = key.startsWith("private/") ? "private" : key.split("/")[0] || "other";
+            byPrefix[root] ??= { files: 0, bytes: 0 };
+            byPrefix[root].files++;
+            byPrefix[root].bytes += Number(object.Size ?? 0);
+            bytes += Number(object.Size ?? 0);
+            files++;
+          }
+          continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+        } while (continuationToken);
+        exact = { files, bytes, byPrefix, scannedAt: new Date().toISOString() };
+      }
+      res.json({ tracked: { files: trackedFiles, bytes: trackedBytes }, exact, r2Configured: R2_CONFIGURED });
+    } catch (err: any) {
+      console.error("[CLINIC STORAGE REPORT]", err.message);
+      res.status(500).json({ message: "Unable to calculate storage report" });
     }
   });
 
