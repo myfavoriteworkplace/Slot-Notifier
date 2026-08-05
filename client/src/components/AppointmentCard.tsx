@@ -442,9 +442,14 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`overflow-visible mt-3 mb-3 border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
+      className={`relative overflow-visible mt-3 mb-3 border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
+      {latestLabel && (
+        <span className={`absolute top-0 right-3 z-20 inline-flex -translate-y-1/2 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${latestPillTone}`}>
+          {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
+        </span>
+      )}
       {/* Accent bar — pulse when actively in-progress */}
       <div className={`h-[3px] ${accentBar} ${isInConsultation || (role === "doctor" && isCheckedIn) ? "animate-pulse" : ""}`} />
 
@@ -508,12 +513,6 @@ export function AppointmentCard({
                 </div>
               </div>
             </div>
-            {latestLabel && (
-              <span className={`absolute -top-4 right-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${latestPillTone}`}>
-                {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
-              </span>
-            )}
-
             {/* Status + ⋮ menu */}
             <div className="flex flex-col items-end gap-1 shrink-0">
               <TooltipProvider delayDuration={100}>
