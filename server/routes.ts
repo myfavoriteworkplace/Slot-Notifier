@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import { getClinicStorageQuota, assertClinicStorageAvailable, registerIssuedUpload, consumeIssuedUpload, PLAN_STORAGE_LIMITS, DEFAULT_STORAGE_LIMIT_BYTES } from "./storageQuota";
-import { ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
@@ -2282,6 +2282,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[CLINIC STORAGE REPORT]", err.message);
       res.status(500).json({ message: "Unable to calculate storage report" });
+    }
+  });
+
+  app.get("/api/auth/clinic/settings/storage/untracked", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
+    if (!R2_CONFIGURED) return res.status(503).json({ message: "R2 credentials are not configured" });
+    try {
+      const clinicId = Number(sess.clinicId);
+      const prefix = `private/clinics/${clinicId}/`;
+      const rows = await db.select({ attachments: patientMedicalHistory.attachments })
+        .from(patientMedicalHistory).where(eq(patientMedicalHistory.clinicId, clinicId));
+      const trackedKeys = new Set<string>();
+      for (const row of rows) {
+        for (const file of ((row.attachments as any[] | null) ?? [])) {
+          if (typeof file.key === "string") trackedKeys.add(file.key);
+          if (typeof file.url === "string") {
+            try {
+              const url = new URL(file.url);
+              const key = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+              if (key.startsWith(prefix)) trackedKeys.add(key);
+            } catch { /* Ignore legacy malformed URLs. */ }
+          }
+        }
+      }
+      const candidates: any[] = [];
+      let continuationToken: string | undefined;
+      do {
+        const page = await r2Client.send(new ListObjectsV2Command({
+          Bucket: R2_BUCKET_NAME, Prefix: prefix, ContinuationToken: continuationToken,
+        }));
+        for (const object of page.Contents ?? []) {
+          const key = object.Key ?? "";
+          if (key && !trackedKeys.has(key)) {
+            candidates.push({ key, bytes: Number(object.Size ?? 0), lastModified: object.LastModified?.toISOString() ?? null });
+          }
+        }
+        continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+      } while (continuationToken);
+      res.json({ prefix, candidates, scannedAt: new Date().toISOString(), count: candidates.length });
+    } catch (err: any) {
+      console.error("[CLINIC UNTRACKED SCAN]", err.message);
+      res.status(500).json({ message: "Unable to scan clinic storage" });
+    }
+  });
+
+  app.post("/api/auth/clinic/settings/storage/untracked/delete", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
+    if (!R2_CONFIGURED) return res.status(503).json({ message: "R2 credentials are not configured" });
+    try {
+      const clinicId = Number(sess.clinicId);
+      const prefix = `private/clinics/${clinicId}/`;
+      const keys = Array.isArray(req.body?.keys) ? req.body.keys.filter((key: unknown): key is string => typeof key === "string") : [];
+      if (!keys.length || keys.length > 100) return res.status(400).json({ message: "Select between 1 and 100 files" });
+      if (keys.some(key => !key.startsWith(prefix) || key.includes(".."))) return res.status(400).json({ message: "Only this clinic's private files can be deleted" });
+      const rows = await db.select({ attachments: patientMedicalHistory.attachments })
+        .from(patientMedicalHistory).where(eq(patientMedicalHistory.clinicId, clinicId));
+      const trackedKeys = new Set<string>();
+      for (const row of rows) {
+        for (const file of ((row.attachments as any[] | null) ?? [])) {
+          if (typeof file.key === "string") trackedKeys.add(file.key);
+          if (typeof file.url === "string") {
+            try {
+              const url = new URL(file.url);
+              const key = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+              if (key.startsWith(prefix)) trackedKeys.add(key);
+            } catch { /* Ignore legacy malformed URLs. */ }
+          }
+        }
+      }
+      const deletable = keys.filter(key => !trackedKeys.has(key));
+      if (!deletable.length) return res.status(409).json({ message: "Selected files are now tracked or no longer eligible" });
+      for (const key of deletable) await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+      res.json({ deleted: deletable, skipped: keys.filter(key => !deletable.includes(key)) });
+    } catch (err: any) {
+      console.error("[CLINIC UNTRACKED DELETE]", err.message);
+      res.status(500).json({ message: "Unable to delete selected files" });
     }
   });
 

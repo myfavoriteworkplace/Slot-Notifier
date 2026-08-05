@@ -527,6 +527,12 @@ The implementation is intentionally staged:
 
 ### Phase 2 — Recommended next
 
+- Clinic-only untracked-file scan and explicit selected-file deletion
+- Restrict candidate visibility to the current clinic's private namespace
+- Recheck tracked references immediately before permanent deletion
+- See `docs/settings/clinic-storage-cleanup.md` for the detailed workflow and
+  future implementation roadmap
+
 - Persist scan results server-side with a timestamp
 - Add a background/manual scan history
 - Show public/private and clinic namespace breakdowns
