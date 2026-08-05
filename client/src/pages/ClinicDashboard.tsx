@@ -1347,22 +1347,6 @@ export default function ClinicDashboard() {
                 {activePanel === 'inventory' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
               </button>
 
-              {/* Settings */}
-              <button
-                onClick={() => setActivePanel('settings')}
-                data-testid="nav-settings"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'settings' ? 'bg-slate-500/10 border border-slate-500/20' : 'border border-transparent hover:bg-muted/50'}`}
-              >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'settings' ? 'bg-slate-500/10 border-slate-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Settings className={`h-4 w-4 ${activePanel === 'settings' ? 'text-slate-600 dark:text-slate-300' : 'text-muted-foreground'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'settings' ? 'text-slate-700 dark:text-slate-300' : 'text-foreground'}`}>Settings</p>
-                  <p className="text-xs text-muted-foreground">Storage & upload info</p>
-                </div>
-                {activePanel === 'settings' && <div className="h-1.5 w-1.5 rounded-full bg-slate-500 shrink-0" />}
-              </button>
-
               {/* 8 — Pharmacy Stock */}
               <button
                 onClick={() => setActivePanel('pharmacy-stock')}
@@ -1461,6 +1445,21 @@ export default function ClinicDashboard() {
 
             </div>
           </div>
+
+          <button
+            onClick={() => setActivePanel('settings')}
+            data-testid="nav-settings"
+            className={`mt-3 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'settings' ? 'bg-slate-500/10 border border-slate-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+          >
+            <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'settings' ? 'bg-slate-500/10 border-slate-500/20' : 'bg-muted/50 border-border/50'}`}>
+              <Settings className={`h-4 w-4 ${activePanel === 'settings' ? 'text-slate-600 dark:text-slate-300' : 'text-muted-foreground'}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm font-semibold leading-tight ${activePanel === 'settings' ? 'text-slate-700 dark:text-slate-300' : 'text-foreground'}`}>Settings</p>
+              <p className="text-xs text-muted-foreground">Storage &amp; file settings</p>
+            </div>
+            {activePanel === 'settings' && <div className="h-1.5 w-1.5 rounded-full bg-slate-500 shrink-0" />}
+          </button>
 
           {/* Scan & Share Card */}
           {clinic && (
@@ -2064,8 +2063,18 @@ export default function ClinicDashboard() {
             ))}
           </ScrollArea>
 
-          {/* Sign out */}
-          <div className="px-3 pb-5 pt-2 border-t border-border/50">
+          {/* Settings and sign out stay fixed below the scrollable navigation. */}
+          <div className="px-3 pt-2 border-t border-border/50">
+            <button
+              onClick={() => { setMobileNavOpen(false); setActivePanel('settings'); }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border w-full text-left transition-colors ${activePanel === 'settings' ? 'bg-slate-500/10 border-slate-500/20' : 'border-transparent hover:bg-muted/50'}`}
+              data-testid="drawer-nav-settings"
+            >
+              <Settings className={`h-4 w-4 ${activePanel === 'settings' ? 'text-slate-600' : 'text-muted-foreground'}`} />
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Settings</p><p className="text-xs text-muted-foreground">Storage &amp; file settings</p></div>
+            </button>
+          </div>
+          <div className="px-3 pb-5 pt-2">
             <button
               onClick={() => { setMobileNavOpen(false); handleLogout(); }}
               disabled={isLoggingOut}
