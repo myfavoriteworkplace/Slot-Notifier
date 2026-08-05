@@ -97,15 +97,15 @@ export function AppointmentInfoSection({
   if (!messages.length) return null;
 
   const panelTone = isCancelled || isNoShow || isLeftEarly || isPastDue || openBillsCount > 0
-    ? "border-l-[#ca8a04] bg-[#fefce8] text-[#854d0e] dark:bg-yellow-950/20 dark:text-yellow-200"
+    ? "border-[#ca8a04] bg-[#fefce8] text-[#854d0e] dark:border-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-200"
     : isVisitCompleted
-    ? "border-l-[#16a34a] bg-[#f0fdf4] text-[#166534] dark:bg-emerald-950/20 dark:text-emerald-200"
-    : "border-l-[#0284c7] bg-[#f0f9ff] text-[#075985] dark:bg-sky-950/20 dark:text-sky-200";
+    ? "border-[#16a34a] bg-[#f0fdf4] text-[#166534] dark:border-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-200"
+    : "border-[#0284c7] bg-[#f0f9ff] text-[#075985] dark:border-sky-700 dark:bg-sky-950/20 dark:text-sky-200";
 
   return (
     <section
       aria-label="Appointment status"
-      className={`mx-3 mb-1 space-y-1.5 rounded-r-md border-l-[3px] px-2.5 py-2 text-left sm:mx-4 sm:px-3 ${panelTone} [&>div>div]:!rounded-none [&>div>div]:!border-0 [&>div>div]:!bg-transparent [&>div>div]:!px-0 [&>div>div]:!py-0 [&>div>div]:!text-inherit`}
+      className={`mx-3 mb-1 space-y-1.5 rounded-md border px-2.5 py-2 text-left sm:mx-4 sm:px-3 ${panelTone} [&>div>div]:!rounded-none [&>div>div]:!border-0 [&>div>div]:!bg-transparent [&>div>div]:!px-0 [&>div>div]:!py-0 [&>div>div]:!text-inherit`}
     >
       <div className="space-y-1.5 min-w-0">{messages}</div>
     </section>
