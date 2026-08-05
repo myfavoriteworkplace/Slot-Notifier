@@ -86,7 +86,7 @@ export interface BookingStats {
 }
 
 export interface BookingsPagedResult {
-  data: (Booking & { slot: Slot; patientCode?: string | null; visitNumber?: number; totalVisits?: number; latestLabel?: 'latest_visit' | 'latest_booked' | 'latest_cancelled' | 'latest_no_show' })[];
+  data: (Booking & { slot: Slot; patientCode?: string | null; visitNumber?: number; totalVisits?: number; latestLabel?: 'latest_record' })[];
   total: number;
   page: number;
   pageSize: number;
@@ -97,7 +97,7 @@ export interface BookingsPagedResult {
 type VisitHistoryMeta = {
   visitNumber: number;
   totalVisits: number;
-  latestLabel?: 'latest_visit' | 'latest_booked' | 'latest_cancelled' | 'latest_no_show';
+  latestLabel?: 'latest_record';
 };
 
 function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): Map<number, VisitHistoryMeta> {
@@ -121,30 +121,13 @@ function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): M
       new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime() ||
       a.booking.id - b.booking.id
     );
-    const completed = sorted.filter(({ booking }) => (booking as any).visitStatus === 'completed');
-    const active = sorted.filter(({ booking }) => {
-      const b = booking as any;
-      return b.visitStatus !== 'completed' &&
-        b.verificationStatus !== 'cancelled' &&
-        b.verificationStatus !== 'no_show';
-    });
-    const latestCompleted = completed[completed.length - 1]?.booking.id;
-    const latestBooked = active[active.length - 1]?.booking.id;
-    const latestRecord = sorted[sorted.length - 1]?.booking as any;
+    const latestRecordId = sorted[sorted.length - 1]?.booking.id;
     for (let i = 0; i < sorted.length; i++) {
       const id = sorted[i].booking.id;
       result.set(id, {
         visitNumber: i + 1,
         totalVisits: sorted.length,
-        ...(id === latestCompleted
-          ? { latestLabel: 'latest_visit' as const }
-          : id === latestBooked
-            ? { latestLabel: 'latest_booked' as const }
-            : id === latestRecord.id && latestRecord.verificationStatus === 'cancelled'
-              ? { latestLabel: 'latest_cancelled' as const }
-              : id === latestRecord.id && latestRecord.verificationStatus === 'no_show'
-                ? { latestLabel: 'latest_no_show' as const }
-            : {}),
+        ...(id === latestRecordId ? { latestLabel: 'latest_record' as const } : {}),
       });
     }
   }

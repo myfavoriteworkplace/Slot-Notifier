@@ -83,7 +83,7 @@ export interface AppointmentCardProps {
   consentRequestPending?: boolean;
   visitNumber?: number;
   totalVisits?: number;
-  latestLabel?: "latest_visit" | "latest_booked" | "latest_cancelled" | "latest_no_show";
+  latestLabel?: "latest_record";
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -274,6 +274,36 @@ export function AppointmentCard({
     : isConfirmed
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : "border-l-[3px] border-l-amber-400 dark:border-l-amber-500";
+
+  const latestPillStatus = isCancelled
+    ? { icon: "×", label: "CANCELLED", tone: "rose" }
+    : isDoctorDeclined
+    ? { icon: "×", label: "DECLINED", tone: "rose" }
+    : isNoShowState || isAutoNoShow
+    ? { icon: "⚠", label: "NO-SHOW", tone: "slate" }
+    : isLeftEarlyState
+    ? { icon: "↗", label: "LEFT EARLY", tone: "amber" }
+    : isVisitCompleted
+    ? { icon: "✓", label: "COMPLETED", tone: "emerald" }
+    : isTreatmentCompleted
+    ? { icon: "◐", label: "TREATMENT DONE", tone: "violet" }
+    : isInConsultation
+    ? { icon: "●", label: "IN CONSULTATION", tone: "violet" }
+    : isCheckedIn
+    ? { icon: "●", label: "CHECKED IN", tone: "violet" }
+    : isPastDue
+    ? { icon: "⚠", label: "ACTION NEEDED", tone: "amber" }
+    : isConfirmed
+    ? { icon: "✓", label: "CONFIRMED", tone: "emerald" }
+    : { icon: "◷", label: "PENDING", tone: "amber" };
+
+  const latestPillTone = {
+    emerald: "border-emerald-700 bg-emerald-800 text-white dark:border-emerald-500 dark:bg-emerald-700",
+    amber: "border-amber-600 bg-amber-500 text-white dark:border-amber-400 dark:bg-amber-600",
+    violet: "border-violet-700 bg-violet-800 text-white dark:border-violet-400 dark:bg-violet-700",
+    rose: "border-rose-700 bg-rose-800 text-white dark:border-rose-400 dark:bg-rose-700",
+    slate: "border-slate-600 bg-slate-700 text-white dark:border-slate-400 dark:bg-slate-600",
+  }[latestPillStatus.tone];
 
   // Header tint follows WHEN; terminal states are muted regardless of date.
   const headerBg = (isNoShowState || isCancelled || isLeftEarlyState)
@@ -479,20 +509,8 @@ export function AppointmentCard({
               </div>
             </div>
             {latestLabel && (
-              <span className={`absolute -top-4 right-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${
-                latestLabel === "latest_visit"
-                  ? "border-emerald-700 bg-emerald-800 text-white dark:border-emerald-500 dark:bg-emerald-700"
-                  : latestLabel === "latest_booked"
-                    ? "border-slate-700 bg-slate-800 text-white dark:border-slate-500 dark:bg-slate-700"
-                    : "border-rose-800 bg-rose-900 text-white dark:border-rose-500 dark:bg-rose-800"
-              }`}>
-                {latestLabel === "latest_visit"
-                  ? "✓ LATEST VISIT"
-                  : latestLabel === "latest_booked"
-                    ? "◷ LATEST BOOKED"
-                    : latestLabel === "latest_cancelled"
-                      ? "LATEST RECORD · CANCELLED"
-                      : "LATEST RECORD · NO-SHOW"}
+              <span className={`absolute -top-4 right-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${latestPillTone}`}>
+                {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
               </span>
             )}
 

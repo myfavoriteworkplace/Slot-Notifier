@@ -470,6 +470,47 @@ Once a booking reaches `in_consultation` or `completed`, it cannot be moved back
 
 ---
 
+## Latest booking/appointment pill
+
+When a patient has multiple booking records, the card timeline assigns visit numbers
+chronologically (`Visit 1/3`, `Visit 2/3`, etc.). Only the latest chronological record
+receives the floating top-right pill; older records do not receive a latest pill.
+
+The pill does not change the card's existing border, top accent, status strip, actions,
+or layout. It is a compact summary of the latest record and reuses the record's existing
+status meaning and color family.
+
+Clinic admins see `LATEST BOOKING`; doctors see `LATEST APPOINTMENT`.
+
+| Record state | Pill suffix |
+|---|---|
+| Completed | `COMPLETED` |
+| Pending | `PENDING` |
+| Confirmed | `CONFIRMED` |
+| Checked in | `CHECKED IN` |
+| In consultation | `IN CONSULTATION` |
+| Treatment completed | `TREATMENT DONE` |
+| No-show | `NO-SHOW` |
+| Cancelled | `CANCELLED` |
+| Declined | `DECLINED` |
+| Patient left early | `LEFT EARLY` |
+| Past unresolved | `ACTION NEEDED` |
+
+Examples:
+
+```text
+✓ LATEST BOOKING · COMPLETED
+⚠ LATEST BOOKING · NO-SHOW
+⚠ LATEST APPOINTMENT · ACTION NEEDED
+```
+
+Status precedence is terminal/corrective states first (cancelled, declined, no-show,
+left early), followed by completed and active visit states, then action-needed,
+confirmed, and pending. A completed record remains `COMPLETED` even if billing is
+still outstanding.
+
+---
+
 ## Where Each Status is Stored in the Database
 
 All status fields live on the `bookings` table (`bookings` in PostgreSQL).
