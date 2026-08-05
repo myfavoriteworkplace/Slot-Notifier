@@ -60,6 +60,7 @@ export const clinics = pgTable("clinics", {
   clinicRegCertUrl: varchar("clinic_reg_cert_url", { length: 1000 }),
   trustScore: integer("trust_score").default(0),
   plan: varchar("plan", { length: 20 }).default("starter"),
+  storageLimitBytes: integer("storage_limit_bytes"),
   subscriptionStatus: varchar("subscription_status", { length: 20 }).default("unpaid"), // unpaid, active, expired
   billingCycle: varchar("billing_cycle", { length: 10 }).default("monthly"), // monthly, annual
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),

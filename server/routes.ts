@@ -12,6 +12,7 @@ import { Resend } from 'resend';
 import { format } from 'date-fns';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
+import { getClinicStorageQuota, assertClinicStorageAvailable, registerIssuedUpload, consumeIssuedUpload, PLAN_STORAGE_LIMITS, DEFAULT_STORAGE_LIMIT_BYTES } from "./storageQuota";
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
@@ -1293,6 +1294,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
     try {
       const { fileName, contentType, fileType, fileSize, folder } = req.body;
+      // Patient documents must use the dedicated booking-based endpoint. That
+      // route derives clinic/patient ownership and enforces the clinic quota.
+      if (folder === "patient-docs") {
+        return res.status(400).json({ message: "Patient documents must be uploaded through the visit document endpoint" });
+      }
       const result = await generateSignedUploadUrl({
         fileName: fileName || `upload-${Date.now()}`,
         fileType: fileType || contentType,
@@ -1316,6 +1322,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const slot = await storage.getSlot(booking.slotId);
       if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
       const { fileName, contentType, fileSize } = req.body;
+      await assertClinicStorageAvailable(Number(slot.clinicId), Number(fileSize));
       const result = await generateSignedUploadUrl({
         fileName: fileName || `upload-${Date.now()}`,
         fileType: contentType,
@@ -1323,6 +1330,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         folder: "patient-docs",
         keyPrefix: `private/clinics/${slot.clinicId}/patients/${booking.patientId}/visits/${booking.id}/documents`,
       });
+      registerIssuedUpload(result.key, Number(slot.clinicId), Number(fileSize));
       res.json(result);
     } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
@@ -2239,9 +2247,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
     try {
       const clinicId = Number(sess.clinicId);
+      const quota = await getClinicStorageQuota(clinicId);
       const historyRows = await db.select({ attachments: patientMedicalHistory.attachments })
-        .from(patientMedicalHistory)
-        .where(eq(patientMedicalHistory.clinicId, clinicId));
+        .from(patientMedicalHistory).where(eq(patientMedicalHistory.clinicId, clinicId));
       const trackedBytes = historyRows.reduce((sum, row) =>
         sum + ((row.attachments as any[] | null) ?? []).reduce((n, file: any) => n + Number(file.fileSize ?? file.size ?? 0), 0), 0);
       const trackedFiles = historyRows.reduce((sum, row) => sum + (((row.attachments as any[] | null) ?? []).length), 0);
@@ -2270,7 +2278,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         } while (continuationToken);
         exact = { files, bytes, byPrefix, scannedAt: new Date().toISOString() };
       }
-      res.json({ tracked: { files: trackedFiles, bytes: trackedBytes }, exact, r2Configured: R2_CONFIGURED });
+       res.json({ tracked: { files: trackedFiles, bytes: trackedBytes }, quota, planLimits: PLAN_STORAGE_LIMITS, defaultLimitBytes: DEFAULT_STORAGE_LIMIT_BYTES, exact, r2Configured: R2_CONFIGURED });
     } catch (err: any) {
       console.error("[CLINIC STORAGE REPORT]", err.message);
       res.status(500).json({ message: "Unable to calculate storage report" });
@@ -4221,7 +4229,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/clinics/:id", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {
-      const clinic = await storage.updateClinic(Number(req.params.id), req.body);
+      const updateData = { ...req.body };
+      if (updateData.storageLimitBytes !== undefined && updateData.storageLimitBytes !== null) {
+        const bytes = Number(updateData.storageLimitBytes);
+        if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes > 2147483647) {
+          return res.status(400).json({ message: "Storage limit must be a whole number between 1 MB and 2047 MB" });
+        }
+        updateData.storageLimitBytes = bytes;
+      }
+      const clinic = await storage.updateClinic(Number(req.params.id), updateData);
       res.json(clinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -6303,6 +6319,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const body = req.body ?? {};
       const documentUrl = body.publicUrl || body.url;
       if (!documentUrl || !body.name || !body.type) return res.status(400).json({ message: "File metadata is required" });
+      const key = typeof body.key === "string" ? body.key : "";
+      if (!key) return res.status(400).json({ message: "Upload authorization is required" });
+      const trustedSize = consumeIssuedUpload(key, Number(slot.clinicId));
+      await assertClinicStorageAvailable(Number(slot.clinicId), trustedSize);
       let linkedRecord: any = null;
       if (body.clinicalRecordId != null) {
         const records = await storage.getClinicalRecordsByBookingId(booking.id);
@@ -6323,7 +6343,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
       const attachments = [...((history?.attachments ?? []) as any[]), {
-        url: documentUrl, name: body.name, type: body.type, size: body.size,
+        url: documentUrl, name: body.name, type: body.type, size: trustedSize, fileSize: trustedSize, key,
         category: body.category || "Other", description: body.description || "",
         bookingId: booking.id, visitDate: slot.startTime, doctorName: booking.assignedDoctor || null,
         uploadedBy: sess.doctorEmail || sess.adminEmail || null,

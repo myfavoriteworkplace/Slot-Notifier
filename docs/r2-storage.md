@@ -465,7 +465,31 @@ The Settings page currently displays the server-enforced limits:
 These values are informational at this stage. They are not editable from the
 clinic interface.
 
-## 16. Settings security boundary
+## 16. Clinic storage quotas
+
+Each clinic has an effective storage allowance resolved in this order:
+
+1. An application-admin clinic-specific override, when configured.
+2. The allowance associated with the clinic's payment plan.
+3. The default allowance of **100 MB**.
+
+The default plan allowances are Starter 100 MB, Growth 500 MB, and Pro 2047 MB
+(the current database column supports a maximum of 2047 MB).
+Application admins can set or clear an override from the Edit Clinic dialog.
+This does not change subscription or billing state.
+
+Clinic Settings shows tracked usage, maximum storage, remaining capacity,
+percentage used, and whether the allowance comes from a plan or clinic
+override. Patient-document uploads are checked against remaining capacity
+before a signed upload URL is issued; the existing 10 MB per-file limit still
+applies.
+
+Quota usage is based on sizes recorded in clinic-owned patient medical-history
+attachments. Legacy records without a size contribute zero. The exact R2
+bucket scan is not used for clinic quotas because a shared bucket may contain
+other clinics and public assets.
+
+## 17. Settings security boundary
 
 The storage report endpoint is clinic-admin-only. The server obtains the
 clinic ID from the authenticated session rather than from a browser-supplied
@@ -486,7 +510,7 @@ not expose:
 - Quota changes
 - Upload-policy changes
 
-## 17. Future Settings roadmap
+## 18. Future Settings roadmap
 
 The implementation is intentionally staged:
 

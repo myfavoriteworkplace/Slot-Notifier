@@ -8,6 +8,7 @@ type StorageReport = {
   tracked: { files: number; bytes: number };
   exact: { files: number; bytes: number; scannedAt: string; byPrefix: Record<string, { files: number; bytes: number }> } | null;
   r2Configured: boolean;
+  quota: { usedBytes: number; limitBytes: number; remainingBytes: number; usagePercent: number; source: string; plan: string };
 };
 
 const formatBytes = (bytes: number) => {
@@ -39,6 +40,14 @@ export default function ClinicStorageSettingsPanel() {
         <div className="rounded-xl border bg-muted/20 p-4"><ShieldCheck className="h-5 w-5 text-emerald-600 mb-2" /><p className="text-xs text-muted-foreground">Exact R2 bucket scan</p><p className="text-2xl font-bold">{data?.exact ? formatBytes(data.exact.bytes) : "Not scanned"}</p><p className="text-xs text-muted-foreground">{data?.exact ? `${data.exact.files} objects · ${new Date(data.exact.scannedAt).toLocaleString()}` : data?.r2Configured ? "Refresh to scan" : "R2 credentials are not configured"}</p></div>
       </CardContent>
     </Card>
+     <Card>
+       <CardHeader><CardTitle className="text-base">Clinic storage allowance</CardTitle></CardHeader>
+       <CardContent className="space-y-3">
+         <div className="flex items-end justify-between gap-3"><div><p className="text-2xl font-bold">{isLoading ? "…" : formatBytes(data?.quota.usedBytes ?? 0)}</p><p className="text-xs text-muted-foreground">of {formatBytes(data?.quota.limitBytes ?? 0)} used</p></div><p className="text-lg font-semibold">{isLoading ? "…" : `${Math.round(data?.quota.usagePercent ?? 0)}%`}</p></div>
+         <div className="h-3 rounded-full bg-muted overflow-hidden" role="progressbar" aria-label="Clinic storage usage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, data?.quota.usagePercent ?? 0)}><div className={`h-full transition-all ${(data?.quota.usagePercent ?? 0) >= 90 ? "bg-destructive" : (data?.quota.usagePercent ?? 0) >= 75 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${Math.min(100, data?.quota.usagePercent ?? 0)}%` }} /></div>
+         <div className="flex justify-between text-xs text-muted-foreground"><span>{formatBytes(data?.quota.remainingBytes ?? 0)} remaining</span><span>{data?.quota.source === "clinic_override" ? "Custom clinic allowance" : `${data?.quota.plan || "Starter"} plan allowance`}</span></div>
+       </CardContent>
+     </Card>
     <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><FileImage className="h-4 w-4" />Current upload limits</CardTitle></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2 text-sm"><div>Patient documents <strong className="float-right">10 MB</strong></div><div>Clinic documents <strong className="float-right">5 MB</strong></div><div>Case media <strong className="float-right">3 MB</strong></div><div>Images and PDFs only for patient documents</div></CardContent></Card>
   </div>;
 }

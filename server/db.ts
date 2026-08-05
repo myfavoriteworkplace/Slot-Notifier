@@ -242,6 +242,7 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "clinic_reg_cert_url" varchar(1000);
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "trust_score" integer DEFAULT 0;
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "plan" varchar(20) DEFAULT 'starter';
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "storage_limit_bytes" integer;
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "subscription_status" varchar(20) DEFAULT 'unpaid';
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "billing_cycle" varchar(10) DEFAULT 'monthly';
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "razorpay_subscription_id" varchar(255);
