@@ -412,7 +412,7 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
+      className={`overflow-visible mt-3 mb-3 border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {/* Accent bar — pulse when actively in-progress */}
@@ -427,7 +427,7 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`px-3 sm:px-4 pt-2.5 pb-2 ${headerBg} transition-colors`}>
+        <div className={`px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} transition-colors`}>
           <div className="flex items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
@@ -479,12 +479,12 @@ export function AppointmentCard({
               </div>
             </div>
             {latestLabel && (
-              <span className={`absolute -top-5 right-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide ${
+              <span className={`absolute -top-4 right-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${
                 latestLabel === "latest_visit"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+                  ? "border-emerald-700 bg-emerald-800 text-white dark:border-emerald-500 dark:bg-emerald-700"
                   : latestLabel === "latest_booked"
-                    ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-400"
-                    : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-400"
+                    ? "border-slate-700 bg-slate-800 text-white dark:border-slate-500 dark:bg-slate-700"
+                    : "border-rose-800 bg-rose-900 text-white dark:border-rose-500 dark:bg-rose-800"
               }`}>
                 {latestLabel === "latest_visit"
                   ? "✓ LATEST VISIT"
