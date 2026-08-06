@@ -256,9 +256,9 @@ export function AppointmentCard({
   // Visit Completed merges with Confirmed → emerald.
   // Left Early merges with No Show → slate.
   const cardBorderClass = isInConsultation
-    ? "border-2 border-violet-500/70 shadow-sm shadow-violet-500/10"
+    ? "border-2 border-violet-400/60"
     : role === "doctor" && isCheckedIn
-    ? "border-2 border-violet-500/60 shadow-sm shadow-violet-500/10"
+    ? "border-2 border-violet-400/50"
     : isCheckedIn
     ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
     : isCancelled
@@ -442,11 +442,11 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`relative overflow-visible mt-3 mb-3 border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
+        className={`relative overflow-visible mt-3 mb-3 rounded-xl border border-border/70 bg-card shadow-sm transition-colors duration-200 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {latestLabel && (
-        <span className={`absolute -top-4 right-3 z-20 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-md whitespace-nowrap ${latestPillTone}`}>
+        <span className={`absolute -top-4 right-3 z-20 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide whitespace-nowrap ${latestPillTone}`}>
           {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
         </span>
       )}
