@@ -75,7 +75,7 @@ import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingP
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
-import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
+import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
 const formatDoctorName = (name?: string | null) => {
@@ -411,10 +411,9 @@ export default function BookingsPanel({
   }), [activePatientFilter, bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount, quickFilter, filterDate, filterEndDate]);
   // ─────────────────────────────────────────────────────────────────────────
 
-  const bookingNumber = (booking: BookingWithSlot) => {
-    if (!filteredBookings.length) return "0";
-    return getBookingNumber({ booking, bookings: filteredBookings });
-  };
+  // Stable reference shared by clinic cards and dialogs. This is an appointment
+  // reference, not a daily queue token and must not change with filters.
+  const bookingReference = (booking: BookingWithSlot) => String(booking.id).padStart(4, "0");
 
   const statusGroup = (booking: BookingWithSlot) => {
     return getBookingDisplayMeta({ booking, todayStart, todayStr }).group;
@@ -1973,7 +1972,7 @@ export default function BookingsPanel({
                   {!collapsedGroups[group] && <AppointmentCard
                     role="clinic"
                     booking={booking}
-                    bookingNumber={bookingNumber(booking)}
+                    bookingNumber={bookingReference(booking)}
                     complaints={complaints}
                           visitNumber={visitNumberMap.get(booking.id)?.n}
                           totalVisits={visitNumberMap.get(booking.id)?.total}
@@ -2069,8 +2068,14 @@ export default function BookingsPanel({
                               <DialogTitle className="text-white font-extrabold text-base sm:text-xl leading-tight tracking-tight">
                                 {booking.customerName}
                               </DialogTitle>
+                              {(booking as any).visitNumber !== undefined && (booking as any).totalVisits > 1 && (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-100 bg-violet-500/25 border border-violet-300/30 px-1.5 py-0.5 rounded-md shrink-0">
+                                  <Repeat2 className="h-3 w-3" />
+                                  Visit {(booking as any).visitNumber}/{(booking as any).totalVisits}
+                                </span>
+                              )}
                               <span className="font-mono text-xs uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
-                                REF-{bookingNumber(booking).padStart(4, '0')}
+                                 Ref #{bookingReference(booking)}
                               </span>
                               {((booking as any).customerAge || (booking as any).customerGender) && (
                                 <span className="text-xs text-white/55 shrink-0">
@@ -2270,7 +2275,7 @@ export default function BookingsPanel({
                               <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
 
                                 {/* Patient ID */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                     <User className="h-3 w-3 text-primary" />
                                   </div>
@@ -2441,11 +2446,11 @@ export default function BookingsPanel({
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Visit Type:</span>
                                   {ovVisitType ? (
-                                    <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                                     <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
                                     </span>
                                   ) : ovFallbackVisitKey ? (
-                                    <span className="inline-flex items-center font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
+                                   <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovFallbackVisitKey]}
                                     </span>
                                   ) : (
@@ -2454,32 +2459,32 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Assigned Doctor */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                     <Stethoscope className="h-3 w-3 text-primary" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Assigned:</span>
                                   {booking.assignedDoctor ? (
-                                    <div className="flex items-center gap-1 min-w-0">
-                                      <span className="font-semibold text-primary truncate">Dr. {booking.assignedDoctor}</span>
-                                      {booking.doctorApprovalStatus === 'pending' && <span className="text-amber-600 dark:text-amber-400 shrink-0">· Awaiting</span>}
-                                      {booking.doctorApprovalStatus === 'approved' && <span className="text-emerald-600 dark:text-emerald-400 shrink-0">· ✓</span>}
-                                      {booking.doctorApprovalStatus === 'admin_confirmed' && <span className="text-emerald-600 dark:text-emerald-400 shrink-0">· ✓</span>}
-                                      {booking.doctorApprovalStatus === 'declined' && <span className="text-rose-600 dark:text-rose-400 shrink-0">· ✗</span>}
+                                     <div className="min-w-0 break-words">
+                                       <span className="font-semibold text-foreground">Dr. {booking.assignedDoctor}</span>
+                                       {booking.doctorApprovalStatus === 'pending' && <span className="text-amber-600 dark:text-amber-400"> (Awaiting doctor approval)</span>}
+                                       {booking.doctorApprovalStatus === 'approved' && <span className="text-emerald-600 dark:text-emerald-400"> (Approved ✓)</span>}
+                                       {booking.doctorApprovalStatus === 'admin_confirmed' && <span className="text-emerald-600 dark:text-emerald-400"> (Admin confirmed ✓)</span>}
+                                       {booking.doctorApprovalStatus === 'declined' && <span className="text-rose-600 dark:text-rose-400"> (Declined)</span>}
                                     </div>
                                   ) : (
-                                    <span className="text-muted-foreground/50">–</span>
+                                     <span className="text-muted-foreground/60">Not assigned</span>
                                   )}
                                 </div>
 
                                 {/* Treatment */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <Tag className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Treatment:</span>
                                   {ovTreatmentCategory ? (
-                                    <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                                     <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
                                       {ovTreatmentCategory}
                                     </span>
                                   ) : (
@@ -2488,7 +2493,7 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Consent */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <PenLine className="h-3 w-3 text-muted-foreground" />
                                   </div>
@@ -2561,15 +2566,15 @@ export default function BookingsPanel({
                                 ) : <div />}
 
                                 {/* Complaints — full width */}
-                                <div className="col-span-2 flex items-start gap-1.5 text-xs min-w-0">
+                                 <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
                                     <ClipboardList className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
                                   {complaints.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
+                                     <div className="flex min-w-0 flex-wrap gap-1">
                                       {complaints.map((c, idx) => (
-                                        <span key={idx} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                         <span key={idx} className="inline-flex max-w-full items-center break-words font-medium text-muted-foreground bg-muted/30 border border-border/60 px-1.5 py-0.5 rounded-md">
                                           {c}
                                         </span>
                                       ))}
@@ -2581,11 +2586,11 @@ export default function BookingsPanel({
 
                                 {/* Clinical — full width, conditional */}
                                 {booking.clinicalStatus && OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus] && (
-                                  <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                                   <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0">Clinical:</span>
+                                     <span className="text-muted-foreground shrink-0">Clinical Status:</span>
                                     <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].cls}`}>
                                       {OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].label}
                                     </span>

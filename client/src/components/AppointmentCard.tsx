@@ -108,6 +108,16 @@ const CLINICAL_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   case_closed:          { label: "Case Closed",          cls: "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" },
 };
 
+const UNKNOWN_CLINICAL_STATUS_CLASS =
+  "bg-slate-50 dark:bg-slate-900/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700";
+
+function formatClinicalStatusLabel(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 // ──────────────── Component ────────────────
 
 export function AppointmentCard({
@@ -473,29 +483,27 @@ export function AppointmentCard({
                 </span>
               </div>
               <div className="min-w-0 space-y-0.5">
-                {/* Row 1: Name + booking number only */}
-                <div className="flex items-center gap-1.5">
+                {/* Row 1: patient identity, visit history, and stable appointment reference */}
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
-                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
-                    #{bookingNumber}
+                  {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
+                    <span className="inline-flex items-center gap-0.5 font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md shrink-0">
+                      <Repeat2 className="h-2.5 w-2.5" />
+                      Visit {visitNumber}/{totalVisits}
+                    </span>
+                  )}
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
+                    Ref #{bookingNumber}
                   </span>
                 </div>
-                {/* Row 2: PAT code or REF fallback + visit number badge */}
+                {/* Row 2: PAT code */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                   {booking.patientCode ? (
                     <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
                     </span>
                   ) : (
-                    <span className="font-mono text-xs text-muted-foreground/60 bg-muted/50 border border-border/50 px-1.5 py-px rounded-md shrink-0">
-                      REF-{bookingNumber}
-                    </span>
-                  )}
-                  {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
-                    <span className="inline-flex items-center gap-0.5 font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-px rounded-md shrink-0">
-                      <Repeat2 className="h-2.5 w-2.5" />
-                      Visit {visitNumber}/{totalVisits}
-                    </span>
+                    <span className="text-xs text-muted-foreground/60">Patient ID not assigned</span>
                   )}
                 </div>
                 {/* Row 3: Phone · Age · Gender */}
@@ -867,7 +875,7 @@ export function AppointmentCard({
         </div>
 
         {/* ── Info Rows ── */}
-        <div className="px-3 sm:px-4 py-2 space-y-1.5">
+        <div className="px-3 sm:px-4 py-2.5 space-y-2.5">
 
           {/* Date + time — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
           <div
@@ -920,16 +928,16 @@ export function AppointmentCard({
           )}
 
           {/* Collapsible detail rows — hidden on mobile until expanded, always hidden when collapsed */}
-          <div className={isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")}>
+          <div className={isCollapsed ? "hidden" : (mobileExpanded ? "space-y-2" : "hidden sm:block space-y-2")}>
 
           {/* Visit Type */}
-          <div className="flex items-center gap-2 text-xs min-w-0">
+          <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
               <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
             <span className="text-muted-foreground shrink-0">Visit Type:</span>
             {visitTypeLabel ? (
-              <span className={`inline-flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded-md ${
+              <span className={`inline-flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded-md min-w-0 max-w-full truncate ${
                 fallbackVisitKey
                   ? 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700'
                   : 'text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800'
@@ -942,14 +950,14 @@ export function AppointmentCard({
           </div>
 
           {/* Treatment Category */}
-          <div className="flex items-center gap-2 text-xs min-w-0">
+          <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
               <Tag className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
             <span className="text-muted-foreground shrink-0">Treatment:</span>
             {treatmentCategory ? (
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md min-w-0 max-w-full truncate">
                   {treatmentCategory}
                 </span>
                 {slotCost > 1 && (
@@ -964,30 +972,31 @@ export function AppointmentCard({
           {/* Doctor assignment — clinic view */}
           {role === "clinic" && (() => {
             if (booking.assignedDoctor) {
-              const drStatus = isCancelled ? null
+               const drStatus = isCancelled ? null
                 : booking.doctorApprovalStatus === "pending"
-                ? <span className="text-amber-600 dark:text-amber-400">· Awaiting approval</span>
+                 ? <span className="text-amber-600 dark:text-amber-400"> (Awaiting doctor approval)</span>
                 : booking.doctorApprovalStatus === "approved"
-                ? <span className="text-emerald-600 dark:text-emerald-400">· Approved ✓</span>
+                 ? <span className="text-emerald-600 dark:text-emerald-400"> (Approved ✓)</span>
                 : booking.doctorApprovalStatus === "admin_confirmed"
-                ? <span className="text-emerald-600 dark:text-emerald-400">· Admin confirmed ✓</span>
+                 ? <span className="text-emerald-600 dark:text-emerald-400"> (Admin confirmed ✓)</span>
                 : booking.doctorApprovalStatus === "declined"
-                ? <span className="text-rose-600 dark:text-rose-400">· Declined ✗</span>
+                 ? <span className="text-rose-600 dark:text-rose-400"> (Declined)</span>
                 : null;
               return (
-                <div className="flex items-center gap-2 text-xs min-w-0">
+                 <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
                   <span className="text-muted-foreground shrink-0">Assigned:</span>
-                  <span className="font-semibold text-primary truncate">Dr. {booking.assignedDoctor}</span>
-                  {drStatus && <span className="truncate">{drStatus}</span>}
+                   <span className="font-semibold text-foreground min-w-0 break-words">
+                     Dr. {booking.assignedDoctor}{drStatus}
+                   </span>
                 </div>
               );
             }
             if (!isPast && !isTerminal && !isVisitCompleted) {
               return (
-                <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                 <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs" onClick={(e) => e.stopPropagation()}>
                   <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                   </div>
@@ -1003,19 +1012,19 @@ export function AppointmentCard({
               );
             }
             return (
-              <div className="flex items-center gap-2 text-xs min-w-0">
+                 <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                 <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                   <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                 </div>
                 <span className="text-muted-foreground shrink-0">Assigned:</span>
-                <span className="text-muted-foreground/50">–</span>
+                 <span className="text-muted-foreground/60">Not assigned</span>
               </div>
             );
           })()}
 
           {/* Consent Status — clinic + doctor view */}
           {(role === "clinic" || role === "doctor") && (
-            <div className="flex items-center gap-2 text-xs min-w-0" onClick={(e) => e.stopPropagation()}>
+             <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0" onClick={(e) => e.stopPropagation()}>
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <PenLine className="h-2.5 w-2.5 text-muted-foreground" />
               </div>
@@ -1081,36 +1090,36 @@ export function AppointmentCard({
           )}
 
           {/* Clinical status — shown for both clinic and doctor roles */}
-          {booking.clinicalStatus && CLINICAL_STATUS_LABELS[booking.clinicalStatus] && (
-            <div className="flex items-center gap-2 text-xs min-w-0">
+          {booking.clinicalStatus && (
+            <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
               </div>
               <span className="text-muted-foreground shrink-0">Clinical Status:</span>
-              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border shrink-0 ${CLINICAL_STATUS_LABELS[booking.clinicalStatus].cls}`}>
-                {CLINICAL_STATUS_LABELS[booking.clinicalStatus].label}
+              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border min-w-0 max-w-full truncate ${CLINICAL_STATUS_LABELS[booking.clinicalStatus]?.cls ?? UNKNOWN_CLINICAL_STATUS_CLASS}`}>
+                {CLINICAL_STATUS_LABELS[booking.clinicalStatus]?.label ?? formatClinicalStatusLabel(booking.clinicalStatus)}
               </span>
             </div>
           )}
 
           {/* Doctor notes indicator */}
           {role === "doctor" && booking.doctorNotes && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="grid grid-cols-[18px_minmax(0,1fr)] items-center gap-x-2 text-xs text-muted-foreground">
               <FileText className="h-2.5 w-2.5 shrink-0" />
               <span className="italic">Notes added</span>
             </div>
           )}
 
           {/* Chief Complaints — always shown */}
-          <div className="flex items-start gap-2 text-xs min-w-0">
+          <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
               <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
             <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
             {complaints.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex min-w-0 flex-wrap gap-1">
                 {complaints.slice(0, maxChips).map((c, i) => (
-                  <span key={i} className="inline-flex items-center text-xs font-medium text-muted-foreground bg-muted/10 border border-border/50 px-2 py-1 rounded-full">
+                  <span key={i} className="inline-flex max-w-full items-center break-words text-xs font-medium text-muted-foreground bg-muted/30 border border-border/60 px-2 py-1 rounded-md">
                     {c}
                   </span>
                 ))}

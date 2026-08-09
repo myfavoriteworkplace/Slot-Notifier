@@ -3156,6 +3156,12 @@ export default function DoctorDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                        {(b as any).visitNumber !== undefined && (b as any).totalVisits > 1 && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-100 bg-violet-500/25 border border-violet-300/30 px-1.5 py-0.5 rounded-md shrink-0">
+                            <Repeat2 className="h-3 w-3" />
+                            Visit {(b as any).visitNumber}/{(b as any).totalVisits}
+                          </span>
+                        )}
                         {(b.customerAge || b.customerGender) && (
                           <span className="text-xs text-white/55 shrink-0">
                             {b.customerAge ? `${b.customerAge}y` : ""}
@@ -3170,7 +3176,7 @@ export default function DoctorDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
-                        <span className="flex items-center gap-1"><Hash className="h-3 w-3" />REF-{String(b.id).padStart(4, "0")}</span>
+                        <span className="flex items-center gap-1"><Hash className="h-3 w-3" />Ref #{String(b.id).padStart(4, "0")}</span>
                         <span>·</span>
                         <span className="flex items-center gap-1 truncate"><Building2 className="h-3 w-3 shrink-0" />{modalClinicName}</span>
                       </div>
@@ -3242,7 +3248,7 @@ export default function DoctorDashboard() {
                         <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
 
                           {/* Phone */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Phone className="h-3 w-3 text-muted-foreground" />
                             </div>
@@ -3271,11 +3277,11 @@ export default function DoctorDashboard() {
                             </div>
                             <span className="text-muted-foreground shrink-0">Visit Type:</span>
                             {drVisitType ? (
-                              <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                              <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
                                 {DR_VISIT_TYPE_LABELS[drVisitType] ?? drVisitType}
                               </span>
                             ) : drFallbackVisitKey ? (
-                              <span className="inline-flex items-center font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
+                                <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
                                 {DR_VISIT_TYPE_LABELS[drFallbackVisitKey]}
                               </span>
                             ) : (
@@ -3284,7 +3290,7 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Consent */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <PenLine className="h-3 w-3 text-muted-foreground" />
                             </div>
@@ -3331,13 +3337,13 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Treatment */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Tag className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Treatment:</span>
                             {drTreatment ? (
-                              <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                              <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
                                 {drTreatment}
                               </span>
                             ) : (
@@ -3346,15 +3352,15 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Complaints — full width */}
-                          <div className="col-span-2 flex items-start gap-1.5 text-xs min-w-0">
+                          <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
                               <ClipboardList className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
                             {drComplaints.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
+                              <div className="flex min-w-0 flex-wrap gap-1">
                                 {drComplaints.map((c, idx) => (
-                                  <span key={idx} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                  <span key={idx} className="inline-flex max-w-full items-center break-words font-medium text-muted-foreground bg-muted/30 border border-border/60 px-1.5 py-0.5 rounded-md">
                                     {c}
                                   </span>
                                 ))}
@@ -3365,14 +3371,14 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Clinical Status — full width, conditional */}
-                          {b.clinicalStatus && DR_CLINICAL_STATUS[b.clinicalStatus] && (
-                            <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                          {b.clinicalStatus && (
+                            <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                               <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                 <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
                               </div>
-                              <span className="text-muted-foreground shrink-0">Clinical:</span>
-                              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus].cls}`}>
-                                {DR_CLINICAL_STATUS[b.clinicalStatus].label}
+                              <span className="text-muted-foreground shrink-0">Clinical Status:</span>
+                              <span className={`inline-flex min-w-0 max-w-full items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus]?.cls ?? "bg-slate-50 dark:bg-slate-900/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"}`}>
+                                {DR_CLINICAL_STATUS[b.clinicalStatus]?.label ?? b.clinicalStatus.replace(/_/g, " ")}
                               </span>
                             </div>
                           )}
