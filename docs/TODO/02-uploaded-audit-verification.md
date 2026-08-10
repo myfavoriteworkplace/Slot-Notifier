@@ -90,7 +90,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase 1 | Confirm the business contract for dates, lifecycle, actions, and patient aggregates | **Completed as planning/documentation** | No |
 | Phase 2 | Repair the type-check and test baseline | **Completed** | **Yes — baseline maintenance fixes only; no lifecycle policy change** |
 | Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
-| Phase 4 | Build and unit-test the pure booking classifier | Not started | No |
+| Phase 4 | Build and unit-test the pure booking classifier | **Completed** | **No — pure policy module and tests only; no UI, server query, or transition behavior changed** |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | Not started | No |
 | Phase 6 | Align server filters, counts, and statistics | Not started | No |
 | Phase 7 | Add server-side transition/action guards | Not started | No |
@@ -255,7 +255,7 @@ Known follow-up risks:
   - Existing build warnings about large chunks and stale Browserslist data remain outside Phase 2 scope.
 ```
 
-Phase 2 restores the prerequisite baseline for the classifier work. Phases 3 through 8 remain not started.
+Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, and Phase 4 has now completed the pure classifier and state-matrix tests. Phases 5 through 8 remain not started.
 
 ---
 
@@ -1256,7 +1256,7 @@ Phase 3 is a contract and type-normalization phase only. It should make later be
 6. **Keep the phase behavior-neutral**
    - No database migration, enum constraint, status rewrite, list-filter change, action change, or UI message change.
    - No server transition guard is added yet; that belongs to Phase 7.
-   - No classifier is added yet; that belongs to Phase 4.
+   - Phase 3 itself did not add a classifier; the pure classifier belongs to Phase 4.
 
 #### Files expected to be considered
 
@@ -1360,7 +1360,7 @@ Behavior delivered:
 Behavior deliberately not changed:
   - Existing cards, popups, dashboards, filters, statistics, and server queries
     still use their current logic.
-  - No booking classifier was introduced; that belongs to Phase 4.
+   - No booking classifier was introduced in Phase 3; the pure classifier is delivered in the Phase 4 record below.
   - No client migration was introduced; that belongs to Phase 5.
   - No SQL predicate migration was introduced; that belongs to Phase 6.
   - No server transition guard or override endpoint was introduced; that belongs
@@ -1421,6 +1421,52 @@ Build the pure classifier against fixed date/time contexts. It should return dat
 - Active old visits are handled separately from old pre-arrival bookings.
 - Terminal, active, treatment-completed, and completed states are distinguishable.
 - The classifier produces stable results for the same booking and date context.
+
+### Progress update after Phase 4
+
+Phase 4 is complete. A pure, shared booking classifier was added without
+changing React rendering, server queries, database values, network behavior, or
+lifecycle transitions.
+
+#### Phase 4 implementation record
+
+```text
+Phase:
+  Phase 4 — Build and unit-test the pure booking classifier
+
+Status:
+  Completed
+
+Files changed:
+  shared/booking-status.ts
+  shared/booking-status.test.ts
+
+Behavior delivered:
+  - Added classifyBooking() as a pure policy function.
+  - Classifies unknown, old, same-day past-due, same-day upcoming, and future bookings.
+  - Uses the supplied clinic business timezone and fixed date context.
+  - Distinguishes old pre-arrival, old active, old treatment-complete, and historical completed states.
+  - Preserves raw confirmation and visit values while exposing normalized meanings.
+  - Handles cancelled, no-show, early-exit, unknown, legacy, missing-date, and conflicting records conservatively.
+  - Keeps doctor approval separate from confirmation status.
+  - Returns message inputs and role-specific action policy as data, not React elements.
+  - Reports override eligibility separately; server authorization remains Phase 7.
+  - No existing caller was migrated; that belongs to Phase 5.
+
+Checks run:
+  - npx tsx --test shared/booking-status.test.ts client/src/lib/booking-list.test.ts
+    — 15 passed, 0 failed.
+  - npm run check — passed with zero TypeScript errors.
+  - npm run build — passed successfully.
+  - Build Check workflow — finished successfully after Phase 4 changes.
+
+Known follow-up risks:
+  - Existing cards, dashboards, client helpers, server filters, statistics, and
+    transition routes still contain independent booking rules.
+  - Legacy confirmation values require live-data and route-origin review before
+    they are used to authorize confirmation-dependent actions.
+  - The classifier is a policy foundation; it is not yet an authorization layer.
+```
 
 ## Phase 5 — Replace local frontend decisions
 
@@ -1531,7 +1577,7 @@ Do not mark a phase complete based only on a successful build. The phase accepta
 
 ---
 
-# 5. State matrix that should become automated tests
+# 5. State matrix automated by Phase 4 tests
 
 Use a fixed current business date and timezone in unit tests. Do not let tests depend on the machine clock.
 
@@ -1553,13 +1599,16 @@ Use a fixed current business date and timezone in unit tests. Do not let tests d
 | 14 | Any | no-show | checked_in | Conflicting data | Safe terminal handling + audit |
 | 15 | Any | confirmed | null | Null visit status | Not arrived |
 
-Add tests for:
+Additional edge cases covered by Phase 4 tests:
 
 - local midnight
 - UTC midnight
-- daylight-saving timezone if the product later supports it
 - missing slot dates
 - unknown legacy status values
+
+Still belongs to later phases:
+
+- daylight-saving timezone if the product later supports it
 - notification deep links
 - records outside the current pagination page
 

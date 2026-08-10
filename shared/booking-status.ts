@@ -268,3 +268,299 @@ export function createBusinessDateContext(
     timezone,
   };
 }
+
+// ── Pure booking classifier ─────────────────────────────────────────────────
+
+export type BookingClassifierRole =
+  | "doctor"
+  | "owner"
+  | "superuser"
+  | "clinic_admin"
+  | "customer";
+
+export type BookingDateCategory =
+  | "unknown"
+  | "old"
+  | "today_past_due"
+  | "today_upcoming"
+  | "future";
+
+export type BookingOperationalState =
+  | "unknown_date"
+  | "old_needs_resolution"
+  | "old_active"
+  | "old_treatment_completed"
+  | "historical_completed"
+  | "same_day_past_due"
+  | "today_upcoming"
+  | "future_waiting"
+  | "awaiting_doctor_approval"
+  | "cancelled"
+  | "no_show"
+  | "early_exit";
+
+export type BookingNormalizedLifecycle =
+  | "pending_not_started"
+  | "confirmed_not_started"
+  | "awaiting_doctor_approval"
+  | "checked_in"
+  | "in_consultation"
+  | "treatment_completed"
+  | "completed"
+  | "patient_left_early"
+  | "cancelled"
+  | "no_show"
+  | "unknown";
+
+export interface BookingClassifierInput {
+  verificationStatus?: RawBookingStatus;
+  doctorApprovalStatus?: RawBookingStatus;
+  visitStatus?: RawBookingStatus;
+  confirmedBy?: string | null;
+  slot?: { startTime?: Date | string | number | null } | null;
+  startTime?: Date | string | number | null;
+}
+
+export interface BookingActionPolicy {
+  canConfirm: boolean;
+  canCancel: boolean;
+  canCheckIn: boolean;
+  canCompleteVisit: boolean;
+  canNoShow: boolean;
+  canSendReminder: boolean;
+  canAssignDoctor: boolean;
+  canRequestConsent: boolean;
+  canReschedule: boolean;
+  canContinueVisit: boolean;
+  canUpdateClinicalStatus: boolean;
+  canAcceptDoctorApproval: boolean;
+  canDeclineDoctorApproval: boolean;
+  canRebook: boolean;
+  canViewHistory: boolean;
+  canViewBilling: boolean;
+  /**
+   * This only indicates that an explicit override could be offered. It is not
+   * authorization to perform the override; the server must re-check state and
+   * permissions in Phase 7.
+   */
+  canOverride: boolean;
+}
+
+export interface BookingClassification {
+  dateCategory: BookingDateCategory;
+  operationalState: BookingOperationalState;
+  normalizedLifecycle: BookingNormalizedLifecycle;
+  confirmation: NormalizedStatus<NormalizedConfirmationStatus>;
+  doctorApproval: NormalizedStatus<NormalizedDoctorApprovalStatus>;
+  visit: NormalizedStatus<NormalizedVisitStatus>;
+  rawStartTime: Date | null;
+  isDateKnown: boolean;
+  isToday: boolean;
+  isPastDueToday: boolean;
+  isOld: boolean;
+  isTerminal: boolean;
+  isActive: boolean;
+  isStarted: boolean;
+  isTreatmentCompleted: boolean;
+  isCompleted: boolean;
+  isEarlyExit: boolean;
+  isConfirmed: boolean;
+  isAwaitingDoctorApproval: boolean;
+  hasConflictingTerminalVisitState: boolean;
+  messageInputs: {
+    showOldResolution: boolean;
+    showSameDayPastDue: boolean;
+    showActiveVisit: boolean;
+    showTreatmentCompleted: boolean;
+    showCompleted: boolean;
+    showTerminal: boolean;
+    showEarlyExit: boolean;
+    showAwaitingDoctorApproval: boolean;
+    showNotArrived: boolean;
+  };
+  actions: BookingActionPolicy;
+}
+
+function parseBookingStartTime(
+  booking: BookingClassifierInput,
+): Date | null {
+  const rawValue = booking.slot?.startTime ?? booking.startTime;
+  if (rawValue == null) return null;
+
+  const date = rawValue instanceof Date
+    ? new Date(rawValue.getTime())
+    : new Date(rawValue);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isClinicRole(role: BookingClassifierRole): boolean {
+  return role === "owner" || role === "superuser" || role === "clinic_admin";
+}
+
+/**
+ * Interprets one booking without rendering, I/O, or mutation.
+ *
+ * This is deliberately independent of the database Booking type so callers
+ * can provide a booking joined to a slot without coupling this policy module
+ * to Drizzle or a particular API response shape.
+ */
+export function classifyBooking(
+  booking: BookingClassifierInput,
+  dateContext: BusinessDateContext,
+  role: BookingClassifierRole,
+): BookingClassification {
+  const rawStartTime = parseBookingStartTime(booking);
+  const confirmation = normalizeConfirmationStatus(booking.verificationStatus);
+  const doctorApproval = normalizeDoctorApprovalStatus(booking.doctorApprovalStatus);
+  const visit = normalizeVisitStatus(booking.visitStatus);
+  const startDate = rawStartTime
+    ? getCalendarDateInTimezone(rawStartTime, dateContext.timezone)
+    : null;
+  const isDateKnown = startDate !== null;
+  const isToday = startDate === dateContext.currentDate;
+  const isOld = isDateKnown && startDate! < dateContext.currentDate;
+  const isPastDueToday = isToday && rawStartTime!.getTime() <= dateContext.now.getTime();
+  const dateCategory: BookingDateCategory = !isDateKnown
+    ? "unknown"
+    : isOld
+    ? "old"
+    : isToday && isPastDueToday
+    ? "today_past_due"
+    : isToday
+    ? "today_upcoming"
+    : "future";
+
+  const isCancelled = confirmation.value === "cancelled";
+  const isNoShow = confirmation.value === "no_show";
+  const isEarlyExit = visit.value === "patient_left_early";
+  const isCompleted = visit.value === "completed";
+  const isTreatmentCompleted = visit.value === "treatment_completed";
+  const isActiveVisit = isActiveVisitStatus(visit.value);
+  const isStarted = isStartedPatientVisitStatus(visit.value);
+  const isConfirmed = confirmation.value === "confirmed" || !!booking.confirmedBy;
+  const isTerminal = isCancelled || isNoShow || isEarlyExit;
+  const hasConflictingTerminalVisitState =
+    (isCancelled || isNoShow || isEarlyExit) && isActiveVisit;
+  // Terminal confirmation wins over an active visit in conflicts. This keeps
+  // an inconsistent record from receiving normal consultation actions.
+  const isActive = isActiveVisit && !isTerminal;
+  const isAwaitingDoctorApproval =
+    doctorApproval.value === "pending" && !isTerminal;
+
+  let normalizedLifecycle: BookingNormalizedLifecycle;
+  if (isCancelled) normalizedLifecycle = "cancelled";
+  else if (isNoShow) normalizedLifecycle = "no_show";
+  else if (isEarlyExit) normalizedLifecycle = "patient_left_early";
+  else if (isCompleted) normalizedLifecycle = "completed";
+  else if (isTreatmentCompleted) normalizedLifecycle = "treatment_completed";
+  else if (visit.value === "in_consultation") normalizedLifecycle = "in_consultation";
+  else if (visit.value === "checked_in") normalizedLifecycle = "checked_in";
+  else if (isAwaitingDoctorApproval) normalizedLifecycle = "awaiting_doctor_approval";
+  else if (isConfirmed) normalizedLifecycle = "confirmed_not_started";
+  else if (confirmation.value === "pending") normalizedLifecycle = "pending_not_started";
+  else normalizedLifecycle = "unknown";
+
+  let operationalState: BookingOperationalState;
+  if (isCancelled) operationalState = "cancelled";
+  else if (isNoShow) operationalState = "no_show";
+  else if (isEarlyExit) operationalState = "early_exit";
+  else if (isOld && isActive) operationalState = "old_active";
+  else if (isOld && isTreatmentCompleted) operationalState = "old_treatment_completed";
+  else if (isOld && isCompleted) operationalState = "historical_completed";
+  else if (isOld) operationalState = "old_needs_resolution";
+  else if (isAwaitingDoctorApproval) operationalState = "awaiting_doctor_approval";
+  else if (!isDateKnown) operationalState = "unknown_date";
+  else if (isPastDueToday) operationalState = "same_day_past_due";
+  else if (isToday) operationalState = "today_upcoming";
+  else operationalState = "future_waiting";
+
+  const isClinic = isClinicRole(role);
+  const canProgress = !isTerminal && !isCompleted;
+  const canUseNormalDoctorActions =
+    role === "doctor" && canProgress && (isActive || (!isOld && !isPastDueToday && !isStarted));
+  const canOverride =
+    isClinic &&
+    !isTerminal &&
+    !isCompleted &&
+    !isTreatmentCompleted &&
+    (isOld || isPastDueToday || !isDateKnown);
+
+  const actions: BookingActionPolicy = {
+    canConfirm:
+      isClinic &&
+      canProgress &&
+      !isTreatmentCompleted &&
+      !isActive &&
+      !isConfirmed,
+    canCancel: isClinic && canProgress && !isTreatmentCompleted,
+    canCheckIn:
+      isClinic &&
+      canProgress &&
+      !isTreatmentCompleted &&
+      !isActive &&
+      !isStarted,
+    canCompleteVisit:
+      canProgress &&
+      (isActive || isTreatmentCompleted) &&
+      (isClinic || role === "doctor"),
+    canNoShow:
+      isClinic &&
+      canProgress &&
+      !isTreatmentCompleted &&
+      !isStarted,
+    canSendReminder: isClinic && canProgress,
+    canAssignDoctor: isClinic && canProgress,
+    canRequestConsent: isClinic && canProgress,
+    canReschedule: isClinic && canProgress && !isActive,
+    canContinueVisit: canUseNormalDoctorActions && isActive,
+    canUpdateClinicalStatus: canUseNormalDoctorActions && isActive,
+    canAcceptDoctorApproval:
+      role === "doctor" && isAwaitingDoctorApproval,
+    canDeclineDoctorApproval:
+      role === "doctor" && isAwaitingDoctorApproval,
+    canRebook: isTerminal || isCompleted || isOld,
+    canViewHistory: isTerminal || isCompleted || isTreatmentCompleted || isOld,
+    canViewBilling: isTerminal || isCompleted || isTreatmentCompleted || isOld,
+    canOverride,
+  };
+
+  return {
+    dateCategory,
+    operationalState,
+    normalizedLifecycle,
+    confirmation,
+    doctorApproval,
+    visit,
+    rawStartTime,
+    isDateKnown,
+    isToday,
+    isPastDueToday,
+    isOld,
+    isTerminal,
+    isActive,
+    isStarted,
+    isTreatmentCompleted,
+    isCompleted,
+    isEarlyExit,
+    isConfirmed,
+    isAwaitingDoctorApproval,
+    hasConflictingTerminalVisitState,
+    messageInputs: {
+      showOldResolution: operationalState === "old_needs_resolution",
+      showSameDayPastDue: operationalState === "same_day_past_due",
+      showActiveVisit: isActive,
+      showTreatmentCompleted: isTreatmentCompleted,
+      showCompleted: isCompleted,
+      showTerminal: isTerminal,
+      showEarlyExit: isEarlyExit,
+      showAwaitingDoctorApproval: isAwaitingDoctorApproval,
+      showNotArrived:
+        !isTerminal &&
+        !isStarted &&
+        !isTreatmentCompleted &&
+        !isCompleted,
+    },
+    actions,
+  };
+}
