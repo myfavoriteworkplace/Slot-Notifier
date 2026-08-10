@@ -2069,7 +2069,7 @@ export default function BookingsPanel({
                                 {booking.customerName}
                               </DialogTitle>
                               {(booking as any).visitNumber !== undefined && (booking as any).totalVisits > 1 && (
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-100 bg-violet-500/25 border border-violet-300/30 px-1.5 py-0.5 rounded-md shrink-0">
+                                <span className="inline-flex items-center gap-1 text-xs leading-none font-semibold text-violet-100 bg-violet-500/25 border border-violet-300/30 px-1.5 py-1 rounded-md shrink-0">
                                   <Repeat2 className="h-3 w-3" />
                                   Visit {(booking as any).visitNumber}/{(booking as any).totalVisits}
                                 </span>
@@ -2446,11 +2446,11 @@ export default function BookingsPanel({
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Visit Type:</span>
                                   {ovVisitType ? (
-                                     <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                                     <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
                                     </span>
                                   ) : ovFallbackVisitKey ? (
-                                   <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
+                                   <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovFallbackVisitKey]}
                                     </span>
                                   ) : (
@@ -2484,7 +2484,7 @@ export default function BookingsPanel({
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Treatment:</span>
                                   {ovTreatmentCategory ? (
-                                     <span className="inline-flex min-w-0 max-w-full items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                                     <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
                                       {ovTreatmentCategory}
                                     </span>
                                   ) : (
@@ -2499,7 +2499,7 @@ export default function BookingsPanel({
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Consent:</span>
                                   {booking.consentSignedAt ? (
-                                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+                                    <span className="inline-flex items-center gap-1 justify-self-start font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                                       <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                                     </span>
                                   ) : booking.consentToken ? (
@@ -2573,8 +2573,8 @@ export default function BookingsPanel({
                                   <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
                                   {complaints.length > 0 ? (
                                      <div className="flex min-w-0 flex-wrap gap-1">
-                                      {complaints.map((c, idx) => (
-                                         <span key={idx} className="inline-flex max-w-full items-center break-words font-medium text-muted-foreground bg-muted/30 border border-border/60 px-1.5 py-0.5 rounded-md">
+                                       {complaints.map((c, idx) => (
+                                         <span key={idx} className="inline-flex max-w-full items-center break-words text-xs leading-tight font-medium text-muted-foreground bg-muted/30 border border-border/60 px-1.5 py-0.5 rounded-md">
                                           {c}
                                         </span>
                                       ))}

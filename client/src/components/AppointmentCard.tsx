@@ -476,7 +476,7 @@ export function AppointmentCard({
           <div className="flex items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="flex items-start gap-2.5 min-w-0 flex-1">
               <div className="shrink-0 h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
                 <span className="text-sm font-bold text-primary dark:text-primary/80 leading-none">
                   {booking.customerName.charAt(0).toUpperCase()}
@@ -487,7 +487,7 @@ export function AppointmentCard({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
                   {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
-                    <span className="inline-flex items-center gap-0.5 font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md shrink-0">
+                    <span className="inline-flex items-center gap-0.5 text-xs leading-none font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-1 rounded-md shrink-0">
                       <Repeat2 className="h-2.5 w-2.5" />
                       Visit {visitNumber}/{totalVisits}
                     </span>
@@ -937,7 +937,7 @@ export function AppointmentCard({
             </div>
             <span className="text-muted-foreground shrink-0">Visit Type:</span>
             {visitTypeLabel ? (
-              <span className={`inline-flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded-md min-w-0 max-w-full truncate ${
+              <span className={`inline-flex items-center gap-1 justify-self-start font-semibold px-1.5 py-0.5 rounded-md min-w-0 max-w-full truncate ${
                 fallbackVisitKey
                   ? 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700'
                   : 'text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800'
@@ -956,7 +956,7 @@ export function AppointmentCard({
             </div>
             <span className="text-muted-foreground shrink-0">Treatment:</span>
             {treatmentCategory ? (
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1.5 justify-self-start min-w-0 max-w-full">
                 <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md min-w-0 max-w-full truncate">
                   {treatmentCategory}
                 </span>
@@ -988,7 +988,7 @@ export function AppointmentCard({
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
                   <span className="text-muted-foreground shrink-0">Assigned:</span>
-                   <span className="font-semibold text-foreground min-w-0 break-words">
+                    <span className="font-semibold text-foreground min-w-0 max-w-full break-words">
                      Dr. {booking.assignedDoctor}{drStatus}
                    </span>
                 </div>
@@ -1030,18 +1030,18 @@ export function AppointmentCard({
               </div>
               <span className="text-muted-foreground shrink-0">Consent:</span>
               {booking.consentSignedAt ? (
-                <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1 justify-self-start font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                   <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                 </span>
               ) : booking.consentToken ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
+                 <div className="flex items-center gap-1.5 justify-self-start min-w-0 max-w-full">
+                   <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md max-w-full">
                     <Clock className="h-2.5 w-2.5" />Consent Sent
                   </span>
                   <TooltipProvider delayDuration={400}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button
+                   <button
                           onClick={(e) => { e.stopPropagation(); onRequestConsent?.(); }}
                           disabled={consentRequestPending}
                           data-testid={`button-resend-consent-icon-${booking.id}`}
@@ -1077,7 +1077,7 @@ export function AppointmentCard({
                     onClick={(e) => { e.stopPropagation(); onRequestConsent(); }}
                     disabled={consentRequestPending}
                     data-testid={`button-request-consent-inline-${booking.id}`}
-                    className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                     className="inline-flex items-center gap-1 justify-self-start font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
                   >
                     {consentRequestPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
                     Send Link →
@@ -1096,7 +1096,7 @@ export function AppointmentCard({
                 <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
               </div>
               <span className="text-muted-foreground shrink-0">Clinical Status:</span>
-              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border min-w-0 max-w-full truncate ${CLINICAL_STATUS_LABELS[booking.clinicalStatus]?.cls ?? UNKNOWN_CLINICAL_STATUS_CLASS}`}>
+              <span className={`inline-flex items-center justify-self-start text-xs font-semibold px-1.5 py-0.5 rounded-md border min-w-0 max-w-full truncate ${CLINICAL_STATUS_LABELS[booking.clinicalStatus]?.cls ?? UNKNOWN_CLINICAL_STATUS_CLASS}`}>
                 {CLINICAL_STATUS_LABELS[booking.clinicalStatus]?.label ?? formatClinicalStatusLabel(booking.clinicalStatus)}
               </span>
             </div>
@@ -1119,7 +1119,7 @@ export function AppointmentCard({
             {complaints.length > 0 ? (
               <div className="flex min-w-0 flex-wrap gap-1">
                 {complaints.slice(0, maxChips).map((c, i) => (
-                  <span key={i} className="inline-flex max-w-full items-center break-words text-xs font-medium text-muted-foreground bg-muted/30 border border-border/60 px-2 py-1 rounded-md">
+                  <span key={i} className="inline-flex max-w-full items-center break-words text-xs leading-tight font-medium text-muted-foreground bg-muted/30 border border-border/60 px-1.5 py-0.5 rounded-md">
                     {c}
                   </span>
                 ))}
