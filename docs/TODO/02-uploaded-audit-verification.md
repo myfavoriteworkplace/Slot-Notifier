@@ -89,7 +89,7 @@ This document is the working plan for the shared appointment-classification impr
 |---|---|---|---|
 | Phase 1 | Confirm the business contract for dates, lifecycle, actions, and patient aggregates | **Completed as planning/documentation** | No |
 | Phase 2 | Repair the type-check and test baseline | **Completed** | **Yes — baseline maintenance fixes only; no lifecycle policy change** |
-| Phase 3 | Add shared status/date constants and normalized types | Not started | No |
+| Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
 | Phase 4 | Build and unit-test the pure booking classifier | Not started | No |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | Not started | No |
 | Phase 6 | Align server filters, counts, and statistics | Not started | No |
@@ -1319,6 +1319,71 @@ Checks required:
   - npm run build
   - Build Check workflow
   - diff review confirming no runtime behavior change
+```
+
+### Progress update after Phase 3
+
+Phase 3 is complete. The shared status/date contract was added without changing existing booking filters, actions, cards, popups, server queries, stored status values, or database schema.
+
+#### Phase 3 implementation record
+
+```text
+Phase:
+  Phase 3 — Introduce canonical status definitions
+
+Status:
+  Completed
+
+Files added:
+  shared/booking-status.ts
+  shared/booking-status.test.ts
+
+Behavior delivered:
+  - Added canonical confirmation statuses:
+      pending, confirmed, cancelled, no_show
+  - Added canonical doctor-approval statuses:
+      unassigned, pending, approved, declined, admin_confirmed
+  - Added normalized visit statuses:
+      not_started, checked_in, in_consultation,
+      treatment_completed, completed, patient_left_early
+  - Mapped database NULL visitStatus to application-level not_started.
+  - Preserved raw legacy confirmation values such as email_verified and admin_booked.
+  - Added explicit unknown and legacy_unknown handling instead of silently
+    treating unsupported values as confirmed, active, or completed.
+  - Added named terminal, active, treatment-complete, visit-closed,
+    completed-patient-visit, started-patient-visit, and early-exit groups.
+  - Added explicit clinic-local business date context utilities.
+  - Defaulted the business timezone context to Asia/Kolkata until a clinic
+    provides its own IANA timezone.
+  - Preserved raw values in every normalization result for audit and migration review.
+
+Behavior deliberately not changed:
+  - Existing cards, popups, dashboards, filters, statistics, and server queries
+    still use their current logic.
+  - No booking classifier was introduced; that belongs to Phase 4.
+  - No client migration was introduced; that belongs to Phase 5.
+  - No SQL predicate migration was introduced; that belongs to Phase 6.
+  - No server transition guard or override endpoint was introduced; that belongs
+    to Phase 7.
+  - No database migration, constraint, or stored-value rewrite was performed.
+
+Checks run:
+  - npm run check — passed.
+  - npx tsx --test shared/booking-status.test.ts — 6 passed, 0 failed.
+  - Build Check workflow — finished successfully.
+  - Production client build — passed; 3,766 modules transformed.
+  - Production server bundle — passed.
+  - git diff --check — passed.
+
+Known follow-up risks:
+  - Existing callers still contain duplicated lifecycle and date comparisons;
+    migration begins in Phase 4 and Phase 5.
+  - Clinic-specific timezone storage is not added in this behavior-neutral phase;
+    Asia/Kolkata remains the documented default.
+  - Legacy confirmation grouping still requires live-data and route-origin review
+    before it can authorize confirmation-dependent actions.
+  - The existing booking-list fixture value scheduled remains outside the canonical
+    visit track and should be explicitly handled during classifier test migration.
 ```
 
 ## Phase 4 — Build the classifier
