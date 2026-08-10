@@ -119,23 +119,90 @@ The following implementation defaults are recorded for the next phase:
 - The problem statement is recorded in user-facing and developer-facing language.
 - Approach B is selected as the implementation direction.
 - The separation between booking meaning, role visibility, permitted actions, and presentation is documented.
-- The proposed normalized status model is documented.
-- The proposed date/timezone policy is documented.
-- The proposed old-booking doctor-action matrix is documented.
+- The approved normalized status model is documented.
+- The approved date/timezone policy is documented.
+- The approved old-booking doctor-action matrix is documented.
 - The remaining phases, file areas, tests, and acceptance criteria are documented.
 
-### Important confirmation before code implementation
+### Approved business decisions before implementation
 
-The defaults above are the recommended implementation contract. Before Phase 2 code work begins, the product/clinic owner should explicitly confirm:
+The product/clinic owner confirmed the following decisions before Phase 3 implementation begins:
 
-1. The timezone used by each clinic for business-day calculations.
-2. Whether the old active-visit exceptions are correct operationally.
-3. Whether `treatment_completed` requires clinic closure or should be treated as fully complete.
-4. Whether `patient_left_early` should remain terminal in every list and count.
-5. Which bookings count as a completed patient visit.
-6. Whether legacy confirmation values such as `email_verified` and `admin_booked` should remain stored but map to the user-facing `pending` state.
+1. **Business timezone — Option B: timezone stored per clinic**
+   - Each clinic is the source of truth for its own business calendar.
+   - The value must be an IANA timezone, such as `Asia/Kolkata`.
+   - Existing clinics need a documented default. Until clinic-specific values are available, the default is `Asia/Kolkata`.
+   - A user's browser timezone must not redefine the clinic's meaning of “today.”
 
-If any answer changes, update this document before implementation starts. Phase 1 remains a completed planning step, but the affected decision becomes an explicit input to the implementation phases.
+2. **Old bookings — Options B + D: active-visit exception plus explicit override**
+   - An old pending/confirmed booking that has not started is a resolution case and must not expose normal doctor consultation actions.
+   - An old booking with `checked_in` or `in_consultation` remains an active exception and can continue through the valid active-visit flow.
+   - An old `treatment_completed`, `completed`, or `patient_left_early` booking is not an active consultation and receives the relevant closure, history, billing, or rebooking actions only.
+   - A separately protected, explicit override path may be used for exceptional operational corrections. It must be role-controlled, visible to the user, and enforced by the server; it must not be implemented as an invisible bypass.
+
+3. **`treatment_completed` — Option B: distinct treatment-complete state**
+   - `treatment_completed` means clinical treatment is finished but the booking is not necessarily administratively closed.
+   - It remains distinct from `completed`.
+   - It must not be treated as an active consultation.
+   - Closure, billing, notes, or follow-up work may remain available according to role permissions.
+
+4. **`patient_left_early` — Option C: terminal for normal progression with explicit rebooking**
+   - The original booking cannot normally be advanced or resumed as if the patient completed the visit.
+   - History and billing remain available as permitted.
+   - The operational path is rebooking or a separately authorized correction, rather than silently reopening the original visit.
+   - It is terminal for normal lifecycle progression, but it must not be counted as a completed patient visit.
+
+5. **Completed patient visit — Option D: separate completed, started, and early-exit measures**
+   - A completed patient visit is `treatment_completed` or `completed`.
+   - A started visit is tracked separately and includes visits that reached `checked_in` or `in_consultation`, as well as treatment-complete and completed states.
+   - `patient_left_early` is reported separately as an early exit.
+   - The same booking must not be counted as a completed visit merely because the patient checked in or left early.
+
+6. **Legacy confirmation values — Option D: preserve explicit legacy categories**
+   - Raw legacy values such as `email_verified` and `admin_booked` remain unchanged in stored data.
+   - The application must retain their legacy identity at the normalization boundary instead of silently converting every row to `pending` or `confirmed`.
+   - Each legacy value must have an explicit grouping policy for confirmation, list visibility, and actions.
+   - The mapping must be reviewed against live data and the route that produced the value before it is used to authorize a confirmation-dependent action.
+   - No database rewrite is part of Phase 3.
+
+These decisions supersede the earlier “confirm before implementation” questions. They are the implementation contract for Phases 3–8. If live-data review reveals that a legacy value has multiple historical meanings, the value must remain in an explicit review/legacy category until a narrower rule is approved.
+
+### Consequences of the approved decisions
+
+The decisions intentionally separate four concerns:
+
+```text
+stored database value
+  → normalized status meaning
+  → date/lifecycle classification
+  → role-specific visibility and permitted action
+```
+
+They imply the following behavior:
+
+- **Date meaning is clinic-local.** A booking near UTC midnight is classified using the clinic timezone, not the browser or server's incidental timezone.
+- **Old does not automatically mean inactive.** Old pre-arrival bookings need resolution; old genuinely active visits remain manageable.
+- **Treatment completion is not administrative closure.** Counts and actions must distinguish treatment delivered from a fully closed record.
+- **Early exit is not completed care.** It remains historical and rebookable without allowing normal progression.
+- **Legacy data is not silently “corrected.”** The application preserves enough information to audit and safely decide how old records should behave.
+- **An override is exceptional, not a second normal workflow.** It requires explicit intent, authorization, current-state checks, and an audit trail when implemented.
+
+No application, schema, dependency, configuration, or runtime behavior changed when these decisions were confirmed. Phase 3 remains **Not started** until the shared contract is implemented.
+
+### Approved implementation impact by phase
+
+The confirmed decisions change the implementation plan as follows:
+
+| Phase | Planned changes under the approved contract | Explicitly not changed in that phase |
+|---|---|---|
+| Phase 3 | Add shared status/date constants, normalized types, named lifecycle groups, clinic-timezone date context, null/unknown/conflict handling, and preserved legacy categories. | No database migration, status rewrite, filter change, action change, or UI behavior change. |
+| Phase 4 | Build a pure classifier that uses the clinic timezone and distinguishes old pre-arrival, old active, treatment-complete, completed, terminal, and early-exit states. Add the full state matrix, including override eligibility as a separate policy result. | No React rendering, network calls, database calls, or state mutations inside the classifier. |
+| Phase 5 | Make cards, popups, dashboards, filters, notification deep links, and compatibility wrappers consume the same classification and action policy. Present `treatment_completed`, `completed`, and `patient_left_early` differently where appropriate. | Role visibility remains separate from lifecycle meaning; hidden buttons are not treated as authorization. |
+| Phase 6 | Align clinic/doctor SQL filters, totals, statistics, and patient history. Keep completed visits, started visits, and early exits as separate measures. | Do not load an entire dataset into JavaScript just to reuse the client classifier. |
+| Phase 7 | Enforce old-booking restrictions, active-visit exceptions, terminal-state protection, and explicit authorized overrides on the server. Record override reasons and current-state checks. | Do not allow a UI-only bypass or silently reopen `patient_left_early` records. |
+| Phase 8 | Verify timezone boundaries, responsive status/action presentation, long labels, accessibility, and deep-link behavior across clinic and doctor surfaces. | Do not introduce new lifecycle rules during visual verification. |
+
+The sequencing rule is: **Phase 3 defines the vocabulary, Phase 4 defines the meaning, Phases 5–6 apply it, Phase 7 enforces it, and Phase 8 verifies its presentation.**
 
 ---
 
@@ -681,7 +748,7 @@ The existing `getBookingActionState()` checks lifecycle flags but does not inclu
 | Old + completed | Read-only visit history | View notes, records, billing as permitted |
 | Cancelled | Cancelled | Rebook or permitted record/billing access |
 | No-show | No-show | Rebook or resolution access |
-| Patient left early | Left early | Rebook, billing, and history access as permitted |
+| Patient left early | Left early / terminal | Rebook, billing, and history access as permitted; do not resume normal progression |
 
 ### Important rule
 
@@ -690,6 +757,14 @@ Old date alone should not override a visit that has already started. The system 
 - **old pre-arrival appointment:** stale operational work
 - **old active visit:** legitimate in-progress exception
 - **old completed visit:** historical record
+
+Under the approved policy, an exceptional old pre-arrival correction may use a later explicit override path. The override must:
+
+- require an authorized clinic role;
+- state why the normal old-booking policy is being bypassed;
+- re-check the current booking state on the server;
+- never bypass terminal-state protection silently;
+- be auditable and distinguishable from ordinary doctor actions.
 
 ### Implementation approaches
 
@@ -805,7 +880,15 @@ cancelled
 no_show
 ```
 
-Legacy values such as `email_verified` and `admin_booked` can remain stored if needed, but the application should map them to the user-facing `pending` meaning.
+The normalized confirmation track must also be able to represent preserved legacy values without losing their source meaning:
+
+```text
+legacy_email_verified
+legacy_admin_booked
+legacy_unknown
+```
+
+These are application-level legacy categories, not new database values. Their grouping into pending, confirmed, or review-required behavior must be explicit and must not be inferred from the label alone.
 
 #### Doctor approval track
 
@@ -846,6 +929,32 @@ visit_closed:
   completed
 ```
 
+#### Derived patient-visit measures
+
+These measures are intentionally different:
+
+```text
+completed_patient_visit:
+  treatment_completed, completed
+
+started_patient_visit:
+  checked_in, in_consultation, treatment_completed, completed, patient_left_early
+
+early_exit:
+  patient_left_early
+```
+
+`started_patient_visit` is an attendance/operational measure. It must not be substituted for `completed_patient_visit` in patient history or completed-visit reporting.
+
+#### Unknown and null status policy
+
+- A database `NULL` `visitStatus` normalizes to `not_started`.
+- An empty visit-status string, unsupported visit value, or unsupported confirmation value must not be treated as confirmed, active, or completed by accident.
+- Unknown visit values normalize to an explicit `legacy_unknown`/`unknown` category and receive safe, non-advancing actions until reviewed.
+- Unknown confirmation values preserve the raw value and normalize to a review-required legacy category.
+- A terminal confirmation status (`cancelled` or `no_show`) remains terminal even if an inconsistent visit status is also present. The classifier must report the conflict for diagnostics rather than allowing normal progression.
+- The raw database value remains available for audit, migration planning, and support investigation.
+
 ### Implementation approaches
 
 #### Approach A — Documentation-only normalization
@@ -872,7 +981,7 @@ Replace legacy values and add database constraints/enums.
 
 ### Recommendation
 
-Start with **Approach B**, then consider Approach C only after the live data has been inventoried.
+Start with **Approach B**, preserving explicit legacy categories as approved above. Consider a database migration only after live data has been inventoried, legacy meanings have been confirmed, and a reversible migration plan exists.
 
 ### Done criteria
 
@@ -881,6 +990,8 @@ Start with **Approach B**, then consider Approach C only after the live data has
 - `NULL` is represented consistently in application logic.
 - Terminal/active/completed decisions use named helpers.
 - Tests and docs no longer use unsupported `"scheduled"` values unless explicitly marked as legacy.
+- Legacy confirmation values remain distinguishable at the normalization boundary.
+- Completed-visit, started-visit, and early-exit measures are named separately.
 
 ---
 
@@ -1107,15 +1218,108 @@ The exact file names can follow project conventions. The important point is one 
 
 ### Phase 3 implementation details
 
-Define supported database values, normalized application values, terminal groups, active groups, and legacy-value handling. Keep database `NULL` compatible initially by mapping it to an application-level `not_started` value rather than immediately changing stored data.
+Define supported database values, normalized application values, terminal groups, active groups, date categories, patient-visit measures, and legacy-value handling. Keep database `NULL` compatible initially by mapping it to an application-level `not_started` value rather than immediately changing stored data.
+
+#### Planned Phase 3 changes
+
+Phase 3 is a contract and type-normalization phase only. It should make later behavior changes safer without changing what users see yet.
+
+1. **Create one shared status contract**
+   - Add one canonical shared module for confirmation, doctor approval, and visit-status values.
+   - Export literal value arrays, TypeScript types, named status groups, and stable labels where labels are needed.
+   - Keep database-facing values separate from normalized application values.
+   - Do not create a second untyped status vocabulary in client or server files.
+
+2. **Add normalization at the boundary**
+   - Normalize nullable `visitStatus` to `not_started`.
+   - Preserve raw legacy confirmation values while mapping them to explicit application-level legacy categories.
+   - Add type guards or normalization helpers so unknown values are handled safely.
+   - Keep compatibility wrappers for current callers; do not migrate every card, popup, filter, or query in this phase.
+
+3. **Define named lifecycle groups**
+   - Export terminal, active, treatment-complete, and visit-closed groups.
+   - Export the separate completed-patient-visit, started-patient-visit, and early-exit group definitions.
+   - Ensure `patient_left_early` is terminal but not completed.
+   - Ensure `treatment_completed` is treatment-complete but not visit-closed.
+
+4. **Define date-context types without changing date behavior**
+   - Define an explicit business-date context containing the clinic timezone and a fixed current instant/date for classification.
+   - Represent the default timezone policy as `Asia/Kolkata` until every clinic has an explicit setting.
+   - Keep the appointment timestamp as the source record; do not add a derived database date column.
+   - Do not let the browser's local timezone become the business rule.
+
+5. **Record safe conflict handling**
+   - Document that terminal confirmation status takes precedence over normal progression when stored fields conflict.
+   - Ensure unknown states do not receive active or advancing actions by default.
+   - Preserve raw values so support and later live-data analysis can identify affected records.
+
+6. **Keep the phase behavior-neutral**
+   - No database migration, enum constraint, status rewrite, list-filter change, action change, or UI message change.
+   - No server transition guard is added yet; that belongs to Phase 7.
+   - No classifier is added yet; that belongs to Phase 4.
+
+#### Files expected to be considered
+
+The exact names may follow repository conventions, but the implementation should evaluate:
+
+```text
+shared/booking-status.ts
+shared/schema.ts                         # types only if needed; no schema migration
+client/src/lib/clinic-constants.tsx      # compatibility type boundary
+client/src/lib/booking-list.ts            # compatibility imports only
+server/storage.ts                         # compatibility type boundary only
+```
+
+The Phase 3 implementation should avoid changing the behavior-bearing branches in `AppointmentCard.tsx`, `BookingsPanel.tsx`, `DoctorDashboard.tsx`, or the server query methods. Those files are migrated in later phases after the contract is tested.
+
+#### Phase 3 implementation sequence
+
+1. Inventory all current status literals and date assumptions.
+2. Add the canonical shared value/type definitions.
+3. Add normalization and type guards for null, legacy, unknown, and conflict values.
+4. Add focused contract tests for every supported value and every normalization rule.
+5. Update only the minimum compatibility types/imports needed to keep the existing code compiling.
+6. Run type-check, focused tests, and the production build.
+7. Review the diff to confirm that no runtime booking behavior or stored data changed.
 
 **Acceptance criteria:**
 
 - Supported status values are listed in one shared type/constant location.
 - Unknown and legacy values have an explicit handling policy.
 - `NULL` visit status is handled consistently.
+- The clinic timezone is represented explicitly in the date-context contract, with `Asia/Kolkata` as the documented default until clinic-specific values exist.
+- Legacy confirmation values remain distinguishable and preserve their raw source value.
+- Terminal, active, treatment-complete, visit-closed, completed-visit, started-visit, and early-exit groups are named.
+- `patient_left_early` is not grouped as a completed patient visit.
+- `treatment_completed` is not grouped as a fully closed visit.
 - Existing API and UI callers can continue compiling during migration.
 - No database migration is required for this phase.
+- No runtime booking behavior changes are introduced by Phase 3.
+
+### Phase 3 expected deliverables
+
+When Phase 3 is implemented, its completion record must include:
+
+```text
+Phase:
+  Phase 3 — Introduce canonical status definitions
+
+Status:
+  Completed only after contract tests and build verification pass
+
+Behavior delivered:
+  - Shared status/date contract added.
+  - Null, unknown, conflict, and legacy handling made explicit.
+  - No stored status values rewritten.
+  - No booking filters, counts, actions, or UI messages changed.
+
+Checks required:
+  - npm run check
+  - focused status/date contract tests
+  - npm run build
+  - Build Check workflow
+  - diff review confirming no runtime behavior change
+```
 
 ## Phase 4 — Build the classifier
 

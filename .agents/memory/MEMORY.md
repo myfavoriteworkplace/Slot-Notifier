@@ -13,3 +13,4 @@
 - [R2 storage organization](r2-storage.md) — new patient uploads use server-derived private clinic/patient/visit keys; public assets remain separate.
 - [Clinic storage settings](clinic-storage-settings.md) — clinic Settings shows tracked metadata usage and optional exact R2 bucket scan; destructive controls remain future work.
 - [SMS notification policy](sms-notification-policy.md) — received vs confirmed SMS events are defined; SMS stays backend-only and Render-controlled.
+- [Approved booking lifecycle policy](approved-booking-lifecycle-policy.md) — confirmed clinic-timezone, old-booking, completion, early-exit, aggregate, and legacy-status rules.
