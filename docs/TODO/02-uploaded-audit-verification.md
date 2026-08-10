@@ -81,6 +81,62 @@ Build the solution in this order:
 
 Do not start by rewriting every card or popup. That would move duplicated logic around without fixing the underlying inconsistency.
 
+## 2.4 Implementation program status
+
+This document is the working plan for the shared appointment-classification improvement. Progress is recorded here so product, clinic operations, QA, and development teams can see what has been agreed, what has been completed, and what remains.
+
+| Phase | Purpose | Status | Application behavior changed? |
+|---|---|---|---|
+| Phase 1 | Confirm the business contract for dates, lifecycle, actions, and patient aggregates | **Completed as planning/documentation** | No |
+| Phase 2 | Repair the type-check and test baseline | Not started | No |
+| Phase 3 | Add shared status/date constants and normalized types | Not started | No |
+| Phase 4 | Build and unit-test the pure booking classifier | Not started | No |
+| Phase 5 | Migrate client helpers, cards, popups, and dashboards | Not started | No |
+| Phase 6 | Align server filters, counts, and statistics | Not started | No |
+| Phase 7 | Add server-side transition/action guards | Not started | No |
+| Phase 8 | Complete responsive UI verification and rollout checks | Not started | No |
+
+### Progress update after Phase 1
+
+Phase 1 is complete as a planning and contract-definition step. The complete implementation plan is now recorded in this document. No application code, dependencies, database schema, configuration, or runtime behavior was changed.
+
+The following implementation defaults are recorded for the next phase:
+
+- Use one canonical booking classification model rather than adding another presentation-only helper.
+- Keep `AppointmentInfoSection` as the visual presentation component.
+- Treat the clinic’s business timezone as the source for “today,” “old,” and same-day past-due decisions. The clinic timezone must be confirmed from the existing clinic configuration or explicitly documented before implementation.
+- Keep old checked-in and in-consultation visits as active exceptions; do not make old date alone block a visit that has already started.
+- Treat old pending/confirmed pre-arrival bookings as needing resolution rather than offering normal doctor consultation actions.
+- Keep `treatment_completed`, `completed`, and `patient_left_early` as distinct application states until product and live-data review approve any migration.
+- Treat `cancelled`, `no_show`, and `patient_left_early` as terminal for normal appointment progression, while preserving permitted history, billing, and rebooking access.
+- Keep role visibility separate from lifecycle meaning: clinic and doctor lists may differ by authorization and assignment, but not because they use contradictory definitions of completed, pending, or upcoming.
+- Generate UI action permissions from the classification model and enforce state transitions on the server as well.
+- Do not perform a database status-value migration in the first implementation phase.
+- Use compatibility wrappers while existing callers are migrated gradually.
+
+### Phase 1 outputs
+
+- The problem statement is recorded in user-facing and developer-facing language.
+- Approach B is selected as the implementation direction.
+- The separation between booking meaning, role visibility, permitted actions, and presentation is documented.
+- The proposed normalized status model is documented.
+- The proposed date/timezone policy is documented.
+- The proposed old-booking doctor-action matrix is documented.
+- The remaining phases, file areas, tests, and acceptance criteria are documented.
+
+### Important confirmation before code implementation
+
+The defaults above are the recommended implementation contract. Before Phase 2 code work begins, the product/clinic owner should explicitly confirm:
+
+1. The timezone used by each clinic for business-day calculations.
+2. Whether the old active-visit exceptions are correct operationally.
+3. Whether `treatment_completed` requires clinic closure or should be treated as fully complete.
+4. Whether `patient_left_early` should remain terminal in every list and count.
+5. Which bookings count as a completed patient visit.
+6. Whether legacy confirmation values such as `email_verified` and `admin_booked` should remain stored but map to the user-facing `pending` state.
+
+If any answer changes, update this document before implementation starts. Phase 1 remains a completed planning step, but the affected decision becomes an explicit input to the implementation phases.
+
 ---
 
 # 3. Finding-by-finding verification
@@ -955,20 +1011,9 @@ Use **Approach B** and add a periodic reconciliation job for the denormalized fi
 
 # 4. Recommended implementation plan
 
-## Phase 0 — Confirm the contract
+Phase 1 is the contract and planning step documented in section 2.4. The implementation phases below begin after that planning step.
 
-Before editing behavior, agree on:
-
-1. Which timezone defines a clinic’s business day.
-2. Whether old checked-in visits remain actionable.
-3. Whether `treatment_completed` is read-only or still requires clinic action.
-4. Whether `patient_left_early` is terminal for every list and count.
-5. What counts as a patient visit.
-6. Whether `email_verified` and `pending` remain separate internally.
-
-Write these decisions into the status guide before implementation begins.
-
-## Phase 1 — Repair the type and test baseline
+## Phase 2 — Repair the type and test baseline
 
 Run:
 
@@ -980,7 +1025,19 @@ npm run build
 
 Fix the existing TypeScript errors first. A lifecycle refactor should not be built on an already-failing type-check.
 
-## Phase 2 — Introduce canonical status definitions
+### Phase 2 implementation details
+
+The current production build passes and the booking-list unit tests pass, but `npm run check` has known errors in appointment cards, billing, bookings, inventory, medical history, dashboards, and server routes. The first implementation phase must restore a trustworthy type-check baseline before the classifier is introduced.
+
+**Acceptance criteria:**
+
+- `npm run check` exits successfully.
+- Existing booking-list tests continue to pass.
+- No broad `any` types are added merely to hide existing errors.
+- The current errors are fixed at their canonical type or component source.
+- `npm run build` continues to pass.
+
+## Phase 3 — Introduce canonical status definitions
 
 Recommended structure:
 
@@ -995,7 +1052,19 @@ server/
 
 The exact file names can follow project conventions. The important point is one canonical home for each concept.
 
-## Phase 3 — Build the classifier
+### Phase 3 implementation details
+
+Define supported database values, normalized application values, terminal groups, active groups, and legacy-value handling. Keep database `NULL` compatible initially by mapping it to an application-level `not_started` value rather than immediately changing stored data.
+
+**Acceptance criteria:**
+
+- Supported status values are listed in one shared type/constant location.
+- Unknown and legacy values have an explicit handling policy.
+- `NULL` visit status is handled consistently.
+- Existing API and UI callers can continue compiling during migration.
+- No database migration is required for this phase.
+
+## Phase 4 — Build the classifier
 
 The classifier should accept:
 
@@ -1019,7 +1088,19 @@ permitted UI actions
 
 It should not render React elements and should not perform database calls.
 
-## Phase 4 — Replace local frontend decisions
+### Phase 4 implementation details
+
+Build the pure classifier against fixed date/time contexts. It should return date category, normalized lifecycle, derived state, message inputs, and role-specific UI action permissions. It should not perform navigation, network calls, React state updates, or database writes.
+
+**Acceptance criteria:**
+
+- Unit tests cover the full state matrix in section 5.
+- Old versus same-day past-due behavior is explicit.
+- Active old visits are handled separately from old pre-arrival bookings.
+- Terminal, active, treatment-completed, and completed states are distinguishable.
+- The classifier produces stable results for the same booking and date context.
+
+## Phase 5 — Replace local frontend decisions
 
 Update:
 
@@ -1030,7 +1111,19 @@ Update:
 
 The existing `AppointmentInfoSection` should receive the classifier result. Card and popup footer actions should use the same action policy.
 
-## Phase 5 — Align server filters and statistics
+### Phase 5 implementation details
+
+Migrate one caller at a time. Keep `getBookingDisplayMeta()` and `getBookingActionState()` as compatibility wrappers if that reduces risk, but make them delegate to the canonical classification model rather than retain separate business rules.
+
+**Acceptance criteria:**
+
+- `AppointmentCard`, `BookingsPanel`, and `DoctorDashboard` use the same normalized classification.
+- `AppointmentInfoSection` no longer depends on independently calculated lifecycle booleans from each caller.
+- Card and popup messages match for the same booking.
+- Card and popup actions match the same role policy.
+- Notification deep links use the same classification when they open a booking.
+
+## Phase 6 — Align server filters and statistics
 
 Update:
 
@@ -1042,7 +1135,19 @@ Update:
 
 Use SQL predicate helpers for pagination and counts. Do not fetch the entire clinic dataset merely to reuse a JavaScript classifier.
 
-## Phase 6 — Add server-side transition guards
+### Phase 6 implementation details
+
+Create reusable server-side predicates for shared lifecycle meaning, then compose them with clinic and doctor visibility rules. Use the same predicates for paginated lists, totals, quick-filter counts, and patient history metadata.
+
+**Acceptance criteria:**
+
+- Clinic and doctor list differences are explained by role visibility and assignment.
+- List totals match their corresponding visible records.
+- Upcoming, pending, past, terminal, and completed definitions are aligned.
+- Null and legacy visit states are handled consistently.
+- SQL filtering remains paginated and ownership-safe.
+
+## Phase 7 — Add server-side transition guards
 
 Every state-changing endpoint should reject invalid transitions, including direct requests that bypass the UI.
 
@@ -1053,7 +1158,19 @@ Examples:
 - No-show cannot be marked after consultation starts.
 - Cancel cannot silently erase an active or completed visit.
 
-## Phase 7 — Finish layout and visual verification
+### Phase 7 implementation details
+
+Review each booking mutation route and make its transition preconditions explicit. The UI action policy and server transition policy should come from the same documented lifecycle rules, but the server remains authoritative for authorization and state integrity.
+
+**Acceptance criteria:**
+
+- Invalid direct API requests receive clear 4xx responses.
+- Old pre-arrival bookings cannot start consultation.
+- Old active visits remain manageable according to the approved exception.
+- Terminal bookings cannot be advanced through normal progression endpoints.
+- Race-prone transitions are protected by current-state checks.
+
+## Phase 8 — Finish layout and visual verification
 
 After the state behavior is stable:
 
@@ -1062,6 +1179,33 @@ After the state behavior is stable:
 - test mobile/tablet/desktop
 - test long labels and long patient names
 - check keyboard focus and screen-reader labels
+
+### Phase 8 implementation details
+
+Only after lifecycle behavior is stable, verify the visual surfaces and responsive action layout. This phase should not introduce new lifecycle rules; it confirms that the canonical result is presented clearly.
+
+**Acceptance criteria:**
+
+- Clinic and doctor cards/popups have consistent status-message hierarchy.
+- Narrow mobile footers do not overflow or become unusable.
+- Long messages and names wrap correctly.
+- Keyboard focus and screen-reader labels work.
+- Browser verification covers card, popup, filtered list, and notification deep-link entry points.
+
+## Phase completion reporting
+
+When each phase is completed, update the status table in section 2.4 and add a short record below this plan:
+
+```text
+Phase:
+Status:
+Files changed:
+Behavior delivered:
+Checks run:
+Known follow-up risks:
+```
+
+Do not mark a phase complete based only on a successful build. The phase acceptance criteria and relevant behavioral tests must also pass.
 
 ---
 
