@@ -2944,7 +2944,7 @@ export default function BookingsPanel({
                                       </div>
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-muted-foreground">Send a digital consent form to the patient via WhatsApp or SMS.</p>
+                                    <p className="text-xs text-muted-foreground">Send a digital consent form to the patient via WhatsApp.</p>
                                   )}
                                 </div>
                               )}

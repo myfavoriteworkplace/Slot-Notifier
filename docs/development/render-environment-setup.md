@@ -294,7 +294,7 @@ RAZORPAY_KEY_SECRET=your_razorpay_secret
 ---
 
 ### TWILIO_ACCOUNT_SID
-**Optional — only needed if WhatsApp notifications are enabled.**
+**Optional — needed if WhatsApp or SMS notifications are enabled.**
 
 Your Twilio account identifier for sending WhatsApp messages.
 
@@ -302,12 +302,12 @@ Your Twilio account identifier for sending WhatsApp messages.
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-What breaks if missing: WhatsApp notifications are silently disabled.
+What breaks if missing: WhatsApp and SMS notifications are silently disabled.
 
 ---
 
 ### TWILIO_AUTH_TOKEN
-**Optional — only needed if WhatsApp notifications are enabled.**
+**Optional — needed if WhatsApp or SMS notifications are enabled.**
 
 The secret key for your Twilio account.
 
@@ -317,8 +317,39 @@ TWILIO_AUTH_TOKEN=your_twilio_auth_token
 
 ---
 
+### SMS_NOTIFICATIONS_ENABLED
+**Optional — SMS is disabled unless explicitly enabled.**
+
+Controls outbound SMS for booking-received and appointment-confirmation notifications.
+
+```
+SMS_NOTIFICATIONS_ENABLED=false
+```
+
+| Value | What happens |
+|---|---|
+| Missing, `false`, or any value other than `true` | No SMS request is sent |
+| `true` | SMS is sent when Twilio credentials and a Messaging Service SID are configured |
+
+This is a backend-only variable. Do not add it to the Render Static Site and do not use a `VITE_` prefix.
+
+---
+
+### TWILIO_MESSAGING_SERVICE_SID
+**Optional — required when SMS is enabled.**
+
+The SID of the Twilio Messaging Service used to select the SMS sender. It starts with `MG`.
+
+```
+TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+What breaks if missing: SMS remains disabled while WhatsApp can continue to work.
+
+---
+
 ### TWILIO_WHATSAPP_NUMBER
-**Optional — but has a dangerous default.**
+**Optional — only needed for Twilio WhatsApp notifications.**
 
 The WhatsApp number that messages are sent from. If not set, falls back to `+14155238886` — Twilio's shared sandbox test number.
 
@@ -462,6 +493,7 @@ These are variables where, if forgotten, the app doesn't crash — it silently u
 - [ ] `RESEND` — `PRODUCTION`
 - [ ] `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` — if payments are live
 - [ ] `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` — if WhatsApp is live
+- [ ] `SMS_NOTIFICATIONS_ENABLED`, `TWILIO_MESSAGING_SERVICE_SID` — if SMS is live
 - [ ] `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` — if image uploads are live
 
 **Frontend (Static Site `Book-My-Slot-Client` → Environment):**

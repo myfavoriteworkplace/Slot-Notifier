@@ -18,6 +18,7 @@ import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
+import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
@@ -1844,6 +1845,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+        await sendBookingConfirmationSms(
+          customerPhone,
+          customerName,
+          clinic.name,
+          requestedStart,
+          null,
+          (clinic as any).phone ?? null,
+          `BMS-${booking.id}`,
+        );
       }
 
       // In-app notification for clinic admin — paid booking confirmed
@@ -2059,6 +2069,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+        await sendBookingReceivedSms(customerPhone, customerName, clinic.name, requestedStart);
       }
 
       // Create in-app notification and push it instantly to the clinic admin via WebSocket
@@ -3225,8 +3236,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (customerPhone) {
         try {
           await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+          await sendBookingConfirmationSms(
+            customerPhone,
+            customerName,
+            clinic.name,
+            requestedStart,
+            null,
+            (clinic as any).phone ?? null,
+            `BMS-${booking.id}`,
+          );
         } catch (e: any) {
-          console.error('[ADMIN BOOKING] WhatsApp send failed:', e.message);
+          console.error('[ADMIN BOOKING] WhatsApp/SMS send failed:', e.message);
         }
       }
 
@@ -3946,6 +3966,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           confirmMapsLink,
           `BMS-${bookingId}`,
         ).catch(() => {});
+        sendBookingConfirmationSms(
+          booking.customerPhone,
+          booking.customerName,
+          clinic?.name || slot?.clinicName || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
+          clinicPhone,
+          `BMS-${bookingId}`,
+        ).catch((err) => console.error('[SMS ERROR] Confirm SMS failed:', err.message));
       }
 
       // Notify the doctor that the admin confirmed on their behalf (fire-and-forget)
@@ -4179,6 +4208,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           dMapsLink,
           `BMS-${booking.id}`,
         ).catch(() => {});
+        sendBookingConfirmationSms(
+          booking.customerPhone,
+          booking.customerName,
+          doctorClinic?.name || slot?.clinicName || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
+          dClinicPhone,
+          `BMS-${booking.id}`,
+        ).catch((err) => console.error('[SMS ERROR] Confirm SMS failed:', err.message));
       }
 
       // In-app notification for clinic admin — doctor approved
