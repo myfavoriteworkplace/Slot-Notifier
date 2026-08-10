@@ -296,9 +296,9 @@ export default function ClinicDashboard() {
   const [cancelReasonOther, setCancelReasonOther] = useState("");
 
   // Modal tab state — keyed by booking id
-  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'notes' | 'actions' | 'billing'>>({});
+  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'documents' | 'notes' | 'actions' | 'billing'>>({});
   const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
-  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions' | 'billing') =>
+  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'documents' | 'notes' | 'actions' | 'billing') =>
     setModalTabs(prev => ({ ...prev, [id]: tab }));
   // Controls which booking's detail dialog is open (state-driven, replaces DialogTrigger)
   const [openBookingId, setOpenBookingId] = useState<number | null>(null);
@@ -877,7 +877,7 @@ export default function ClinicDashboard() {
   const totalPendingCount   = bookingHeroStats?.totalPendingCount ?? 0;
   const confirmedNext7Count = bookingHeroStats?.confirmedNext7Count ?? 0;
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
@@ -2099,7 +2099,7 @@ export default function ClinicDashboard() {
           <SheetHeader className="px-4 pt-5 pb-3 border-b border-border/50">
             <div className="flex items-center justify-between">
               <SheetTitle className="text-base">Notifications</SheetTitle>
-              {notifications.some(n => !n.isRead) && (
+              {notifications.some(n => !n.read) && (
                 <button
                   onClick={() => markAllRead.mutate()}
                   className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
@@ -2122,21 +2122,21 @@ export default function ClinicDashboard() {
                 {notifications.map(n => (
                   <div
                     key={n.id}
-                    className={`px-4 py-3 flex items-start gap-3 transition-colors ${!n.isRead ? 'bg-primary/[0.03]' : ''}`}
+                    className={`px-4 py-3 flex items-start gap-3 transition-colors ${!n.read ? 'bg-primary/[0.03]' : ''}`}
                     data-testid={`notif-item-${n.id}`}
                   >
-                    <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5 ${!n.isRead ? 'bg-primary/10' : 'bg-muted/60'}`}>
-                      <Bell className={`h-3.5 w-3.5 ${!n.isRead ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5 ${!n.read ? 'bg-primary/10' : 'bg-muted/60'}`}>
+                      <Bell className={`h-3.5 w-3.5 ${!n.read ? 'text-primary' : 'text-muted-foreground'}`} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-xs leading-snug ${!n.isRead ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{n.message}</p>
+                      <p className={`text-xs leading-snug ${!n.read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{n.message}</p>
                       {n.createdAt && (
                         <p className="text-[10px] text-muted-foreground mt-1">
                           {new Date(n.createdAt).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                     </div>
-                    {!n.isRead && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                    {!n.read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
                   </div>
                 ))}
               </div>

@@ -21,6 +21,23 @@ import type {
   MedHistInsurance, MedHistEmergency, MedHistAttachment,
 } from "@shared/schema";
 
+type MedicalHistoryDraft = {
+  medicalAlerts: MedicalAlert[];
+  generalConditions: string[];
+  currentMedications: CurrentMedication[];
+  allergies: AllergyEntry[];
+  surgicalHistory: SurgicalEntry[];
+  familyHistory: string[];
+  dentalHistory: DentalHistoryMap | null;
+  vaccinationHistory: string[];
+  insuranceDetails: MedHistInsurance | null;
+  emergencyContact: MedHistEmergency | null;
+  lifestyle: MedHistLifestyle | null;
+  medicalClearance: MedHistClearance | null;
+  generalNotes: string | null;
+  attachments: MedHistAttachment[];
+};
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const GENERAL_CONDITIONS = [
@@ -127,7 +144,7 @@ function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
 
 // ── Empty draft ──────────────────────────────────────────────────────────────
 
-function emptyDraft(): Omit<PatientMedicalHistory, "id" | "patientId" | "clinicId" | "createdAt" | "updatedAt"> {
+function emptyDraft(): MedicalHistoryDraft {
   return {
     medicalAlerts:      [],
     generalConditions:  [],
@@ -156,7 +173,7 @@ interface Props {
 
 export default function MedicalHistoryTab({ bookingId, setDialogExpanded, dialogExpanded }: Props) {
   const [mode, setMode] = useState<"view" | "edit">("view");
-  const [draft, setDraft] = useState<ReturnType<typeof emptyDraft>>(emptyDraft());
+  const [draft, setDraft] = useState<MedicalHistoryDraft>(emptyDraft());
 
   const { data: resp, isLoading } = useQuery<{ data: PatientMedicalHistory | null; patientId: number; clinicId: number }>({
     queryKey: [`/api/doctor/bookings/${bookingId}/medical-history`],
@@ -177,7 +194,7 @@ export default function MedicalHistoryTab({ bookingId, setDialogExpanded, dialog
   });
 
   function startEdit() {
-    const base = saved ?? {};
+    const base: Partial<PatientMedicalHistory> = saved ?? {};
     setDraft({
       medicalAlerts:      (base.medicalAlerts      ?? []) as MedicalAlert[],
       generalConditions:  (base.generalConditions   ?? []) as string[],

@@ -1553,7 +1553,7 @@ export default function DoctorDashboard() {
                           }`}
                         >
                           <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
-                          {filterDate ? format(filterDate, "MMM d") : "Start"}
+                          {filterDate ? format(filterDate!, "MMM d") : "Start"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 rounded-xl" align="start">
@@ -1578,7 +1578,7 @@ export default function DoctorDashboard() {
                           }`}
                         >
                           <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
-                          {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
+                          {filterEndDate ? format(filterEndDate!, "MMM d") : "End"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 rounded-xl" align="start">

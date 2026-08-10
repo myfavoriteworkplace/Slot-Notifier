@@ -348,6 +348,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     subscriptionStatus: "unpaid",
     billingCycle: "monthly",
     razorpaySubscriptionId: null,
+    storageLimitBytes: null,
     websiteConfig: { theme: "classic" },
     defaultSlotConfig: { isClosed: false, sections: {} },
   };

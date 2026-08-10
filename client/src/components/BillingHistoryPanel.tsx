@@ -639,7 +639,7 @@ export function BillingHistoryPanel({
       return res.json();
     },
     onSuccess: (_data, variables) => {
-      setOptimisticTaxPct(prev => {
+      setPendingBilling(prev => {
         const next = { ...prev };
         delete next[variables.bill.id];
         return next;
@@ -647,7 +647,7 @@ export function BillingHistoryPanel({
       invalidate();
     },
     onError: (error, variables) => {
-      setOptimisticTaxPct(prev => {
+      setPendingBilling(prev => {
         const next = { ...prev };
         delete next[variables.bill.id];
         return next;
@@ -1108,7 +1108,7 @@ export function BillingHistoryPanel({
                                       </td>
                                       <td className="py-2.5 px-4 text-center">
                                         {isItemPaid ? (
-                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
+                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden />
                                         ) : (
                                           <div className="flex items-center justify-center gap-0.5">
                                             <button
@@ -1237,7 +1237,7 @@ export function BillingHistoryPanel({
                                       </td>
                                       <td className="py-2.5 px-4">
                                         {isItemPaid ? (
-                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
+                                           <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden />
                                         ) : (
                                           <div className="flex items-center justify-center gap-0.5">
                                             <button
@@ -1359,7 +1359,7 @@ export function BillingHistoryPanel({
                                       </td>
                                       <td className="py-2.5 px-4 text-center">
                                         {isItemPaid ? (
-                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
+                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden />
                                         ) : (
                                           <div className="flex items-center justify-center gap-0.5">
                                             <button
@@ -1579,7 +1579,14 @@ export function BillingHistoryPanel({
                             onBlur={e => {
                               const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
                             if (val !== effectiveTaxPct) {
-                              setTaxPctImmediately(val);
+                               setPendingBilling(prev => ({
+                                 ...prev,
+                                 [bill.id]: {
+                                   discountPct: effectiveDiscountPct,
+                                   taxPct: val,
+                                   customTax: true,
+                                 },
+                               }));
                               }
                             }}
                             aria-label="Custom GST rate"

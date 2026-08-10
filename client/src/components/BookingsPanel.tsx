@@ -201,7 +201,7 @@ export default function BookingsPanel({
   const [selectedNoShowIds, setSelectedNoShowIds] = useState<Set<number>>(new Set());
 
   const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
-  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions' | 'billing') =>
+  const setModalTab = (id: number, tab: ModalTabType) =>
     setModalTabs(prev => ({ ...prev, [id]: tab }));
 
   const persistRebookValues = (data: {
@@ -1288,7 +1288,7 @@ export default function BookingsPanel({
                     }`}
                   >
                     <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
-                    {filterDate ? format(filterDate, "MMM d") : "Start"}
+                    {filterDate ? format(filterDate!, "MMM d") : "Start"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 rounded-xl" align="start">
@@ -1313,7 +1313,7 @@ export default function BookingsPanel({
                     }`}
                   >
                     <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
-                    {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
+                    {filterEndDate ? format(filterEndDate!, "MMM d") : "End"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 rounded-xl" align="start">
@@ -2706,9 +2706,9 @@ export default function BookingsPanel({
                         {getModalTab(booking.id) === 'documents' && (
                           <PatientDocumentsTab
                             bookingId={booking.id}
-                            patientName={booking.patientName}
+                            patientName={booking.customerName}
                             doctorName={booking.assignedDoctor}
-                            visitDate={booking.slot?.startTime}
+                            visitDate={new Date(booking.slot.startTime).toISOString()}
                             authorRole="clinic_admin"
                           />
                         )}

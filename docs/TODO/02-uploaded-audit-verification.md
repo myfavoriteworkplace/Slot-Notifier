@@ -88,7 +88,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase | Purpose | Status | Application behavior changed? |
 |---|---|---|---|
 | Phase 1 | Confirm the business contract for dates, lifecycle, actions, and patient aggregates | **Completed as planning/documentation** | No |
-| Phase 2 | Repair the type-check and test baseline | Not started | No |
+| Phase 2 | Repair the type-check and test baseline | **Completed** | **Yes — baseline maintenance fixes only; no lifecycle policy change** |
 | Phase 3 | Add shared status/date constants and normalized types | Not started | No |
 | Phase 4 | Build and unit-test the pure booking classifier | Not started | No |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | Not started | No |
@@ -136,6 +136,59 @@ The defaults above are the recommended implementation contract. Before Phase 2 c
 6. Whether legacy confirmation values such as `email_verified` and `admin_booked` should remain stored but map to the user-facing `pending` state.
 
 If any answer changes, update this document before implementation starts. Phase 1 remains a completed planning step, but the affected decision becomes an explicit input to the implementation phases.
+
+---
+
+### Progress update after Phase 2
+
+Phase 2 is complete. The existing TypeScript baseline was repaired before beginning the lifecycle classifier work. The fixes addressed source-level type and contract drift in appointment cards, billing, bookings, inventory, medical history, dashboards, the public booking page, and server routes. No canonical booking classifier, shared lifecycle model, server predicate layer, or lifecycle transition policy was introduced.
+
+#### Phase 2 implementation record
+
+```text
+Phase:
+  Phase 2 — Repair the type and test baseline
+
+Status:
+  Completed
+
+Files changed:
+  client/src/components/AppointmentCard.tsx
+  client/src/components/BillingHistoryPanel.tsx
+  client/src/components/BookingsPanel.tsx
+  client/src/components/InventoryPanel.tsx
+  client/src/components/MedicalHistoryTab.tsx
+  client/src/pages/Book.tsx
+  client/src/pages/ClinicDashboard.tsx
+  client/src/pages/DoctorDashboard.tsx
+  server/routes.ts
+
+Behavior delivered:
+  - Restored the missing appointment-card no-show callback and loading-state wiring.
+  - Reconnected billing tax state cleanup to the existing pending-billing state.
+  - Removed unsupported Lucide icon props and repaired custom tax editing state updates.
+  - Aligned booking date, tab, document, and visit-date values with their component contracts.
+  - Made the medical-history edit draft explicitly non-nullable while preserving nullable database fields.
+  - Aligned notification reads with the schema's `read` field.
+  - Added the missing demo-clinic storage-limit field.
+  - Corrected server callback parameter types and mapped consent-version audit events to the supported consent resource.
+  - No lifecycle classification or booking-status behavior was changed.
+
+Checks run:
+  - `npm run check` — passed with zero TypeScript errors.
+  - `npx tsx --test client/src/lib/booking-list.test.ts` — 4 passed, 0 failed.
+  - `npm run build` — passed.
+  - `Build Check` workflow — finished successfully.
+  - `Start application` workflow — running and serving health checks successfully.
+  - `git diff --check` — passed.
+
+Known follow-up risks:
+  - The booking-list suite still contains only four basic unit tests; the lifecycle state matrix belongs to Phase 4.
+  - Browser/responsive verification remains part of Phase 8. The Playwright Chromium binary is not installed in the current environment, so that suite was not used as Phase 2 evidence.
+  - Existing build warnings about large chunks and stale Browserslist data remain outside Phase 2 scope.
+```
+
+Phase 2 restores the prerequisite baseline for the classifier work. Phases 3 through 8 remain not started.
 
 ---
 

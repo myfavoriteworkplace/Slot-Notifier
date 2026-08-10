@@ -2342,7 +2342,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const prefix = `private/clinics/${clinicId}/`;
       const keys = Array.isArray(req.body?.keys) ? req.body.keys.filter((key: unknown): key is string => typeof key === "string") : [];
       if (!keys.length || keys.length > 100) return res.status(400).json({ message: "Select between 1 and 100 files" });
-      if (keys.some(key => !key.startsWith(prefix) || key.includes(".."))) return res.status(400).json({ message: "Only this clinic's private files can be deleted" });
+       if (keys.some((key: string) => !key.startsWith(prefix) || key.includes(".."))) return res.status(400).json({ message: "Only this clinic's private files can be deleted" });
       const trackedKeys = new Set<string>();
       const documents = await db.select({ storageKey: patientDocuments.storageKey, publicUrl: patientDocuments.publicUrl })
         .from(patientDocuments).where(and(eq(patientDocuments.clinicId, clinicId), sql`${patientDocuments.deletedAt} IS NULL`));
@@ -2352,10 +2352,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           try { const key = decodeURIComponent(new URL(file.publicUrl).pathname.replace(/^\/+/, "")); if (key.startsWith(prefix)) trackedKeys.add(key); } catch {}
         }
       }
-      const deletable = keys.filter(key => !trackedKeys.has(key));
+       const deletable = keys.filter((key: string) => !trackedKeys.has(key));
       if (!deletable.length) return res.status(409).json({ message: "Selected files are now tracked or no longer eligible" });
       for (const key of deletable) await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
-      res.json({ deleted: deletable, skipped: keys.filter(key => !deletable.includes(key)) });
+       res.json({ deleted: deletable, skipped: keys.filter((key: string) => !deletable.includes(key)) });
     } catch (err: any) {
       console.error("[CLINIC UNTRACKED DELETE]", err.message);
       res.status(500).json({ message: "Unable to delete selected files" });
@@ -5212,7 +5212,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         createdByEmail,
       });
 
-      await auditLog({ resource: "consent_version", action: "create" })(req, res as any, () => {});
+      await auditLog({ resource: "consent", action: "create" })(req, res as any, () => {});
       res.json(version);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

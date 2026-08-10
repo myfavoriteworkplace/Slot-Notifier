@@ -1636,8 +1636,8 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
     onError: () => notify.error("Failed to dismiss alert"),
   });
 
-  function handleAlertTypeClick(type: ItemStatus) {
-    setAlertFilter(type);
+  function handleAlertTypeClick(type: ItemStatus | null) {
+    setAlertFilter(type ?? "all");
     setActiveTab("alerts");
   }
 
