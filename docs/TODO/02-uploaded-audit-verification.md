@@ -39,8 +39,9 @@ It is not a copy of the uploaded note. The original note was written against an 
 
 ### Related documentation reviewed
 
-- `docs/features/booking-status-guide.md`
-- `docs/features/appointment-card-footer.md`
+- `docs/features/booking/03-booking-status-and-lifecycle.md`
+- `docs/features/booking/04-shared-appointment-card.md`
+- `docs/features/booking/05-role-based-card-actions.md`
 - `docs/development/clinic-doctor-dashboard-ui-standards.md`
 
 ## 2.3 Executive summary in everyday language
@@ -522,7 +523,10 @@ Examples include:
 - View Invoice / Rebook
 - terminal-state View Bill / Rebook
 
-The existing `docs/features/appointment-card-footer.md` gives a detailed lifecycle button policy, but it does not prove that every rendered footer is responsive at every breakpoint.
+The booking documentation in `docs/features/booking/04-shared-appointment-card.md`
+and `docs/features/booking/05-role-based-card-actions.md` gives the lifecycle
+button policy, but it does not prove that every rendered footer is responsive
+at every breakpoint.
 
 ### Implementation approaches
 
@@ -865,7 +869,9 @@ Terminal conditions are also represented by:
 - Doctor awaiting logic also excludes `treatment_completed`.
 - No-show is stored in `verificationStatus`, while previous visit state may remain present.
 - `client/src/lib/booking-list.test.ts` uses a fixture value of `"scheduled"`, which is not a current visit lifecycle value in the main documentation.
-- `docs/features/booking-status-guide.md` and `docs/development/clinic-doctor-dashboard-ui-standards.md` do not describe exactly the same visit-status set or transition behavior.
+- `docs/features/booking/03-booking-status-and-lifecycle.md` and
+  `docs/development/clinic-doctor-dashboard-ui-standards.md` do not describe
+  exactly the same visit-status set or transition behavior.
 
 ### Recommended canonical model
 
@@ -1906,8 +1912,9 @@ First count existing values, identify legacy rows, and prepare a reversible migr
 
 The following documents should be reconciled when the implementation is completed:
 
-- `docs/features/booking-status-guide.md`
-- `docs/features/appointment-card-footer.md`
+- `docs/features/booking/03-booking-status-and-lifecycle.md`
+- `docs/features/booking/04-shared-appointment-card.md`
+- `docs/features/booking/05-role-based-card-actions.md`
 - `docs/development/clinic-doctor-dashboard-ui-standards.md`
 - this document
 
