@@ -92,7 +92,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
 | Phase 4 | Build and unit-test the pure booking classifier | **Completed** | **No — pure policy module and tests only; no UI, server query, or transition behavior changed** |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | **Completed** | **Yes — client lifecycle interpretation and action visibility now use the shared classifier** |
-| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–6 complete** | **Yes — server predicates, booking filters, clinic/doctor counts, and clinic-timezone boundaries aligned; remaining Phase 6 work is pending** |
+| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–7 complete** | **Yes — server predicates, booking filters, clinic/doctor counts, clinic analytics, and clinic-timezone boundaries aligned; Steps 8–9 remain pending** |
 | Phase 7 | Add server-side transition/action guards | Not started | No |
 | Phase 8 | Complete responsive UI verification and rollout checks | Not started | No |
 
@@ -1709,17 +1709,35 @@ The first six independent Phase 6 steps are complete:
 
 #### Remaining Phase 6 work
 
-Phase 6 is not complete yet. The following items remain pending:
+Phase 6 is not complete yet. Steps 1–7 are now complete. The following items remain pending:
 
-- **Step 7 — Align clinic analytics**
-  - Update `getClinicAnalytics()` in `server/storage.ts`.
-  - Replace independent raw status comparisons with the shared predicates
-    from `server/booking-predicates.ts`.
-  - Reuse the clinic-timezone date boundaries for current, previous, daily,
-    weekly, and monthly analytics periods.
-  - Preserve separate measures for completed patient visits, started visits,
-    early exits, cancellations, and no-shows.
-  - Keep the existing analytics response shape compatible with its client.
+- **Step 7 — Align clinic analytics — Completed**
+  - Updated `getClinicAnalytics()` in `server/storage.ts`.
+  - Replaced independent confirmation, terminal, active, completed, and
+    started-visit comparisons with the shared lifecycle helpers.
+  - Reused the clinic timezone for analytics period boundaries, daily trends,
+    weekly revenue grouping, and monthly patient-growth labels.
+  - Bounded previous-period comparisons to the matching period while preserving
+    the existing current-range analytics behavior.
+  - Preserved separate funnel measures for checked-in, started, treatment
+    completed, fully completed, completed patient visits, and early exits.
+  - Kept the existing analytics response shape compatible by adding optional
+    funnel metadata for started visits, completed patient visits, and early
+    exits.
+  - Updated the clinic analytics panel to display the new optional funnel
+    measures without changing its surrounding layout.
+
+#### Step 7 verification
+
+- `npm run build` — passed successfully.
+- `git diff --check` — passed.
+- `npm run check` — passed after restoring the declared `compression` and
+  `multer` dependencies; no Step 7 TypeScript errors remain.
+- `npm run build` — passed successfully.
+- `Start application` workflow — restarted after the server change and serving
+  on port 5000.
+- `Build Check` workflow — restarted after the final implementation.
+- `git diff --check` — passed.
 
 - **Step 8 — Add canonical metadata to patient history**
   - Update `getPatientHistory()` in `server/storage.ts`.

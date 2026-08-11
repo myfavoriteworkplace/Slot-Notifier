@@ -35,7 +35,14 @@ import {
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne, inArray } from "drizzle-orm";
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
-import { getUtcInstantForCalendarDate, resolveClinicTimezone } from "@shared/booking-status";
+import {
+  getCalendarDateInTimezone,
+  getUtcInstantForCalendarDate,
+  isStartedPatientVisitStatus,
+  normalizeConfirmationStatus,
+  normalizeVisitStatus,
+  resolveClinicTimezone,
+} from "@shared/booking-status";
 import {
   activeVisitCondition,
   calculateClinicBookingStats,
@@ -46,10 +53,12 @@ import {
   doctorApprovedBookingCondition,
   awaitingDoctorApprovalCondition,
   isAwaitingDoctorApproval,
+  isActiveVisit,
   isCompletedPatientVisit,
   isDoctorApprovedBooking,
   isPendingBooking,
   isConfirmedBooking,
+  isTerminalBooking,
   nonTerminalBookingCondition,
   notCompletedPatientVisitCondition,
   pendingBookingCondition,
@@ -2684,29 +2693,58 @@ export class DatabaseStorage implements IStorage {
 
   async getClinicAnalytics(clinicId: number, range: string): Promise<ClinicAnalyticsResult> {
     const now = new Date();
-    let startDate: Date;
-    let prevStartDate: Date; // for period-over-period comparison
+    const clinic = await this.getClinic(Number(clinicId));
+    const clinicTimezone = resolveClinicTimezone(clinic?.timezone);
+    const boundaries = createBookingDateBoundaries(now, clinicTimezone);
+
+    // Analytics periods are defined by clinic-local calendar dates, then
+    // converted to the UTC instants stored by PostgreSQL. This keeps analytics
+    // aligned with booking lists around UTC midnight and DST boundaries.
+    const toCivilDate = (date: Date): string => date.toISOString().slice(0, 10);
+    const civilDate = (dateString: string): Date =>
+      new Date(`${dateString}T00:00:00.000Z`);
+    const shiftCivilDate = (dateString: string, days: number): string =>
+      toCivilDate(addDays(civilDate(dateString), days));
+    const currentYear = boundaries.todayStr.slice(0, 4);
+    const days = range === '60d' ? 60 : range === '90d' ? 90 : 30;
+
+    let currentStartDateString: string;
+    let previousStartDateString: string;
     if (range === 'year') {
-      startDate = new Date(now.getFullYear(), 0, 1);
-      prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
+      currentStartDateString = `${currentYear}-01-01`;
+      previousStartDateString = `${Number(currentYear) - 1}-01-01`;
     } else {
-      const days = range === '60d' ? 60 : range === '90d' ? 90 : 30;
-      startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-      prevStartDate = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
+      currentStartDateString = shiftCivilDate(boundaries.todayStr, -days);
+      previousStartDateString = shiftCivilDate(currentStartDateString, -days);
     }
 
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const startDate = getUtcInstantForCalendarDate(
+      currentStartDateString,
+      clinicTimezone,
+    );
+    const prevStartDate = getUtcInstantForCalendarDate(
+      previousStartDateString,
+      clinicTimezone,
+    );
+    const previousEndDate = startDate;
+    const { todayStart, todayEnd } = boundaries;
     const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    function dateKey(d: Date) { return d.toISOString().substring(0, 10); }
+    function dateKey(d: Date) {
+      return getCalendarDateInTimezone(d, clinicTimezone);
+    }
     function weekKey(d: Date) {
-      const c = new Date(d); c.setDate(c.getDate() - c.getDay());
-      return c.toISOString().substring(0, 10);
+      const localDate = dateKey(d);
+      const localCivilDate = civilDate(localDate);
+      const daysFromMonday = (localCivilDate.getUTCDay() + 6) % 7;
+      return toCivilDate(addDays(localCivilDate, -daysFromMonday));
     }
     function monthLabel(d: Date) {
+      const localDate = dateKey(d);
+      const year = localDate.slice(0, 4);
+      const month = Number(localDate.slice(5, 7)) - 1;
       const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return `${mo[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
+      return `${mo[month]} '${year.slice(2)}`;
     }
 
     // Fetch both current and previous period data for comparisons
@@ -2714,20 +2752,38 @@ export class DatabaseStorage implements IStorage {
       await Promise.all([
         db.select({ booking: bookings, slot: slots })
           .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
-          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            gte(slots.startTime, startDate),
+          )),
 
         db.select({ booking: bookings, slot: slots })
           .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
-          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, prevStartDate), lt(slots.startTime, startDate))),
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            gte(slots.startTime, prevStartDate),
+            lt(slots.startTime, previousEndDate),
+          )),
 
         db.select().from(slots)
-          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            gte(slots.startTime, startDate),
+          )),
 
         db.select().from(patientBills)
-          .where(and(eq(patientBills.clinicId, clinicId), gte(patientBills.createdAt as any, startDate))),
+          .where(and(
+            eq(patientBills.clinicId, clinicId),
+            gte(patientBills.createdAt as any, startDate),
+            lt(patientBills.createdAt as any, now),
+          )),
 
         db.select().from(patientBills)
-          .where(and(eq(patientBills.clinicId, clinicId), gte(patientBills.createdAt as any, prevStartDate), lt(patientBills.createdAt as any, startDate))),
+          .where(and(
+            eq(patientBills.clinicId, clinicId),
+            gte(patientBills.createdAt as any, prevStartDate),
+            lt(patientBills.createdAt as any, previousEndDate),
+          )),
 
         db.select().from(patients).where(eq(patients.clinicId, clinicId)),
 
@@ -2755,11 +2811,13 @@ export class DatabaseStorage implements IStorage {
 
     // Booking cancellations (not slot cancellations)
     const bookingCancellations = bookingRows.filter(r =>
-      r.booking.verificationStatus === 'cancelled' || r.booking.verificationStatus === 'no_show'
+      normalizeConfirmationStatus(r.booking.verificationStatus).value === 'cancelled'
     ).length;
 
     // No-shows
-    const noShowCount = bookingRows.filter(r => r.booking.verificationStatus === 'no_show').length;
+    const noShowCount = bookingRows.filter(r =>
+      normalizeConfirmationStatus(r.booking.verificationStatus).value === 'no_show'
+    ).length;
     const noShowRate  = totalBookings > 0 ? Math.round((noShowCount / totalBookings) * 100) : 0;
 
     const trendMap = new Map<string, number>();
@@ -2855,11 +2913,27 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => b.count - a.count).slice(0, 6);
 
     // Conversion funnel counts
-    const confirmedCount     = bookingRows.filter(r => r.booking.verificationStatus === 'verified' || r.booking.verificationStatus === 'confirmed').length;
-    const checkedInCount       = bookingRows.filter(r => r.booking.visitStatus === 'checked_in' || r.booking.checkedInAt !== null).length;
-    const treatmentDoneCount   = bookingRows.filter(r => r.booking.visitStatus === 'treatment_completed').length;
-    const visitCompletedCount  = bookingRows.filter(r => r.booking.visitStatus === 'completed').length;
-    const billsPaidCount     = paidBills.length;
+    const confirmedCount = bookingRows.filter(r =>
+      isConfirmedBooking({ ...r.booking, startTime: r.slot.startTime })
+    ).length;
+    const checkedInCount = bookingRows.filter(r =>
+      r.booking.checkedInAt !== null ||
+      isActiveVisit({ ...r.booking, startTime: r.slot.startTime })
+    ).length;
+    const startedVisitCount = bookingRows.filter(r =>
+      isStartedPatientVisitStatus(normalizeVisitStatus(r.booking.visitStatus).value)
+    ).length;
+    const treatmentDoneCount = bookingRows.filter(r =>
+      normalizeVisitStatus(r.booking.visitStatus).value === 'treatment_completed'
+    ).length;
+    const visitCompletedCount = bookingRows.filter(r =>
+      normalizeVisitStatus(r.booking.visitStatus).value === 'completed'
+    ).length;
+    const earlyExitCount = bookingRows.filter(r =>
+      isTerminalBooking({ ...r.booking, startTime: r.slot.startTime }) &&
+      normalizeVisitStatus(r.booking.visitStatus).value === 'patient_left_early'
+    ).length;
+    const billsPaidCount = paidBills.length;
 
     // ── Patients ──────────────────────────────────────────────────────────────
     const totalPatients  = patientRows.length;
@@ -2942,8 +3016,13 @@ export class DatabaseStorage implements IStorage {
           booked: totalBookings,
           confirmed: confirmedCount,
           checkedIn: checkedInCount,
+          startedVisits: startedVisitCount,
           treatmentDone: treatmentDoneCount,
           visitCompleted: visitCompletedCount,
+          completedPatientVisits: bookingRows.filter(r =>
+            isCompletedPatientVisit({ ...r.booking, startTime: r.slot.startTime })
+          ).length,
+          earlyExits: earlyExitCount,
           billsPaid: billsPaidCount,
         },
       },

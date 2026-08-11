@@ -104,8 +104,11 @@ export interface AnalyticsFunnel {
   booked: number;
   confirmed: number;
   checkedIn: number;
+  startedVisits?: number;
   treatmentDone: number;
   visitCompleted: number;
+  completedPatientVisits?: number;
+  earlyExits?: number;
   billsPaid: number;
 }
 

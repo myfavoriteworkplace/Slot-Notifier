@@ -510,8 +510,14 @@ export default function ClinicAnalyticsPanel() {
                 { label: 'Booked', value: appointments.funnel.booked, color: 'bg-slate-400' },
                 { label: 'Confirmed', value: appointments.funnel.confirmed, color: 'bg-violet-400' },
                 { label: 'Checked In', value: appointments.funnel.checkedIn, color: 'bg-blue-400' },
+                ...(appointments.funnel.startedVisits !== undefined
+                  ? [{ label: 'Started Visits', value: appointments.funnel.startedVisits, color: 'bg-cyan-400' }]
+                  : []),
                 { label: 'Treatment Done', value: appointments.funnel.treatmentDone, color: 'bg-emerald-400' },
                 { label: 'Visit Completed', value: appointments.funnel.visitCompleted, color: 'bg-emerald-500' },
+                ...(appointments.funnel.earlyExits !== undefined
+                  ? [{ label: 'Early Exits', value: appointments.funnel.earlyExits, color: 'bg-amber-400' }]
+                  : []),
                 { label: 'Bills Paid', value: appointments.funnel.billsPaid, color: 'bg-emerald-600' },
               ].map((step, idx) => {
                 const max = appointments.funnel.booked || 1;
