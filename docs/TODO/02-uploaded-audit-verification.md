@@ -92,7 +92,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
 | Phase 4 | Build and unit-test the pure booking classifier | **Completed** | **No — pure policy module and tests only; no UI, server query, or transition behavior changed** |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | **Completed** | **Yes — client lifecycle interpretation and action visibility now use the shared classifier** |
-| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–5 complete** | **Yes — server predicates, booking filters, and clinic/doctor counts aligned; remaining Phase 6 work is pending** |
+| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–6 complete** | **Yes — server predicates, booking filters, clinic/doctor counts, and clinic-timezone boundaries aligned; remaining Phase 6 work is pending** |
 | Phase 7 | Add server-side transition/action guards | Not started | No |
 | Phase 8 | Complete responsive UI verification and rollout checks | Not started | No |
 
@@ -255,7 +255,7 @@ Known follow-up risks:
   - Existing build warnings about large chunks and stale Browserslist data remain outside Phase 2 scope.
 ```
 
-Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, Phase 4 completed the pure classifier and state-matrix tests, and Phase 5 migrated the client lifecycle interpretation. Phase 6 is now partially complete: server predicate, filter, and clinic/doctor count alignment Steps 1–5 are done. The remaining Phase 6 work, Phase 7, and Phase 8 are still pending.
+Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, Phase 4 completed the pure classifier and state-matrix tests, and Phase 5 migrated the client lifecycle interpretation. Phase 6 is now partially complete: server predicate, filter, clinic/doctor count alignment, and clinic-timezone boundary Steps 1–6 are done. The remaining Phase 6 work, Phase 7, and Phase 8 are still pending.
 
 ---
 
@@ -1635,11 +1635,11 @@ Create reusable server-side predicates for shared lifecycle meaning, then compos
 - Null and legacy visit states are handled consistently.
 - SQL filtering remains paginated and ownership-safe.
 
-### Phase 6 progress record — Steps 1–5 completed
+### Phase 6 progress record — Steps 1–6 completed
 
 #### Completed work
 
-The first five independent Phase 6 steps are complete:
+The first six independent Phase 6 steps are complete:
 
 1. **Added reusable server booking predicates**
    - Added `server/booking-predicates.ts`.
@@ -1678,38 +1678,82 @@ The first five independent Phase 6 steps are complete:
      and total pending counts.
    - Pending counts exclude terminal and completed visit states.
 
+6. **Aligned clinic timezone boundaries**
+   - Added a validated IANA timezone field to clinics with the documented
+     `Asia/Kolkata` fallback.
+   - Added idempotent startup checks for the clinic timezone column.
+   - Updated server booking boundaries and date-range filters to convert
+     clinic-local calendar dates into database timestamp instants.
+   - Clinic and doctor booking queries now resolve the relevant clinic
+     timezone before calculating today, upcoming, past, week, and date-range
+     boundaries.
+
 #### Verification completed
 
-- `npm run check` — passed.
+- `npm run check` — currently blocked by pre-existing missing `compression` and
+  `multer` packages/type declarations; no new TypeScript errors were reported
+  from the Phase 6 timezone changes.
 - `npm run build` — passed.
 - Build Check workflow — finished successfully.
-- Start application workflow — restarted successfully and is running.
-- `npx tsx --test shared/booking-status.test.ts client/src/lib/booking-list.test.ts`
-  — 15 passed, 0 failed.
+- Start application workflow — currently blocked before startup because the
+  runtime cannot resolve the missing `compression` package. `multer` is also
+  missing from the installed dependency/type baseline.
+- `npx tsx --test shared/booking-status.test.ts` — 11 passed, 0 failed.
+- Timezone boundary smoke test — passed for `Asia/Kolkata` and invalid-timezone
+  fallback behavior.
 - Server predicate smoke test — passed for confirmed, pending, no-show,
   treatment-completed, null approval, and date-boundary cases.
 - `git diff --check` — passed.
-- No database schema changes were made.
+- The clinic timezone column is an idempotent schema/startup addition; no
+  booking data migration or status-value rewrite was made.
 
 #### Remaining Phase 6 work
 
 Phase 6 is not complete yet. The following items remain pending:
 
-- **Clinic timezone alignment:** **Completed for Phase 6 Step 1.** Clinics now
-  have a validated IANA timezone with an `Asia/Kolkata` fallback; server date
-  boundaries and booking date-range filters resolve clinic-local calendar dates
-  into database timestamp instants. Analytics still needs to consume these
-  boundaries as part of the remaining analytics work.
-- **Analytics alignment:** `getClinicAnalytics()` still contains independent
-  raw status comparisons and has not yet been migrated to the shared server
-  lifecycle predicates.
-- **Patient history metadata:** `getPatientHistory()` still returns raw
-  booking records without the canonical lifecycle/date metadata required by
-  the Phase 6 plan.
-- **Dedicated server tests:** the new server predicate and statistics layer
-  still needs a committed state-matrix test suite covering null, legacy,
-  terminal, active, completed, early-exit, doctor approval, old-date, and
-  same-day cases.
+- **Step 7 — Align clinic analytics**
+  - Update `getClinicAnalytics()` in `server/storage.ts`.
+  - Replace independent raw status comparisons with the shared predicates
+    from `server/booking-predicates.ts`.
+  - Reuse the clinic-timezone date boundaries for current, previous, daily,
+    weekly, and monthly analytics periods.
+  - Preserve separate measures for completed patient visits, started visits,
+    early exits, cancellations, and no-shows.
+  - Keep the existing analytics response shape compatible with its client.
+
+- **Step 8 — Add canonical metadata to patient history**
+  - Update `getPatientHistory()` in `server/storage.ts`.
+  - Keep the query ownership-safe and independent of dashboard pagination,
+    tabs, and search filters.
+  - Attach normalized confirmation, doctor-approval, and visit statuses.
+  - Attach canonical date/lifecycle metadata using the clinic timezone,
+    including today, past, upcoming, old, active, completed, terminal, and
+    early-exit meanings.
+  - Preserve the existing bills and clinical-record results.
+
+- **Step 9 — Add dedicated server predicate/statistics tests**
+  - Add a committed server test suite for `server/booking-predicates.ts`.
+  - Cover null and legacy values, terminal states, active visits,
+    treatment-completed, completed, early exit, doctor approval, old dates,
+    same-day boundaries, UTC-midnight cases, and non-default IANA timezones.
+  - Verify clinic and doctor statistics independently, including completed,
+    started, early-exit, pending, confirmed, upcoming, past, and approval
+    counts.
+  - Run the server tests together with the shared status and booking-list
+    tests in the normal validation sequence.
+
+### Recommended Phase 6 execution order
+
+1. Complete Step 7 first, because analytics currently has the largest
+   independent interpretation of booking status and date meaning.
+2. Complete Step 8 next, reusing the same metadata contract without making
+   patient history depend on a filtered booking-list query.
+3. Complete Step 9 last, using the final predicate/statistics contracts to
+   lock the state matrix and prevent future count drift.
+
+The missing `compression` and `multer` dependencies currently prevent the
+Start application workflow and `npm run check`; this is an environment and
+dependency-baseline issue outside the remaining Phase 6 implementation steps.
 
 The existing startup seed warning concerning a malformed PostgreSQL array
 literal is unrelated to Phase 6 and remains outside this implementation
