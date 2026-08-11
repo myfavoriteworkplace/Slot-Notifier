@@ -349,6 +349,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     billingCycle: "monthly",
     razorpaySubscriptionId: null,
     storageLimitBytes: null,
+    timezone: "Asia/Kolkata",
     websiteConfig: { theme: "classic" },
     defaultSlotConfig: { isClosed: false, sections: {} },
   };

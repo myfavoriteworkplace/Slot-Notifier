@@ -35,6 +35,7 @@ import {
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne, inArray } from "drizzle-orm";
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import { getUtcInstantForCalendarDate, resolveClinicTimezone } from "@shared/booking-status";
 import {
   activeVisitCondition,
   calculateClinicBookingStats,
@@ -639,7 +640,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClinicBookingStats(clinicId: number): Promise<BookingStats> {
-    const boundaries = createBookingDateBoundaries();
+    const clinic = await this.getClinic(Number(clinicId));
+    const boundaries = createBookingDateBoundaries(
+      new Date(),
+      resolveClinicTimezone(clinic?.timezone),
+    );
 
     const statRows = await db.select({
       startTime: slots.startTime,
@@ -659,8 +664,13 @@ export class DatabaseStorage implements IStorage {
 
     // Use client-supplied todayDate if present so all pages in the same session share
     // the same future/past boundary even when a request crosses midnight.
+    const clinic = await this.getClinic(Number(clinicId));
+    const clinicTimezone = resolveClinicTimezone(clinic?.timezone);
     const boundaries = createBookingDateBoundaries(
-      todayDate ? new Date(todayDate + 'T00:00:00') : new Date(),
+      todayDate
+        ? getUtcInstantForCalendarDate(todayDate, clinicTimezone)
+        : new Date(),
+      clinicTimezone,
     );
     const {
       todayStr,
@@ -729,8 +739,12 @@ export class DatabaseStorage implements IStorage {
     // Date range condition — always applied ON TOP OF the active tab filter
     let dateRangeCond;
     if (dateFrom || dateTo) {
-      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
-      const to = dateTo ? endOfDay(new Date(dateTo)) : undefined;
+      const from = dateFrom
+        ? getUtcInstantForCalendarDate(dateFrom, clinicTimezone)
+        : undefined;
+      const to = dateTo
+        ? getUtcInstantForCalendarDate(dateTo, clinicTimezone, true)
+        : undefined;
       if (from && to) dateRangeCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
       else if (from) dateRangeCond = gte(slots.startTime, from);
       else if (to) dateRangeCond = lte(slots.startTime, to);
@@ -844,8 +858,13 @@ export class DatabaseStorage implements IStorage {
 
     // Use client-supplied todayDate if present so all pages in the same session share
     // the same future/past boundary even when a request crosses midnight.
+    const clinic = clinicId ? await this.getClinic(Number(clinicId)) : undefined;
+    const clinicTimezone = resolveClinicTimezone(clinic?.timezone);
     const boundaries = createBookingDateBoundaries(
-      todayDate ? new Date(todayDate + 'T00:00:00') : new Date(),
+      todayDate
+        ? getUtcInstantForCalendarDate(todayDate, clinicTimezone)
+        : new Date(),
+      clinicTimezone,
     );
     const {
       todayStr,
@@ -937,8 +956,12 @@ export class DatabaseStorage implements IStorage {
     // Date range condition — always applied ON TOP OF the active tab filter
     let dateRangeCond;
     if (dateFrom || dateTo) {
-      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
-      const to   = dateTo   ? endOfDay(new Date(dateTo))     : undefined;
+      const from = dateFrom
+        ? getUtcInstantForCalendarDate(dateFrom, clinicTimezone)
+        : undefined;
+      const to = dateTo
+        ? getUtcInstantForCalendarDate(dateTo, clinicTimezone, true)
+        : undefined;
       if (from && to) dateRangeCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
       else if (from)  dateRangeCond = gte(slots.startTime, from);
       else            dateRangeCond = lte(slots.startTime, to!);

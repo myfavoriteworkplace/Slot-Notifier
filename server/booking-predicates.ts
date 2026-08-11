@@ -10,12 +10,16 @@ import {
 } from "drizzle-orm";
 import {
   createBusinessDateContext,
+  DEFAULT_CLINIC_TIMEZONE,
+  getCalendarDateInTimezone,
+  getUtcInstantForCalendarDate,
   normalizeConfirmationStatus,
   normalizeDoctorApprovalStatus,
   normalizeVisitStatus,
+  resolveClinicTimezone,
   type BusinessDateContext,
 } from "@shared/booking-status";
-import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import { addDays, addWeeks, startOfWeek } from "date-fns";
 import { bookings } from "@shared/schema";
 
 /**
@@ -63,22 +67,65 @@ export interface BookingStatsSnapshot {
   patientTotalCount?: number;
 }
 
-export function createBookingDateBoundaries(now = new Date()): BookingDateBoundaries {
+export function createBookingDateBoundaries(
+  now = new Date(),
+  timezone: string = DEFAULT_CLINIC_TIMEZONE,
+): BookingDateBoundaries {
   const contextNow = new Date(now.getTime());
-  const todayStart = startOfDay(contextNow);
+  const resolvedTimezone = resolveClinicTimezone(timezone);
+  const todayStr = getCalendarDateInTimezone(contextNow, resolvedTimezone);
+  const todayCivilDate = new Date(`${todayStr}T00:00:00.000Z`);
+  const tomorrowCivilDate = addDays(todayCivilDate, 1);
+  const thisWeekCivilStart = startOfWeek(todayCivilDate, { weekStartsOn: 1 });
+  const nextWeekCivilStart = startOfWeek(addWeeks(todayCivilDate, 1), { weekStartsOn: 1 });
+  const formatCivilDate = (value: Date) => value.toISOString().slice(0, 10);
+  const todayStart = getUtcInstantForCalendarDate(todayStr, resolvedTimezone);
+  const tomorrowStart = getUtcInstantForCalendarDate(
+    formatCivilDate(tomorrowCivilDate),
+    resolvedTimezone,
+  );
+  const thisWeekStart = getUtcInstantForCalendarDate(
+    formatCivilDate(thisWeekCivilStart),
+    resolvedTimezone,
+  );
+  const nextWeekStart = getUtcInstantForCalendarDate(
+    formatCivilDate(nextWeekCivilStart),
+    resolvedTimezone,
+  );
+  const thisWeekEnd = new Date(
+    getUtcInstantForCalendarDate(
+      formatCivilDate(addDays(thisWeekCivilStart, 6)),
+      resolvedTimezone,
+      true,
+    ).getTime(),
+  );
+  const nextWeekEnd = new Date(
+    getUtcInstantForCalendarDate(
+      formatCivilDate(addDays(nextWeekCivilStart, 6)),
+      resolvedTimezone,
+      true,
+    ).getTime(),
+  );
+  const todayEnd = new Date(
+    tomorrowStart.getTime() - 1,
+  );
+  const next7DaysEnd = getUtcInstantForCalendarDate(
+    formatCivilDate(addDays(todayCivilDate, 7)),
+    resolvedTimezone,
+  );
 
   return {
     now: contextNow,
-    todayStr: format(contextNow, "yyyy-MM-dd"),
+    todayStr,
     todayStart,
-    todayEnd: endOfDay(contextNow),
-    tomorrowStart: startOfDay(addDays(contextNow, 1)),
-    thisWeekStart: startOfWeek(contextNow, { weekStartsOn: 1 }),
-    thisWeekEnd: endOfWeek(contextNow, { weekStartsOn: 1 }),
-    nextWeekStart: startOfWeek(addWeeks(contextNow, 1), { weekStartsOn: 1 }),
-    nextWeekEnd: endOfWeek(addWeeks(contextNow, 1), { weekStartsOn: 1 }),
-    next7DaysEnd: addDays(todayStart, 7),
-    context: createBusinessDateContext(contextNow),
+    todayEnd,
+    tomorrowStart,
+    thisWeekStart,
+    thisWeekEnd,
+    nextWeekStart,
+    nextWeekEnd,
+    next7DaysEnd,
+    context: createBusinessDateContext(contextNow, resolvedTimezone),
   };
 }
 
@@ -238,7 +285,7 @@ export function calculateClinicBookingStats(
 
   for (const row of rows) {
     const date = statusDate(row);
-    const dateStr = format(date, "yyyy-MM-dd");
+    const dateStr = getCalendarDateInTimezone(date, boundaries.context.timezone);
     const confirmed = isConfirmedBooking(row);
     const pending = isPendingBooking(row);
     const nonTerminal = !isTerminalBooking(row);
@@ -289,7 +336,7 @@ export function calculateDoctorBookingStats(
 
   for (const row of rows) {
     const date = statusDate(row);
-    const dateStr = format(date, "yyyy-MM-dd");
+    const dateStr = getCalendarDateInTimezone(date, boundaries.context.timezone);
     const approved = isDoctorApprovedBooking(row);
     const awaiting = isAwaitingDoctorApproval(row, boundaries);
     const confirmed = isConfirmedBooking(row);

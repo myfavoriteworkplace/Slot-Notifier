@@ -61,6 +61,7 @@ export const clinics = pgTable("clinics", {
   trustScore: integer("trust_score").default(0),
   plan: varchar("plan", { length: 20 }).default("starter"),
   storageLimitBytes: integer("storage_limit_bytes"),
+  timezone: varchar("timezone", { length: 100 }).notNull().default("Asia/Kolkata"),
   subscriptionStatus: varchar("subscription_status", { length: 20 }).default("unpaid"), // unpaid, active, expired
   billingCycle: varchar("billing_cycle", { length: 10 }).default("monthly"), // monthly, annual
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),

@@ -267,6 +267,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='default_slot_config') THEN
             ALTER TABLE clinics ADD COLUMN default_slot_config jsonb;
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='timezone') THEN
+            ALTER TABLE clinics ADD COLUMN timezone varchar(100) NOT NULL DEFAULT 'Asia/Kolkata';
+          END IF;
         END $$;
       `);
       log("clinics columns verified/updated", "system");

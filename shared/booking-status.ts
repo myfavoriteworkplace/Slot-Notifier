@@ -220,6 +220,34 @@ export interface BusinessDateContext {
   timezone: string;
 }
 
+/**
+ * Validate an IANA timezone without allowing an invalid value to break
+ * booking classification. Intl is the runtime source of truth for supported
+ * timezone identifiers.
+ */
+export function isValidIanaTimezone(timezone: string): boolean {
+  if (!timezone.trim()) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve a clinic timezone at the boundary of the booking policy. Existing
+ * clinics and malformed legacy values use the documented default.
+ */
+export function resolveClinicTimezone(
+  timezone?: string | null,
+): string {
+  const candidate = timezone?.trim();
+  return candidate && isValidIanaTimezone(candidate)
+    ? candidate
+    : DEFAULT_CLINIC_TIMEZONE;
+}
+
 function assertValidDate(date: Date): void {
   if (Number.isNaN(date.getTime())) {
     throw new RangeError("Invalid date supplied to booking date context");
@@ -255,17 +283,84 @@ export function getCalendarDateInTimezone(
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
+function getTimeZoneOffsetMs(value: Date, timezone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    calendar: "gregory",
+    numberingSystem: "latn",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(value);
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]),
+  ) as Record<string, number>;
+
+  const asUtc = Date.UTC(
+    values.year,
+    values.month - 1,
+    values.day,
+    values.hour,
+    values.minute,
+    values.second,
+  );
+  return asUtc - value.getTime();
+}
+
+/**
+ * Convert a clinic-local calendar date/time into the UTC instant used by the
+ * database timestamp comparisons. The second pass handles DST transitions.
+ */
+export function getUtcInstantForCalendarDate(
+  calendarDate: string,
+  timezone: string = DEFAULT_CLINIC_TIMEZONE,
+  endOfDay = false,
+): Date {
+  const resolvedTimezone = resolveClinicTimezone(timezone);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(calendarDate);
+  if (!match) {
+    throw new RangeError(`Invalid calendar date: ${calendarDate}`);
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = endOfDay ? 23 : 0;
+  const minute = endOfDay ? 59 : 0;
+  const second = endOfDay ? 59 : 0;
+  const millisecond = endOfDay ? 999 : 0;
+  const wallClockAsUtc = new Date(
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond),
+  );
+
+  let instant = new Date(
+    wallClockAsUtc.getTime() - getTimeZoneOffsetMs(wallClockAsUtc, resolvedTimezone),
+  );
+  instant = new Date(
+    wallClockAsUtc.getTime() - getTimeZoneOffsetMs(instant, resolvedTimezone),
+  );
+  return instant;
+}
+
 export function createBusinessDateContext(
   now: Date = new Date(),
   timezone: string = DEFAULT_CLINIC_TIMEZONE,
 ): BusinessDateContext {
   assertValidDate(now);
   const contextNow = new Date(now.getTime());
+  const resolvedTimezone = resolveClinicTimezone(timezone);
 
   return {
     now: contextNow,
-    currentDate: getCalendarDateInTimezone(contextNow, timezone),
-    timezone,
+    currentDate: getCalendarDateInTimezone(contextNow, resolvedTimezone),
+    timezone: resolvedTimezone,
   };
 }
 

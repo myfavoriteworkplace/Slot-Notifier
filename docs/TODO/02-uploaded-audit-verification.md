@@ -1695,9 +1695,11 @@ The first five independent Phase 6 steps are complete:
 
 Phase 6 is not complete yet. The following items remain pending:
 
-- **Clinic timezone alignment:** server date boundaries still need to use one
-  validated clinic business timezone across standalone stats, paginated lists,
-  and all date-based counts.
+- **Clinic timezone alignment:** **Completed for Phase 6 Step 1.** Clinics now
+  have a validated IANA timezone with an `Asia/Kolkata` fallback; server date
+  boundaries and booking date-range filters resolve clinic-local calendar dates
+  into database timestamp instants. Analytics still needs to consume these
+  boundaries as part of the remaining analytics work.
 - **Analytics alignment:** `getClinicAnalytics()` still contains independent
   raw status comparisons and has not yet been migrated to the shared server
   lifecycle predicates.

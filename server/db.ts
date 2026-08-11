@@ -246,6 +246,7 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "subscription_status" varchar(20) DEFAULT 'unpaid';
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "billing_cycle" varchar(10) DEFAULT 'monthly';
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "razorpay_subscription_id" varchar(255);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "timezone" varchar(100) NOT NULL DEFAULT 'Asia/Kolkata';
     `);
     console.log("[DATABASE] Clinic extended columns ready.");
   } catch (err: any) {
