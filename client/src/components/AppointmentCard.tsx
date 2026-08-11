@@ -881,16 +881,24 @@ export function AppointmentCard({
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
             <span className="font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
-            {/* Relative badge — same line as date */}
-            {!isPast && !isTerminal && (() => {
+            {/* Relative time badge — timing colour is independent from booking status */}
+            {(() => {
               const d = differenceInCalendarDays(startTime, new Date());
-              const lbl = isToday ? "Today" : d === 1 ? "Tomorrow" : `in ${d}d`;
-              const cls = isToday
-                ? "text-sky-600 bg-sky-50 dark:text-sky-400 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20"
-                : d === 1
-                ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
-                : "text-muted-foreground bg-muted/50 border-border/50";
-              return <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${cls}`}>{lbl}</span>;
+              const timeBadge = isToday
+                ? {
+                    label: "Today",
+                    cls: "text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-500/15 border-sky-200 dark:border-sky-500/30",
+                  }
+                : isPast
+                ? {
+                    label: "Past",
+                    cls: "text-slate-600 bg-slate-50 dark:text-slate-300 dark:bg-slate-500/15 border-slate-200 dark:border-slate-500/30",
+                  }
+                : {
+                    label: d === 1 ? "Tomorrow" : `in ${d}d`,
+                    cls: "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30",
+                  };
+              return <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${timeBadge.cls}`}>{timeBadge.label}</span>;
             })()}
             <span className="text-muted-foreground font-medium shrink-0">
               {format(startTime, "h:mm a")}

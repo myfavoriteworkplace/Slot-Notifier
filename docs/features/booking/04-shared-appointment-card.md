@@ -46,7 +46,15 @@ The card deliberately separates two visual dimensions:
 - The top accent bar represents timing: past, today, or future.
 - The left border/status treatment represents lifecycle state.
 
-Typical state colours are:
+Timing badges use a separate colour system from lifecycle status:
+
+| Timing label | Visual treatment |
+| --- | --- |
+| Today | Sky blue |
+| Tomorrow / `in Nd` | Emerald/teal |
+| Past | Slate grey |
+
+Typical lifecycle state colours are:
 
 | State | Visual treatment |
 | --- | --- |
