@@ -92,7 +92,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
 | Phase 4 | Build and unit-test the pure booking classifier | **Completed** | **No — pure policy module and tests only; no UI, server query, or transition behavior changed** |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | **Completed** | **Yes — client lifecycle interpretation and action visibility now use the shared classifier** |
-| Phase 6 | Align server filters, counts, and statistics | Not started | No |
+| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–5 complete** | **Yes — server predicates, booking filters, and clinic/doctor counts aligned; remaining Phase 6 work is pending** |
 | Phase 7 | Add server-side transition/action guards | Not started | No |
 | Phase 8 | Complete responsive UI verification and rollout checks | Not started | No |
 
@@ -255,7 +255,7 @@ Known follow-up risks:
   - Existing build warnings about large chunks and stale Browserslist data remain outside Phase 2 scope.
 ```
 
-Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, and Phase 4 has now completed the pure classifier and state-matrix tests. Phases 5 through 8 remain not started.
+Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, Phase 4 completed the pure classifier and state-matrix tests, and Phase 5 migrated the client lifecycle interpretation. Phase 6 is now partially complete: server predicate, filter, and clinic/doctor count alignment Steps 1–5 are done. The remaining Phase 6 work, Phase 7, and Phase 8 are still pending.
 
 ---
 
@@ -1634,6 +1634,84 @@ Create reusable server-side predicates for shared lifecycle meaning, then compos
 - Upcoming, pending, past, terminal, and completed definitions are aligned.
 - Null and legacy visit states are handled consistently.
 - SQL filtering remains paginated and ownership-safe.
+
+### Phase 6 progress record — Steps 1–5 completed
+
+#### Completed work
+
+The first five independent Phase 6 steps are complete:
+
+1. **Added reusable server booking predicates**
+   - Added `server/booking-predicates.ts`.
+   - Centralized confirmed, pending, terminal, active, completed,
+     treatment-completed, doctor-approved, and awaiting-approval meanings.
+   - Added shared clinic and doctor statistics calculators.
+   - Preserved role visibility separately from lifecycle meaning.
+
+2. **Aligned clinic paginated filters**
+   - Updated `getClinicBookingsPaged()` in `server/storage.ts`.
+   - Reused the shared predicates for upcoming, pending, confirmed,
+     in-clinic, and completed filters.
+   - Completed and treatment-completed visits are no longer counted as
+     upcoming.
+   - Cancelled, no-show, and patient-left-early records are treated as
+     terminal for these list definitions.
+
+3. **Aligned clinic statistics**
+   - Updated `getClinicBookingStats()`.
+   - Updated the statistics embedded in `getClinicBookingsPaged()`.
+   - Both paths now use the same clinic statistics calculation, removing the
+     previous difference between standalone clinic counts and paginated counts.
+
+4. **Aligned doctor paginated filters**
+   - Updated `getDoctorBookingsPaged()` in `server/storage.ts`.
+   - Preserved doctor assignment and approval visibility as role-specific
+     rules.
+   - Reused shared lifecycle predicates for today, upcoming, past, owned,
+     awaiting approval, pending, confirmed, in-clinic, and completed filters.
+   - Null doctor approval values are handled as unassigned instead of being
+     silently excluded by SQL `NULL` comparison behavior.
+
+5. **Aligned doctor statistics**
+   - Doctor totals now use the shared statistics calculator.
+   - Aligned owned, awaiting approval, pending, confirmed, upcoming, past,
+     and total pending counts.
+   - Pending counts exclude terminal and completed visit states.
+
+#### Verification completed
+
+- `npm run check` — passed.
+- `npm run build` — passed.
+- Build Check workflow — finished successfully.
+- Start application workflow — restarted successfully and is running.
+- `npx tsx --test shared/booking-status.test.ts client/src/lib/booking-list.test.ts`
+  — 15 passed, 0 failed.
+- Server predicate smoke test — passed for confirmed, pending, no-show,
+  treatment-completed, null approval, and date-boundary cases.
+- `git diff --check` — passed.
+- No database schema changes were made.
+
+#### Remaining Phase 6 work
+
+Phase 6 is not complete yet. The following items remain pending:
+
+- **Clinic timezone alignment:** server date boundaries still need to use one
+  validated clinic business timezone across standalone stats, paginated lists,
+  and all date-based counts.
+- **Analytics alignment:** `getClinicAnalytics()` still contains independent
+  raw status comparisons and has not yet been migrated to the shared server
+  lifecycle predicates.
+- **Patient history metadata:** `getPatientHistory()` still returns raw
+  booking records without the canonical lifecycle/date metadata required by
+  the Phase 6 plan.
+- **Dedicated server tests:** the new server predicate and statistics layer
+  still needs a committed state-matrix test suite covering null, legacy,
+  terminal, active, completed, early-exit, doctor approval, old-date, and
+  same-day cases.
+
+The existing startup seed warning concerning a malformed PostgreSQL array
+literal is unrelated to Phase 6 and remains outside this implementation
+milestone.
 
 ## Phase 7 — Add server-side transition guards
 
