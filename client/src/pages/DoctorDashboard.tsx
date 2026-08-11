@@ -43,6 +43,7 @@ import { compressImage } from "@/lib/imageCompression";
 import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
+import { classifyClientBooking, createClientBookingDateContext } from "@/lib/booking-classification";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
@@ -298,7 +299,8 @@ export default function DoctorDashboard() {
   // ── Date constants — must be declared BEFORE bookingsQueryKey and useInfiniteQuery
   // which both reference todayStr. Declaring them here avoids a TDZ ReferenceError
   // in the production bundle.
-  const todayStr     = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const bookingDateContext = useMemo(() => createClientBookingDateContext(), []);
+  const todayStr     = bookingDateContext.currentDate;
   const todayStart   = useMemo(() => startOfDay(new Date()), []);
   const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
   const thisWeekEnd   = useMemo(() => endOfWeek(new Date(),   { weekStartsOn: 1 }), []);
@@ -1824,12 +1826,12 @@ export default function DoctorDashboard() {
                       return displayBookings.flatMap((booking: any) => {
                       const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
                       const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
+                      const classification = classifyClientBooking(booking, "doctor", bookingDateContext);
                       const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
                       const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
                       const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
-                      const bookingDateStr = startTime ? startTime.toISOString().split("T")[0] : "";
-                      const isApptToday = bookingDateStr === todayStr;
-                      const isApptPast = startTime ? startTime < new Date(new Date().setHours(0, 0, 0, 0)) && !isApptToday : false;
+                      const isApptToday = classification.isToday;
+                      const isApptPast = classification.isOld;
                       const isApptConfirmed = booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed';
                       const isApptCancelled = booking.verificationStatus === 'cancelled';
                       const clinicCity = clinicAddress ? clinicAddress.split(',').at(-1)?.trim() : null;
@@ -1875,9 +1877,8 @@ export default function DoctorDashboard() {
                               {drGroupCfg.label}
                               <span className="font-black opacity-70">— {displayBookings.filter((b: any) => {
                                 const bt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-                                const bStr = bt ? bt.toISOString().split("T")[0] : "";
-                                const bIsToday = bStr === todayStr;
-                                return (bt && bt < todayStart && !bIsToday ? 1 : 0) === drGroup;
+                                const bClassification = classifyClientBooking(b, "doctor", bookingDateContext);
+                                return (bClassification.isOld ? 1 : 0) === drGroup;
                               }).length}</span>
                             </span>
                             <div className="h-px flex-1 bg-border/50" />
@@ -1887,6 +1888,7 @@ export default function DoctorDashboard() {
                           key={booking.id}
                           role="doctor"
                           booking={booking}
+                          classification={classification}
                           bookingNumber={String(booking.id).padStart(4, '0')}
                           visitNumber={drVisitNumberMap.get(booking.id)?.n}
                           totalVisits={drVisitNumberMap.get(booking.id)?.total}
@@ -3408,17 +3410,8 @@ export default function DoctorDashboard() {
 
                         <AppointmentInfoSection
                           role="doctor"
-                          isPastDue={Date.now() - new Date(b.slot.startTime).getTime() > 2 * 60 * 60 * 1000}
-                          isExpiredConfirmed={new Date(b.slot.startTime) < new Date(new Date().setHours(0, 0, 0, 0)) && (b.verificationStatus === "confirmed" || !!b.confirmedBy)}
-                          isCancelled={b.verificationStatus === "cancelled"}
-                          isNoShow={b.verificationStatus === "no_show"}
-                          isLeftEarly={(b as any).visitStatus === "patient_left_early"}
-                          isVisitCompleted={(b as any).visitStatus === "completed"}
-                          isTreatmentCompleted={(b as any).visitStatus === "treatment_completed"}
-                          isInConsultation={(b as any).visitStatus === "in_consultation"}
-                          isCheckedIn={(b as any).visitStatus === "checked_in"}
+                          classification={classifyClientBooking(b, "doctor", createClientBookingDateContext())}
                           isCheckedInLate={!!b.checkedInAt && new Date(b.checkedInAt) > new Date(b.slot.endTime)}
-                          doctorApprovalPending={b.doctorApprovalStatus === "pending"}
                           cancellationReason={b.cancellationReason}
                           visitCompletionNote={(b as any).visitCompletionNote}
                           billingStatusKnown={false}

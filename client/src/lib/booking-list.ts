@@ -1,5 +1,9 @@
 import { format, startOfDay, endOfDay } from "date-fns";
 import type { BookingWithSlot } from "@/lib/clinic-constants";
+import {
+  classifyClientBooking,
+  createClientBookingDateContext,
+} from "@/lib/booking-classification";
 
 export interface BookingStats {
   todayCount: number;
@@ -42,10 +46,12 @@ export type BookingListFilters = {
 };
 
 function getStatusGroup(booking: BookingWithSlot, todayStart: Date, todayStr: string): number {
-  const d = new Date(booking.slot.startTime);
-  const isPast = d < todayStart && format(d, "yyyy-MM-dd") !== todayStr;
-  if (isPast) return 2;
-  if (booking.verificationStatus === "confirmed" || !!booking.confirmedBy) return 1;
+  const classification = classifyClientBooking(booking, "clinic", {
+    ...createClientBookingDateContext(todayStart),
+    currentDate: todayStr,
+  });
+  if (classification.isOld) return 2;
+  if (classification.isConfirmed) return 1;
   return 0;
 }
 
@@ -56,9 +62,8 @@ function getStatusGroup(booking: BookingWithSlot, todayStart: Date, todayStr: st
  * server-side CASE WHEN sort order.
  */
 export function getTimeGroup(booking: BookingWithSlot, todayStart: Date): number {
-  const d = new Date(booking.slot.startTime);
-  const isPast = d < todayStart && format(d, "yyyy-MM-dd") !== format(todayStart, "yyyy-MM-dd");
-  return isPast ? 1 : 0;
+  const classification = classifyClientBooking(booking, "clinic", createClientBookingDateContext(todayStart));
+  return classification.isOld ? 1 : 0;
 }
 
 export function getBookingDisplayMeta({
@@ -70,13 +75,15 @@ export function getBookingDisplayMeta({
   todayStart: Date;
   todayStr: string;
 }) {
-  const bookingDateTime = new Date(booking.slot.startTime);
-  const bookingDateStr = format(bookingDateTime, "yyyy-MM-dd");
-  const isBookingToday = bookingDateStr === todayStr;
-  const isBookingPast = bookingDateTime < todayStart && !isBookingToday;
-  const isConfirmed = booking.verificationStatus === "confirmed" || !!booking.confirmedBy;
-  const isCancelled = booking.verificationStatus === "cancelled";
-  const isPending = !isConfirmed && !isBookingPast;
+  const classification = classifyClientBooking(booking, "clinic", {
+    ...createClientBookingDateContext(todayStart),
+    currentDate: todayStr,
+  });
+  const isBookingToday = classification.isToday;
+  const isBookingPast = classification.isOld;
+  const isConfirmed = classification.isConfirmed;
+  const isCancelled = classification.normalizedLifecycle === "cancelled";
+  const isPending = classification.normalizedLifecycle === "pending_not_started" && !isBookingPast;
 
   return {
     group: getStatusGroup(booking, todayStart, todayStr),
@@ -106,29 +113,21 @@ export type BookingActionState = {
 };
 
 export function getBookingActionState({ booking }: { booking: BookingWithSlot }): BookingActionState {
-  const isCancelled = booking.verificationStatus === "cancelled";
-  const isNoShow = booking.verificationStatus === "no_show";
-  const isLeftEarly = booking.visitStatus === "patient_left_early";
-  const isCompleted = booking.visitStatus === "completed";
-  const isTreatmentCompleted = booking.visitStatus === "treatment_completed";
-  const isInConsultation = booking.visitStatus === "in_consultation";
-  const isCheckedIn = booking.visitStatus === "checked_in";
-  const isTerminal = isCancelled || isNoShow || isLeftEarly;
-  const isAlreadyConfirmed = booking.verificationStatus === "confirmed" || !!booking.confirmedBy;
+  const actions = classifyClientBooking(booking, "clinic").actions;
 
   return {
-    canConfirm: !isTerminal && !isCompleted && !isTreatmentCompleted && !isInConsultation && !isCheckedIn && !isAlreadyConfirmed,
-    canCancel: !isTerminal && !isCompleted,
-    canCheckIn: !isTerminal && !isCompleted && !isTreatmentCompleted && !isInConsultation && !isCheckedIn,
-    canCompleteVisit: !isTerminal && !isCompleted && (isTreatmentCompleted || isInConsultation || isCheckedIn),
-    canNoShow: !isTerminal && !isCompleted && !isTreatmentCompleted && !isInConsultation && !isCheckedIn,
-    canSendReminder: !isTerminal && !isCompleted,
-    canOverrideComplete: !isTerminal && !isCompleted && !isTreatmentCompleted,
-    canPatientLeftEarly: !isTerminal && !isCompleted && (isInConsultation || isCheckedIn),
-    canAssignDoctor: !isTerminal && !isCompleted,
-    canRequestConsent: !isTerminal && !isCompleted,
-    canReschedule: !isTerminal && !isCompleted,
-    canUpdateClinicalStatus: !isTerminal && !isCompleted,
+    canConfirm: actions.canConfirm,
+    canCancel: actions.canCancel,
+    canCheckIn: actions.canCheckIn,
+    canCompleteVisit: actions.canCompleteVisit,
+    canNoShow: actions.canNoShow,
+    canSendReminder: actions.canSendReminder,
+    canOverrideComplete: actions.canOverride,
+    canPatientLeftEarly: actions.canContinueVisit,
+    canAssignDoctor: actions.canAssignDoctor,
+    canRequestConsent: actions.canRequestConsent,
+    canReschedule: actions.canReschedule,
+    canUpdateClinicalStatus: actions.canUpdateClinicalStatus,
   };
 }
 

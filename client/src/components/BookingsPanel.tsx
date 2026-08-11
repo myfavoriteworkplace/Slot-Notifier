@@ -74,6 +74,11 @@ import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
+import {
+  classifyClientBooking,
+  createClientBookingDateContext,
+  getBookingLifecycleStage,
+} from "@/lib/booking-classification";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
@@ -1878,21 +1883,20 @@ export default function BookingsPanel({
                 let lastGroup = -1;
                 return bookingsForDialog?.flatMap((booking) => {
                 const bookingDateTime = new Date(booking.slot.startTime);
-                const bookingDateStr = format(bookingDateTime, 'yyyy-MM-dd');
-                const isBookingToday = bookingDateStr === todayStr;
-                const isBookingPast = bookingDateTime < startOfDay(new Date()) && !isBookingToday;
+                const classification = classifyClientBooking(booking, "clinic", createClientBookingDateContext());
+                const isBookingToday = classification.isToday;
+                const isBookingPast = classification.isOld;
+                const isConfirmed = classification.isConfirmed;
+                const isCancelled = classification.normalizedLifecycle === "cancelled";
 
-                const isConfirmed = booking.verificationStatus === 'confirmed' || !!booking.confirmedBy;
-                const isCancelled = booking.verificationStatus === 'cancelled';
-
-                // Visit lifecycle states
-                const modalIsVisitCompleted     = (booking as any).visitStatus === 'completed';
-                const modalIsTreatmentCompleted = (booking as any).visitStatus === 'treatment_completed';
-                const modalIsInConsultation     = (booking as any).visitStatus === 'in_consultation';
-                const modalIsCheckedIn          = (booking as any).visitStatus === 'checked_in';
-                const modalIsNoShow             = booking.verificationStatus === 'no_show';
-                const modalIsLeftEarly          = (booking as any).visitStatus === 'patient_left_early';
-                const modalIsTerminal           = isCancelled || modalIsNoShow || modalIsLeftEarly;
+                // Visit lifecycle states come from the shared classifier.
+                const modalIsVisitCompleted = classification.isCompleted;
+                const modalIsTreatmentCompleted = classification.isTreatmentCompleted;
+                const modalIsInConsultation = classification.normalizedLifecycle === "in_consultation";
+                const modalIsCheckedIn = classification.normalizedLifecycle === "checked_in";
+                const modalIsNoShow = classification.normalizedLifecycle === "no_show";
+                const modalIsLeftEarly = classification.isEarlyExit;
+                const modalIsTerminal = classification.isTerminal;
 
                 // Top accent bar — TIME dimension (when is the appointment?)
                 const accentBar = isBookingToday
@@ -1972,6 +1976,7 @@ export default function BookingsPanel({
                   {!collapsedGroups[group] && <AppointmentCard
                     role="clinic"
                     booking={booking}
+                    classification={classifyClientBooking(booking, "clinic", createClientBookingDateContext())}
                     bookingNumber={bookingReference(booking)}
                     complaints={complaints}
                           visitNumber={visitNumberMap.get(booking.id)?.n}
@@ -2227,11 +2232,7 @@ export default function BookingsPanel({
 
                         {/* OVERVIEW TAB — enlarged patient card, same row style as AppointmentCard */}
                         {getModalTab(booking.id) === 'overview' && (() => {
-                          const ovSlotAgeMs = Date.now() - bookingDateTime.getTime();
-                          const ovIsPastDue = ovSlotAgeMs > 2 * 60 * 60 * 1000
-                            && !isCancelled
-                            && booking.verificationStatus !== 'no_show'
-                            && !['completed', 'visit_completed', 'checked_in', 'in_consultation', 'treatment_completed'].includes((booking as any).visitStatus ?? '');
+                          const ovIsPastDue = classification.isPastDueToday || classification.messageInputs.showOldResolution;
                           const ovDaysAway = differenceInCalendarDays(bookingDateTime, new Date());
                           const ovRelBadge = !isBookingPast && !isCancelled ? (
                             isBookingToday
@@ -2243,16 +2244,7 @@ export default function BookingsPanel({
                               : null
                           ) : null;
 
-                          const ovProgressStage: LifecycleStage =
-                            booking.verificationStatus === 'no_show' ? 'no_show'
-                            : (booking as any).visitStatus === 'patient_left_early' ? 'left_early'
-                            : isCancelled ? 'cancelled'
-                            : (booking as any).visitStatus === 'completed' ? 'visit_completed'
-                            : (booking as any).visitStatus === 'treatment_completed' ? 'treatment_completed'
-                            : (booking as any).visitStatus === 'in_consultation' ? 'in_consultation'
-                            : (booking as any).visitStatus === 'checked_in' ? 'checked_in'
-                            : isConfirmed ? 'confirmed'
-                            : 'booked';
+                          const ovProgressStage: LifecycleStage = getBookingLifecycleStage(classification);
 
                           // Parse visitType + treatmentCategory from description
                           // (same logic as AppointmentCard — no dedicated DB columns)
@@ -2622,17 +2614,8 @@ export default function BookingsPanel({
 
                               <AppointmentInfoSection
                                 role="clinic"
-                                isPastDue={ovIsPastDue}
-                                isExpiredConfirmed={isBookingPast && (booking.verificationStatus === "confirmed" || !!booking.confirmedBy)}
-                                isCancelled={isCancelled}
-                                isNoShow={booking.verificationStatus === 'no_show'}
-                                isLeftEarly={(booking as any).visitStatus === 'patient_left_early'}
-                                isVisitCompleted={(booking as any).visitStatus === 'completed'}
-                                isTreatmentCompleted={(booking as any).visitStatus === 'treatment_completed'}
-                                isInConsultation={(booking as any).visitStatus === 'in_consultation'}
-                                isCheckedIn={(booking as any).visitStatus === 'checked_in'}
+                                classification={classification}
                                 isCheckedInLate={!!booking.checkedInAt && new Date(booking.checkedInAt) > new Date(booking.slot.endTime)}
-                                doctorApprovalPending={booking.doctorApprovalStatus === 'pending'}
                                 cancellationReason={booking.cancellationReason}
                                 visitCompletionNote={(booking as any).visitCompletionNote}
                                 totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}

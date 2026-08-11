@@ -30,12 +30,19 @@ import {
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import type { BookingWithSlot } from "@/lib/clinic-constants";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
+import {
+  classifyClientBooking,
+  createClientBookingDateContext,
+  getBookingLifecycleStage,
+} from "@/lib/booking-classification";
+import type { BookingClassification, BusinessDateContext } from "@shared/booking-status";
 
 export type AppointmentCardRole = "clinic" | "doctor";
 
 export interface AppointmentCardProps {
   booking: BookingWithSlot;
   role: AppointmentCardRole;
+  classification?: BookingClassification;
   bookingNumber: string;
   complaints?: string[];
   clinicName?: string;
@@ -123,6 +130,7 @@ function formatClinicalStatusLabel(value: string) {
 export function AppointmentCard({
   booking,
   role,
+  classification: providedClassification,
   bookingNumber,
   complaints = [],
   clinicName,
@@ -200,27 +208,24 @@ export function AppointmentCard({
   // ── Date helpers ──
   const startTime = new Date(booking.slot.startTime);
   const endTime   = new Date(booking.slot.endTime);
-  const todayStr      = format(new Date(), "yyyy-MM-dd");
-  const bookingDateStr = format(startTime, "yyyy-MM-dd");
-  const isToday = bookingDateStr === todayStr;
-  const isPast  = startTime < new Date(new Date().setHours(0, 0, 0, 0)) && !isToday;
+  const classification = providedClassification ?? classifyClientBooking(booking, role, createClientBookingDateContext());
+  const isToday = classification.isToday;
+  const isPast  = classification.isOld;
   const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
   // ── Status helpers ──
-  const isCancelled    = booking.verificationStatus === "cancelled";
-  const isNoShowState  = booking.verificationStatus === "no_show";
-  const isLeftEarlyState = booking.visitStatus === "patient_left_early";
-  const isTerminal     = isCancelled || isNoShowState || isLeftEarlyState;
-
-  const isClinicConfirmed = booking.verificationStatus === "confirmed" || !!booking.confirmedBy;
-  const isDoctorConfirmed = booking.doctorApprovalStatus === "approved" || booking.doctorApprovalStatus === "admin_confirmed";
-  const isConfirmed = role === "clinic" ? isClinicConfirmed : isDoctorConfirmed;
-  const isDoctorDeclined = role === "doctor" && booking.doctorApprovalStatus === "declined";
-
-  const isVisitCompleted     = booking.visitStatus === "completed";
-  const isTreatmentCompleted = booking.visitStatus === "treatment_completed" || isVisitCompleted;
-  const isInConsultation     = booking.visitStatus === "in_consultation";
-  const isCheckedIn          = booking.visitStatus === "checked_in";
+  const isCancelled = classification.normalizedLifecycle === "cancelled";
+  const isNoShowState = classification.normalizedLifecycle === "no_show";
+  const isLeftEarlyState = classification.isEarlyExit;
+  const isTerminal = classification.isTerminal;
+  const isClinicConfirmed = classification.isConfirmed;
+  const isDoctorConfirmed = classification.doctorApproval.value === "approved" || classification.doctorApproval.value === "admin_confirmed";
+  const isConfirmed = role === "doctor" ? isDoctorConfirmed : classification.isConfirmed;
+  const isDoctorDeclined = role === "doctor" && classification.doctorApproval.value === "declined";
+  const isVisitCompleted = classification.isCompleted;
+  const isTreatmentCompleted = classification.isTreatmentCompleted;
+  const isInConsultation = classification.normalizedLifecycle === "in_consultation";
+  const isCheckedIn = classification.normalizedLifecycle === "checked_in";
 
   // Override: visit is complete but patient never physically checked in → stages 1–3 were skipped
   const isOverrideCompleted = isVisitCompleted && !booking.checkedInAt && !isLeftEarlyState;
@@ -230,30 +235,18 @@ export function AppointmentCard({
   const noBill        = isVisitCompleted && totalBillsCount === 0;
 
   // Auto No-Show: confirmed, slot date has fully passed, patient never progressed — visual-only flag
-  const isAutoNoShow = isPast && isConfirmed
-    && !isCheckedIn && !isInConsultation
-    && !isTreatmentCompleted && !isVisitCompleted && !isTerminal;
+  const isAutoNoShow = classification.isOld && isConfirmed
+    && !classification.isStarted && !isTreatmentCompleted && !isVisitCompleted && !isTerminal;
 
   // Past-due: slot time has passed but visit still unresolved (no terminal or active state)
-  const slotAgeMs    = Date.now() - startTime.getTime();
-  const isPastDue    = slotAgeMs > 2 * 60 * 60 * 1000
-    && !isTerminal && !isVisitCompleted && !isTreatmentCompleted
-    && !isInConsultation && !isCheckedIn;
+  const isPastDue = classification.isPastDueToday
+    || classification.messageInputs.showOldResolution;
 
   // Delayed check-in: patient arrived after the slot's end time
   const isCheckedInLate = !!booking.checkedInAt && new Date(booking.checkedInAt) > endTime;
 
   // Derive string lifecycle stage for progress strip
-  const lifecycleStage: LifecycleStage =
-    isCancelled ? "cancelled"
-    : isNoShowState ? "no_show"
-    : isLeftEarlyState ? "left_early"
-    : isVisitCompleted ? "visit_completed"
-    : isTreatmentCompleted ? "treatment_completed"
-    : isInConsultation ? "in_consultation"
-    : isCheckedIn ? "checked_in"
-    : isClinicConfirmed ? "confirmed"
-    : "booked";
+  const lifecycleStage: LifecycleStage = getBookingLifecycleStage(classification);
 
   // ── Visual classes ──
   // Top bar encodes WHEN only — status is always on the left/full border.
@@ -1143,17 +1136,8 @@ export function AppointmentCard({
 
       <AppointmentInfoSection
         role={role}
-        isPastDue={isPastDue}
-        isExpiredConfirmed={isAutoNoShow}
-        isCancelled={isCancelled}
-        isNoShow={isNoShowState}
-        isLeftEarly={isLeftEarlyState}
-        isVisitCompleted={isVisitCompleted}
-        isTreatmentCompleted={isTreatmentCompleted}
-        isInConsultation={isInConsultation}
-        isCheckedIn={isCheckedIn}
+        classification={classification}
         isCheckedInLate={isCheckedInLate}
-        doctorApprovalPending={booking.doctorApprovalStatus === "pending"}
         cancellationReason={booking.cancellationReason}
         visitCompletionNote={(booking as any).visitCompletionNote}
         totalBillsCount={totalBillsCount}

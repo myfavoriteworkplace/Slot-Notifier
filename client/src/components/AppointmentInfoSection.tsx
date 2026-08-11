@@ -3,20 +3,12 @@ import {
   Activity, AlertCircle, AlertTriangle, Clock, ShieldCheck,
 } from "lucide-react";
 import type { AppointmentCardRole } from "./AppointmentCard";
+import type { BookingClassification } from "@shared/booking-status";
 
 type Props = {
   role: AppointmentCardRole;
-  isPastDue: boolean;
-  isCancelled: boolean;
-  isNoShow: boolean;
-  isLeftEarly: boolean;
-  isVisitCompleted: boolean;
-  isTreatmentCompleted: boolean;
-  isInConsultation: boolean;
-  isCheckedIn: boolean;
+  classification: BookingClassification;
   isCheckedInLate: boolean;
-  isExpiredConfirmed?: boolean;
-  doctorApprovalPending?: boolean;
   cancellationReason?: string | null;
   visitCompletionNote?: string | null;
   totalBillsCount?: number;
@@ -28,9 +20,7 @@ type Props = {
 };
 
 export function AppointmentInfoSection({
-  role, isPastDue, isCancelled, isNoShow, isLeftEarly,
-  isVisitCompleted, isTreatmentCompleted, isInConsultation, isCheckedIn,
-  isCheckedInLate, isExpiredConfirmed = false, doctorApprovalPending, cancellationReason,
+  role, classification, isCheckedInLate, cancellationReason,
   visitCompletionNote, totalBillsCount = 0, openBillsCount = 0, billingStatusKnown = true,
   confirmedBy,
   onBilling, onReschedule,
@@ -39,12 +29,25 @@ export function AppointmentInfoSection({
   const [expanded, setExpanded] = useState(false);
   const [hasMoreContent, setHasMoreContent] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const terminal = isCancelled || isNoShow || isLeftEarly;
+  const {
+    isPastDueToday: isPastDue,
+    isEarlyExit: isLeftEarly,
+    isCompleted: isVisitCompleted,
+    isTreatmentCompleted,
+    isActive,
+    isTerminal: terminal,
+    messageInputs,
+  } = classification;
+  const isCancelled = classification.normalizedLifecycle === "cancelled";
+  const isNoShow = classification.normalizedLifecycle === "no_show";
+  const isInConsultation = classification.normalizedLifecycle === "in_consultation";
+  const isCheckedIn = classification.normalizedLifecycle === "checked_in";
+  const doctorApprovalPending = classification.isAwaitingDoctorApproval;
 
   if (isPastDue && !terminal) messages.push(
     <div key="past-due" className="flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-600 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
       <AlertTriangle className="h-3 w-3 shrink-0" />
-      <span className="min-w-0 flex-1 break-words">{isExpiredConfirmed
+      <span className="min-w-0 flex-1 break-words">{messageInputs.showOldResolution
         ? (role === "clinic" ? "Patient did not arrive — review for No-Show or reschedule" : "Patient did not arrive — waiting for clinic to reschedule or close this appointment")
         : `Slot time has passed — ${role === "clinic" ? "please reschedule or update this booking" : "waiting for clinic action"}`}</span>
       {role === "clinic" && onReschedule && <button onClick={onReschedule} className="min-h-[32px] shrink-0 underline underline-offset-2">Reschedule</button>}

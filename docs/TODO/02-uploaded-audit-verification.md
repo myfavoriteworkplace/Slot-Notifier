@@ -91,7 +91,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase 2 | Repair the type-check and test baseline | **Completed** | **Yes — baseline maintenance fixes only; no lifecycle policy change** |
 | Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
 | Phase 4 | Build and unit-test the pure booking classifier | **Completed** | **No — pure policy module and tests only; no UI, server query, or transition behavior changed** |
-| Phase 5 | Migrate client helpers, cards, popups, and dashboards | Not started | No |
+| Phase 5 | Migrate client helpers, cards, popups, and dashboards | **Completed** | **Yes — client lifecycle interpretation and action visibility now use the shared classifier** |
 | Phase 6 | Align server filters, counts, and statistics | Not started | No |
 | Phase 7 | Add server-side transition/action guards | Not started | No |
 | Phase 8 | Complete responsive UI verification and rollout checks | Not started | No |
@@ -1478,6 +1478,126 @@ Update:
 - `booking-list.ts`
 
 The existing `AppointmentInfoSection` should receive the classifier result. Card and popup footer actions should use the same action policy.
+
+### Phase 5 completion record
+
+#### 1) Why was it done?
+
+Before Phase 5, the same booking could be interpreted differently depending on
+where it was displayed. `AppointmentCard`, `BookingsPanel`, the clinic booking
+dialog, and `DoctorDashboard` each recalculated date, confirmation, overdue,
+terminal, and visit-lifecycle values locally.
+
+That duplication created several risks:
+
+- Browser-local and UTC date calculations could disagree with the clinic's
+  business date.
+- A card and its detail dialog could show different status messages or
+  progress stages.
+- `treatment_completed`, `completed`, and `patient_left_early` could be
+  collapsed into broader boolean combinations.
+- Doctor approval could be confused with booking confirmation.
+- Old unresolved bookings could continue to expose normal consultation
+  presentation even though the lifecycle policy treats them as needing
+  resolution.
+- Notification deep links could open a booking through a different
+  interpretation path from the normal list.
+
+The purpose of Phase 5 was therefore to move the client from independent
+booking decisions to one shared, role-aware classification result without
+changing stored status values or replacing server authorization.
+
+#### 2) What was done?
+
+The following client migration was completed:
+
+- Added `client/src/lib/booking-classification.ts` as the client boundary for
+  `classifyBooking()`.
+  - Uses one shared `BusinessDateContext` construction path.
+  - Uses the documented `Asia/Kolkata` fallback until clinic-specific IANA
+    timezones are available through the session APIs.
+  - Maps clinic users to the classifier's clinic role and doctors to the
+    doctor role.
+  - Provides a single lifecycle-stage mapping for the progress strip.
+- Updated `client/src/lib/booking-list.ts`.
+  - `getTimeGroup()` and `getBookingDisplayMeta()` now delegate to the shared
+    classifier.
+  - `getBookingActionState()` now adapts the classifier action policy while
+    preserving the existing compatibility return shape.
+- Updated `AppointmentInfoSection`.
+  - It now receives `BookingClassification` instead of independently supplied
+    lifecycle booleans.
+  - Messages derive from canonical terminal, active, completed,
+    treatment-completed, early-exit, approval, and date inputs.
+  - Billing, completion notes, cancellation reasons, and late check-in remain
+    separate operational inputs because they are not owned by the classifier.
+- Updated `AppointmentCard`.
+  - Date state, terminal state, visit state, confirmation state, status pill
+    inputs, progress stage, and past-due messaging now derive from the shared
+    classification.
+  - Supports an optional classification supplied by the parent so a list and
+    card can reuse the same result.
+  - Preserves doctor approval as a separate concept from clinic confirmation.
+  - Preserves existing billing, reschedule, no-show reversal, early-exit,
+    override-completion, consent, and completion-note controls.
+- Updated `BookingsPanel`.
+  - Clinic cards, booking dialogs, overview messages, and progress strips use
+    the clinic classification.
+  - Focus bookings opened from notification deep links follow the same
+    classification path as bookings already present in the filtered list.
+  - Existing clinic action callbacks remain in place and are gated through the
+    classifier-backed compatibility action state.
+- Updated `DoctorDashboard`.
+  - Doctor list grouping now uses clinic-local classification rather than UTC
+    date strings and browser-midnight comparisons.
+  - Doctor cards and the appointment detail view use doctor-role
+    classification.
+  - Doctor approval remains distinct from booking confirmation.
+- Added no database columns, status migrations, server query changes, or
+  authorization changes.
+
+#### 3) What improved?
+
+The client now has one consistent interpretation of a booking across the main
+surfaces:
+
+- Clinic-local date handling is centralized instead of being recalculated from
+  browser or UTC values.
+- A booking's card and popup use the same lifecycle vocabulary and progress
+  stage.
+- Same-day past-due and old-booking presentation comes from the shared
+  classifier.
+- Old active visits remain distinguishable from old unresolved appointments.
+- `treatment_completed`, `completed`, and `patient_left_early` remain
+  separate in the client presentation.
+- Terminal records are classified conservatively, including conflicting
+  terminal and active values.
+- Doctor approval and booking confirmation remain separate role-specific
+  concepts.
+- Compatibility helpers no longer maintain a second independent lifecycle
+  implementation.
+- Notification-focused bookings use the same classification as ordinary list
+  bookings.
+- Existing action callbacks and billing/clinical workflows were preserved
+  while the UI interpretation was centralized.
+
+Verification completed:
+
+- `npm run check` — passed with zero TypeScript errors.
+- `npx tsx --test shared/booking-status.test.ts client/src/lib/booking-list.test.ts`
+  — 15 passed, 0 failed.
+- `npm run build` — passed successfully.
+- Build Check workflow — finished successfully.
+
+Known boundaries after Phase 5:
+
+- The client action policy is a presentation and compatibility layer only.
+  Server-side transition authorization remains Phase 7.
+- Server filters, counts, and statistics still require the SQL alignment work
+  planned for Phase 6.
+- Clinic-specific timezone storage and session exposure remain a separate
+  follow-up; the current client fallback is intentionally centralized.
+- Responsive visual verification and rollout checks remain Phase 8.
 
 ### Phase 5 implementation details
 
