@@ -1599,7 +1599,7 @@ export default function BookingsPanel({
           </Dialog>
 
         <div className="p-5 space-y-5">
-        {/* ── Colour key: ─ horizontal dash = accentBar (top header strip)  │ vertical bar = left border ── */}
+        {/* ── Colour key: both card borders = lifecycle status; date badge = timing ── */}
         {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && !legendCollapsed && (
           <div className="border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
 
@@ -1652,20 +1652,6 @@ export default function BookingsPanel({
                 </Tooltip>
               </TooltipProvider>
               <span />
-              {/* WHEN row — always visible so top-bar colour is explained on every filter */}
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">When</span>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-sky-400" />
-                <span className="text-xs font-medium text-sky-500 truncate">Today</span>
-              </div>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-primary" />
-                <span className="text-xs font-medium text-primary truncate">Upcoming</span>
-              </div>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-slate-300 dark:bg-slate-500" />
-                <span className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate">Past</span>
-              </div>
             </div>
 
             {/* ── Desktop layout: single flex row ── */}
@@ -1719,23 +1705,6 @@ export default function BookingsPanel({
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              {/* WHEN — always visible so the top-bar colour is explained on every filter */}
-              <>
-                <span className="h-3.5 w-px bg-border/60 shrink-0" />
-                <div className="flex items-center gap-x-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">When</span>
-                  {([
-                    { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
-                    { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
-                    { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
-                  ] as const).map(({ color, label, text }) => (
-                    <div key={label} className="flex items-center gap-1 shrink-0">
-                      <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
-                      <span className={`text-xs font-medium ${text}`}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
               <button
                 onClick={() => setLegendCollapsed(true)}
                 title="Hide legend"

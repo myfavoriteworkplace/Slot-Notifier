@@ -221,7 +221,7 @@ export function AppointmentCard({
   const isClinicConfirmed = classification.isConfirmed;
   const isDoctorConfirmed = classification.doctorApproval.value === "approved" || classification.doctorApproval.value === "admin_confirmed";
   const isConfirmed = role === "doctor" ? isDoctorConfirmed : classification.isConfirmed;
-  const isDoctorDeclined = role === "doctor" && classification.doctorApproval.value === "declined";
+  const isDoctorDeclined = classification.doctorApproval.value === "declined";
   const isVisitCompleted = classification.isCompleted;
   const isTreatmentCompleted = classification.isTreatmentCompleted;
   const isInConsultation = classification.normalizedLifecycle === "in_consultation";
@@ -249,29 +249,34 @@ export function AppointmentCard({
   const lifecycleStage: LifecycleStage = getBookingLifecycleStage(classification);
 
   // ── Visual classes ──
-  // Top bar encodes WHEN only — status is always on the left/full border.
-  const accentBar = isToday
-    ? "bg-gradient-to-r from-sky-400 to-cyan-400"
-    : isPast
-    ? "bg-gradient-to-r from-slate-300 to-slate-200"
-    : "bg-gradient-to-r from-primary to-accent";
+  // Both card borders encode lifecycle status. Timing is represented by the
+  // date badge, not by the top bar.
+  // Priority follows the shared classifier: terminal states win over active,
+  // completed, confirmed, and pending states.
+  const accentBar = isCancelled || isDoctorDeclined
+    ? "bg-gradient-to-r from-rose-400 to-pink-400"
+    : isNoShowState || isLeftEarlyState
+    ? "bg-gradient-to-r from-slate-400 to-slate-300"
+    : isInConsultation || isCheckedIn || isTreatmentCompleted
+    ? "bg-gradient-to-r from-violet-400 to-fuchsia-400"
+    : isVisitCompleted || isConfirmed
+    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
+    : "bg-gradient-to-r from-amber-400 to-orange-400";
 
   // Left border = STATUS dimension.
   // In Consult group (checked-in → in consult → treatment done) → violet full/left border.
   // Visit Completed merges with Confirmed → emerald.
   // Left Early merges with No Show → slate.
-  const cardBorderClass = isInConsultation
+  const cardBorderClass = isCancelled || isDoctorDeclined
+    ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
+    : isNoShowState || isLeftEarlyState
+    ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
+    : isInConsultation
     ? "border-2 border-violet-400/60"
     : role === "doctor" && isCheckedIn
     ? "border-2 border-violet-400/50"
     : isCheckedIn
     ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
-    : isCancelled
-    ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
-    : isNoShowState
-    ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
-    : isLeftEarlyState
-    ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
     : isVisitCompleted
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : isTreatmentCompleted

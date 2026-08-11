@@ -21,7 +21,7 @@ optional history metadata, role-specific callbacks, and loading states.
 From top to bottom, the card contains:
 
 1. Optional latest-booking pill
-2. Timing accent bar
+2. Lifecycle status accent bar
 3. Patient identity header
 4. Status badge and tooltip
 5. Optional doctor visit badge
@@ -43,8 +43,9 @@ activate the same card action.
 
 The card deliberately separates two visual dimensions:
 
-- The top accent bar represents timing: past, today, or future.
-- The left border/status treatment represents lifecycle state.
+- The top accent bar and left border use the lifecycle/status colour.
+- The relative date badge represents timing: past, today, or future.
+- Timing is no longer represented by the card's top border.
 
 Timing badges use a separate colour system from lifecycle status:
 
@@ -61,7 +62,7 @@ Typical lifecycle state colours are:
 | Pending/action needed | Amber |
 | Confirmed/completed | Emerald |
 | Checked in/in consultation | Violet/blue active treatment |
-| Cancelled | Rose |
+| Cancelled/doctor declined | Rose |
 | No-show/left early | Slate/amber terminal |
 | Past or terminal | Muted opacity/header |
 
