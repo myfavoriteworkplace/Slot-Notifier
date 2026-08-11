@@ -227,6 +227,62 @@ export function AppointmentCard({
   const isInConsultation = classification.normalizedLifecycle === "in_consultation";
   const isCheckedIn = classification.normalizedLifecycle === "checked_in";
 
+  // Keep the visible booking vocabulary intentionally small. More precise
+  // lifecycle details remain available in the tooltip and progress strip.
+  const bookingStatus = isCancelled || isDoctorDeclined
+    ? {
+        label: "Cancelled",
+        textClass: "text-rose-600 dark:text-rose-400",
+        chipClass: "text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-300 dark:bg-rose-950/20 dark:border-rose-800",
+        dotClass: "bg-rose-500",
+        barClass: "bg-gradient-to-r from-rose-400 to-pink-400",
+        borderClass: "border-l-[3px] border-l-rose-400 dark:border-l-rose-500",
+      }
+    : isNoShowState || isLeftEarlyState
+    ? {
+        label: "No Show",
+        textClass: "text-slate-600 dark:text-slate-400",
+        chipClass: "text-slate-700 bg-slate-50 border-slate-200 dark:text-slate-300 dark:bg-slate-900/30 dark:border-slate-700",
+        dotClass: "bg-slate-500",
+        barClass: "bg-gradient-to-r from-slate-400 to-slate-300",
+        borderClass: "border-l-[3px] border-l-slate-400 dark:border-l-slate-500",
+      }
+    : isVisitCompleted
+    ? {
+        label: "Completed",
+        textClass: "text-emerald-600 dark:text-emerald-400",
+        chipClass: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-800",
+        dotClass: "bg-emerald-500",
+        barClass: "bg-gradient-to-r from-emerald-400 to-teal-400",
+        borderClass: "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500",
+      }
+    : isInConsultation || isCheckedIn || isTreatmentCompleted
+    ? {
+        label: "In Consult",
+        textClass: "text-violet-600 dark:text-violet-400",
+        chipClass: "text-violet-700 bg-violet-50 border-violet-200 dark:text-violet-300 dark:bg-violet-950/20 dark:border-violet-800",
+        dotClass: "bg-violet-500",
+        barClass: "bg-gradient-to-r from-violet-400 to-fuchsia-400",
+        borderClass: "border-l-[3px] border-l-violet-400 dark:border-l-violet-500",
+      }
+    : isConfirmed
+    ? {
+        label: "Confirmed",
+        textClass: "text-emerald-600 dark:text-emerald-400",
+        chipClass: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-800",
+        dotClass: "bg-emerald-500",
+        barClass: "bg-gradient-to-r from-emerald-400 to-teal-400",
+        borderClass: "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500",
+      }
+    : {
+        label: "Pending",
+        textClass: "text-amber-600 dark:text-amber-400",
+        chipClass: "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/20 dark:border-amber-800",
+        dotClass: "bg-amber-500",
+        barClass: "bg-gradient-to-r from-amber-400 to-orange-400",
+        borderClass: "border-l-[3px] border-l-amber-400 dark:border-l-amber-500",
+      };
+
   // Override: visit is complete but patient never physically checked in → stages 1–3 were skipped
   const isOverrideCompleted = isVisitCompleted && !booking.checkedInAt && !isLeftEarlyState;
 
@@ -253,37 +309,13 @@ export function AppointmentCard({
   // date badge, not by the top bar.
   // Priority follows the shared classifier: terminal states win over active,
   // completed, confirmed, and pending states.
-  const accentBar = isCancelled || isDoctorDeclined
-    ? "bg-gradient-to-r from-rose-400 to-pink-400"
-    : isNoShowState || isLeftEarlyState
-    ? "bg-gradient-to-r from-slate-400 to-slate-300"
-    : isInConsultation || isCheckedIn || isTreatmentCompleted
-    ? "bg-gradient-to-r from-violet-400 to-fuchsia-400"
-    : isVisitCompleted || isConfirmed
-    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
-    : "bg-gradient-to-r from-amber-400 to-orange-400";
+  const accentBar = bookingStatus.barClass;
 
   // Left border = STATUS dimension.
   // In Consult group (checked-in → in consult → treatment done) → violet full/left border.
   // Visit Completed merges with Confirmed → emerald.
   // Left Early merges with No Show → slate.
-  const cardBorderClass = isCancelled || isDoctorDeclined
-    ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
-    : isNoShowState || isLeftEarlyState
-    ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
-    : isInConsultation
-    ? "border-2 border-violet-400/60"
-    : role === "doctor" && isCheckedIn
-    ? "border-2 border-violet-400/50"
-    : isCheckedIn
-    ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
-    : isVisitCompleted
-    ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
-    : isTreatmentCompleted
-    ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
-    : isConfirmed
-    ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
-    : "border-l-[3px] border-l-amber-400 dark:border-l-amber-500";
+  const cardBorderClass = bookingStatus.borderClass;
 
   const latestPillStatus = isCancelled
     ? { icon: "×", label: "CANCELLED", tone: "rose" }
@@ -349,77 +381,18 @@ export function AppointmentCard({
 
   // ── Status badge ──
   const StatusBadge = () => {
-    if (isCancelled || isDoctorDeclined) return (
-      <span className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
-        <X className="h-2.5 w-2.5" />{isDoctorDeclined ? "Declined" : "Cancelled"}
-      </span>
-    );
-    if (isNoShowState) return (
-      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-        <UserX className="h-2.5 w-2.5" />No Show
-      </span>
-    );
-    if (isLeftEarlyState) return (
-      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-        <LogOut className="h-2.5 w-2.5" />Left Early
-      </span>
-    );
-    if (isVisitCompleted) return (
-      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-        <ShieldCheck className="h-2.5 w-2.5" />Visit Done
-      </span>
-    );
-    if (isTreatmentCompleted) return (
-      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-        <span className="relative flex h-1.5 w-1.5 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-        </span>Tmt. Done
-      </span>
-    );
-    if (isInConsultation) return (
-      <span className="text-xs font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1">
-        <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />With Doctor
-      </span>
-    );
-    if (isCheckedIn) return (
-      <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-        <span className="relative flex h-1.5 w-1.5 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500" />
-        </span>Arrived
-      </span>
-    );
-    if (booking.assignedDoctor && booking.doctorApprovalStatus === "pending") return (
-      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-        <span className="relative flex h-1.5 w-1.5 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-        </span>Awaiting Dr
-      </span>
-    );
-    if (isAutoNoShow) return (
-      <span className="text-xs font-bold text-orange-500 dark:text-orange-400 flex items-center gap-1">
-        <UserX className="h-2.5 w-2.5" />No Show
-      </span>
-    );
-    if (isConfirmed) return (
-      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-        <CheckCircle2 className="h-2.5 w-2.5" />Confirmed
-      </span>
-    );
     return (
-      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-        <span className="relative flex h-1.5 w-1.5 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-        </span>Pending
+      <span className={`text-xs font-bold flex items-center gap-1 ${bookingStatus.textClass}`}>
+        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${bookingStatus.dotClass}`} />
+        {bookingStatus.label}
       </span>
     );
   };
 
   // ── Status tooltip text (shown on hover of StatusBadge) ──
-  const statusTooltip = isCancelled
+  const statusTooltip = isDoctorDeclined
+    ? "Doctor declined this appointment"
+    : isCancelled
     ? "Appointment cancelled"
     : isNoShowState
     ? "Patient did not arrive"
@@ -460,6 +433,7 @@ export function AppointmentCard({
           {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
         </span>
       )}
+      <div className="min-w-0 flex flex-col overflow-hidden rounded-xl">
       {/* Accent bar — pulse when actively in-progress */}
       <div className={`h-[3px] ${accentBar} ${isInConsultation || (role === "doctor" && isCheckedIn) ? "animate-pulse" : ""}`} />
 
@@ -916,6 +890,18 @@ export function AppointmentCard({
                 className={`h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
               />
             )}
+          </div>
+
+          {/* Standard booking status — lifecycle meaning is independent from date timing. */}
+          <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 text-xs min-w-0">
+            <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+              <Activity className={`h-2.5 w-2.5 ${bookingStatus.textClass}`} />
+            </div>
+            <span className="text-muted-foreground shrink-0">Booking Status:</span>
+            <span className={`inline-flex items-center gap-1.5 justify-self-start text-xs font-semibold px-1.5 py-0.5 rounded-md border ${bookingStatus.chipClass}`}>
+              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${bookingStatus.dotClass}`} />
+              {bookingStatus.label}
+            </span>
           </div>
 
           {/* Clinic name — doctor view, just under date — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
@@ -1619,6 +1605,7 @@ export function AppointmentCard({
       )}
 
       </div>{/* end collapsible outer sections */}
+      </div>{/* end rounded card shell */}
     </Card>
   );
 }

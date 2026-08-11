@@ -59,12 +59,23 @@ Typical lifecycle state colours are:
 
 | State | Visual treatment |
 | --- | --- |
-| Pending/action needed | Amber |
-| Confirmed/completed | Emerald |
-| Checked in/in consultation | Violet/blue active treatment |
+| Pending | Amber |
+| Confirmed | Emerald |
+| In Consult (checked in, in consultation, or treatment completed) | Violet |
+| Completed | Emerald |
 | Cancelled/doctor declined | Rose |
-| No-show/left early | Slate/amber terminal |
+| No Show/patient left early | Slate |
 | Past or terminal | Muted opacity/header |
+
+The card's standard visible booking-status vocabulary is:
+
+```text
+Pending · Confirmed · In Consult · Completed · Cancelled · No Show
+```
+
+Checked-in, in-consultation, and treatment-completed records are intentionally
+grouped under `In Consult` for a concise admin-facing presentation. The exact
+underlying lifecycle remains available in the progress strip and status tooltip.
 
 The status badge is derived from the normalized classification rather than
 reading only one raw database field.

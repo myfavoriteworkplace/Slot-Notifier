@@ -1626,7 +1626,7 @@ export default function BookingsPanel({
                 <span className="h-4 w-[4px] rounded-sm shrink-0 bg-rose-400" />
                 <span className="text-xs font-medium text-rose-500 truncate">Cancelled</span>
               </div>
-              {/* STATUS row 2: empty | No Show | In Consult | empty */}
+              {/* STATUS row 2: empty | No Show | In Consult | Completed */}
               <span />
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
@@ -1651,25 +1651,21 @@ export default function BookingsPanel({
                   <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <span />
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                <span className="text-xs font-medium text-emerald-500 truncate">Completed</span>
+              </div>
             </div>
 
             {/* ── Desktop layout: single flex row ── */}
             <div className="hidden sm:flex sm:items-center sm:gap-x-3 group">
               <div className="flex items-center gap-x-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">Status</span>
-                {/* Confirmed — merges Visit Completed */}
-                <TooltipProvider delayDuration={400}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1 shrink-0 cursor-default">
-                        <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
-                        <span className="text-xs font-medium text-emerald-500">Confirmed</span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">Confirmed · Visit Completed</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                {/* Confirmed */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                  <span className="text-xs font-medium text-emerald-500">Confirmed</span>
+                </div>
                 {/* Pending */}
                 <div className="flex items-center gap-1 shrink-0">
                   <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
@@ -1680,7 +1676,7 @@ export default function BookingsPanel({
                   <span className="h-4 w-[4px] rounded-sm shrink-0 bg-rose-400" />
                   <span className="text-xs font-medium text-rose-500">Cancelled</span>
                 </div>
-                {/* No Show — merges Left Early */}
+                {/* No Show — includes early exit */}
                 <TooltipProvider delayDuration={400}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1692,7 +1688,7 @@ export default function BookingsPanel({
                     <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">No Show · Left Early</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {/* In Consult — ring swatch, merges Checked In + Treatment Completed */}
+                {/* In Consult — includes checked in and treatment completed */}
                 <TooltipProvider delayDuration={400}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1704,6 +1700,11 @@ export default function BookingsPanel({
                     <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+                {/* Completed */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                  <span className="text-xs font-medium text-emerald-500">Completed</span>
+                </div>
               </div>
               <button
                 onClick={() => setLegendCollapsed(true)}
