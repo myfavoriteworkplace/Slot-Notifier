@@ -35,6 +35,24 @@ import {
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne, inArray } from "drizzle-orm";
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import {
+  activeVisitCondition,
+  calculateClinicBookingStats,
+  calculateDoctorBookingStats,
+  confirmedBookingCondition,
+  completedPatientVisitCondition,
+  createBookingDateBoundaries,
+  doctorApprovedBookingCondition,
+  awaitingDoctorApprovalCondition,
+  isAwaitingDoctorApproval,
+  isCompletedPatientVisit,
+  isDoctorApprovedBooking,
+  isPendingBooking,
+  isConfirmedBooking,
+  nonTerminalBookingCondition,
+  notCompletedPatientVisitCondition,
+  pendingBookingCondition,
+} from "./booking-predicates";
 
 export interface VisitTimelineEntry {
   bookingId: number;
@@ -621,14 +639,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClinicBookingStats(clinicId: number): Promise<BookingStats> {
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const todayStart = startOfDay(now);
-    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const next7DaysEnd = addDays(todayStart, 7);
+    const boundaries = createBookingDateBoundaries();
 
     const statRows = await db.select({
       startTime: slots.startTime,
@@ -640,28 +651,7 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .where(eq(slots.clinicId, Number(clinicId)));
 
-    const stats: BookingStats = {
-      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
-      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0, totalAllCount: statRows.length,
-    };
-    for (const r of statRows) {
-      const d = new Date(r.startTime);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
-      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
-      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-      if (d >= new Date() && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
-      if (d < todayStart) stats.pastCount++;
-      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
-      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
-      if (d >= todayStart && d <= next7DaysEnd) {
-        if (isPending) stats.pendingNext7Count++;
-        if (isConfirmed) stats.confirmedNext7Count++;
-      }
-      if (isPending) stats.totalPendingCount++;
-    }
-    return stats;
+    return calculateClinicBookingStats(statRows, boundaries) as BookingStats;
   }
 
   async getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult> {
@@ -669,16 +659,20 @@ export class DatabaseStorage implements IStorage {
 
     // Use client-supplied todayDate if present so all pages in the same session share
     // the same future/past boundary even when a request crosses midnight.
-    const now = todayDate ? new Date(todayDate + 'T00:00:00') : new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const tomorrowStart = startOfDay(addDays(now, 1));
-    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const next7DaysEnd = addDays(todayStart, 7);
+    const boundaries = createBookingDateBoundaries(
+      todayDate ? new Date(todayDate + 'T00:00:00') : new Date(),
+    );
+    const {
+      todayStr,
+      todayStart,
+      todayEnd,
+      tomorrowStart,
+      thisWeekStart,
+      thisWeekEnd,
+      nextWeekStart,
+      nextWeekEnd,
+      next7DaysEnd,
+    } = boundaries;
 
     const clinicCondition = eq(slots.clinicId, Number(clinicId));
 
@@ -689,13 +683,11 @@ export class DatabaseStorage implements IStorage {
         filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
         break;
       case 'upcoming':
-        // Only confirmed appointments from tomorrow onwards.
-        // visitStatus is nullable — isNull guard required (NULL != x → NULL in SQL, not TRUE).
         filterCond = and(
           gte(slots.startTime, tomorrowStart),
-          or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
-          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
-          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
+          confirmedBookingCondition(),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
         );
         break;
       case 'past':
@@ -710,23 +702,24 @@ export class DatabaseStorage implements IStorage {
       case 'today-confirmed':
         filterCond = and(
           gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd),
-          or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+          confirmedBookingCondition(),
         );
         break;
       case 'pending-7days':
         filterCond = and(
           gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
-          ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy),
-          ne(bookings.verificationStatus, 'cancelled'),
+          pendingBookingCondition(),
         );
         break;
       case 'all-pending':
-        filterCond = and(ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy), ne(bookings.verificationStatus, 'cancelled'));
+        filterCond = pendingBookingCondition();
         break;
       case 'confirmed-7days':
         filterCond = and(
           gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
-          or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+          confirmedBookingCondition(),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
         );
         break;
       default:
@@ -762,12 +755,9 @@ export class DatabaseStorage implements IStorage {
         ? and(
               gte(slots.startTime, todayStart),
               lte(slots.startTime, todayEnd),
-              or(
-              eq(bookings.visitStatus, 'checked_in'),
-              eq(bookings.visitStatus, 'in_consultation'),
-              ),
+              activeVisitCondition(),
             )
-        : statusFilter === 'completed' ? eq(bookings.visitStatus, 'completed')
+        : statusFilter === 'completed' ? completedPatientVisitCondition()
         : statusFilter === 'cancelled' ? eq(bookings.verificationStatus, 'cancelled')
         : statusFilter === 'no-show' ? eq(bookings.verificationStatus, 'no_show')
         : undefined;
@@ -836,28 +826,7 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .where(clinicCondition);
 
-    const stats: BookingStats = {
-      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
-      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0, totalAllCount: statRows.length,
-    };
-    for (const r of statRows) {
-      const d = new Date(r.startTime);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
-      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
-      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-      // "upcoming" matches the query filter: tomorrowStart boundary, confirmed only, not terminal
-      if (d >= tomorrowStart && isConfirmed && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
-      if (d < todayStart) stats.pastCount++;
-      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
-      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
-      if (d >= todayStart && d <= next7DaysEnd) {
-        if (isPending) stats.pendingNext7Count++;
-        if (isConfirmed) stats.confirmedNext7Count++;
-      }
-      if (isPending) stats.totalPendingCount++;
-    }
+    const stats = calculateClinicBookingStats(statRows, boundaries) as BookingStats;
 
     stats.patientTotalCount = patientTotalCount;
 
@@ -875,35 +844,31 @@ export class DatabaseStorage implements IStorage {
 
     // Use client-supplied todayDate if present so all pages in the same session share
     // the same future/past boundary even when a request crosses midnight.
-    const now = todayDate ? new Date(todayDate + 'T00:00:00') : new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const tomorrowStart = startOfDay(addDays(now, 1));
-    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const next7DaysEnd = addDays(todayStart, 7);
+    const boundaries = createBookingDateBoundaries(
+      todayDate ? new Date(todayDate + 'T00:00:00') : new Date(),
+    );
+    const {
+      todayStr,
+      todayStart,
+      todayEnd,
+      tomorrowStart,
+      thisWeekStart,
+      thisWeekEnd,
+      nextWeekStart,
+      nextWeekEnd,
+      next7DaysEnd,
+    } = boundaries;
 
     const emailCond = eq(bookings.assignedDoctorEmail, doctorEmail);
     const clinicCond = clinicId ? eq(slots.clinicId, clinicId) : undefined;
 
-    // "approved" = not pending AND not declined doctor approval
-    const approvedCond = and(
-      ne(bookings.doctorApprovalStatus, 'pending'),
-      ne(bookings.doctorApprovalStatus, 'declined'),
-    );
+    // Null approval is normalized as unassigned, not silently excluded.
+    const approvedCond = doctorApprovedBookingCondition();
     // "awaiting" = pending doctor approval, slot is today or future, not cancelled/terminal
     // NOTE: visitStatus is nullable — SQL ne(null, x) returns NULL (not TRUE), so rows with
     // visitStatus=NULL would be silently excluded without the isNull guard.
     const awaitingCond = and(
-      eq(bookings.doctorApprovalStatus, 'pending'),
-      ne(bookings.verificationStatus, 'cancelled'),
-      ne(bookings.verificationStatus, 'no_show'),
-      or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
-      or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
-      or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'treatment_completed')),
+      awaitingDoctorApprovalCondition(),
       gte(slots.startTime, todayStart),
     );
     // Patient name/phone/email search (plain text columns — no encryption)
@@ -928,8 +893,8 @@ export class DatabaseStorage implements IStorage {
         filterCond = and(
           approvedCond,
           gte(slots.startTime, tomorrowStart),
-          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'completed')),
-          or(isNull(bookings.visitStatus), ne(bookings.visitStatus, 'patient_left_early')),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
         );
         break;
       case 'past':
@@ -942,7 +907,14 @@ export class DatabaseStorage implements IStorage {
         filterCond = and(approvedCond, gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
         break;
       case 'confirmed-7days':
-        filterCond = and(approvedCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
+        filterCond = and(
+          approvedCond,
+          gte(slots.startTime, todayStart),
+          lt(slots.startTime, next7DaysEnd),
+          confirmedBookingCondition(),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
+        );
         break;
       case 'awaiting':
         filterCond = awaitingCond;
@@ -981,9 +953,9 @@ export class DatabaseStorage implements IStorage {
         ? and(
             gte(slots.startTime, todayStart),
             lte(slots.startTime, todayEnd),
-            or(eq(bookings.visitStatus, 'checked_in'), eq(bookings.visitStatus, 'in_consultation')),
+            activeVisitCondition(),
           )
-        : statusFilter === 'completed' ? eq(bookings.visitStatus, 'completed')
+        : statusFilter === 'completed' ? completedPatientVisitCondition()
         : statusFilter === 'cancelled' ? eq(bookings.verificationStatus, 'cancelled')
         : statusFilter === 'no-show' ? eq(bookings.verificationStatus, 'no_show')
         : undefined;
@@ -1051,40 +1023,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(emailCond, clinicCond));
     const historyMeta = buildVisitHistoryMeta(historyRows);
 
-    const stats: BookingStats = {
-      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
-      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0, totalAllCount: statRows.length, totalOwnedCount: 0, awaitingApprovalCount: 0,
-    };
-    for (const r of statRows) {
-      const d = new Date(r.startTime);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const isApproved = r.doctorApprovalStatus !== 'pending' && r.doctorApprovalStatus !== 'declined';
-      const isAwaiting = r.doctorApprovalStatus === 'pending'
-        && r.verificationStatus !== 'cancelled'
-        && r.verificationStatus !== 'no_show'
-        && r.visitStatus !== 'completed'
-        && r.visitStatus !== 'patient_left_early'
-        && r.visitStatus !== 'treatment_completed'
-        && d >= todayStart;
-      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
-      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
-      if (isAwaiting) stats.awaitingApprovalCount!++;
-      if (isApproved) {
-        stats.totalOwnedCount!++;
-        if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-        // "upcoming" matches the query filter: doctor-approved, tomorrowStart boundary, not terminal
-        if (d >= tomorrowStart && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
-        if (d < todayStart) stats.pastCount++;
-        if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
-        if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
-      }
-      if (d >= todayStart && d < next7DaysEnd) {
-        if (isAwaiting) stats.pendingNext7Count++;
-        if (isApproved && isConfirmed) stats.confirmedNext7Count++;
-      }
-      if (isPending) stats.totalPendingCount++;
-    }
+    const stats = calculateDoctorBookingStats(statRows, boundaries) as BookingStats;
 
     stats.patientTotalCount = patientTotalCount;
 
