@@ -3434,13 +3434,10 @@ export default function BookingsPanel({
                 });
               })()
             )}
-
+            {isFetchingNextPage && [1, 2, 3].map(i => (
+              <BookingCardSkeleton key={`booking-loading-${i}`} />
+            ))}
           </div>
-          {isFetchingNextPage && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-              {[1,2,3].map(i => <BookingCardSkeleton key={i} />)}
-            </div>
-          )}
           {!hasNextPage && !bookingsLoading && filteredBookings.length > 0 && (
             <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
               All {bookingsTotal} bookings loaded
