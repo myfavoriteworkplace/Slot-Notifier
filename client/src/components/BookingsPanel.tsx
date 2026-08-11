@@ -2042,7 +2042,7 @@ export default function BookingsPanel({
                     completeVisitPending={completeVisitMutation.isPending}
                     cancelPending={cancelBookingMutation.isPending}
                   />}
-                    <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} rounded-2xl p-0 overflow-hidden h-[90vh] flex flex-col transition-[max-width] duration-200`}>
+                    <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[max-width] duration-200`}>
 
                       {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
                       <button
@@ -2160,19 +2160,19 @@ export default function BookingsPanel({
                         </div>
 
                         {/* Appointment strip — 2-col grid on mobile, flex row on sm+ */}
-                        <div className="relative pb-3">
-                          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-3">
-                            <div className="flex items-center gap-1.5 text-xs text-white/75">
+                        <div className="relative min-w-0 pb-3">
+                          <div className="grid min-w-0 grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-3">
+                            <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/75">
                               <CalendarDays className="h-3 w-3 opacity-80 shrink-0" />
-                              <strong className="text-white font-semibold">{format(bookingDateTime, "EEE, d MMM yyyy")}</strong>
+                              <strong className="min-w-0 truncate text-white font-semibold">{format(bookingDateTime, "EEE, d MMM yyyy")}</strong>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs text-white/75">
+                            <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/75">
                               <Clock className="h-3 w-3 opacity-80 shrink-0" />
-                              <strong className="text-white font-semibold">{format(bookingDateTime, "h:mm a")}</strong>
-                              <span>→ {format(new Date(booking.slot.endTime), "h:mm a")}</span>
+                              <strong className="shrink-0 text-white font-semibold">{format(bookingDateTime, "h:mm a")}</strong>
+                              <span className="truncate">→ {format(new Date(booking.slot.endTime), "h:mm a")}</span>
                             </div>
                             {clinic?.name && (
-                              <div className="flex items-center gap-1.5 text-xs text-white/75">
+                              <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/75">
                                 <Building2 className="h-3 w-3 opacity-80 shrink-0" />
                                 <span className="truncate">{clinic.name}</span>
                               </div>
@@ -2192,7 +2192,7 @@ export default function BookingsPanel({
                       </div>
 
                       {/* Tab strip — neutral bar below header */}
-                      <div className="shrink-0 flex border-b border-border/60 bg-card">
+                      <div className="shrink-0 flex min-w-0 overflow-x-auto border-b border-border/60 bg-card">
                         {([
                           { key: 'overview', label: 'Overview', icon: <User className="h-3.5 w-3.5" /> },
                           { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3.5 w-3.5" /> },
@@ -2210,7 +2210,7 @@ export default function BookingsPanel({
                                 setModalTab(booking.id, key);
                                 if (hasBadge) setTabBadges(prev => ({ ...prev, [booking.id]: (prev[booking.id] || []).filter(t => t !== key) }));
                               }}
-                              className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/40 ${
+                              className={`relative flex-none sm:flex-1 min-w-[68px] px-2 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/40 ${
                                 isActive
                                   ? 'text-primary border-primary'
                                   : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30 active:text-foreground'
@@ -2228,7 +2228,7 @@ export default function BookingsPanel({
                       </div>
 
                       {/* ── TAB PANELS ── */}
-                      <div className={`overflow-y-auto flex-1 transition-[box-shadow] duration-500 ${notifHighlight?.bookingId === booking.id ? "ring-2 ring-inset ring-primary/40" : ""}`}>
+                      <div className={`min-h-0 overflow-y-auto flex-1 transition-[box-shadow] duration-500 ${notifHighlight?.bookingId === booking.id ? "ring-2 ring-inset ring-primary/40" : ""}`}>
 
                         {/* OVERVIEW TAB — enlarged patient card, same row style as AppointmentCard */}
                         {getModalTab(booking.id) === 'overview' && (() => {
@@ -2771,7 +2771,7 @@ export default function BookingsPanel({
                                       );
                                       const btn = (
                                         <button
-                                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                                          className={`w-full min-w-0 flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                                             isAssigned
                                               ? 'bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-600 shadow-none'
                                               : outOfOffice
@@ -2783,16 +2783,16 @@ export default function BookingsPanel({
                                           onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
                                           disabled={assignDoctorMutation.isPending}
                                         >
-                                          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20'}`}>
-                                            <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-primary'}`}>{clinic.doctorName.charAt(0)}</span>
+                                          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-emerald-600' : isBestMatch ? 'bg-indigo-100 dark:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-400/30' : 'bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20'}`}>
+                                            <span className={`text-xs font-bold ${isAssigned ? 'text-white' : isBestMatch ? 'text-indigo-700 dark:text-indigo-300' : 'text-primary'}`}>{clinic.doctorName.charAt(0)}</span>
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>{clinic.doctorName}</p>
-                                            <p className={`text-xs ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                            <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-emerald-900 dark:text-emerald-100' : 'text-foreground'}`}>{clinic.doctorName}</p>
+                                            <p className={`text-xs ${isAssigned ? 'text-emerald-700 dark:text-emerald-200' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
                                               {outOfOffice ? <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" />Out of office</span> : (clinic.doctorSpecialization || 'Lead Doctor')}
                                             </p>
                                           </div>
-                                          {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
+                                          {isAssigned && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
                                           {!isAssigned && isBestMatch && (
                                             <span className="shrink-0 text-[11px] font-bold text-indigo-700 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-400/30 px-1.5 py-0.5 rounded-full">
                                               Specialty match
@@ -2830,7 +2830,7 @@ export default function BookingsPanel({
                                               : outOfOffice
                                               ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
                                               : isBestMatchDoc
-                                              ? 'bg-white dark:bg-background border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-500 hover:bg-emerald-50/40'
+                                              ? 'bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/40 hover:border-indigo-500 hover:bg-indigo-50'
                                               : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                           }`}
                                           onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doctor.name, doctorEmail: doctor.email }); }}
@@ -2847,7 +2847,7 @@ export default function BookingsPanel({
                                           </div>
                                           {isAssigned && <span className="h-6 w-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0"><Check className="h-3.5 w-3.5" /></span>}
                                           {!isAssigned && isBestMatchDoc && (
-                                            <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                                            <span className="shrink-0 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-500/30 px-1.5 py-0.5 rounded-full">
                                               Best match
                                             </span>
                                           )}

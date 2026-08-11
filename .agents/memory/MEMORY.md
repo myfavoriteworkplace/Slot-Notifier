@@ -15,3 +15,4 @@
 - [SMS notification policy](sms-notification-policy.md) — received vs confirmed SMS events are defined; SMS stays backend-only and Render-controlled.
 - [Approved booking lifecycle policy](approved-booking-lifecycle-policy.md) — confirmed clinic-timezone, old-booking, completion, early-exit, aggregate, and legacy-status rules.
 - [Booking classifier policy](booking-classifier-policy.md) — pure interpretation layer; terminal conflicts are conservative and authorization remains server-side.
+- [Patient card responsive layout](patient-card-responsive.md) — keep equal-width dashboard cards, but stack/scroll inner modal content and reserve green for assigned doctors.

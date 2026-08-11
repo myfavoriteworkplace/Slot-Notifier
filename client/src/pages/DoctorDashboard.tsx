@@ -3118,7 +3118,7 @@ export default function DoctorDashboard() {
 
       {/* ── Patient Detail Dialog ── */}
       <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) { setPatientModalId(null); setDialogExpanded(false); } }}>
-        <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} p-0 gap-0 overflow-hidden h-[90vh] flex flex-col rounded-2xl transition-[max-width] duration-200`}>
+        <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[max-width] duration-200`}>
 
           {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
           <button
@@ -3149,15 +3149,15 @@ export default function DoctorDashboard() {
             return (
               <>
                 {/* Header */}
-                <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 shrink-0 overflow-hidden">
+                <div className="relative min-w-0 bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 sm:px-5 pt-4 sm:pt-5 pb-4 shrink-0 overflow-hidden">
                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                  <div className="relative flex items-center gap-3">
+                  <div className="relative flex min-w-0 items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-base ring-1 ring-white/10 shrink-0">
                       {b.customerName?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                        <p className="min-w-0 max-w-full truncate font-bold text-white text-base leading-tight">{b.customerName}</p>
                         {(b as any).visitNumber !== undefined && (b as any).totalVisits > 1 && (
                           <span className="inline-flex items-center gap-1 text-xs leading-none font-semibold text-violet-100 bg-violet-500/25 border border-violet-300/30 px-1.5 py-1 rounded-md shrink-0">
                             <Repeat2 className="h-3 w-3" />
@@ -3177,14 +3177,14 @@ export default function DoctorDashboard() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
+                      <div className="flex min-w-0 items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
                         <span className="flex items-center gap-1"><Hash className="h-3 w-3" />Ref #{String(b.id).padStart(4, "0")}</span>
                         <span>·</span>
-                        <span className="flex items-center gap-1 truncate"><Building2 className="h-3 w-3 shrink-0" />{modalClinicName}</span>
+                        <span className="flex min-w-0 items-center gap-1 truncate"><Building2 className="h-3 w-3 shrink-0" />{modalClinicName}</span>
                       </div>
                       {startTime && (
-                        <p className="text-white/50 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
-                          <span>{startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        <p className="min-w-0 text-white/50 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate">{startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                           {(() => {
                             const now = new Date(); now.setHours(0, 0, 0, 0);
                             const apptDay = new Date(startTime); apptDay.setHours(0, 0, 0, 0);
@@ -3201,7 +3201,7 @@ export default function DoctorDashboard() {
                 </div>
 
                 {/* Tab strip — Overview | Notes | Diagnosis | Prescription | Chart */}
-                <div className="shrink-0 flex border-b border-border/60 bg-card">
+                <div className="shrink-0 flex min-w-0 overflow-x-auto border-b border-border/60 bg-card">
                   {([
                     { key: 'overview'     as const, label: 'Overview',    icon: <User className="h-3.5 w-3.5" /> },
                     { key: 'notes'        as const, label: 'Notes',       icon: <FileText className="h-3.5 w-3.5" /> },
@@ -3217,7 +3217,7 @@ export default function DoctorDashboard() {
                       <button
                         key={key}
                         onClick={() => setPatientModalTab(key)}
-                        className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/30 ${
+                        className={`flex-none sm:flex-1 min-w-[68px] px-2 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/30 ${
                           isActive
                             ? 'text-primary border-primary'
                             : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
@@ -3232,7 +3232,7 @@ export default function DoctorDashboard() {
                 </div>
 
                 {/* Tab panels */}
-                <div className="overflow-y-auto flex-1">
+                <div className="min-h-0 overflow-y-auto flex-1">
 
                   {/* OVERVIEW TAB */}
                   {patientModalTab === 'overview' && (() => {

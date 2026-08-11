@@ -447,7 +447,7 @@ export function AppointmentCard({
 
   return (
     <Card
-        className={`relative overflow-visible mt-3 mb-3 rounded-xl border border-border/70 bg-card shadow-sm transition-colors duration-200 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
+      className={`relative min-w-0 overflow-visible mt-3 mb-3 rounded-xl border border-border/70 bg-card shadow-sm transition-colors duration-200 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {latestLabel && (
@@ -460,7 +460,7 @@ export function AppointmentCard({
 
       {/* Clickable body */}
       <div
-        className="w-full text-left cursor-pointer flex-1 flex flex-col"
+        className="w-full min-w-0 text-left cursor-pointer flex-1 flex flex-col"
         onClick={onCardClick}
         role="button"
         tabIndex={0}
@@ -468,7 +468,7 @@ export function AppointmentCard({
       >
         {/* ── Header ── */}
         <div className={`px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} transition-colors`}>
-          <div className="flex items-start justify-between gap-2 relative">
+          <div className="flex min-w-0 items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
             <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -502,13 +502,13 @@ export function AppointmentCard({
                   )}
                 </div>
                 {/* Row 3: Phone · Age · Gender */}
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                   <Phone className="h-2.5 w-2.5 shrink-0" />
-                  <span className="shrink-0">{booking.customerPhone || "--"}</span>
+                <span className="min-w-0 max-w-full truncate">{booking.customerPhone || "--"}</span>
                   <span className="opacity-30 shrink-0 px-0.5">·</span>
                   <span className="shrink-0">{booking.customerAge ? `${booking.customerAge}y` : "--"}</span>
                   <span className="opacity-30 shrink-0 px-0.5">·</span>
-                  <span className="shrink-0 truncate">
+                <span className="min-w-0 truncate">
                     {booking.customerGender
                       ? booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)
                       : "--"}
@@ -923,7 +923,7 @@ export function AppointmentCard({
           )}
 
           {/* Collapsible detail rows — hidden on mobile until expanded, always hidden when collapsed */}
-          <div className={isCollapsed ? "hidden" : (mobileExpanded ? "space-y-2" : "hidden sm:block space-y-2")}>
+          <div className={`${isCollapsed ? "hidden" : (mobileExpanded ? "space-y-2" : "hidden sm:block space-y-2")} min-w-0`}>
 
           {/* Visit Type */}
           <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
@@ -1132,7 +1132,7 @@ export function AppointmentCard({
       </div>
 
       {/* Collapsible outer sections — banners, progress strip, footers; hidden on mobile until expanded, always hidden when collapsed */}
-      <div className={isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")}>
+       <div className={`${isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")} min-w-0`}>
 
       <AppointmentInfoSection
         role={role}
@@ -1181,7 +1181,7 @@ export function AppointmentCard({
 
            {/* Terminal: Cancelled — functional billing/rebook actions only */}
           {isCancelled && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
                   className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
@@ -1201,7 +1201,7 @@ export function AppointmentCard({
 
            {/* Terminal: No Show — functional actions only */}
           {isNoShowState && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               {(booking as any).noShowSource === "batch_admin" && (
                 <Button variant="outline" size="sm" className="flex-1 h-10 text-xs font-medium gap-1.5"
                   onClick={() => onRevertNoShow?.()} disabled={revertNoShowPending}>
@@ -1220,7 +1220,7 @@ export function AppointmentCard({
 
            {/* Terminal: Patient Left Early — functional billing/rebook actions only */}
           {isLeftEarlyState && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
                   className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
@@ -1240,7 +1240,7 @@ export function AppointmentCard({
 
           {/* Stage 0 — Pending: [Confirm flex-1] [Cancel] — or [Reschedule] [Cancel] when past */}
           {!isTerminal && !isClinicConfirmed && !isVisitCompleted && !isTreatmentCompleted && !isCheckedIn && !isInConsultation && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               {isPast ? (
                 <Button
                   className="flex-1 h-10 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white gap-2 active:scale-[0.98] transition-all"
@@ -1273,7 +1273,7 @@ export function AppointmentCard({
 
           {/* Stage 1 — Confirmed, not arrived: [Mark Arrived flex-1] [Send Reminder] [Cancel → three-dot] */}
           {!isTerminal && isClinicConfirmed && !isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button
                 className="flex-1 h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onCheckIn?.()}
@@ -1298,7 +1298,7 @@ export function AppointmentCard({
 
           {/* Stage 2 — Arrived (Waiting): [₹ Bill flex-1] — status shown in info strip above */}
           {!isTerminal && isCheckedIn && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="flex-1 h-10 text-sm font-medium gap-2 active:scale-[0.98]"
                 onClick={() => onBill?.()}
@@ -1310,7 +1310,7 @@ export function AppointmentCard({
 
           {/* Stage 3 — In Treatment: [₹ Bill flex-1] — status shown in info strip above */}
           {!isTerminal && isInConsultation && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="flex-1 h-10 text-sm font-medium gap-2 active:scale-[0.98]"
                 onClick={() => onBill?.()}
@@ -1322,7 +1322,7 @@ export function AppointmentCard({
 
           {/* Stage 3b — Treatment Completed: [₹ Bill] [Mark Visit Done flex-1] */}
           {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline" size="sm"
                 className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
                 onClick={() => onBill?.()}
