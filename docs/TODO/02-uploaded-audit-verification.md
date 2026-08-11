@@ -92,7 +92,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
 | Phase 4 | Build and unit-test the pure booking classifier | **Completed** | **No — pure policy module and tests only; no UI, server query, or transition behavior changed** |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | **Completed** | **Yes — client lifecycle interpretation and action visibility now use the shared classifier** |
-| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–7 complete** | **Yes — server predicates, booking filters, clinic/doctor counts, clinic analytics, and clinic-timezone boundaries aligned; Steps 8–9 remain pending** |
+| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–8 complete** | **Yes — server predicates, booking filters, clinic/doctor counts, clinic analytics, clinic-timezone boundaries, and patient-history metadata aligned; Step 9 remains pending** |
 | Phase 7 | Add server-side transition/action guards | Not started | No |
 | Phase 8 | Complete responsive UI verification and rollout checks | Not started | No |
 
@@ -255,7 +255,7 @@ Known follow-up risks:
   - Existing build warnings about large chunks and stale Browserslist data remain outside Phase 2 scope.
 ```
 
-Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, Phase 4 completed the pure classifier and state-matrix tests, and Phase 5 migrated the client lifecycle interpretation. Phase 6 is now partially complete: server predicate, filter, clinic/doctor count alignment, and clinic-timezone boundary Steps 1–6 are done. The remaining Phase 6 work, Phase 7, and Phase 8 are still pending.
+Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, Phase 4 completed the pure classifier and state-matrix tests, and Phase 5 migrated the client lifecycle interpretation. Phase 6 is now partially complete: server predicate, filter, clinic/doctor count alignment, clinic-timezone boundary, analytics, and patient-history metadata Steps 1–8 are done. Dedicated server predicate/statistics tests remain as Step 9; Phase 7 and Phase 8 are still pending.
 
 ---
 
@@ -1635,11 +1635,11 @@ Create reusable server-side predicates for shared lifecycle meaning, then compos
 - Null and legacy visit states are handled consistently.
 - SQL filtering remains paginated and ownership-safe.
 
-### Phase 6 progress record — Steps 1–6 completed
+### Phase 6 progress record — Steps 1–8 completed
 
 #### Completed work
 
-The first six independent Phase 6 steps are complete:
+The first eight independent Phase 6 steps are complete:
 
 1. **Added reusable server booking predicates**
    - Added `server/booking-predicates.ts`.
@@ -1709,45 +1709,32 @@ The first six independent Phase 6 steps are complete:
 
 #### Remaining Phase 6 work
 
-Phase 6 is not complete yet. Steps 1–7 are now complete. The following items remain pending:
+Phase 6 is not complete yet. Steps 1–8 are now complete. The following item remains pending:
 
-- **Step 7 — Align clinic analytics — Completed**
-  - Updated `getClinicAnalytics()` in `server/storage.ts`.
-  - Replaced independent confirmation, terminal, active, completed, and
-    started-visit comparisons with the shared lifecycle helpers.
-  - Reused the clinic timezone for analytics period boundaries, daily trends,
-    weekly revenue grouping, and monthly patient-growth labels.
-  - Bounded previous-period comparisons to the matching period while preserving
-    the existing current-range analytics behavior.
-  - Preserved separate funnel measures for checked-in, started, treatment
-    completed, fully completed, completed patient visits, and early exits.
-  - Kept the existing analytics response shape compatible by adding optional
-    funnel metadata for started visits, completed patient visits, and early
-    exits.
-  - Updated the clinic analytics panel to display the new optional funnel
-    measures without changing its surrounding layout.
+#### Step 8 — Add canonical metadata to patient history — Completed
 
-#### Step 7 verification
+- Updated `getPatientHistory()` in `server/storage.ts`.
+- Preserved the ownership-safe clinic and patient constraints.
+- Kept patient history independent of dashboard pagination, tabs, and search.
+- Added a nested `booking.lifecycle` metadata contract containing:
+  - normalized confirmation, doctor-approval, and visit statuses
+  - clinic-local date and canonical date category
+  - operational state
+  - today, past, upcoming, old, and same-day-past-due flags
+  - active, started, treatment-completed, completed, terminal, and early-exit flags
+  - confirmed and awaiting-doctor-approval flags
+- Reused the clinic timezone resolver and booking date boundaries.
+- Reused the shared classifier and server lifecycle predicates.
+- Preserved the existing bills and clinical-record results.
+- Updated the patient-directory history response type for the new metadata.
 
-- `npm run build` — passed successfully.
+#### Step 8 verification
+
+- `npm run build` — passed.
 - `git diff --check` — passed.
-- `npm run check` — passed after restoring the declared `compression` and
-  `multer` dependencies; no Step 7 TypeScript errors remain.
-- `npm run build` — passed successfully.
-- `Start application` workflow — restarted after the server change and serving
-  on port 5000.
-- `Build Check` workflow — restarted after the final implementation.
-- `git diff --check` — passed.
-
-- **Step 8 — Add canonical metadata to patient history**
-  - Update `getPatientHistory()` in `server/storage.ts`.
-  - Keep the query ownership-safe and independent of dashboard pagination,
-    tabs, and search filters.
-  - Attach normalized confirmation, doctor-approval, and visit statuses.
-  - Attach canonical date/lifecycle metadata using the clinic timezone,
-    including today, past, upcoming, old, active, completed, terminal, and
-    early-exit meanings.
-  - Preserve the existing bills and clinical-record results.
+- `npm run check` — currently blocked by the environment's missing
+  `compression` and `multer` packages/type declarations, unrelated to the
+  patient-history implementation.
 
 - **Step 9 — Add dedicated server predicate/statistics tests**
   - Add a committed server test suite for `server/booking-predicates.ts`.
@@ -1762,12 +1749,8 @@ Phase 6 is not complete yet. Steps 1–7 are now complete. The following items r
 
 ### Recommended Phase 6 execution order
 
-1. Complete Step 7 first, because analytics currently has the largest
-   independent interpretation of booking status and date meaning.
-2. Complete Step 8 next, reusing the same metadata contract without making
-   patient history depend on a filtered booking-list query.
-3. Complete Step 9 last, using the final predicate/statistics contracts to
-   lock the state matrix and prevent future count drift.
+1. Complete Step 9 using the final predicate, statistics, and patient-history
+   contracts to lock the state matrix and prevent future count drift.
 
 The missing `compression` and `multer` dependencies currently prevent the
 Start application workflow and `npm run check`; this is an environment and

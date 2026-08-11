@@ -59,6 +59,8 @@ import {
   isPendingBooking,
   isConfirmedBooking,
   isTerminalBooking,
+  getBookingLifecycleMetadata,
+  type BookingLifecycleMetadata,
   nonTerminalBookingCondition,
   notCompletedPatientVisitCondition,
   pendingBookingCondition,
@@ -126,6 +128,11 @@ type VisitHistoryMeta = {
   visitNumber: number;
   totalVisits: number;
   latestLabel?: 'latest_record';
+};
+
+export type PatientHistoryBooking = Booking & {
+  slot: Slot;
+  lifecycle: BookingLifecycleMetadata;
 };
 
 function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): Map<number, VisitHistoryMeta> {
@@ -260,7 +267,7 @@ export interface IStorage {
   searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
   getPatientsByClinicPaged(clinicId: number, opts: { q?: string; sort?: string; lastVisitFrom?: string; lastVisitTo?: string; page?: number; pageSize?: number; exportAll?: boolean; }): Promise<{ data: (Patient & { totalBilled: number })[]; total: number; page: number; totalPages: number; stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number; }; }>;
-  getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
+  getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: PatientHistoryBooking[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
 
   // Doctor Profile
   updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
@@ -2565,7 +2572,12 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {
+  async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: PatientHistoryBooking[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {
+    const clinic = await this.getClinic(Number(clinicId));
+    const boundaries = createBookingDateBoundaries(
+      new Date(),
+      resolveClinicTimezone(clinic?.timezone),
+    );
     const [bookingRows, bills, records] = await Promise.all([
       db.select({ booking: bookings, slot: slots })
         .from(bookings)
@@ -2580,7 +2592,14 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(clinicalRecords.createdAt)),
     ]);
     return {
-      bookings: bookingRows.map(r => ({ ...r.booking, slot: r.slot })),
+      bookings: bookingRows.map(r => ({
+        ...r.booking,
+        slot: r.slot,
+        lifecycle: getBookingLifecycleMetadata(
+          { ...r.booking, startTime: r.slot.startTime },
+          boundaries,
+        ),
+      })),
       bills,
       clinicalRecords: records,
     };

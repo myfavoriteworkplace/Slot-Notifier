@@ -21,7 +21,30 @@ type PatientPagedResponse = {
 };
 
 type PatientHistory = {
-  bookings: (Booking & { slot: Slot })[];
+  bookings: (Booking & {
+    slot: Slot;
+    lifecycle: {
+      localDate: string | null;
+      dateCategory: 'unknown' | 'old' | 'today_past_due' | 'today_upcoming' | 'future';
+      operationalState: string;
+      normalizedConfirmationStatus: string;
+      normalizedDoctorApprovalStatus: string;
+      normalizedVisitStatus: string;
+      isToday: boolean;
+      isPast: boolean;
+      isUpcoming: boolean;
+      isOld: boolean;
+      isPastDueToday: boolean;
+      isActive: boolean;
+      isStarted: boolean;
+      isTreatmentCompleted: boolean;
+      isCompleted: boolean;
+      isTerminal: boolean;
+      isEarlyExit: boolean;
+      isConfirmed: boolean;
+      isAwaitingDoctorApproval: boolean;
+    };
+  })[];
   bills: PatientBill[];
   clinicalRecords: ClinicalRecord[];
 };

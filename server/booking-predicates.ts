@@ -9,6 +9,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import {
+  classifyBooking,
   createBusinessDateContext,
   DEFAULT_CLINIC_TIMEZONE,
   getCalendarDateInTimezone,
@@ -65,6 +66,28 @@ export interface BookingStatsSnapshot {
   totalOwnedCount?: number;
   awaitingApprovalCount?: number;
   patientTotalCount?: number;
+}
+
+export interface BookingLifecycleMetadata {
+  localDate: string | null;
+  dateCategory: "unknown" | "old" | "today_past_due" | "today_upcoming" | "future";
+  operationalState: string;
+  normalizedConfirmationStatus: string;
+  normalizedDoctorApprovalStatus: string;
+  normalizedVisitStatus: string;
+  isToday: boolean;
+  isPast: boolean;
+  isUpcoming: boolean;
+  isOld: boolean;
+  isPastDueToday: boolean;
+  isActive: boolean;
+  isStarted: boolean;
+  isTreatmentCompleted: boolean;
+  isCompleted: boolean;
+  isTerminal: boolean;
+  isEarlyExit: boolean;
+  isConfirmed: boolean;
+  isAwaitingDoctorApproval: boolean;
 }
 
 export function createBookingDateBoundaries(
@@ -135,6 +158,60 @@ function statusDate(row: BookingPolicyRow): Date {
 
 function normalizedVisit(row: BookingPolicyRow) {
   return normalizeVisitStatus(row.visitStatus);
+}
+
+/**
+ * Builds the lifecycle metadata returned with standalone patient history.
+ *
+ * Patient history is not a dashboard list, so it must not inherit a tab
+ * filter or a paginated query's interpretation. The shared classifier
+ * supplies the canonical date vocabulary while the server predicates keep
+ * lifecycle booleans aligned with server-side filters and statistics.
+ */
+export function getBookingLifecycleMetadata(
+  row: BookingPolicyRow,
+  boundaries: BookingDateBoundaries,
+): BookingLifecycleMetadata {
+  const classification = classifyBooking(
+    {
+      startTime: row.startTime,
+      verificationStatus: row.verificationStatus,
+      confirmedBy: row.confirmedBy,
+      doctorApprovalStatus: row.doctorApprovalStatus,
+      visitStatus: row.visitStatus,
+    },
+    boundaries.context,
+    "owner",
+  );
+  const visit = normalizedVisit(row);
+  const date = statusDate(row);
+  const localDate = classification.rawStartTime
+    ? getCalendarDateInTimezone(classification.rawStartTime, boundaries.context.timezone)
+    : null;
+  const isPast = date < boundaries.todayStart;
+  const isUpcoming = date >= boundaries.tomorrowStart;
+
+  return {
+    localDate,
+    dateCategory: classification.dateCategory,
+    operationalState: classification.operationalState,
+    normalizedConfirmationStatus: classification.confirmation.value,
+    normalizedDoctorApprovalStatus: classification.doctorApproval.value,
+    normalizedVisitStatus: classification.visit.value,
+    isToday: classification.isToday,
+    isPast,
+    isUpcoming,
+    isOld: classification.isOld,
+    isPastDueToday: classification.isPastDueToday,
+    isActive: classification.isActive,
+    isStarted: classification.isStarted,
+    isTreatmentCompleted: classification.isTreatmentCompleted,
+    isCompleted: classification.isCompleted,
+    isTerminal: isTerminalBooking(row),
+    isEarlyExit: visit.value === "patient_left_early",
+    isConfirmed: isConfirmedBooking(row),
+    isAwaitingDoctorApproval: isAwaitingDoctorApproval(row, boundaries),
+  };
 }
 
 export function isConfirmedBooking(row: BookingPolicyRow): boolean {
