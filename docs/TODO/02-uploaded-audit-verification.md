@@ -92,7 +92,7 @@ This document is the working plan for the shared appointment-classification impr
 | Phase 3 | Add shared status/date constants and normalized types | **Completed** | **No — contract and type foundation only; no booking behavior changed** |
 | Phase 4 | Build and unit-test the pure booking classifier | **Completed** | **No — pure policy module and tests only; no UI, server query, or transition behavior changed** |
 | Phase 5 | Migrate client helpers, cards, popups, and dashboards | **Completed** | **Yes — client lifecycle interpretation and action visibility now use the shared classifier** |
-| Phase 6 | Align server filters, counts, and statistics | **Partially completed — Steps 1–8 complete** | **Yes — server predicates, booking filters, clinic/doctor counts, clinic analytics, clinic-timezone boundaries, and patient-history metadata aligned; Step 9 remains pending** |
+| Phase 6 | Align server filters, counts, and statistics | **Completed — Steps 1–9 complete** | **Yes — server predicates, booking filters, clinic/doctor counts, clinic analytics, clinic-timezone boundaries, patient-history metadata, and server regression coverage aligned** |
 | Phase 7 | Add server-side transition/action guards | Not started | No |
 | Phase 8 | Complete responsive UI verification and rollout checks | Not started | No |
 
@@ -255,7 +255,7 @@ Known follow-up risks:
   - Existing build warnings about large chunks and stale Browserslist data remain outside Phase 2 scope.
 ```
 
-Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, Phase 4 completed the pure classifier and state-matrix tests, and Phase 5 migrated the client lifecycle interpretation. Phase 6 is now partially complete: server predicate, filter, clinic/doctor count alignment, clinic-timezone boundary, analytics, and patient-history metadata Steps 1–8 are done. Dedicated server predicate/statistics tests remain as Step 9; Phase 7 and Phase 8 are still pending.
+Phase 2 restored the prerequisite baseline for the classifier work. Phase 3 established the shared status/date foundation, Phase 4 completed the pure classifier and state-matrix tests, and Phase 5 migrated the client lifecycle interpretation. Phase 6 is now complete: server predicate, filter, clinic/doctor count alignment, clinic-timezone boundary, analytics, patient-history metadata, and dedicated server predicate/statistics tests Steps 1–9 are done. Phase 7 and Phase 8 are still pending.
 
 ---
 
@@ -1635,11 +1635,11 @@ Create reusable server-side predicates for shared lifecycle meaning, then compos
 - Null and legacy visit states are handled consistently.
 - SQL filtering remains paginated and ownership-safe.
 
-### Phase 6 progress record — Steps 1–8 completed
+### Phase 6 progress record — Steps 1–9 completed
 
 #### Completed work
 
-The first eight independent Phase 6 steps are complete:
+All nine independent Phase 6 steps are complete:
 
 1. **Added reusable server booking predicates**
    - Added `server/booking-predicates.ts`.
@@ -1707,9 +1707,10 @@ The first eight independent Phase 6 steps are complete:
 - The clinic timezone column is an idempotent schema/startup addition; no
   booking data migration or status-value rewrite was made.
 
-#### Remaining Phase 6 work
+#### Phase 6 completion status
 
-Phase 6 is not complete yet. Steps 1–8 are now complete. The following item remains pending:
+Phase 6 is complete. Steps 1–9 are implemented and verified. Phase 7 and
+Phase 8 remain pending.
 
 #### Step 8 — Add canonical metadata to patient history — Completed
 
@@ -1736,21 +1737,35 @@ Phase 6 is not complete yet. Steps 1–8 are now complete. The following item re
   `compression` and `multer` packages/type declarations, unrelated to the
   patient-history implementation.
 
-- **Step 9 — Add dedicated server predicate/statistics tests**
-  - Add a committed server test suite for `server/booking-predicates.ts`.
-  - Cover null and legacy values, terminal states, active visits,
-    treatment-completed, completed, early exit, doctor approval, old dates,
-    same-day boundaries, UTC-midnight cases, and non-default IANA timezones.
-  - Verify clinic and doctor statistics independently, including completed,
-    started, early-exit, pending, confirmed, upcoming, past, and approval
-    counts.
-  - Run the server tests together with the shared status and booking-list
-    tests in the normal validation sequence.
+#### Step 9 — Add dedicated server predicate/statistics tests — Completed
 
-### Recommended Phase 6 execution order
+- Added `server/booking-predicates.test.ts`.
+- Covered null, legacy, and unknown confirmation, approval, and visit values.
+- Covered confirmed, pending, terminal, active, treatment-completed,
+  completed, early-exit, and conflicting-state behavior.
+- Covered doctor approval independently from booking confirmation, including
+  null/unassigned and declined approval.
+- Covered old, same-day past-due, same-day upcoming, and future dates.
+- Covered UTC-midnight behavior, `Asia/Kolkata`, invalid timezone fallback,
+  and `America/New_York` daylight-saving boundaries.
+- Independently verified clinic statistics for today, upcoming, past,
+  current week, next week, pending, confirmed, terminal, and completed
+  records.
+- Independently verified doctor statistics for owned, awaiting approval,
+  pending, confirmed, upcoming, past, terminal, and completed records.
 
-1. Complete Step 9 using the final predicate, statistics, and patient-history
-   contracts to lock the state matrix and prevent future count drift.
+#### Step 9 verification
+
+- `node_modules/.bin/tsx --test server/booking-predicates.test.ts shared/booking-status.test.ts client/src/lib/booking-list.test.ts` — 22 passed, 0 failed.
+- `npm run build` — passed.
+- Build Check workflow — finished successfully.
+- `git diff --check` — passed.
+- `npm run check` remains blocked by the environment's missing
+  `compression` and `multer` packages/type declarations; no Step 9 test
+  failures or application build failures were observed.
+
+Phase 6 is now complete. Phase 7 remains the next implementation phase, and
+Phase 8 remains the final responsive and rollout verification phase.
 
 The missing `compression` and `multer` dependencies currently prevent the
 Start application workflow and `npm run check`; this is an environment and

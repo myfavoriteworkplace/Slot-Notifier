@@ -384,7 +384,7 @@ export function calculateClinicBookingStats(
     }
     if (date >= boundaries.todayStart && date < boundaries.next7DaysEnd) {
       if (pending) stats.pendingNext7Count++;
-      if (confirmed && nonTerminal) stats.confirmedNext7Count++;
+      if (confirmed && nonTerminal && !completed) stats.confirmedNext7Count++;
     }
     if (pending) stats.totalPendingCount++;
   }
@@ -441,7 +441,7 @@ export function calculateDoctorBookingStats(
     }
     if (date >= boundaries.todayStart && date < boundaries.next7DaysEnd) {
       if (awaiting) stats.pendingNext7Count++;
-      if (approved && confirmed && nonTerminal) stats.confirmedNext7Count++;
+      if (approved && confirmed && nonTerminal && !completed) stats.confirmedNext7Count++;
     }
     if (pending) stats.totalPendingCount++;
   }
