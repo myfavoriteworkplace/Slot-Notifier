@@ -60,7 +60,34 @@ test("old active clinic visits never replace visit management with rebook", () =
 
   assert.deepEqual(ids(model), ["manage_visit", "bill"]);
   assert.equal(model.primary?.target, "actions");
-  assert.equal(model.policyState, "active_visit");
+  assert.equal(model.policyState, "old_active");
+});
+
+test("active and treatment-completed clinic visits keep billing reachable without an existing bill", () => {
+  const active = getAppointmentFooterModel(
+    makeClassification({ visitStatus: "checked_in" }),
+    "clinic",
+  );
+  const treatmentCompleted = getAppointmentFooterModel(
+    makeClassification({ visitStatus: "treatment_completed" }),
+    "clinic",
+  );
+
+  assert.deepEqual(ids(active), ["manage_visit", "bill"]);
+  assert.deepEqual(ids(treatmentCompleted), ["mark_visit_done", "bill"]);
+  assert.equal(active.secondary[0]?.label, "Open Billing");
+  assert.equal(treatmentCompleted.secondary[0]?.label, "Open Billing");
+});
+
+test("unknown-date clinic bookings resolve with an explicit unknown-date policy state", () => {
+  const model = getAppointmentFooterModel(
+    makeClassification({ slot: { startTime: null } }),
+    "clinic",
+  );
+
+  assert.deepEqual(ids(model), ["resolve_booking"]);
+  assert.equal(model.primary?.target, "actions");
+  assert.equal(model.policyState, "unknown_date");
 });
 
 test("completed clinic visits prioritize payment state and keep rebook secondary", () => {
@@ -102,6 +129,24 @@ test("doctor historical records are review-only", () => {
   assert.deepEqual(ids(terminal), ["review_visit"]);
   assert.equal(old.readOnly, true);
   assert.equal(terminal.readOnly, true);
+});
+
+test("doctor-declined assignments are explicit read-only reviews", () => {
+  const model = getAppointmentFooterModel(
+    makeClassification(
+      {
+        doctorApprovalStatus: "declined",
+        visitStatus: null,
+      },
+      "doctor",
+    ),
+    "doctor",
+  );
+
+  assert.deepEqual(ids(model), ["review_visit"]);
+  assert.equal(model.primary?.target, "overview");
+  assert.equal(model.readOnly, true);
+  assert.equal(model.policyState, "doctor_declined");
 });
 
 test("doctor active and approval states preserve their clinical actions", () => {

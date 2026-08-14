@@ -93,6 +93,28 @@ When a notification references a booking outside the current list filter, the
 panel fetches the booking separately using the focus-booking endpoint so the
 dialog can still open.
 
+### Footer parity
+
+The card footer and the dialog's persistent footer represent the same booking
+policy. They must not independently decide whether to show Resolve Booking,
+Rebook, Reschedule, billing, or final closure.
+
+Both surfaces consume the same `getAppointmentFooterModel()` result:
+
+- `actions` opens the Actions tab.
+- `billing` opens the Billing tab.
+- `overview` opens the review overview.
+
+The dialog may place additional administrative controls inside the Actions tab,
+but its persistent footer must preserve the same primary/secondary action
+meaning as the card. In particular:
+
+- old and same-day past-due unresolved bookings resolve before Rebook;
+- old active visits remain manageable;
+- treatment-completed visits remain closable;
+- active/treatment-completed visits can open billing to create the first bill;
+- completed bookings with no bill do not show View Invoice.
+
 ## Related workflows
 
 ### Billing

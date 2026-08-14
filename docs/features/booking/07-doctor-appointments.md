@@ -42,6 +42,23 @@ Queries are enabled for the appointments tab and use infinite pagination.
 The doctor dashboard may show completed or historical visits for context, but
 does not become the clinic's administrative booking authority.
 
+### Historical and declined behaviour
+
+The doctor footer is read-only for:
+
+- Doctor-declined assignments
+- Old unresolved records
+- Completed records
+- Cancelled records
+- No-show records
+- Patient-left-early records
+
+These records use **Review Visit** and open the overview/review context. They do
+not expose clinic-owned no-show, reschedule, reassignment, or administrative
+override actions. A `treatment_completed` visit is different: the doctor may
+still use **View/Edit Rx**, while the clinic owns final closure to
+`completed`.
+
 ## Doctor card behaviour
 
 The shared card provides:
@@ -54,6 +71,11 @@ The shared card provides:
 - Notes and records entry points
 - Consent request
 - Progress strip
+
+During consultation, **Done** remains the primary doctor action. Observation,
+Notes, and Prescription remain compact clinical controls rather than becoming
+equal-width administrative buttons. The prescription control must target the
+Prescription tab, not only the general records view.
 
 Clinic-only controls such as assignment, no-show management, rescheduling, and
 administrative override are not supplied by the doctor parent.

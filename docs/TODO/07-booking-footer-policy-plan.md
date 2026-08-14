@@ -53,6 +53,25 @@ The new model:
 - Prevents Rebook from replacing active or treatment-completed workflows.
 - Does not perform mutations, navigation, authorization, or billing operations.
 
+### Reconciled policy decisions
+
+The following decisions are now fixed for the next implementation phases:
+
+1. Same-day past-due bookings expose **Resolve Booking** only by default.
+2. Old active clinic visits use **Manage Visit** and open the Actions tab.
+3. Terminal records show billing when bills exist; batch-admin no-shows may also
+   expose Revert No-Show.
+4. `patient_left_early` is terminal and is not eligible for administrative
+   completion override.
+5. **Review Visit** and **Review Appointment** are distinct labels with the
+   same overview target for now.
+6. Doctor **Done** remains the primary in-consultation action.
+7. Unknown-date bookings have an explicit `unknown_date` policy state and
+   resolve through the Actions tab.
+8. Active and treatment-completed clinic visits retain an Open Billing action
+   even when no bill exists yet.
+9. Doctor-declined assignments are explicit read-only Review Visit states.
+
 ### Current Phase 1 policy output
 
 #### Clinic/admin
@@ -63,8 +82,9 @@ The new model:
 | Future confirmed | Mark Arrived | Remind |
 | Same-day past due | Resolve Booking | Only actions explicitly eligible by classifier |
 | Old unresolved | Resolve Booking | Rebook |
-| Old active | Manage Visit | View Billing when bills exist |
-| Treatment completed | Mark Visit Done | View Billing when bills exist |
+| Unknown date | Resolve Booking | — |
+| Old active | Manage Visit | Open Billing |
+| Treatment completed | Mark Visit Done | Open Billing |
 | Completed with unpaid bills | Settle Payment | Rebook |
 | Completed with paid bills | View Invoice | Rebook |
 | Completed with no bill | Review Visit | Rebook |
@@ -80,6 +100,7 @@ The new model:
 | Treatment completed | View/Edit Rx | — |
 | Completed | Review Visit | — |
 | Old unresolved | Review Visit | — |
+| Doctor declined | Review Visit | — |
 | Terminal | Review Visit | — |
 | Other non-terminal records | Review Appointment | — |
 
@@ -96,24 +117,6 @@ behaviorally unchanged until later phases:
 This is intentional. The model is being tested before it becomes the source of
 visible UI behavior.
 
-## Decisions still needed before Phase 2
-
-These choices affect user-visible behavior and should be confirmed before the
-card migration:
-
-1. Whether same-day past-due bookings should also show Rebook as a secondary
-   action. The current classifier does not mark them `canRebook`, so Phase 1
-   conservatively exposes Resolve Booking only.
-2. Whether “Manage Visit” for old active clinic visits should open the Actions
-   tab, the Overview tab, or remain represented by the existing card overflow.
-3. Whether terminal no-show records should show View Billing when bills exist.
-4. Whether `patient_left_early` may ever be changed through an administrative
-   completion override.
-5. Whether “Review Visit” and “Review Appointment” should use distinct visual
-   labels only, or distinct detail-dialog tabs.
-6. Whether the doctor’s “Done” action should remain the primary in-consultation
-   action, or whether Add Observation should be primary in the next UI pass.
-
 ## Verification record
 
 ### Phase 1 checks
@@ -123,11 +126,14 @@ card migration:
 - [x] Active/treatment-completed bookings cannot be reduced to Rebook.
 - [x] Completed clinic billing states are represented separately.
 - [x] Historical doctor records are review-only.
+- [x] Doctor-declined assignments are explicit read-only reviews.
+- [x] Unknown-date resolution is represented separately from same-day past due.
+- [x] Active/treatment-completed billing remains reachable when no bill exists.
 - [x] Unit tests cover old, active, completed, terminal, approval, and clinical states.
 
 ### Planned checks
 
-- [ ] Run the shared model tests in the Build Check workflow.
+- [x] Run the shared model tests and Build Check successfully.
 - [ ] Migrate `AppointmentCard` and verify card-level action callbacks.
 - [ ] Verify card/detail-dialog parity for every matrix row.
 - [ ] Verify mobile footer wrapping at narrow card widths.

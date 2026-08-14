@@ -86,6 +86,32 @@ Mutation callers should:
 5. Invalidate/refetch relevant booking queries after success.
 6. Display server errors without assuming the client state is still current.
 
+## Footer transition mapping
+
+The footer model describes intent; the parent dashboard performs the mutation
+through these contracts:
+
+| Footer intent | Route | Request body |
+| --- | --- | --- |
+| Confirm | `PATCH /api/auth/clinic/bookings/:id/confirm` | none |
+| Mark Arrived / undo check-in | `PATCH /api/auth/clinic/bookings/:id/checkin` | `{ undo?: boolean }` |
+| Reschedule | `PATCH /api/auth/clinic/bookings/:id/reschedule` | `{ newSlotId: number }` |
+| Complete visit | `PATCH /api/auth/clinic/bookings/:id/complete-visit` | `{ note?: string }` |
+| Mark no-show | `PATCH /api/auth/clinic/bookings/:id/no-show` | `{ reason?: string }` |
+| Batch no-show | `POST /api/auth/clinic/bookings/mark-no-show-batch` | `{ bookingIds: number[] }` |
+| Revert batch no-show | `PATCH /api/auth/clinic/bookings/:id/revert-no-show` | none |
+| Override complete | `PATCH /api/auth/clinic/bookings/:id/override-complete` | `{ reason: string }` |
+| Patient left early | `PATCH /api/auth/clinic/bookings/:id/patient-left-early` | `{ reason: string }` |
+| Doctor complete treatment | `PATCH /api/doctor/bookings/:id/complete-visit` | none |
+
+`Resolve Booking` is a presentation intent that opens the clinic Actions tab;
+it is not a new server route. The Actions tab selects the permitted transition
+after the server rechecks the current booking state. `Open Billing` similarly
+opens the billing workflow and is valid for creating the first bill.
+
+The client must not invoke `override-complete` for `patient_left_early`.
+Terminal records remain subject to the server's restoration rules.
+
 ## Persistence helpers
 
 The storage layer exposes methods for:

@@ -56,6 +56,7 @@ export interface AppointmentFooterModel {
     | "future_pending"
     | "future_confirmed"
     | "same_day_past_due"
+    | "unknown_date"
     | "old_needs_resolution"
     | "old_active"
     | "old_treatment_completed"
@@ -64,6 +65,7 @@ export interface AppointmentFooterModel {
     | "treatment_completed"
     | "completed"
     | "terminal"
+    | "doctor_declined"
     | "review";
 }
 
@@ -110,9 +112,12 @@ function clinicFooter(
   const openBillsCount = count(options.openBillsCount);
   const hasBills = totalBillsCount > 0;
   const hasUnpaidBills = openBillsCount > 0;
-  const addBillingSecondary = (secondary: AppointmentFooterAction[]) => {
-    if (hasBills) {
-      secondary.push(action("bill", "View Billing", "billing"));
+  const addBillingSecondary = (
+    secondary: AppointmentFooterAction[],
+    includeWhenEmpty = false,
+  ) => {
+    if (hasBills || includeWhenEmpty) {
+      secondary.push(action("bill", hasBills ? "View Billing" : "Open Billing", "billing"));
     }
   };
   const addRebookSecondary = (secondary: AppointmentFooterAction[]) => {
@@ -158,7 +163,9 @@ function clinicFooter(
 
   if (classification.isTreatmentCompleted) {
     const secondary: AppointmentFooterAction[] = [];
-    addBillingSecondary(secondary);
+    // Billing must remain reachable when no bill exists so the first bill can
+    // be created from an active/treatment-completed visit.
+    addBillingSecondary(secondary, true);
 
     return {
       role: "clinic",
@@ -167,20 +174,27 @@ function clinicFooter(
         : action("review_visit", "Review Visit", "overview"),
       secondary,
       readOnly: false,
-      policyState: "treatment_completed",
+      policyState:
+        classification.operationalState === "old_treatment_completed"
+          ? "old_treatment_completed"
+          : "treatment_completed",
     };
   }
 
   if (classification.isActive) {
     const secondary: AppointmentFooterAction[] = [];
-    addBillingSecondary(secondary);
+    // Billing is an entry point, not only a view of an existing bill.
+    addBillingSecondary(secondary, true);
 
     return {
       role: "clinic",
       primary: action("manage_visit", "Manage Visit", "actions"),
       secondary,
       readOnly: false,
-      policyState: "active_visit",
+      policyState:
+        classification.operationalState === "old_active"
+          ? "old_active"
+          : "active_visit",
     };
   }
 
@@ -196,7 +210,9 @@ function clinicFooter(
       policyState:
         classification.operationalState === "old_needs_resolution"
           ? "old_needs_resolution"
-          : "same_day_past_due",
+          : classification.operationalState === "same_day_past_due"
+          ? "same_day_past_due"
+          : "unknown_date",
     };
   }
 
@@ -251,6 +267,19 @@ function doctorFooter(
         : [],
       readOnly: false,
       policyState: "approval_required",
+    };
+  }
+
+  // A declined assignment is not an actionable appointment for this doctor.
+  // Keep it explicit and read-only instead of falling through to the generic
+  // review state.
+  if (classification.doctorApproval.value === "declined") {
+    return {
+      role: "doctor",
+      primary: action("review_visit", "Review Visit", "overview"),
+      secondary: [],
+      readOnly: true,
+      policyState: "doctor_declined",
     };
   }
 
@@ -310,7 +339,8 @@ function doctorFooter(
 
   if (
     classification.operationalState === "old_needs_resolution" ||
-    classification.operationalState === "same_day_past_due"
+    classification.operationalState === "same_day_past_due" ||
+    classification.operationalState === "unknown_date"
   ) {
     return {
       role: "doctor",
@@ -320,7 +350,9 @@ function doctorFooter(
       policyState:
         classification.operationalState === "old_needs_resolution"
           ? "old_needs_resolution"
-          : "same_day_past_due",
+          : classification.operationalState === "same_day_past_due"
+          ? "same_day_past_due"
+          : "unknown_date",
     };
   }
 

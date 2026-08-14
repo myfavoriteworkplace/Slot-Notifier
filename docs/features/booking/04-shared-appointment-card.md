@@ -39,6 +39,33 @@ From top to bottom, the card contains:
 The card body opens the appointment detail view. Keyboard Enter and Space
 activate the same card action.
 
+## Footer policy contract
+
+Footer actions are policy output, not ad hoc timing branches. The canonical
+sequence is:
+
+```text
+classifyBooking()
+  → getAppointmentFooterModel()
+  → role-specific rendering and parent callback
+```
+
+The model returns one primary action, optional secondary actions, optional
+target-tab metadata, and a read-only flag. The card must use the operational
+state from the classification for action decisions:
+
+- `same_day_past_due`, `old_needs_resolution`, and `unknown_date` resolve
+  administratively before any Rebook action.
+- `old_active` keeps visit management ahead of Rebook.
+- `treatment_completed` keeps clinic final closure ahead of Rebook.
+- Completed billing actions depend on bill/payment state.
+- Active and treatment-completed clinic visits retain an Open Billing entry
+  point even when no bill exists yet, so the first bill can be created.
+
+The relative date badge may describe timing, but timing alone must not choose
+the footer action. The visible card remains unchanged until the planned card
+migration phase.
+
 ## Visual dimensions
 
 The card deliberately separates two visual dimensions:
@@ -107,6 +134,10 @@ The card uses bill counts to explain completion state:
 - `noBill`: completed with zero bills; shown as a green dashed/no-invoice
   condition.
 - `hasUnpaidBill`: bills exist but at least one is not paid; shown as amber.
+
+Opening billing from an active or treatment-completed visit is valid even when
+`totalBillsCount` is zero. A completed visit with no bill is not presented as
+`View Invoice`; it remains a review state until a bill exists.
 
 ## Responsive behaviour
 
