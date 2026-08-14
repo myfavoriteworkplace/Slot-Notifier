@@ -425,7 +425,7 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`relative min-w-0 overflow-visible mt-3 mb-3 rounded-xl border border-border/70 bg-card shadow-sm transition-colors duration-200 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
+      className={`relative min-w-0 overflow-visible mt-3 mb-3 h-full rounded-xl border border-border/70 bg-card shadow-sm transition-colors duration-200 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {latestLabel && (
@@ -433,7 +433,7 @@ export function AppointmentCard({
           {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
         </span>
       )}
-      <div className="min-w-0 flex flex-col overflow-hidden rounded-xl">
+      <div className="min-w-0 flex flex-1 min-h-0 flex-col overflow-hidden rounded-xl">
       {/* Accent bar — pulse when actively in-progress */}
       <div className={`h-[3px] ${accentBar} ${isInConsultation || (role === "doctor" && isCheckedIn) ? "animate-pulse" : ""}`} />
 
@@ -1131,7 +1131,7 @@ export function AppointmentCard({
       </div>
 
       {/* Collapsible outer sections — banners, progress strip, footers; hidden on mobile until expanded, always hidden when collapsed */}
-       <div className={`${isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")} min-w-0`}>
+        <div className={`${isCollapsed ? "hidden" : (mobileExpanded ? "" : "hidden sm:block")} min-w-0 mt-auto shrink-0`}>
 
       <AppointmentInfoSection
         role={role}
