@@ -2,17 +2,18 @@
 
 **Scope:** Clinic/admin and doctor appointment-card footer actions  
 **Source recommendation:** `attached_assets/Pasted-Analysis-Past-should-not-determine-one-universal-footer_1786728086567.txt`  
-**Status:** Phase 1 complete; later phases intentionally not started  
+**Status:** Phases 1–3 complete; Phases 4–6 remain
 **Last updated:** 2026-08-14
 
 ## Overall progress
 
-There are six planned implementation phases. Phase 1 is complete after adding
-the pure presentation model and its unit coverage.
+There are six planned implementation phases. Phases 1–3 are complete after
+adding the pure policy model, migrating the shared card, and aligning the
+clinic detail-dialog footer.
 
 ```text
-Progress: 1 of 6 phases complete — 17%
-[███░░░░░░░░░░░░░]
+Progress: 3 of 6 phases complete — 50%
+[████████░░░░░░░░]
 ```
 
 ### Status legend
@@ -27,8 +28,8 @@ Progress: 1 of 6 phases complete — 17%
 | Phase | Status | Result |
 |---|---|---|
 | 1. Define shared footer presentation policy | [x] Complete | Pure role/lifecycle model added and tested |
-| 2. Migrate the shared `AppointmentCard` | [ ] Not started | Visible clinic and doctor card footers will consume the model |
-| 3. Align the clinic detail-dialog footer | [ ] Not started | Card and opened booking dialog will use the same action policy |
+| 2. Migrate the shared `AppointmentCard` | [x] Complete | Clinic and doctor card footers consume the shared model |
+| 3. Align the clinic detail-dialog footer | [x] Complete | Card and opened booking dialog consume the same action policy |
 | 4. Align the doctor detail/modal experience | [ ] Not started | Historical doctor visits will receive explicit review actions |
 | 5. Reconcile server transition semantics | [ ] Not started | No-show, override, terminal, reschedule, and authorization rules audited together |
 | 6. Complete regression coverage and documentation | [ ] Not started | Full lifecycle matrix, responsive checks, and final docs |
@@ -106,16 +107,65 @@ The following decisions are now fixed for the next implementation phases:
 
 ## Important boundaries
 
-Phase 1 does **not** change what users see yet. The following files remain
-behaviorally unchanged until later phases:
+The following areas remain outside this milestone:
 
-- `client/src/components/AppointmentCard.tsx`
-- `client/src/components/BookingsPanel.tsx`
-- `client/src/pages/DoctorDashboard.tsx`
-- `server/routes.ts`
+- Full doctor detail/modal parity beyond footer target routing.
+- Server transition-semantic audit.
+- Full lifecycle regression and responsive test matrix.
 
-This is intentional. The model is being tested before it becomes the source of
-visible UI behavior.
+The server routes and authorization boundaries were intentionally not changed.
+The footer model remains presentation-only; parent mutations and server
+validation remain authoritative.
+
+## Phase 2 — Migrate the shared `AppointmentCard`
+
+### What changed
+
+The shared appointment card now derives its visible footer from:
+
+```text
+classifyClientBooking()
+  → getAppointmentFooterModel()
+  → action-specific callback or existing reason dialog
+```
+
+The migration:
+
+- Uses the same clinic and doctor policy model for primary and secondary actions.
+- Routes administrative actions to the existing Actions tab callback.
+- Keeps Billing available for active and treatment-completed clinic visits even
+  when no bill exists.
+- Preserves the existing cancel, unpaid-bill, and visit-completion reason dialogs.
+- Preserves existing loading states and mutation callbacks.
+- Keeps the clinic overflow menu separate for no-show, early-exit, override, and
+  other administrative controls.
+- Makes historical and doctor-declined records review-only according to policy.
+
+## Phase 3 — Align the clinic detail-dialog footer
+
+### What changed
+
+The persistent footer in the opened clinic booking dialog now uses the same
+`getAppointmentFooterModel()` result as the card. Its action targets are mapped
+as follows:
+
+- `actions` opens the Actions tab.
+- `billing` opens the existing Billing workflow.
+- `overview` returns to the booking overview.
+- `rebook` preserves the existing rebook form/session handoff.
+
+The existing cancellation dialog and server mutations remain in place. The
+dialog no longer independently chooses between Resolve Booking, Manage Visit,
+Rebook, billing, and final-closure actions.
+
+### Doctor target routing
+
+The doctor dashboard now keeps the footer targets distinct:
+
+- Clinical records/observations open the Diagnosis/records context.
+- Notes open the Notes tab.
+- View/Edit Rx and Issue Rx open the Prescription tab.
+- Review actions open the Overview tab.
 
 ## Verification record
 
@@ -131,11 +181,28 @@ visible UI behavior.
 - [x] Active/treatment-completed billing remains reachable when no bill exists.
 - [x] Unit tests cover old, active, completed, terminal, approval, and clinical states.
 
+### Phase 2–3 checks
+
+- [x] `AppointmentCard` consumes `getAppointmentFooterModel()`.
+- [x] Clinic detail-dialog footer consumes the same model.
+- [x] Card and dialog action targets route to the existing parent workflows.
+- [x] Doctor Notes, Clinical Records, Prescription, and Overview targets are
+  routed separately.
+- [x] Existing reason prompts, loading states, and mutation callbacks remain in
+  place.
+- [x] Shared footer model tests pass.
+- [x] TypeScript check passes.
+- [x] Production build / Build Check passes.
+- [x] Application workflow restarts and serves successfully.
+- [ ] Manual lifecycle matrix verification in both card and dialog.
+- [ ] Narrow responsive footer preview verification.
+
 ### Planned checks
 
 - [x] Run the shared model tests and Build Check successfully.
-- [ ] Migrate `AppointmentCard` and verify card-level action callbacks.
-- [ ] Verify card/detail-dialog parity for every matrix row.
+- [x] Migrate `AppointmentCard` and verify card-level callback wiring.
+- [x] Make the detail dialog consume the same footer model.
+- [ ] Verify card/detail-dialog parity for every matrix row manually.
 - [ ] Verify mobile footer wrapping at narrow card widths.
 - [ ] Verify server authorization and transition behavior.
 - [ ] Run the full lifecycle regression matrix.

@@ -79,6 +79,10 @@ import {
   createClientBookingDateContext,
   getBookingLifecycleStage,
 } from "@/lib/booking-classification";
+import {
+  getAppointmentFooterModel,
+  type AppointmentFooterAction,
+} from "@/lib/appointment-footer-model";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
@@ -3235,6 +3239,124 @@ export default function BookingsPanel({
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                          );
+
+                          const modalBookingBills = allBills.filter(b => b.bookingId === booking.id);
+                          const footerModel = getAppointmentFooterModel(
+                            classification,
+                            "clinic",
+                            {
+                              totalBillsCount: modalBookingBills.length,
+                              openBillsCount: modalBookingBills.filter(b => b.paymentStatus !== 'paid').length,
+                              noShowSource: (booking as any).noShowSource ?? null,
+                            },
+                          );
+
+                          const handleFooterAction = (action: AppointmentFooterAction) => {
+                            switch (action.id) {
+                              case "confirm":
+                                confirmBookingMutation.mutate(booking.id);
+                                break;
+                              case "cancel":
+                                break;
+                              case "mark_arrived":
+                                checkInMutation.mutate({ bookingId: booking.id });
+                                break;
+                              case "remind":
+                                sendReminderMutation.mutate(booking.id);
+                                break;
+                              case "resolve_booking":
+                              case "manage_visit":
+                                setModalTab(booking.id, 'actions');
+                                break;
+                              case "mark_visit_done":
+                                completeVisitMutation.mutate({ bookingId: booking.id });
+                                break;
+                              case "bill":
+                              case "settle_payment":
+                              case "view_invoice":
+                                handleOpenBilling(booking);
+                                break;
+                              case "review_appointment":
+                              case "review_visit":
+                                setModalTab(booking.id, 'overview');
+                                break;
+                              case "revert_no_show":
+                                revertNoShowMutation.mutate(booking.id);
+                                break;
+                              case "rebook": {
+                                const _d = booking.description ?? "";
+                                const _rd = _d.split(/\s*\|\s*/).filter((p: string) =>
+                                  !p.startsWith("Category:") && !p.startsWith("Visit:") &&
+                                  !p.startsWith("Age:") && !p.startsWith("Gender:")
+                                ).join(", ").trim();
+                                const _rv = (booking as any).visitType || (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                const _rc = (booking as any).treatmentCategory || (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                persistRebookValues({
+                                  bookingName: booking.customerName,
+                                  bookingPhone: booking.customerPhone,
+                                  bookingEmail: booking.customerEmail || "",
+                                  bookingAge: String((booking as any).customerAge || ""),
+                                  bookingGender: (booking as any).customerGender || "",
+                                  bookingDescription: _rd,
+                                  bookingVisitType: _rv,
+                                  bookingAppointmentCategory: _rc,
+                                });
+                                onNavigate('book-a-slot');
+                                setOpenBookingId(null);
+                                break;
+                              }
+                              default:
+                                break;
+                            }
+                          };
+
+                          const footerActionPending = (action: AppointmentFooterAction) => {
+                            switch (action.id) {
+                              case "confirm":
+                                return confirmBookingMutation.isPending;
+                              case "mark_arrived":
+                                return checkInMutation.isPending;
+                              case "remind":
+                                return sendReminderMutation.isPending;
+                              case "mark_visit_done":
+                                return completeVisitMutation.isPending;
+                              case "revert_no_show":
+                                return revertNoShowMutation.isPending;
+                              default:
+                                return false;
+                            }
+                          };
+
+                          const renderFooterAction = (action: AppointmentFooterAction, primary: boolean) => {
+                            const pending = footerActionPending(action);
+                            const button = (
+                              <Button
+                                variant={primary ? "default" : "outline"}
+                                size={primary ? "default" : "sm"}
+                                className={`min-w-0 ${primary ? "flex-1 basis-[140px] h-11 text-sm font-semibold" : "flex-1 basis-[100px] h-10 text-xs font-medium"} gap-1.5 whitespace-normal text-center leading-tight active:scale-[0.98] transition-all`}
+                                onClick={() => handleFooterAction(action)}
+                                disabled={pending}
+                                data-testid={`button-dialog-footer-${action.id}-${booking.id}`}
+                              >
+                                {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                                {action.label}
+                              </Button>
+                            );
+                            return action.id === "cancel"
+                              ? <CancelDialog key={action.id} trigger={button} />
+                              : <span key={action.id} className="min-w-0 flex-1 basis-[100px]">{button}</span>;
+                          };
+
+                          return (
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              {footerModel.primary && (
+                                <div className="flex min-w-0 basis-full">
+                                  {renderFooterAction(footerModel.primary, true)}
+                                </div>
+                              )}
+                              {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+                            </div>
                           );
 
                           /* ── Stage 5: Visit Completed ── */

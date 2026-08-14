@@ -36,6 +36,10 @@ import {
   getBookingLifecycleStage,
 } from "@/lib/booking-classification";
 import type { BookingClassification, BusinessDateContext } from "@shared/booking-status";
+import {
+  getAppointmentFooterModel,
+  type AppointmentFooterAction,
+} from "@/lib/appointment-footer-model";
 
 export type AppointmentCardRole = "clinic" | "doctor";
 
@@ -71,6 +75,7 @@ export interface AppointmentCardProps {
   onDoctorCompleteVisit?: () => void;
   onOpenNotes?: () => void;
   onOpenRecords?: () => void;
+  onOpenPrescription?: () => void;
   onRequestConsent?: () => void;
   onOpenActionTab?: () => void;
   openBillsCount?: number;
@@ -156,6 +161,7 @@ export function AppointmentCard({
   onDoctorCompleteVisit,
   onOpenNotes,
   onOpenRecords,
+  onOpenPrescription,
   onRequestConsent,
   onOpenActionTab,
   openBillsCount = 0,
@@ -289,6 +295,120 @@ export function AppointmentCard({
   // Billing state for progress strip
   const hasUnpaidBill = isVisitCompleted && openBillsCount > 0;
   const noBill        = isVisitCompleted && totalBillsCount === 0;
+
+  const footerModel = getAppointmentFooterModel(
+    classification,
+    role,
+    {
+      totalBillsCount,
+      openBillsCount,
+      noShowSource: (booking as any).noShowSource ?? null,
+    },
+  );
+
+  const footerActionPending = (action: AppointmentFooterAction) => {
+    switch (action.id) {
+      case "confirm":
+        return !!confirmPending;
+      case "cancel":
+        return !!cancelPending;
+      case "mark_arrived":
+        return !!checkInPending;
+      case "mark_visit_done":
+      case "doctor_complete_visit":
+        return !!completeVisitPending;
+      case "remind":
+        return !!sendReminderPending;
+      case "revert_no_show":
+        return !!revertNoShowPending;
+      case "accept":
+        return !!approvePending;
+      case "decline":
+        return !!declinePending;
+      case "start_consultation":
+        return !!startConsultPending;
+      default:
+        return false;
+    }
+  };
+
+  const handleFooterAction = (action: AppointmentFooterAction) => {
+    switch (action.id) {
+      case "accept":
+        onApprove?.();
+        break;
+      case "decline":
+        onDecline?.();
+        break;
+      case "confirm":
+        onConfirm?.();
+        break;
+      case "cancel":
+        setCancelOpen(true);
+        break;
+      case "mark_arrived":
+        onCheckIn?.();
+        break;
+      case "remind":
+        onSendReminder?.();
+        break;
+      case "resolve_booking":
+      case "manage_visit":
+        onOpenActionTab?.();
+        break;
+      case "mark_visit_done":
+        handleMarkVisitDone();
+        break;
+      case "bill":
+      case "settle_payment":
+      case "view_invoice":
+        onBill?.();
+        break;
+      case "rebook":
+        onBookAgain?.();
+        break;
+      case "revert_no_show":
+        onRevertNoShow?.();
+        break;
+      case "start_consultation":
+        onStartConsultation?.();
+        break;
+      case "doctor_complete_visit":
+        onDoctorCompleteVisit?.();
+        break;
+      case "add_observation":
+        onOpenRecords?.();
+        break;
+      case "open_notes":
+        onOpenNotes?.();
+        break;
+      case "view_edit_prescription":
+        onOpenPrescription?.();
+        break;
+      case "review_appointment":
+      case "review_visit":
+        onCardClick();
+        break;
+    }
+  };
+
+  const renderFooterAction = (action: AppointmentFooterAction, primary: boolean) => {
+    const pending = footerActionPending(action);
+    return (
+      <Button
+        key={action.id}
+        variant={primary ? "default" : "outline"}
+        size={primary ? "default" : "sm"}
+        className={`min-w-0 ${primary ? "flex-1 basis-[140px] h-10 text-sm font-semibold" : "flex-1 basis-[100px] h-10 text-xs font-medium"} whitespace-normal text-center leading-tight gap-1.5 active:scale-[0.98] transition-all`}
+        onClick={() => handleFooterAction(action)}
+        disabled={pending}
+        data-testid={`button-footer-${action.id}-${booking.id}`}
+      >
+        {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        {action.label}
+      </Button>
+    );
+  };
 
   // Auto No-Show: confirmed, slot date has fully passed, patient never progressed — visual-only flag
   const isAutoNoShow = classification.isOld && isConfirmed
@@ -1177,9 +1297,13 @@ export function AppointmentCard({
           ═══════════════════════════════════════ */}
       {role === "clinic" && (
         <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10" onClick={(e) => e.stopPropagation()}>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {footerModel.primary && renderFooterAction(footerModel.primary, true)}
+            {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+          </div>
 
            {/* Terminal: Cancelled — functional billing/rebook actions only */}
-          {isCancelled && (
+          {false && isCancelled && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
@@ -1199,7 +1323,7 @@ export function AppointmentCard({
           )}
 
            {/* Terminal: No Show — functional actions only */}
-          {isNoShowState && (
+          {false && isNoShowState && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {(booking as any).noShowSource === "batch_admin" && (
                 <Button variant="outline" size="sm" className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5"
@@ -1218,7 +1342,7 @@ export function AppointmentCard({
           )}
 
            {/* Terminal: Patient Left Early — functional billing/rebook actions only */}
-          {isLeftEarlyState && (
+          {false && isLeftEarlyState && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
@@ -1238,7 +1362,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 0 — Pending: [Confirm flex-1] [Cancel] — or [Reschedule] [Cancel] when past */}
-          {!isTerminal && !isClinicConfirmed && !isVisitCompleted && !isTreatmentCompleted && !isCheckedIn && !isInConsultation && (
+          {false && !isTerminal && !isClinicConfirmed && !isVisitCompleted && !isTreatmentCompleted && !isCheckedIn && !isInConsultation && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {isPast ? (
                 <Button
@@ -1271,7 +1395,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 1 — Confirmed, not arrived: [Mark Arrived flex-1] [Send Reminder] [Cancel → three-dot] */}
-          {!isTerminal && isClinicConfirmed && !isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+          {false && !isTerminal && isClinicConfirmed && !isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button
                 className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
@@ -1296,7 +1420,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 2 — Arrived (Waiting): [₹ Bill flex-1] — status shown in info strip above */}
-          {!isTerminal && isCheckedIn && (
+          {false && !isTerminal && isCheckedIn && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
@@ -1308,7 +1432,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 3 — In Treatment: [₹ Bill flex-1] — status shown in info strip above */}
-          {!isTerminal && isInConsultation && (
+          {false && !isTerminal && isInConsultation && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
@@ -1320,7 +1444,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 3b — Treatment Completed: [₹ Bill] [Mark Visit Done flex-1] */}
-          {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
+          {false && !isTerminal && isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline" size="sm"
                 className="min-w-0 flex-1 basis-[100px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5 active:scale-[0.98]"
@@ -1346,7 +1470,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 1 — Confirmed but past: the slot can no longer be checked in; offer rebooking */}
-          {!isTerminal && isClinicConfirmed && isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+          {false && !isTerminal && isClinicConfirmed && isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98]"
@@ -1358,7 +1482,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 5 — Visit Completed: [status flex-1] [Rebook] */}
-          {!isTerminal && isVisitCompleted && (
+          {false && !isTerminal && isVisitCompleted && (
             <div className="flex items-center gap-2">
               {noBill ? null : openBillsCount > 0 ? (
                 <Button
@@ -1486,11 +1610,15 @@ export function AppointmentCard({
           DOCTOR FOOTER — lifecycle-driven
           Primary button (full-width) + secondary row
           ═════════════════════════════════════ */}
-      {role === "doctor" && !isDoctorDeclined && (
+      {role === "doctor" && (
         <div className="px-3 sm:px-4 pb-3 pt-2 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {footerModel.primary && renderFooterAction(footerModel.primary, true)}
+            {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+          </div>
 
           {/* Pending approval — Approve / Decline (already a single flex row) */}
-          {booking.doctorApprovalStatus === "pending" && !isVisitCompleted && !isTreatmentCompleted && !isTerminal && (
+          {false && booking.doctorApprovalStatus === "pending" && !isVisitCompleted && !isTreatmentCompleted && !isTerminal && (
             <div className="flex min-w-0 flex-wrap gap-2">
               <Button size="sm"
                 className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-semibold whitespace-normal text-center leading-tight bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
@@ -1510,7 +1638,7 @@ export function AppointmentCard({
           )}
 
           {/* Terminal state indicator */}
-          {isTerminal && (
+          {false && isTerminal && (
             <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-muted/40 border border-border/40">
               <span className="text-xs text-muted-foreground">
                 {isNoShowState
@@ -1525,7 +1653,7 @@ export function AppointmentCard({
           {/* Stage 1 — Booked: no footer button — status shown in info strip above */}
 
           {/* Stage 2 — Arrived: [Start Consultation flex-1] [Add Obs.] */}
-          {isCheckedIn && (
+          {false && isCheckedIn && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button
                 className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
@@ -1546,7 +1674,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 3 — In Treatment: [Add Obs. icon] [Notes icon] [Done flex-1] [Issue Rx icon] */}
-          {isInConsultation && (
+          {false && isInConsultation && (
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
@@ -1593,7 +1721,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 4 — Treatment Completed: [View Rx flex-1] — status shown in info strip above */}
-          {isTreatmentCompleted && !isVisitCompleted && (
+          {false && isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
@@ -1605,7 +1733,7 @@ export function AppointmentCard({
           )}
 
           {/* Booked/confirmed and completed cards still expose a full-width appointment action. */}
-          {!isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && booking.doctorApprovalStatus !== "pending" && (
+          {false && !isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && booking.doctorApprovalStatus !== "pending" && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
@@ -1616,7 +1744,7 @@ export function AppointmentCard({
             </div>
           )}
 
-          {isVisitCompleted && (
+          {false && isVisitCompleted && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
                 className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
@@ -1631,7 +1759,7 @@ export function AppointmentCard({
       )}
 
       {/* Declined state */}
-      {role === "doctor" && isDoctorDeclined && (
+      {false && role === "doctor" && isDoctorDeclined && (
         <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10 flex items-center justify-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
           <X className="h-3.5 w-3.5" />Appointment Declined
         </div>

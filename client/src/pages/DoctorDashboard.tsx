@@ -1911,7 +1911,8 @@ export default function DoctorDashboard() {
                           onApprove={() => approveMutation.mutate(booking.id)}
                           onDecline={() => declineMutation.mutate(booking.id)}
                           onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                          onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                           onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('diagnosis'); setStatusDraft(booking.clinicalStatus || ""); }}
+                           onOpenPrescription={() => { setPatientModalId(booking.id); setPatientModalTab('prescription'); setStatusDraft(booking.clinicalStatus || ""); }}
                           approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
                           declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
                           onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
