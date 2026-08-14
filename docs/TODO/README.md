@@ -15,6 +15,7 @@ This folder contains an evidence-based review of the application and a prioritiz
 | [04-security-and-operations-audit.md](./04-security-and-operations-audit.md) | Authentication, authorization, PII, uploads, integrations, configuration, deployment, and dependency findings |
 | [05-quality-and-test-baseline.md](./05-quality-and-test-baseline.md) | Build/type-check/test/scan results and test coverage gaps |
 | [06-prioritized-todo.md](./06-prioritized-todo.md) | Recommended implementation order with acceptance criteria |
+| [07-booking-footer-policy-plan.md](./07-booking-footer-policy-plan.md) | Phase tracker for the role- and lifecycle-aware appointment footer |
 
 ## Executive summary
 
