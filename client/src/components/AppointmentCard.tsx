@@ -1183,14 +1183,14 @@ export function AppointmentCard({
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
-                  className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
+                  className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5 active:scale-[0.98]"
                   onClick={() => onBill?.()}
                   data-testid={`button-view-bill-cancelled-${booking.id}`}>
                   <Receipt className="h-3 w-3" />View Bill
                 </Button>
               )}
               <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-medium whitespace-normal text-center leading-tight text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-terminal-${booking.id}`}>
                 <Repeat2 className="h-3 w-3" />Rebook
@@ -1202,14 +1202,14 @@ export function AppointmentCard({
           {isNoShowState && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {(booking as any).noShowSource === "batch_admin" && (
-                <Button variant="outline" size="sm" className="flex-1 h-10 text-xs font-medium gap-1.5"
+                <Button variant="outline" size="sm" className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5"
                   onClick={() => onRevertNoShow?.()} disabled={revertNoShowPending}>
                   {revertNoShowPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                   Revert No-Show
                 </Button>
               )}
               <Button variant="outline" size="sm"
-                 className="flex-1 h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                 className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-medium whitespace-normal text-center leading-tight text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-terminal-${booking.id}`}>
                 <Repeat2 className="h-3 w-3" />Rebook
@@ -1222,14 +1222,14 @@ export function AppointmentCard({
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {totalBillsCount > 0 && (
                 <Button variant="outline" size="sm"
-                  className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
+                  className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5 active:scale-[0.98]"
                   onClick={() => onBill?.()}
                   data-testid={`button-view-bill-leftearly-${booking.id}`}>
                   <Receipt className="h-3 w-3" />View Bill
                 </Button>
               )}
               <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-medium whitespace-normal text-center leading-tight text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-terminal-${booking.id}`}>
                 <Repeat2 className="h-3 w-3" />Rebook
@@ -1242,7 +1242,7 @@ export function AppointmentCard({
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {isPast ? (
                 <Button
-                  className="flex-1 h-10 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white gap-2 active:scale-[0.98] transition-all"
+                  className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-amber-500 hover:bg-amber-600 text-white gap-2 active:scale-[0.98] transition-all"
                   onClick={() => onOpenActionTab?.()}
                   data-testid={`button-reschedule-pending-${booking.id}`}
                 >
@@ -1250,7 +1250,7 @@ export function AppointmentCard({
                 </Button>
               ) : (
                 <Button
-                  className="flex-1 h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                  className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
                   onClick={() => onConfirm?.()}
                   disabled={confirmPending}
                   data-testid={`button-confirm-${booking.id}`}
@@ -1260,7 +1260,7 @@ export function AppointmentCard({
                 </Button>
               )}
               <Button variant="ghost" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[100px] h-10 text-xs font-medium whitespace-normal text-center leading-tight text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                 onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
                 disabled={cancelPending}
                 data-testid={`button-cancel-booking-${booking.id}`}>
@@ -1274,7 +1274,7 @@ export function AppointmentCard({
           {!isTerminal && isClinicConfirmed && !isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button
-                className="flex-1 h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
+                className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onCheckIn?.()}
                 disabled={checkInPending}
                 data-testid={`button-checkin-${booking.id}`}
@@ -1284,7 +1284,7 @@ export function AppointmentCard({
               </Button>
               {!isPast && onSendReminder && (
                 <Button variant="outline" size="sm"
-                  className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
+                  className="min-w-0 flex-1 basis-[100px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5 active:scale-[0.98]"
                   onClick={() => onSendReminder?.()}
                   disabled={sendReminderPending}
                   data-testid={`button-send-reminder-footer-${booking.id}`}>
@@ -1299,7 +1299,7 @@ export function AppointmentCard({
           {!isTerminal && isCheckedIn && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
-                className="flex-1 h-10 text-sm font-medium gap-2 active:scale-[0.98]"
+                className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
                 onClick={() => onBill?.()}
                 data-testid={`button-bill-${booking.id}`}>
                 <IndianRupee className="h-3.5 w-3.5" />₹ Bill
@@ -1311,7 +1311,7 @@ export function AppointmentCard({
           {!isTerminal && isInConsultation && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
-                className="flex-1 h-10 text-sm font-medium gap-2 active:scale-[0.98]"
+                className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
                 onClick={() => onBill?.()}
                 data-testid={`button-bill-${booking.id}`}>
                 <IndianRupee className="h-3.5 w-3.5" />₹ Bill
@@ -1323,13 +1323,13 @@ export function AppointmentCard({
           {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[100px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5 active:scale-[0.98]"
                 onClick={() => onBill?.()}
                 data-testid={`button-bill-tmt-${booking.id}`}>
                 <IndianRupee className="h-3 w-3" />₹ Bill
               </Button>
               <Button
-                className="flex-1 h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
+                className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => handleMarkVisitDone()}
                 disabled={completeVisitPending}
                 data-testid={`button-mark-visit-done-${booking.id}`}
@@ -1345,12 +1345,24 @@ export function AppointmentCard({
             </div>
           )}
 
+          {/* Stage 1 — Confirmed but past: the slot can no longer be checked in; offer rebooking */}
+          {!isTerminal && isClinicConfirmed && isPast && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Button variant="outline"
+                className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98]"
+                onClick={() => onBookAgain?.()}
+                data-testid={`button-rebook-past-confirmed-${booking.id}`}>
+                <CalendarPlus className="h-3.5 w-3.5" />Rebook
+              </Button>
+            </div>
+          )}
+
           {/* Stage 5 — Visit Completed: [status flex-1] [Rebook] */}
           {!isTerminal && isVisitCompleted && (
             <div className="flex items-center gap-2">
               {noBill ? null : openBillsCount > 0 ? (
                 <Button
-                  className="flex-1 h-10 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 gap-2 active:scale-[0.98] transition-all"
+                  className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 gap-2 active:scale-[0.98] transition-all"
                   variant="outline"
                   onClick={() => onBill?.()}
                   title="Payment outstanding — tap to settle"
@@ -1360,7 +1372,7 @@ export function AppointmentCard({
                 </Button>
               ) : (
                 <Button
-                  className="flex-1 h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
+                  className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
                   onClick={() => onBill?.()}
                   title="View or download invoice"
                   data-testid={`button-bill-complete-${booking.id}`}
@@ -1369,7 +1381,7 @@ export function AppointmentCard({
                 </Button>
               )}
               <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[120px] h-10 text-xs font-medium whitespace-normal text-center leading-tight text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-${booking.id}`}>
                 <CalendarPlus className="h-3 w-3" />Rebook
@@ -1479,16 +1491,16 @@ export function AppointmentCard({
 
           {/* Pending approval — Approve / Decline (already a single flex row) */}
           {booking.doctorApprovalStatus === "pending" && !isVisitCompleted && !isTreatmentCompleted && !isTerminal && (
-            <div className="flex gap-2">
+            <div className="flex min-w-0 flex-wrap gap-2">
               <Button size="sm"
-                className="flex-1 h-10 text-xs font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-semibold whitespace-normal text-center leading-tight bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
                 onClick={() => onApprove?.()} disabled={approvePending || declinePending}
                 data-testid={`button-approve-${booking.id}`}>
                 {approvePending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                 Accept
               </Button>
               <Button size="sm" variant="outline"
-                className="flex-1 h-10 text-xs font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[140px] h-10 text-xs font-semibold whitespace-normal text-center leading-tight border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
                 onClick={() => onDecline?.()} disabled={approvePending || declinePending}
                 data-testid={`button-decline-${booking.id}`}>
                 {declinePending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
@@ -1514,9 +1526,9 @@ export function AppointmentCard({
 
           {/* Stage 2 — Arrived: [Start Consultation flex-1] [Add Obs.] */}
           {isCheckedIn && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button
-                className="flex-1 h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                className="min-w-0 flex-1 basis-[140px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onStartConsultation?.()}
                 disabled={startConsultPending}
                 data-testid={`button-start-consultation-${booking.id}`}
@@ -1525,7 +1537,7 @@ export function AppointmentCard({
                 Start Consultation
               </Button>
               <Button variant="outline" size="sm"
-                className="shrink-0 h-10 text-xs font-medium whitespace-nowrap gap-1.5 active:scale-[0.98]"
+                className="min-w-0 flex-1 basis-[100px] h-10 text-xs font-medium whitespace-normal text-center leading-tight gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-add-observation-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />Add Obs.
@@ -1535,7 +1547,7 @@ export function AppointmentCard({
 
           {/* Stage 3 — In Treatment: [Add Obs. icon] [Notes icon] [Done flex-1] [Issue Rx icon] */}
           {isInConsultation && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1563,7 +1575,7 @@ export function AppointmentCard({
                 </Tooltip>
               </TooltipProvider>
               <Button
-                className="flex-1 h-10 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
+                className="min-w-0 flex-1 basis-[120px] h-10 text-sm font-semibold whitespace-normal text-center leading-tight bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onDoctorCompleteVisit?.()}
                 disabled={completeVisitPending}
                 data-testid={`button-done-patient-${booking.id}`}
@@ -1572,7 +1584,7 @@ export function AppointmentCard({
                 Done
               </Button>
               <Button size="sm"
-                className="shrink-0 h-10 px-3 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 active:scale-[0.98] gap-1.5"
+                className="min-w-0 flex-1 basis-[100px] h-10 px-3 text-xs font-semibold whitespace-normal text-center leading-tight bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 active:scale-[0.98] gap-1.5"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-issue-rx-${booking.id}`}>
                 <Stethoscope className="h-3.5 w-3.5" />Issue Rx
@@ -1582,9 +1594,9 @@ export function AppointmentCard({
 
           {/* Stage 4 — Treatment Completed: [View Rx flex-1] — status shown in info strip above */}
           {isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Button variant="outline"
-                className="flex-1 h-10 text-sm font-medium gap-2 active:scale-[0.98]"
+                className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-view-rx-${booking.id}`}>
                 <ClipboardList className="h-3.5 w-3.5" />View / Edit Rx
@@ -1592,7 +1604,28 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 5 — Visit Completed: no footer button — status shown in info strip above */}
+          {/* Booked/confirmed and completed cards still expose a full-width appointment action. */}
+          {!isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && booking.doctorApprovalStatus !== "pending" && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Button variant="outline"
+                className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
+                onClick={() => onCardClick()}
+                data-testid={`button-view-appointment-${booking.id}`}>
+                <CalendarDays className="h-3.5 w-3.5" />View Appointment
+              </Button>
+            </div>
+          )}
+
+          {isVisitCompleted && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Button variant="outline"
+                className="w-full min-w-0 flex-1 h-10 text-sm font-medium whitespace-normal text-center leading-tight gap-2 active:scale-[0.98]"
+                onClick={() => onCardClick()}
+                data-testid={`button-view-completed-appointment-${booking.id}`}>
+                <CalendarDays className="h-3.5 w-3.5" />View Appointment
+              </Button>
+            </div>
+          )}
 
         </div>
       )}
