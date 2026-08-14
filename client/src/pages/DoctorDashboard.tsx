@@ -44,6 +44,7 @@ import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/book
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
 import { classifyClientBooking, createClientBookingDateContext } from "@/lib/booking-classification";
+import { getAppointmentFooterModel } from "@/lib/appointment-footer-model";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
@@ -3143,6 +3144,12 @@ export default function DoctorDashboard() {
             );
             const startTime = b.slot?.startTime ? new Date(b.slot.startTime) : null;
             const modalClinicName = b.clinic?.name || b.clinicName || doctorClinics.find((c: any) => c.id === b.clinicId)?.name || "Clinic";
+            const modalClassification = classifyClientBooking(b, "doctor", bookingDateContext);
+            const modalFooterModel = getAppointmentFooterModel(modalClassification, "doctor");
+            const modalReviewAction = modalFooterModel.primary &&
+              (modalFooterModel.primary.id === "review_visit" || modalFooterModel.primary.id === "review_appointment")
+              ? modalFooterModel.primary
+              : null;
             return (
               <>
                 {/* Header */}
@@ -3567,15 +3574,46 @@ export default function DoctorDashboard() {
                     const bIsCheckedIn = (b as any).visitStatus === 'checked_in';
                     const bIsPending = b.doctorApprovalStatus === 'pending';
                     const bIsDeclined = b.doctorApprovalStatus === 'declined';
-                    const bIsPast = new Date(b.slot.startTime) < new Date(new Date().setHours(0, 0, 0, 0));
+                     const bIsPast = modalClassification.isOld;
 
                     return (
                       <>
-                        {bIsDeclined && (
-                          <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800">
-                            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Appointment Declined</span>
-                          </div>
-                        )}
+                         {modalReviewAction && (
+                           <>
+                             <div className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border ${
+                               bIsDeclined
+                                 ? "bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+                                 : "bg-muted/40 border-border/40"
+                             }`}>
+                               <span className={`text-xs font-semibold ${
+                                 bIsDeclined
+                                   ? "text-rose-600 dark:text-rose-400"
+                                   : "text-muted-foreground"
+                               }`}>
+                                 {bIsDeclined
+                                   ? "Appointment Declined"
+                                   : bIsNoShow
+                                   ? "Patient did not arrive"
+                                   : bIsCancelled
+                                   ? "Appointment cancelled"
+                                   : bIsVisitCompleted
+                                   ? "Visit completed"
+                                   : bIsTerminal
+                                   ? "Patient left before completion"
+                                   : "Historical appointment"}
+                               </span>
+                             </div>
+                             <Button
+                               variant="outline"
+                               className="w-full h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
+                               onClick={() => setPatientModalTab("overview")}
+                               data-testid={`modal-button-${modalReviewAction.id}-${b.id}`}
+                             >
+                               <ClipboardList className="h-3.5 w-3.5" />
+                               {modalReviewAction.label}
+                             </Button>
+                           </>
+                         )}
 
                         {bIsPending && !bIsPast && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
                           <div className="flex gap-2">
@@ -3596,15 +3634,7 @@ export default function DoctorDashboard() {
                           </div>
                         )}
 
-                        {bIsTerminal && (
-                          <div className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-muted/40 border border-border/40">
-                            <span className="text-xs text-muted-foreground">
-                              {bIsNoShow ? "Patient did not arrive" : bIsCancelled ? "Appointment cancelled" : "Patient left before completion"}
-                            </span>
-                          </div>
-                        )}
-
-                        {!bIsPending && !bIsPast && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && (
+                         {!modalReviewAction && !bIsPending && !bIsPast && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && !bIsDeclined && (
                           <TooltipProvider delayDuration={700}>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -3718,52 +3748,14 @@ export default function DoctorDashboard() {
                               </Button>
                               <Button variant="outline" size="sm"
                                 className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                onClick={() => setPatientModalTab('diagnosis')}
+                                onClick={() => setPatientModalTab('prescription')}
                                 data-testid={`modal-button-view-rx-${b.id}`}>
-                                <ClipboardList className="h-3 w-3" />View Rx / Rec
+                                <Pill className="h-3 w-3" />View / Edit Rx
                               </Button>
                             </div>
                           </>
                         )}
 
-                        {bIsVisitCompleted && (
-                          <>
-                            <TooltipProvider delayDuration={700}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="w-full cursor-not-allowed">
-                                    <Button
-                                      variant="outline"
-                                      className="w-full h-11 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
-                                      disabled tabIndex={-1}
-                                      data-testid={`modal-button-visit-complete-${b.id}`}
-                                    >
-                                      <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
-                                    </Button>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                  Visit complete — managed by the clinic
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <Button variant="outline" size="sm"
-                              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                              onClick={() => setPatientModalTab('notes')}
-                              data-testid={`modal-button-view-summary-${b.id}`}>
-                              <ClipboardList className="h-3 w-3" />View Summary
-                            </Button>
-                          </>
-                        )}
-
-                        {!bIsPending && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && !bIsTerminal && !bIsDeclined && (
-                          <Button variant="outline" size="sm"
-                            className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                            onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
-                            data-testid={`modal-button-notes-${b.id}`}>
-                            <FileText className="h-3 w-3" />View Notes
-                          </Button>
-                        )}
                       </>
                     );
                   })()}

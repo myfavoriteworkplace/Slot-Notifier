@@ -2,8 +2,8 @@
 
 **Scope:** Clinic/admin and doctor appointment-card footer actions  
 **Source recommendation:** `attached_assets/Pasted-Analysis-Past-should-not-determine-one-universal-footer_1786728086567.txt`  
-**Status:** Phases 1–3 complete; Phases 4–6 remain
-**Last updated:** 2026-08-14
+**Status:** Phases 1–4 complete; Phases 5–6 remain
+**Last updated:** 2026-08-15
 
 ## Overall progress
 
@@ -12,8 +12,8 @@ adding the pure policy model, migrating the shared card, and aligning the
 clinic detail-dialog footer.
 
 ```text
-Progress: 3 of 6 phases complete — 50%
-[████████░░░░░░░░]
+Progress: 4 of 6 phases complete — 67%
+[██████████░░░░░░]
 ```
 
 ### Status legend
@@ -30,7 +30,7 @@ Progress: 3 of 6 phases complete — 50%
 | 1. Define shared footer presentation policy | [x] Complete | Pure role/lifecycle model added and tested |
 | 2. Migrate the shared `AppointmentCard` | [x] Complete | Clinic and doctor card footers consume the shared model |
 | 3. Align the clinic detail-dialog footer | [x] Complete | Card and opened booking dialog consume the same action policy |
-| 4. Align the doctor detail/modal experience | [ ] Not started | Historical doctor visits will receive explicit review actions |
+| 4. Align the doctor detail/modal experience | [x] Complete and verified | Historical doctor visits receive explicit review actions |
 | 5. Reconcile server transition semantics | [ ] Not started | No-show, override, terminal, reschedule, and authorization rules audited together |
 | 6. Complete regression coverage and documentation | [ ] Not started | Full lifecycle matrix, responsive checks, and final docs |
 
@@ -167,6 +167,23 @@ The doctor dashboard now keeps the footer targets distinct:
 - View/Edit Rx and Issue Rx open the Prescription tab.
 - Review actions open the Overview tab.
 
+## Phase 4 — Align the doctor detail/modal experience
+
+### What changed
+
+The doctor detail modal now derives its historical review action from the same
+doctor footer model used by `AppointmentCard`.
+
+- Completed, terminal, doctor-declined, old unresolved, same-day past-due, and
+  unknown-date records expose an explicit read-only **Review Visit** action.
+- Other non-terminal review states expose **Review Appointment**.
+- Review actions route to the modal Overview tab instead of silently opening
+  Notes or showing only a terminal status message.
+- Treatment-completed records keep their clinical history controls, and
+  **View / Edit Rx** now opens the Prescription tab.
+- Active approval and consultation controls remain unchanged.
+- No server transition, authorization, or mutation behavior was changed.
+
 ## Verification record
 
 ### Phase 1 checks
@@ -181,13 +198,15 @@ The doctor dashboard now keeps the footer targets distinct:
 - [x] Active/treatment-completed billing remains reachable when no bill exists.
 - [x] Unit tests cover old, active, completed, terminal, approval, and clinical states.
 
-### Phase 2–3 checks
+### Phase 2–4 checks
 
 - [x] `AppointmentCard` consumes `getAppointmentFooterModel()`.
 - [x] Clinic detail-dialog footer consumes the same model.
 - [x] Card and dialog action targets route to the existing parent workflows.
 - [x] Doctor Notes, Clinical Records, Prescription, and Overview targets are
   routed separately.
+- [x] Doctor detail modal historical review actions consume the shared doctor
+  footer model.
 - [x] Existing reason prompts, loading states, and mutation callbacks remain in
   place.
 - [x] Shared footer model tests pass.
