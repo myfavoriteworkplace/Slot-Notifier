@@ -3116,7 +3116,7 @@ export default function DoctorDashboard() {
 
       {/* ── Patient Detail Dialog ── */}
       <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) { setPatientModalId(null); setDialogExpanded(false); } }}>
-        <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[max-width] duration-200`}>
+        <DialogContent className={`w-[95vw] sm:w-[60vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-none sm:h-[60vh] sm:max-h-[60vh]'} p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[width,height,max-width,max-height] duration-200`}>
 
           {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
           <button

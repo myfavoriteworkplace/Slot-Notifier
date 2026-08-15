@@ -96,6 +96,22 @@ The doctor detail view can expose:
 Notification deep links map event types to the appropriate appointment or
 notes view. A booking ID is required to open the correct patient visit.
 
+### Patient detail dialog sizing
+
+The doctor patient detail dialog follows the same responsive sizing contract as
+the clinic dialog:
+
+- On tablet and desktop widths, normal mode uses approximately `60vw × 60vh`,
+  leaving about 20% of the screen around the centered dialog.
+- The existing maximize/minimize control remains available for wider review
+  layouts.
+- On small screens, the dialog preserves a near-full-screen width and a
+  viewport-safe maximum height.
+
+The tab content area scrolls within the dialog as needed. This is a visual
+layout rule only; it does not alter doctor permissions, booking lifecycle, or
+clinical record behavior.
+
 ## Server boundary
 
 Doctor routes verify the authenticated doctor and the booking's assignment

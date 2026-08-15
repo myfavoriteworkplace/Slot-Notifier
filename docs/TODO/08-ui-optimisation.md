@@ -48,6 +48,25 @@ The duplicate header control was removed. The existing date/clinic-details inter
 
 The current clinic and doctor popup footer implementations already use full-width primary action containers and full-width lifecycle buttons where appropriate. No separate footer rewrite was made; changing those branches would risk regressing the shared booking-action policy.
 
+### 6. Patient popup viewport sizing
+
+The patient detail dialogs were previously capped at `640px` wide and used
+content-driven height. This made the popup appear narrow on larger screens even
+when the booking overview and related tabs had room to expand.
+
+Both clinic and doctor dialogs now use the same responsive sizing contract:
+
+- Tablet and desktop normal mode: approximately `60vw × 60vh`, leaving about
+  20% viewport space on each side of the centered dialog.
+- Expanded mode: retains the existing wider review layout.
+- Small screens: retain the near-full-width, viewport-safe layout rather than
+  forcing a cramped 60% mobile dialog.
+
+The dialogs remain flex columns with a scrollable middle content area, so the
+larger fixed desktop height does not push the footer off-screen. This sizing
+change is presentation-only and does not change booking actions, tab state, or
+permissions.
+
 ## Deliberately unchanged
 
 - Booking lifecycle behavior
@@ -64,4 +83,5 @@ The current clinic and doctor popup footer implementations already use full-widt
 - [x] Popup warning banners align with the information card.
 - [x] Compact header no longer duplicates the collapse control.
 - [x] Clinic and doctor popup footer structure remains intact.
+- [x] Clinic and doctor dialogs use consistent viewport-based desktop sizing.
 - [ ] Validate the final layout at narrow mobile width and desktop preview widths after the next visual review.

@@ -2016,7 +2016,7 @@ export default function BookingsPanel({
                     completeVisitPending={completeVisitMutation.isPending}
                     cancelPending={cancelBookingMutation.isPending}
                   />}
-                    <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[max-width] duration-200`}>
+                    <DialogContent className={`w-[95vw] sm:w-[60vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-none sm:h-[60vh] sm:max-h-[60vh]'} rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200`}>
 
                       {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
                       <button

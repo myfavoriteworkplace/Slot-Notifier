@@ -115,6 +115,20 @@ meaning as the card. In particular:
 - active/treatment-completed visits can open billing to create the first bill;
 - completed bookings with no bill do not show View Invoice.
 
+### Patient detail dialog sizing
+
+The clinic patient detail dialog is responsive to the viewport:
+
+- On tablet and desktop widths, normal mode uses approximately `60vw × 60vh`,
+  leaving about 20% of the screen around the centered dialog.
+- The existing expanded mode remains available and uses the wider dialog layout.
+- On small screens, the dialog remains close to full width with a viewport-safe
+  maximum height so the tab content and footer remain usable.
+
+The dialog's middle content region scrolls independently when a tab contains
+more content than the available height. This sizing is presentation-only and
+does not change booking lifecycle, footer eligibility, or tab behavior.
+
 ## Related workflows
 
 ### Billing
