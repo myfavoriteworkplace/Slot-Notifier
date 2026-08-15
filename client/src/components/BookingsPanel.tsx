@@ -3334,7 +3334,7 @@ export default function BookingsPanel({
                               <Button
                                 variant={primary ? "default" : "outline"}
                                 size={primary ? "default" : "sm"}
-                                className={`min-w-0 ${primary ? "flex-1 basis-[140px] h-11 text-sm font-semibold" : "flex-1 basis-[100px] h-10 text-xs font-medium"} gap-1.5 whitespace-normal text-center leading-tight active:scale-[0.98] transition-all`}
+                                 className={`min-w-0 ${primary ? "flex-1 basis-[140px] min-h-11 h-auto py-2 text-sm font-semibold" : "flex-1 basis-[100px] min-h-10 h-auto py-2 text-xs font-medium"} gap-1.5 whitespace-normal text-center leading-tight active:scale-[0.98] transition-all`}
                                 onClick={() => handleFooterAction(action)}
                                 disabled={pending}
                                 data-testid={`button-dialog-footer-${action.id}-${booking.id}`}
@@ -3348,14 +3348,18 @@ export default function BookingsPanel({
                               : <span key={action.id} className="min-w-0 flex-1 basis-[100px]">{button}</span>;
                           };
 
-                          return (
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                           return (
+                             <div className="flex min-w-0 flex-col gap-2">
                               {footerModel.primary && (
-                                <div className="flex min-w-0 basis-full">
+                                 <div className="flex min-w-0 w-full">
                                   {renderFooterAction(footerModel.primary, true)}
                                 </div>
                               )}
-                              {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+                               {footerModel.secondary.length > 0 && (
+                                 <div className="flex min-w-0 w-full flex-wrap items-center gap-2">
+                                   {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+                                 </div>
+                               )}
                             </div>
                           );
 

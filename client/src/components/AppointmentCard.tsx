@@ -1297,9 +1297,17 @@ export function AppointmentCard({
           ═══════════════════════════════════════ */}
       {role === "clinic" && (
         <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10" onClick={(e) => e.stopPropagation()}>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {footerModel.primary && renderFooterAction(footerModel.primary, true)}
-            {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+          <div className="flex min-w-0 flex-col gap-2">
+            {footerModel.primary && (
+              <div className="flex min-w-0 w-full">
+                {renderFooterAction(footerModel.primary, true)}
+              </div>
+            )}
+            {footerModel.secondary.length > 0 && (
+              <div className="flex min-w-0 w-full flex-wrap items-center gap-2">
+                {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+              </div>
+            )}
           </div>
 
            {/* Terminal: Cancelled — functional billing/rebook actions only */}

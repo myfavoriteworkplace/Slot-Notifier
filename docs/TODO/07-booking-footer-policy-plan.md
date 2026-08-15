@@ -2,7 +2,7 @@
 
 **Scope:** Clinic/admin and doctor appointment-card footer actions  
 **Source recommendation:** `attached_assets/Pasted-Analysis-Past-should-not-determine-one-universal-footer_1786728086567.txt`  
-**Status:** Phases 1–5 complete; Phase 6 remains
+**Status:** Phases 1–5 complete; Phase 6 in progress — automated coverage is complete, browser-level visual verification remains
 **Last updated:** 2026-08-15
 
 ## Overall progress
@@ -10,6 +10,9 @@
 There are six planned implementation phases. Phases 1–5 are complete after
 adding the pure policy model, migrating the shared card, aligning the clinic
 and doctor detail experiences, and reconciling server transition semantics.
+Phase 6 now has the full role/lifecycle matrix under automated test and the
+responsive footer layout implemented; only browser-level card/dialog inspection
+is still outstanding.
 
 ```text
 Progress: 5 of 6 phases complete — 83%
@@ -32,7 +35,7 @@ Progress: 5 of 6 phases complete — 83%
 | 3. Align the clinic detail-dialog footer | [x] Complete | Card and opened booking dialog consume the same action policy |
 | 4. Align the doctor detail/modal experience | [x] Complete and verified | Historical doctor visits receive explicit review actions |
 | 5. Reconcile server transition semantics | [x] Complete | Server-side ownership, transition guards, atomic writes, reschedule invariants, and lifecycle audit records added |
-| 6. Complete regression coverage and documentation | [ ] Not started | Full lifecycle matrix, responsive checks, and final docs |
+| 6. Complete regression coverage and documentation | [~] In progress | Automated lifecycle matrix and responsive footer structure complete; browser-level card/dialog inspection remains |
 
 ## Phase 1 — Define the presentation policy
 
@@ -298,6 +301,28 @@ The following are intentionally unchanged:
 
 - [ ] Manual lifecycle matrix verification in both card and dialog.
 - [ ] Narrow responsive footer preview verification.
+- [ ] Final documentation sign-off after browser-level verification.
+
+### Phase 6 implementation completed
+
+- Added `client/src/lib/appointment-footer-model.matrix.test.ts`.
+- Added explicit clinic and doctor coverage for every documented footer policy
+  row, including approval, active consultation, treatment completion, billing
+  states, historical records, terminal records, unknown dates, and declined
+  assignments.
+- Updated the shared clinic appointment-card footer so the primary action is
+  always full width and secondary actions wrap in their own responsive row.
+- Updated the clinic detail-dialog footer with the same primary/secondary
+  responsive structure and content-wrapping button heights.
+
+### Phase 6 verification note
+
+The automated matrix, focused policy tests, TypeScript check, and production
+build all pass. A Playwright browser run was attempted, but the workspace
+Chromium runtime is missing a remaining native `libgbm`/`libudev` dependency;
+the app preview itself renders successfully, but an authenticated appointment
+card/dialog screenshot could not be completed in this environment. The manual
+visual checklist therefore remains open rather than being marked as passed.
 
 ### Planned checks
 
@@ -305,10 +330,12 @@ The following are intentionally unchanged:
 - [x] Migrate `AppointmentCard` and verify card-level callback wiring.
 - [x] Make the detail dialog consume the same footer model.
 - [ ] Verify card/detail-dialog parity for every matrix row manually.
-- [ ] Verify mobile footer wrapping at narrow card widths.
+- [x] Add automated role/lifecycle matrix coverage for clinic and doctor footer actions.
+- [x] Implement full-width primary and wrapping secondary footer layout for card and dialog.
+- [ ] Verify mobile footer wrapping at narrow card widths in a browser preview.
 - [x] Verify server authorization and transition behavior with focused policy
   tests and compare-and-set writes.
-- [ ] Run the full lifecycle regression matrix.
+- [x] Run the automated full lifecycle footer matrix.
 
 ## Completion criteria for the overall project
 
