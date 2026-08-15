@@ -148,6 +148,12 @@ On larger screens, card details remain visible.
 The card remains equal-width within the dashboard grid; responsive behaviour
 belongs inside the card rather than changing dashboard card widths.
 
+The outer card keeps `overflow-visible` so the optional latest-booking pill can
+float above the top edge. Its clipped inner shell uses an 11px radius while the
+outer card uses the standard 12px radius; the one-pixel adjustment accounts for
+the outer border and keeps the header/background curves aligned at every
+status-colour corner.
+
 ## Separation of responsibilities
 
 `AppointmentCard` owns:

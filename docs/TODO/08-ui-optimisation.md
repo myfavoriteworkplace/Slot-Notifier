@@ -67,6 +67,18 @@ larger fixed desktop height does not push the footer off-screen. This sizing
 change is presentation-only and does not change booking actions, tab state, or
 permissions.
 
+### 7. Appointment-card corner smoothing
+
+The shared card has an outer bordered shell and an inner clipped content shell.
+The outer shell must remain `overflow-visible` so the optional latest-booking
+pill can extend above the card, but using the same radius on both shells caused
+the inner header/background curve to sit slightly out of alignment with the
+border, especially where lifecycle status colours the left edge.
+
+The inner shell now uses an 11px radius against the outer shell's standard 12px
+radius. This accounts for the outer border without changing the card grid,
+status border colours, floating pill, or card content.
+
 ## Deliberately unchanged
 
 - Booking lifecycle behavior
@@ -84,4 +96,5 @@ permissions.
 - [x] Compact header no longer duplicates the collapse control.
 - [x] Clinic and doctor popup footer structure remains intact.
 - [x] Clinic and doctor dialogs use consistent viewport-based desktop sizing.
+- [x] Appointment-card outer and inner corner curves align with the bordered shell.
 - [ ] Validate the final layout at narrow mobile width and desktop preview widths after the next visual review.

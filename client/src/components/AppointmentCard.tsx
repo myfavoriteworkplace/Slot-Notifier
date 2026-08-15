@@ -553,7 +553,7 @@ export function AppointmentCard({
           {latestPillStatus.icon} LATEST {role === "clinic" ? "BOOKING" : "APPOINTMENT"} · {latestPillStatus.label}
         </span>
       )}
-      <div className="min-w-0 flex flex-1 min-h-0 flex-col overflow-hidden rounded-xl">
+      <div className="min-w-0 flex flex-1 min-h-0 flex-col overflow-hidden rounded-[11px]">
       {/* Accent bar — pulse when actively in-progress */}
       <div className={`h-[3px] ${accentBar} ${isInConsultation || (role === "doctor" && isCheckedIn) ? "animate-pulse" : ""}`} />
 
