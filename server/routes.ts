@@ -23,11 +23,61 @@ import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
 import { wakeAndAnalyse } from "./aiService";
+import {
+  assertBookingTransition,
+  assertClinicBookingOwnership,
+  BookingTransitionError,
+} from "./booking-transition-policy";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
 const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmail.com';
+
+function sendTransitionError(res: Response, err: unknown): void {
+  if (err instanceof BookingTransitionError) {
+    res.status(err.statusCode).json({ message: err.message });
+    return;
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  const status = /not found/i.test(message) ? 404 : /not available|full|expected state|changed before/i.test(message) ? 409 : 500;
+  res.status(status).json({ message });
+}
+
+async function getClinicTransitionContext(
+  bookingId: number,
+  sess: any,
+): Promise<{ booking: any; slot: any; clinic: any }> {
+  const booking = await storage.getBookingById(bookingId);
+  if (!booking) throw new BookingTransitionError("Booking not found", 404);
+  const slot = await storage.getSlot(booking.slotId);
+  assertClinicBookingOwnership(slot, sess.clinicId, sess.role === "superuser");
+  const clinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+  return {
+    booking: { ...booking, slot: { startTime: slot?.startTime ?? null } },
+    slot,
+    clinic,
+  };
+}
+
+async function recordBookingTransition(
+  bookingId: number,
+  fromState: string | null | undefined,
+  toState: string,
+  sess: any,
+  reason?: string | null,
+): Promise<void> {
+  await db.execute(sql`INSERT INTO booking_state_log
+    (booking_id, from_state, to_state, actor_role, actor_name, reason)
+    VALUES (
+      ${bookingId},
+      ${fromState ?? null},
+      ${toState},
+      ${sess.role === "doctor" ? "doctor" : "admin"},
+      ${sess.clinicUsername || sess.doctorEmail || "Admin"},
+      ${reason || null}
+    )`);
+}
 
 const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
   ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
@@ -3751,15 +3801,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const sess = req.session as any;
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
-    const { newSlotId } = req.body;
-    if (!newSlotId) return res.status(400).json({ message: "newSlotId is required" });
+    const newSlotId = Number(req.body?.newSlotId);
+    if (!Number.isInteger(newSlotId) || newSlotId <= 0) return res.status(400).json({ message: "newSlotId is required" });
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const oldSlot = await storage.getSlot(booking.slotId);
-      const updated = await storage.rescheduleBooking(bookingId, newSlotId);
+      const { booking, slot: oldSlot, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_reschedule", { clinicTimezone: clinic?.timezone });
+      const updated = await storage.rescheduleBookingIfCurrent(
+        bookingId,
+        newSlotId,
+        Number(oldSlot.clinicId),
+        booking.verificationStatus,
+        booking.visitStatus ?? null,
+      );
       const newSlot = await storage.getSlot(newSlotId);
-      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
       if (booking.customerEmail && newSlot) {
         sendRescheduleEmail(
           booking.customerEmail,
@@ -3820,9 +3874,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         } catch { /* WhatsApp unavailable */ }
       }
 
+      await recordBookingTransition(bookingId, booking.visitStatus, "rescheduled", sess);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3872,11 +3927,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const bookingId = parseInt(req.params.id);
     try {
       const { undo } = req.body;
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_checkin", {
+        clinicTimezone: clinic?.timezone,
+        undo: !!undo,
+      });
       const visitStatus = undo ? null : 'checked_in';
       const checkedInAt = undo ? null : new Date();
-      const updated = await storage.updateVisitStatus(bookingId, visitStatus, checkedInAt);
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        visitStatus,
+        checkedInAt,
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before check-in could be saved", 409);
       if (!undo && booking.assignedDoctorEmail) {
         try {
           const [doc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
@@ -3888,9 +3952,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
         } catch (e: any) { console.error('[NOTIFICATION] Check-in notification failed:', e.message); }
       }
+      await recordBookingTransition(bookingId, booking.visitStatus, undo ? "not_started" : "checked_in", sess);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3899,13 +3964,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_complete", { clinicTimezone: clinic?.timezone });
       const { note } = req.body ?? {};
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), note?.trim() || null);
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'completed',
+        undefined,
+        new Date(),
+        note?.trim() || null,
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before completion could be saved", 409);
+      await recordBookingTransition(bookingId, booking.visitStatus, "completed", sess, note?.trim() || null);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3914,21 +3988,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      if (booking.verificationStatus === 'confirmed') return res.status(400).json({ message: "Booking already confirmed" });
+      const { booking, slot, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_confirm", { clinicTimezone: clinic?.timezone });
 
       // If a doctor was assigned and their approval is still pending, admin is overriding — mark as admin_confirmed
       const needsDoctorOverride = booking.assignedDoctorEmail && booking.doctorApprovalStatus === 'pending';
-      const updated = await storage.updateBookingStatus(bookingId, 'confirmed', 'admin');
+      const updated = await storage.updateBookingStatusIfCurrent(
+        bookingId,
+        booking.verificationStatus,
+        'confirmed',
+        'admin',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before confirmation could be saved", 409);
       if (needsDoctorOverride) {
         await storage.updateBookingAssignment(bookingId, booking.assignedDoctor!, booking.assignedDoctorEmail!, 'admin_confirmed');
       }
 
       // Fetch clinic details for the email
-      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
-      const slot = await storage.getSlot(booking.slotId);
-
       // Send confirmation email to patient (fire-and-forget)
       const clinicLat = (clinic as any)?.latitude ?? null;
       const clinicLng = (clinic as any)?.longitude ?? null;
@@ -4010,9 +4086,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(bookingId, booking.verificationStatus, "confirmed", sess);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -4023,18 +4100,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const bookingId = parseInt(req.params.id);
     if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      if (booking.verificationStatus === 'cancelled') return res.status(400).json({ message: "Booking is already cancelled" });
-
-      // Verify ownership — the booking's slot must belong to this clinic
-      const slot = await storage.getSlot(booking.slotId);
-      if (!slot || (slot.clinicId !== sess.clinicId && sess.role !== 'superuser')) {
-        return res.status(403).json({ message: "Not authorised to cancel this booking" });
-      }
+      const { booking, slot, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_cancel", { clinicTimezone: clinic?.timezone });
 
       const { reason } = req.body as { reason?: string };
-      await storage.cancelBooking(bookingId, reason);
+      const cancelled = await storage.cancelBookingIfCurrent(
+        bookingId,
+        booking.verificationStatus,
+        reason,
+      );
+      if (!cancelled) throw new BookingTransitionError("Booking changed before cancellation could be saved", 409);
 
       // Send cancellation email to patient (fire-and-forget)
       if (booking.customerEmail) {
@@ -4086,9 +4161,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(bookingId, booking.verificationStatus, "cancelled", sess, reason || null);
       res.json({ message: "Booking cancelled successfully" });
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -4167,13 +4243,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(Number(req.params.id));
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      if (booking.doctorApprovalStatus !== 'pending') return res.status(400).json({ message: "No pending approval for this booking" });
-
-      const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'approved');
-
-      // Notify patient via email and WhatsApp that their appointment is confirmed (fire-and-forget)
       const slot = await storage.getSlot(booking.slotId);
       const doctorClinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_approve",
+        { clinicTimezone: doctorClinic?.timezone },
+      );
+
+      const updated = await storage.updateBookingDoctorApprovalIfCurrent(
+        Number(req.params.id),
+        sess.doctorEmail,
+        booking.doctorApprovalStatus || "",
+        'approved',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before approval could be saved", 409);
+
+      // Notify patient via email and WhatsApp that their appointment is confirmed (fire-and-forget)
       const dClinicLat = (doctorClinic as any)?.latitude ?? null;
       const dClinicLng = (doctorClinic as any)?.longitude ?? null;
       const dClinicAddress = (doctorClinic as any)?.address ?? null;
@@ -4238,8 +4324,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(booking.id, booking.doctorApprovalStatus, "approved", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
       res.status(status).json({ message: err.message });
     }
@@ -4253,14 +4341,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(Number(req.params.id));
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      if (booking.doctorApprovalStatus !== 'pending') return res.status(400).json({ message: "No pending approval for this booking" });
+      const slot = await storage.getSlot(booking.slotId);
+      const clinicForDecline = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_decline",
+        { clinicTimezone: clinicForDecline?.timezone },
+      );
 
-      const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'declined');
+      const updated = await storage.updateBookingDoctorApprovalIfCurrent(
+        Number(req.params.id),
+        sess.doctorEmail,
+        booking.doctorApprovalStatus || "",
+        'declined',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before decline could be saved", 409);
 
       // Notify clinic admin that the doctor has declined (fire-and-forget + in-app)
-      const slot = await storage.getSlot(booking.slotId);
       if (slot?.clinicId) {
-        const clinicForDecline = await storage.getClinic(slot.clinicId);
         if (clinicForDecline?.email) {
           sendAdminDoctorDeclineEmail(
             clinicForDecline.email,
@@ -4288,8 +4386,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(booking.id, booking.doctorApprovalStatus, "declined", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
       res.status(status).json({ message: err.message });
     }
@@ -4861,7 +4961,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      const updated = await storage.updateVisitStatus(bookingId, 'in_consultation');
+      const slot = await storage.getSlot(booking.slotId);
+      const clinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_start_consultation",
+        { clinicTimezone: clinic?.timezone },
+      );
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'in_consultation',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before consultation could start", 409);
       try {
         const slot = await storage.getSlot(booking.slotId);
         if (slot) {
@@ -4872,8 +4984,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
         }
       } catch (e: any) { console.error('[NOTIFICATION] Start consultation notification failed:', e.message); }
+      await recordBookingTransition(bookingId, booking.visitStatus, "in_consultation", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       res.status(500).json({ message: err.message });
     }
   });
@@ -4887,7 +5001,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
       // Stage 5 — Treatment Completed (doctor side). Clinic still needs to close with Stage 6.
-      const updated = await storage.updateVisitStatus(bookingId, 'treatment_completed', undefined, new Date());
+      const slot = await storage.getSlot(booking.slotId);
+      const clinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_complete",
+        { clinicTimezone: clinic?.timezone },
+      );
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'treatment_completed',
+        undefined,
+        new Date(),
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before treatment completion could be saved", 409);
       try {
         const slot = await storage.getSlot(booking.slotId);
         if (slot) {
@@ -4898,8 +5026,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
         }
       } catch (e: any) { console.error('[NOTIFICATION] Treatment complete notification failed:', e.message); }
+      await recordBookingTransition(bookingId, booking.visitStatus, "treatment_completed", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       res.status(500).json({ message: err.message });
     }
   });
@@ -4909,16 +5039,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
       const { reason } = req.body;
-      const [updated] = await db.update(bookings)
-        .set({ verificationStatus: 'no_show', ...(reason ? { cancellationReason: reason } : {}) })
-        .where(eq(bookings.id, bookingId))
-        .returning();
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_no_show", {
+        clinicTimezone: clinic?.timezone,
+        reason,
+      });
+      const updated = await storage.markNoShowIfCurrent(
+        bookingId,
+        booking.verificationStatus,
+        booking.visitStatus ?? null,
+        reason.trim(),
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before no-show could be saved", 409);
       // Audit log
-      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
-        VALUES (${bookingId}, ${booking.verificationStatus}, 'no_show', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || null})`);
+      await recordBookingTransition(bookingId, booking.verificationStatus, 'no_show', sess, reason.trim());
 
       // G11 — Notify assigned doctor that patient is a no-show
       if (booking.assignedDoctorEmail) {
@@ -4941,7 +5076,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -4969,6 +5104,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     try {
       const updated = await storage.revertBatchNoShow(Number(sess.clinicId), parseInt(req.params.id));
+      await recordBookingTransition(updated.id, "no_show", updated.verificationStatus, sess, "Batch no-show reversal");
       broadcastToClinic(String(sess.clinicId), { type: "booking_no_show_reverted", bookingId: updated.id });
       res.json(updated);
     } catch (err: any) {
@@ -5007,18 +5143,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      if (['cancelled', 'no_show'].includes(booking.verificationStatus)) {
-        return res.status(400).json({ message: "Cannot override a terminal state" });
-      }
       const { reason } = req.body;
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_override_complete", {
+        clinicTimezone: clinic?.timezone,
+        reason,
+      });
       const prevVisit = (booking as any).visitStatus || 'booked';
-      const overrideNote = reason?.trim() ? `Override: ${reason.trim()}` : 'Admin override';
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), overrideNote);
+      const overrideNote = `Override: ${reason.trim()}`;
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'completed',
+        undefined,
+        new Date(),
+        overrideNote,
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before override could be saved", 409);
       // Audit log
-      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
-        VALUES (${bookingId}, ${prevVisit}, 'completed_override', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || 'Admin override'})`);
+      await recordBookingTransition(bookingId, prevVisit, 'completed_override', sess, reason.trim());
 
       // G12 — Notify assigned doctor the visit was force-completed by admin
       if (booking.assignedDoctorEmail) {
@@ -5041,7 +5184,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -5083,24 +5226,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const terminalStates = ['cancelled', 'no_show'];
-      if (terminalStates.includes(booking.verificationStatus)) {
-        return res.status(400).json({ message: "Cannot act on a terminal booking" });
-      }
-      if (booking.visitStatus === 'completed' || booking.visitStatus === 'treatment_completed') {
-        return res.status(400).json({ message: "Visit is already completed — use override if needed" });
-      }
       const { reason } = req.body;
-      if (!reason?.trim()) return res.status(400).json({ message: "Reason is required" });
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_patient_left_early", {
+        clinicTimezone: clinic?.timezone,
+        reason,
+      });
       const prevVisit = booking.visitStatus || 'checked_in';
-      const [updated] = await db.update(bookings)
-        .set({ visitStatus: 'patient_left_early' })
-        .where(eq(bookings.id, bookingId))
-        .returning();
-      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
-        VALUES (${bookingId}, ${prevVisit}, 'patient_left_early', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason})`);
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'patient_left_early',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before early-exit could be saved", 409);
+      await recordBookingTransition(bookingId, prevVisit, 'patient_left_early', sess, reason.trim());
 
       // G12b — Notify assigned doctor that patient left early
       if (booking.assignedDoctorEmail) {
@@ -5123,7 +5262,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 

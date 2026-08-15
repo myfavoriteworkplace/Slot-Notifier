@@ -2,7 +2,7 @@
 
 **Scope:** Clinic/admin and doctor appointment-card footer actions  
 **Source recommendation:** `attached_assets/Pasted-Analysis-Past-should-not-determine-one-universal-footer_1786728086567.txt`  
-**Status:** Phases 1–4 complete; Phases 5–6 remain
+**Status:** Phases 1–5 complete; Phase 6 remains
 **Last updated:** 2026-08-15
 
 ## Overall progress
@@ -12,8 +12,8 @@ adding the pure policy model, migrating the shared card, and aligning the
 clinic detail-dialog footer.
 
 ```text
-Progress: 4 of 6 phases complete — 67%
-[██████████░░░░░░]
+Progress: 5 of 6 phases complete — 83%
+[█████████████░░░]
 ```
 
 ### Status legend
@@ -31,7 +31,7 @@ Progress: 4 of 6 phases complete — 67%
 | 2. Migrate the shared `AppointmentCard` | [x] Complete | Clinic and doctor card footers consume the shared model |
 | 3. Align the clinic detail-dialog footer | [x] Complete | Card and opened booking dialog consume the same action policy |
 | 4. Align the doctor detail/modal experience | [x] Complete and verified | Historical doctor visits receive explicit review actions |
-| 5. Reconcile server transition semantics | [ ] Not started | No-show, override, terminal, reschedule, and authorization rules audited together |
+| 5. Reconcile server transition semantics | [x] Complete | Server-side ownership, transition guards, atomic writes, reschedule invariants, and lifecycle audit records added |
 | 6. Complete regression coverage and documentation | [ ] Not started | Full lifecycle matrix, responsive checks, and final docs |
 
 ## Phase 1 — Define the presentation policy
@@ -184,6 +184,74 @@ doctor footer model used by `AppointmentCard`.
 - Active approval and consultation controls remain unchanged.
 - No server transition, authorization, or mutation behavior was changed.
 
+## Phase 5 — Reconcile server transition semantics
+
+### What changed
+
+Added:
+
+- `server/booking-transition-policy.ts`
+- `server/booking-transition-policy.test.ts`
+
+The server now re-checks lifecycle meaning immediately before protected
+mutations instead of trusting footer visibility. The policy enforces:
+
+- Clinic ownership for clinic booking mutations, with an explicit superuser
+  exception.
+- Terminal protection for `cancelled`, `no_show`, and `patient_left_early`.
+- Confirming only current, not-started, date-known bookings.
+- Check-in only for confirmed, not-started bookings; check-out only reverses a
+  checked-in visit.
+- Closing only active or treatment-completed visits.
+- Manual no-show only for confirmed, past, not-started bookings, with a reason.
+- Override completion only for unresolved old/past-due/unknown-date records,
+  with a reason; treatment-completed and early-exit records cannot be reopened.
+- Patient-left-early only for active visits, with a reason.
+- Doctor consultation sequencing: checked-in → in-consultation →
+  treatment-completed.
+- Doctor approval actions only for current, non-terminal, non-old pending
+  assignments.
+
+### Atomic mutation and slot safeguards
+
+Transition-specific storage methods now use expected-current-state predicates so
+stale or racing requests fail with a conflict instead of overwriting a newer
+state. This covers:
+
+- visit status changes;
+- confirmation;
+- cancellation;
+- manual no-show;
+- doctor approval/decline;
+- rescheduling.
+
+Rescheduling now also checks that the target slot belongs to the same clinic,
+is not cancelled, and has capacity. Cancellation releases the slot in the same
+transaction as the booking update.
+
+### Audit behavior
+
+Protected lifecycle transitions now write a normalized `booking_state_log`
+record with the previous state, target state, actor role/name, and reason where
+applicable. Batch no-show reversal is also recorded distinctly from manual
+no-show.
+
+Invalid lifecycle requests return explicit `4xx` responses:
+
+- `403` for ownership or role violations;
+- `404` for missing bookings;
+- `409` for invalid current-state or race conflicts;
+- `400` for missing transition input such as a required reason.
+
+### Phase 5 boundaries
+
+The following are intentionally unchanged:
+
+- Existing legacy, non-transition storage methods used by unrelated flows.
+- The presentation-only client classifier and footer model.
+- The broader lifecycle regression matrix and responsive verification, which
+  remain Phase 6.
+
 ## Verification record
 
 ### Phase 1 checks
@@ -210,6 +278,15 @@ doctor footer model used by `AppointmentCard`.
 - [x] Existing reason prompts, loading states, and mutation callbacks remain in
   place.
 - [x] Shared footer model tests pass.
+- [x] Server transition policy tests pass.
+- [x] Clinic transition routes enforce booking ownership.
+- [x] Terminal, old-booking, active-visit, and doctor-sequencing checks are
+  server-authoritative.
+- [x] Protected writes use expected-current-state checks.
+- [x] Rescheduling validates clinic ownership, target availability, and
+  capacity.
+- [x] Cancellation releases the slot transactionally.
+- [x] Lifecycle transition audit records include actor and state direction.
 - [x] TypeScript check passes.
 - [x] Production build / Build Check passes.
 - [x] Application workflow restarts and serves successfully.
@@ -223,7 +300,8 @@ doctor footer model used by `AppointmentCard`.
 - [x] Make the detail dialog consume the same footer model.
 - [ ] Verify card/detail-dialog parity for every matrix row manually.
 - [ ] Verify mobile footer wrapping at narrow card widths.
-- [ ] Verify server authorization and transition behavior.
+- [x] Verify server authorization and transition behavior with focused policy
+  tests and compare-and-set writes.
 - [ ] Run the full lifecycle regression matrix.
 
 ## Completion criteria for the overall project

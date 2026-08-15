@@ -206,6 +206,7 @@ export interface IStorage {
   verifyBooking(id: number): Promise<Booking>;
   deletePendingBooking(id: number): Promise<void>;
   cancelBooking(id: number, reason?: string): Promise<void>;
+  cancelBookingIfCurrent(id: number, verificationStatus: string, reason?: string): Promise<boolean>;
   updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking>;
   countBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
   countVerifiedBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
@@ -221,12 +222,17 @@ export interface IStorage {
   getClinicNoShowCandidates(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
   batchMarkNoShows(clinicId: number, bookingIds: number[]): Promise<{ marked: Booking[]; skipped: { bookingId: number; reason: string }[] }>;
   revertBatchNoShow(clinicId: number, bookingId: number): Promise<Booking>;
+  markNoShowIfCurrent(id: number, expectedVerificationStatus: string, expectedVisitStatus: string | null, reason: string): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
+  updateBookingStatusIfCurrent(id: number, expectedStatus: string, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking | undefined>;
   updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking>;
   updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking>;
+  updateBookingDoctorApprovalIfCurrent(id: number, doctorEmail: string, expectedStatus: string, status: 'approved' | 'declined'): Promise<Booking | undefined>;
   rescheduleBooking(id: number, newSlotId: number): Promise<Booking>;
+  rescheduleBookingIfCurrent(id: number, newSlotId: number, clinicId: number, expectedVerificationStatus: string, expectedVisitStatus: string | null): Promise<Booking>;
   updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking>;
   updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking>;
+  updateVisitStatusIfCurrent(id: number, expectedVisitStatus: string | null, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null, visitCompletionNote?: string | null): Promise<Booking | undefined>;
   updateBookingPatientInfo(id: number, data: { customerName?: string; customerPhone?: string | null; customerEmail?: string | null; customerAge?: number | null; customerGender?: string | null }): Promise<Booking>;
   updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
   
@@ -1129,7 +1135,11 @@ export class DatabaseStorage implements IStorage {
         noShowMarkedAt: new Date(),
         noShowPreviousStatus: b.verificationStatus,
         noShowPreviousConfirmedBy: b.confirmedBy,
-      }).where(eq(bookings.id, bookingId)).returning();
+       }).where(and(
+         eq(bookings.id, bookingId),
+         eq(bookings.verificationStatus, b.verificationStatus),
+         b.visitStatus === null ? isNull(bookings.visitStatus) : eq(bookings.visitStatus, b.visitStatus),
+       )).returning();
       if (updated) marked.push(this.decryptBooking(updated)); else skipped.push({ bookingId, reason: "Update conflict" });
     }
     return { marked, skipped };
@@ -1152,6 +1162,32 @@ export class DatabaseStorage implements IStorage {
     return this.decryptBooking(updated);
   }
 
+  async markNoShowIfCurrent(
+    id: number,
+    expectedVerificationStatus: string,
+    expectedVisitStatus: string | null,
+    reason: string,
+  ): Promise<Booking | undefined> {
+    const [updated] = await db.update(bookings)
+      .set({
+        verificationStatus: 'no_show',
+        cancellationReason: reason,
+        noShowSource: 'manual_admin',
+        noShowMarkedAt: new Date(),
+        noShowPreviousStatus: expectedVerificationStatus,
+        noShowPreviousConfirmedBy: null,
+      })
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.verificationStatus, expectedVerificationStatus),
+        expectedVisitStatus === null
+          ? isNull(bookings.visitStatus)
+          : eq(bookings.visitStatus, expectedVisitStatus),
+      ))
+      .returning();
+    return updated ? this.decryptBooking(updated) : undefined;
+  }
+
   async updateBookingStatus(id: number, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking> {
     return await db.transaction(async (tx) => {
       const [updated] = await tx.update(bookings)
@@ -1165,6 +1201,34 @@ export class DatabaseStorage implements IStorage {
       }
 
       return updated;
+    });
+  }
+
+  async updateBookingStatusIfCurrent(
+    id: number,
+    expectedStatus: string,
+    status: string,
+    confirmedBy?: 'admin' | 'doctor',
+  ): Promise<Booking | undefined> {
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({
+          verificationStatus: status as any,
+          ...(confirmedBy ? { confirmedBy } : {}),
+        })
+        .where(and(
+          eq(bookings.id, id),
+          eq(bookings.verificationStatus, expectedStatus),
+        ))
+        .returning();
+
+      if (status === 'cancelled' && updated) {
+        await tx.update(slots)
+          .set({ isBooked: false })
+          .where(eq(slots.id, updated.slotId));
+      }
+
+      return updated ? this.decryptBooking(updated) : undefined;
     });
   }
 
@@ -1194,12 +1258,113 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async updateBookingDoctorApprovalIfCurrent(
+    id: number,
+    doctorEmail: string,
+    expectedStatus: string,
+    status: 'approved' | 'declined',
+  ): Promise<Booking | undefined> {
+    const extraFields = status === 'approved'
+      ? { verificationStatus: 'confirmed' as const, confirmedBy: 'doctor' as const }
+      : {};
+    const [updated] = await db.update(bookings)
+      .set({ doctorApprovalStatus: status, ...extraFields })
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.assignedDoctorEmail, doctorEmail),
+        eq(bookings.doctorApprovalStatus, expectedStatus),
+      ))
+      .returning();
+    return updated ? this.decryptBooking(updated) : undefined;
+  }
+
   async rescheduleBooking(id: number, newSlotId: number): Promise<Booking> {
     const [updated] = await db.update(bookings)
       .set({ slotId: newSlotId })
       .where(eq(bookings.id, id))
       .returning();
     return updated;
+  }
+
+  async rescheduleBookingIfCurrent(
+    id: number,
+    newSlotId: number,
+    clinicId: number,
+    expectedVerificationStatus: string,
+    expectedVisitStatus: string | null,
+  ): Promise<Booking> {
+    return await db.transaction(async (tx) => {
+      const [source] = await tx.select({ booking: bookings, slot: slots })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(
+          eq(bookings.id, id),
+          eq(slots.clinicId, clinicId),
+          eq(bookings.verificationStatus, expectedVerificationStatus),
+          expectedVisitStatus === null
+            ? isNull(bookings.visitStatus)
+            : eq(bookings.visitStatus, expectedVisitStatus),
+        ))
+        .limit(1);
+
+      if (!source) {
+        throw new Error("Booking no longer matches the expected state");
+      }
+
+      const [target] = await tx.select()
+        .from(slots)
+        .where(and(
+          eq(slots.id, newSlotId),
+          eq(slots.clinicId, clinicId),
+          eq(slots.isCancelled, false),
+        ))
+        .limit(1);
+
+      if (!target) {
+        throw new Error("Target slot is not available");
+      }
+
+      if (target.id !== source.slot.id) {
+        const targetStart = new Date(target.startTime);
+        const startWindow = new Date(targetStart.getTime() - 60_000);
+        const endWindow = new Date(targetStart.getTime() + 60_000);
+        const targetBookings = await tx.select({ booking: bookings, slot: slots })
+          .from(bookings)
+          .innerJoin(slots, eq(bookings.slotId, slots.id))
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            eq(slots.isCancelled, false),
+            gte(slots.startTime, startWindow),
+            lte(slots.startTime, endWindow),
+          ));
+        const usedCapacity = targetBookings
+          .filter(({ booking }) =>
+            booking.id !== id &&
+            !['cancelled', 'pending'].includes(booking.verificationStatus ?? ''),
+          )
+          .reduce((sum, { booking }) => sum + ((booking as any).slotCost ?? 1), 0);
+        const requestedCapacity = (source.booking as any).slotCost ?? 1;
+        if (usedCapacity + requestedCapacity > (target.maxBookings ?? 0)) {
+          throw new Error("Target slot is full");
+        }
+      }
+
+      const [updated] = await tx.update(bookings)
+        .set({ slotId: newSlotId })
+        .where(and(
+          eq(bookings.id, id),
+          eq(bookings.verificationStatus, expectedVerificationStatus),
+          source.booking.visitStatus === null
+            ? isNull(bookings.visitStatus)
+            : eq(bookings.visitStatus, source.booking.visitStatus),
+        ))
+        .returning();
+
+      if (!updated) {
+        throw new Error("Booking changed before it could be rescheduled");
+      }
+      return this.decryptBooking(updated);
+    });
   }
 
   async updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking> {
@@ -1235,6 +1400,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.id, id))
       .returning();
     return updated;
+  }
+
+  async updateVisitStatusIfCurrent(
+    id: number,
+    expectedVisitStatus: string | null,
+    visitStatus: string | null,
+    checkedInAt?: Date | null,
+    completedAt?: Date | null,
+    visitCompletionNote?: string | null,
+  ): Promise<Booking | undefined> {
+    const setFields: Record<string, any> = { visitStatus };
+    if (checkedInAt !== undefined) setFields.checkedInAt = checkedInAt;
+    if (completedAt !== undefined) setFields.completedAt = completedAt;
+    if (visitCompletionNote !== undefined) setFields.visitCompletionNote = visitCompletionNote;
+    const [updated] = await db.update(bookings)
+      .set(setFields)
+      .where(and(
+        eq(bookings.id, id),
+        expectedVisitStatus === null
+          ? isNull(bookings.visitStatus)
+          : eq(bookings.visitStatus, expectedVisitStatus),
+      ))
+      .returning();
+    return updated ? this.decryptBooking(updated) : undefined;
   }
 
   async updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void> {
@@ -1306,9 +1495,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cancelBooking(id: number, reason?: string): Promise<void> {
-    await db.update(bookings)
-      .set({ verificationStatus: 'cancelled', ...(reason ? { cancellationReason: reason } : {}) })
-      .where(eq(bookings.id, id));
+    await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({ verificationStatus: 'cancelled', ...(reason ? { cancellationReason: reason } : {}) })
+        .where(eq(bookings.id, id))
+        .returning();
+      if (updated) {
+        await tx.update(slots)
+          .set({ isBooked: false })
+          .where(eq(slots.id, updated.slotId));
+      }
+    });
+  }
+
+  async cancelBookingIfCurrent(
+    id: number,
+    verificationStatus: string,
+    reason?: string,
+  ): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({ verificationStatus: 'cancelled', ...(reason ? { cancellationReason: reason } : {}) })
+        .where(and(
+          eq(bookings.id, id),
+          eq(bookings.verificationStatus, verificationStatus),
+        ))
+        .returning();
+      if (!updated) return false;
+      await tx.update(slots)
+        .set({ isBooked: false })
+        .where(eq(slots.id, updated.slotId));
+      return true;
+    });
   }
 
   async updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking> {
