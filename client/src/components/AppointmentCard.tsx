@@ -6,7 +6,7 @@ import {
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
-  LogOut, AlertTriangle, ChevronDown, ChevronUp, Download,
+  LogOut, AlertTriangle, ChevronDown, Download,
   Receipt,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -953,17 +953,6 @@ export function AppointmentCard({
                   </PopoverContent>
                 </Popover>
               )}
-              {onToggleCollapse && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-                  className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60 transition-colors"
-                  data-testid={`button-collapse-${booking.id}`}
-                  title="Collapse to row"
-                  aria-label="Collapse to row"
-                >
-                  <ChevronUp className="h-3 w-3" />
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1110,7 +1099,7 @@ export function AppointmentCard({
             }
             if (!isPast && !isTerminal && !isVisitCompleted) {
               return (
-                 <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs" onClick={(e) => e.stopPropagation()}>
+                  <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0" onClick={(e) => e.stopPropagation()}>
                   <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                   </div>
@@ -1118,7 +1107,7 @@ export function AppointmentCard({
                   <button
                     onClick={(e) => { e.stopPropagation(); onOpenActionTab?.(); }}
                     data-testid={`button-assign-doctor-${booking.id}`}
-                    className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all"
+                    className="inline-flex min-w-0 max-w-full items-center justify-self-start gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all"
                   >
                     <UserPlus className="h-2.5 w-2.5" />Assign Doctor →
                   </button>
@@ -1191,7 +1180,7 @@ export function AppointmentCard({
                     onClick={(e) => { e.stopPropagation(); onRequestConsent(); }}
                     disabled={consentRequestPending}
                     data-testid={`button-request-consent-inline-${booking.id}`}
-                     className="inline-flex items-center gap-1 justify-self-start font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                     className="inline-flex min-w-0 max-w-full items-center justify-self-start gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
                   >
                     {consentRequestPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
                     Send Link →

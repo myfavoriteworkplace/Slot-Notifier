@@ -2504,7 +2504,7 @@ export default function DoctorDashboard() {
                       )}
                       {/* Legend — reduced padding */}
                       <div className="flex items-center gap-4 px-3 pb-2.5 flex-wrap">
-                        <div className="flex items-center gap-1.5">
+                               <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 justify-self-start">
                           <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
                           <span className="text-xs text-muted-foreground">{multiMode && pendingDates.length > 0 ? `${pendingDates.length} selected` : "Selected"}</span>
                         </div>
@@ -3334,7 +3334,7 @@ export default function DoctorDashboard() {
                               <button
                                 onClick={() => requestConsentMutation.mutate(b.id)}
                                 disabled={requestConsentMutation.isPending}
-                                className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                                 className="inline-flex min-w-0 max-w-full items-center justify-self-start gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
                               >
                                 {requestConsentMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
                                 Send Link →
@@ -3415,6 +3415,7 @@ export default function DoctorDashboard() {
                         <AppointmentInfoSection
                           role="doctor"
                           classification={classifyClientBooking(b, "doctor", createClientBookingDateContext())}
+                          inset={false}
                           isCheckedInLate={!!b.checkedInAt && new Date(b.checkedInAt) > new Date(b.slot.endTime)}
                           cancellationReason={b.cancellationReason}
                           visitCompletionNote={(b as any).visitCompletionNote}

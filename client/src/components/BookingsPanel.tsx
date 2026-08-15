@@ -1032,7 +1032,7 @@ export default function BookingsPanel({
               </div>
             ) : searchOpen ? (
               /* Expanded search input + filter/legend icons when collapsed */
-              <div className="flex items-center gap-1.5">
+                                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 justify-self-start">
                 <div className={`flex-1 flex items-center gap-2.5 bg-card border rounded-xl px-3 min-h-[44px] shadow-sm transition-all duration-150 ${
                   patientSearchFocused
                     ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
@@ -2499,7 +2499,7 @@ export default function BookingsPanel({
                                     <button
                                       onClick={() => requestConsentMutation.mutate(booking.id)}
                                       disabled={requestConsentMutation.isPending}
-                                      className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                                       className="inline-flex min-w-0 max-w-full items-center justify-self-start gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
                                     >
                                       {requestConsentMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
                                       Send Link →
@@ -2589,6 +2589,7 @@ export default function BookingsPanel({
                               <AppointmentInfoSection
                                 role="clinic"
                                 classification={classification}
+                                inset={false}
                                 isCheckedInLate={!!booking.checkedInAt && new Date(booking.checkedInAt) > new Date(booking.slot.endTime)}
                                 cancellationReason={booking.cancellationReason}
                                 visitCompletionNote={(booking as any).visitCompletionNote}

@@ -17,6 +17,7 @@ type Props = {
   confirmedBy?: string | null;
   onBilling?: () => void;
   onReschedule?: () => void;
+  inset?: boolean;
 };
 
 export function AppointmentInfoSection({
@@ -24,6 +25,7 @@ export function AppointmentInfoSection({
   visitCompletionNote, totalBillsCount = 0, openBillsCount = 0, billingStatusKnown = true,
   confirmedBy,
   onBilling, onReschedule,
+  inset = true,
 }: Props) {
   const messages: React.ReactNode[] = [];
   const [expanded, setExpanded] = useState(false);
@@ -45,12 +47,12 @@ export function AppointmentInfoSection({
   const doctorApprovalPending = classification.isAwaitingDoctorApproval;
 
   if (isPastDue && !terminal) messages.push(
-    <div key="past-due" className="flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-600 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
+    <div key="past-due" className="flex w-full min-w-0 flex-wrap items-start gap-x-1.5 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-600 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-400">
       <AlertTriangle className="h-3 w-3 shrink-0" />
       <span className="min-w-0 flex-1 break-words">{messageInputs.showOldResolution
         ? (role === "clinic" ? "Patient did not arrive — review for No-Show or reschedule" : "Patient did not arrive — waiting for clinic to reschedule or close this appointment")
         : `Slot time has passed — ${role === "clinic" ? "please reschedule or update this booking" : "waiting for clinic action"}`}</span>
-      {role === "clinic" && onReschedule && <button onClick={onReschedule} className="min-h-[32px] shrink-0 underline underline-offset-2">Reschedule</button>}
+      {role === "clinic" && onReschedule && <button onClick={onReschedule} className="mt-0.5 min-h-[32px] shrink-0 underline underline-offset-2">Reschedule</button>}
     </div>
   );
   if (terminal && cancellationReason) messages.push(
@@ -151,7 +153,7 @@ export function AppointmentInfoSection({
           setExpanded((value) => !value);
         }
       }}
-      className={`mx-3 mb-1 rounded-md border px-2.5 py-2 text-left text-[11.5px] transition-[max-height] duration-200 sm:mx-4 sm:px-3 ${panelTone} ${expanded || !hasMoreContent ? "max-h-[1000px]" : "max-h-[68px] overflow-hidden"}`}
+      className={`${inset ? "mx-3 sm:mx-4" : "mx-0"} mb-1 rounded-md border px-2.5 py-2 text-left text-[11.5px] transition-[max-height] duration-200 sm:px-3 ${panelTone} ${expanded || !hasMoreContent ? "max-h-[1000px]" : "max-h-[68px] overflow-hidden"}`}
     >
       <div className="flex min-w-0 items-start gap-1.5">
         <SectionIcon className="mt-0.5 h-3 w-3 shrink-0 opacity-75" aria-hidden="true" />
