@@ -7,9 +7,9 @@
 
 ## Overall progress
 
-There are six planned implementation phases. Phases 1–3 are complete after
-adding the pure policy model, migrating the shared card, and aligning the
-clinic detail-dialog footer.
+There are six planned implementation phases. Phases 1–5 are complete after
+adding the pure policy model, migrating the shared card, aligning the clinic
+and doctor detail experiences, and reconciling server transition semantics.
 
 ```text
 Progress: 5 of 6 phases complete — 83%
@@ -107,15 +107,15 @@ The following decisions are now fixed for the next implementation phases:
 
 ## Important boundaries
 
-The following areas remain outside this milestone:
+The following areas remain outside the completed Phases 1–5 and are reserved
+for Phase 6:
 
 - Full doctor detail/modal parity beyond footer target routing.
-- Server transition-semantic audit.
 - Full lifecycle regression and responsive test matrix.
 
-The server routes and authorization boundaries were intentionally not changed.
 The footer model remains presentation-only; parent mutations and server
-validation remain authoritative.
+validation remain authoritative. The server transition and authorization audit
+is documented in Phase 5 above.
 
 ## Phase 2 — Migrate the shared `AppointmentCard`
 
@@ -278,6 +278,9 @@ The following are intentionally unchanged:
 - [x] Existing reason prompts, loading states, and mutation callbacks remain in
   place.
 - [x] Shared footer model tests pass.
+
+### Phase 5 checks
+
 - [x] Server transition policy tests pass.
 - [x] Clinic transition routes enforce booking ownership.
 - [x] Terminal, old-booking, active-visit, and doctor-sequencing checks are
@@ -290,6 +293,9 @@ The following are intentionally unchanged:
 - [x] TypeScript check passes.
 - [x] Production build / Build Check passes.
 - [x] Application workflow restarts and serves successfully.
+
+### Phase 6 checks remaining
+
 - [ ] Manual lifecycle matrix verification in both card and dialog.
 - [ ] Narrow responsive footer preview verification.
 
