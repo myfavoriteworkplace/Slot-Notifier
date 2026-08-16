@@ -409,6 +409,47 @@ work packages. Each package has a clear boundary, affected files, acceptance
 criteria, and a suggested verification command. A package may be completed by
 a separate developer, provided its stated dependency is satisfied.
 
+## Consolidated pending-work table
+
+This table is the plain-language summary of what remains. "Independent" means
+the work can be assigned and completed as its own package. The dependency column
+identifies only the minimum decision or shared result that must be available
+first; it does not require one developer to implement every package.
+
+### Progress meanings
+
+- **Complete:** The foundation or related behavior already exists and has
+  verification recorded.
+- **Partial:** Some code exists, but the complete user-facing result is not
+  reliable or consistent yet.
+- **Pending:** The work has been identified but has not been implemented and
+  verified.
+- **Decision needed:** The team must choose the intended behavior before code
+  should be changed.
+
+| Independent step | What is still pending | Problem today | What can go wrong if it is not done | Executable work | Minimum dependency | Current progress |
+|---|---|---|---|---|---|---|
+| 1. Confirm the button rules | Decide exactly when Cancel, Mark No Show, Rebook, Resolve Booking, and Reassign Doctor should appear for clinic staff and doctors. | Some rules are in the shared policy, while other rules still live inside individual components. | Different screens can make different decisions about the same appointment. Developers may fix one screen and accidentally contradict another. | Review the clinic/doctor policy tables; decide the date and lifecycle rules; record the decision as action IDs; add missing policy-matrix cases. | None. This is the starting decision package. | **Decision needed** |
+| 2. Remove duplicate clinic-popup buttons | Make the opened clinic booking popup render one footer action set only. | The popup renders the shared footer and then renders older stage-specific footer branches as well. Confirm, Bill, Cancel, Rebook, Revert No-Show, and Mark Visit Done can appear twice or conflict. | Clinic staff may click the wrong duplicate button, see contradictory options, or believe an appointment is in a different state than it really is. | Keep the shared footer model and action handlers; remove the active manual `modalIs...` footer branches; keep cancellation/reason dialogs only behind the model action; move any true admin-only controls into a separately controlled Actions area. | Step 1. | **Pending — high risk** |
+| 3. Fix clinic-card overflow actions | Make every overflow action either work correctly or disappear. | `Reassign Doctor` is visible but currently has an empty click handler. `Mark No Show` can be offered for a future appointment. | Staff can click a button that does nothing, or mark a future appointment as a no-show. This damages trust and can create incorrect appointment records. | Wire Reassign Doctor to a real doctor-selection flow, or remove it; make Mark No Show past/due-only; keep Patient Left Early limited to active visits; keep Override limited to its approved states; preserve server checks. | Step 1. | **Pending — high risk** |
+| 4. Make old and future actions agree | Ensure the card and popup show the same actions for past, future, same-day overdue, and unknown-date bookings. | The shared policy uses Resolve Booking/Rebook for old unresolved records, but the popup's old fallback can still show Cancel. | Staff may cancel a booking that should be resolved or rebooked, or see different instructions depending on whether they opened the popup. | Compare card and popup action IDs for every date category; remove unconditional popup Confirm/Cancel fallbacks; verify same-day overdue and unknown-date behavior. | Steps 1 and 2. | **Pending — high risk** |
+| 5. Use the same status words everywhere | Give No Show, Left Early, Treatment Completed, In Consultation, and Doctor Declined one consistent meaning. | The card can show Left Early as No Show and Doctor Declined as Cancelled, while popups use more precise wording. | Staff can misunderstand what happened to a patient, especially when reviewing history, billing, or deciding whether to rebook. | Create one shared lifecycle label map; use it in the card and both popup types; keep short labels only when necessary without merging meanings; add label tests. | Step 1. | **Pending — medium risk** |
+| 6. Match the doctor card and patient popup | Make the doctor card and doctor patient popup show the same actions for the same appointment state. | The card uses the shared doctor footer model, while the popup has separate review/context logic. | Doctors may see Accept, Start, Done, Rx, or Review options in one place but not the other. Historical appointments may look actionable when they should be read-only. | Calculate one doctor classification/model; render action IDs once in the popup; keep Overview for explanation/history only; verify approval, consultation, treatment-completed, completed, terminal, and declined states. | Step 1. | **Partial foundation — parity pending** |
+| 7. Add final tests and browser checks | Prove that buttons appear once, have the right labels, and work at normal and narrow screen sizes. | Current tests validate the pure policy but do not catch duplicate JSX branches or visual differences between card and popup. Browser verification is also still open. | A future change can reintroduce duplicate buttons or wrong-state actions without failing the existing tests. Layout problems may reach staff before they are noticed. | Add UI/render-level action-count tests; cover all clinic and doctor lifecycle rows; test loading states and labels; run the card/popup browser matrix; run `npm run build` and Build Check; record any browser-environment limitation. | Steps 2–6. | **Pending — final gate** |
+
+### Short version for planning
+
+The policy engine and server safety checks are already in place. The remaining
+work is mainly to make the visible screens obey those rules:
+
+1. Agree on the final button rules.
+2. Remove the duplicate clinic-popup footer.
+3. Fix or remove non-working/incorrect overflow actions.
+4. Make old and future appointment actions match between card and popup.
+5. Standardize lifecycle words.
+6. Finish doctor card/popup parity.
+7. Test every state and verify the result in the browser.
+
 ### Current source-of-truth contract
 
 Before changing any button, preserve this division of responsibility:
