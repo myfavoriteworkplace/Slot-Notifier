@@ -2238,16 +2238,16 @@ export default function BookingsPanel({
                             <div className="px-4 pt-3 pb-4 space-y-2.5">
 
                               {/* ── Patient info card — matches info grid row pattern ── */}
-                              <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                              <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
 
                                 {/* Patient ID */}
-                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                     <User className="h-3 w-3 text-primary" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Patient ID:</span>
                                   {(booking as any).patientCode ? (
-                                    <div className="flex items-center gap-1 min-w-0">
+                                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
                                       <span className="font-mono font-bold text-primary truncate">{(booking as any).patientCode}</span>
                                       <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((booking as any).patientCode); notify.success("Patient ID copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy Patient ID" data-testid="btn-copy-patient-id">
                                         <Copy className="h-2.5 w-2.5 text-muted-foreground" />
@@ -2259,13 +2259,13 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Phone */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <Phone className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Phone:</span>
                                   {editingField?.bookingId === booking.id && editingField.field === 'phone' ? (
-                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                                       <input
                                         autoFocus
                                         data-testid="input-edit-phone"
@@ -2281,7 +2281,7 @@ export default function BookingsPanel({
                                       <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
                                     </div>
                                   ) : booking.customerPhone ? (
-                                    <div className="flex items-center gap-1 min-w-0">
+                                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
                                       <a href={`tel:${booking.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">{booking.customerPhone}</a>
                                       <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone" data-testid="btn-copy-phone"><Copy className="h-2.5 w-2.5 text-muted-foreground" /></button>
                                       <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient"><Phone className="h-2.5 w-2.5 text-primary" /></a>
@@ -2296,13 +2296,13 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Email — full width */}
-                                <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="col-span-full flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                   <div className="h-5 w-5 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0">
                                     <Mail className="h-3 w-3 text-blue-500" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Email:</span>
                                   {editingField?.bookingId === booking.id && editingField.field === 'email' ? (
-                                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                                       <input
                                         autoFocus
                                         data-testid="input-edit-email"
@@ -2319,7 +2319,7 @@ export default function BookingsPanel({
                                       <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
                                     </div>
                                   ) : booking.customerEmail ? (
-                                    <div className="flex items-center gap-1 min-w-0">
+                                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
                                       <span className="font-semibold text-foreground truncate min-w-0">{booking.customerEmail}</span>
                                       <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerEmail!); notify.success("Email copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy email" data-testid="btn-copy-email"><Copy className="h-2.5 w-2.5 text-muted-foreground" /></button>
                                       <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'email', value: booking.customerEmail! }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit email" data-testid="btn-edit-email"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
@@ -2333,7 +2333,7 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Age */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <CalendarDays className="h-3 w-3 text-muted-foreground" />
                                   </div>
@@ -2368,7 +2368,7 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Gender */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <Users className="h-3 w-3 text-muted-foreground" />
                                   </div>
@@ -2403,20 +2403,20 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* ── Zone B divider ── */}
-                                <div className="col-span-2 border-t border-border/50 my-0.5" />
+                                 <div className="col-span-full border-t border-border/50 my-1" />
 
                                 {/* Visit Type */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <Repeat2 className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Visit Type:</span>
                                   {ovVisitType ? (
-                                     <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                                      <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
                                     </span>
                                   ) : ovFallbackVisitKey ? (
-                                   <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
+                                    <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovFallbackVisitKey]}
                                     </span>
                                   ) : (
@@ -2425,7 +2425,7 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Assigned Doctor */}
-                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                                  <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                     <Stethoscope className="h-3 w-3 text-primary" />
                                   </div>
@@ -2444,13 +2444,13 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Treatment */}
-                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                                  <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <Tag className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Treatment:</span>
                                   {ovTreatmentCategory ? (
-                                     <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                                     <span className="inline-flex w-fit min-w-0 max-w-full items-center justify-self-start font-semibold whitespace-normal break-words text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
                                       {ovTreatmentCategory}
                                     </span>
                                   ) : (
@@ -2459,7 +2459,7 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Consent */}
-                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <PenLine className="h-3 w-3 text-muted-foreground" />
                                   </div>
@@ -2508,7 +2508,7 @@ export default function BookingsPanel({
                                 </div>
 
                                 {/* Slot Units */}
-                                <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                     <Clock className="h-3 w-3 text-muted-foreground" />
                                   </div>
@@ -2522,7 +2522,7 @@ export default function BookingsPanel({
 
                                 {/* Booked — paired with Cost */}
                                 {booking.createdAt ? (
-                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                     <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <Clock className="h-3 w-3 text-muted-foreground" />
                                     </div>
@@ -2532,7 +2532,7 @@ export default function BookingsPanel({
                                 ) : <div />}
 
                                 {/* Complaints — full width */}
-                                 <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                                 <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                                   <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
                                     <ClipboardList className="h-3 w-3 text-muted-foreground" />
                                   </div>
@@ -2552,12 +2552,12 @@ export default function BookingsPanel({
 
                                 {/* Clinical — full width, conditional */}
                                 {booking.clinicalStatus && OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus] && (
-                                   <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                                   <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
                                     </div>
                                      <span className="text-muted-foreground shrink-0">Clinical Status:</span>
-                                    <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].cls}`}>
+                                     <span className={`inline-flex w-fit min-w-0 max-w-full items-center justify-self-start whitespace-normal break-words text-xs font-semibold px-1.5 py-0.5 rounded-md border ${OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].cls}`}>
                                       {OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].label}
                                     </span>
                                   </div>
@@ -2574,12 +2574,12 @@ export default function BookingsPanel({
                                     null;
                                   if (!confirmedByLabel) return null;
                                   return (
-                                    <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="col-span-full flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                                       <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                         <CheckCircle2 className="h-3 w-3 text-primary" />
                                       </div>
                                       <span className="text-muted-foreground shrink-0">Confirmed by:</span>
-                                      <span className="font-semibold text-foreground">{confirmedByLabel}</span>
+                                       <span className="min-w-0 break-words font-semibold text-foreground">{confirmedByLabel}</span>
                                     </div>
                                   );
                                 })()}
@@ -2885,7 +2885,7 @@ export default function BookingsPanel({
                                       <p className="text-xs text-muted-foreground">
                                         WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
                                       </p>
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
                                         <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
                                           {`${window.location.origin}/consent/${booking.consentToken}`}
                                         </div>

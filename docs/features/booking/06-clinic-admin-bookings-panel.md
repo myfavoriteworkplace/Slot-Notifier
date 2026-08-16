@@ -129,6 +129,25 @@ The dialog's middle content region scrolls independently when a tab contains
 more content than the available height. This sizing is presentation-only and
 does not change booking lifecycle, footer eligibility, or tab behavior.
 
+### Overview patient-card layout
+
+The Overview tab's patient information card uses a responsive internal grid:
+
+- One column below the small-screen breakpoint.
+- Two columns from the small-screen breakpoint upward.
+- Email, complaints, clinical status, confirmed-by, and divider rows span the
+  full available card width at every breakpoint.
+- Normal one-line rows use centered icon/label/value alignment.
+- Complaints, assigned-doctor text, and other naturally multi-line content use
+  start alignment and may grow vertically.
+- Status, visit-type, and treatment pills are intrinsic-width elements. They
+  may wrap long values but must not stretch to fill the grid track.
+- Phone, email, and consent action groups may wrap while keeping copy, call,
+  edit, resend, and save controls at their intended size.
+
+This layout contract applies only to the dialog's patient information card.
+The dashboard list still uses the shared `AppointmentCard` sizing rules.
+
 ## Related workflows
 
 ### Billing

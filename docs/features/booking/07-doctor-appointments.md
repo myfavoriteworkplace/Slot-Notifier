@@ -112,6 +112,26 @@ The tab content area scrolls within the dialog as needed. This is a visual
 layout rule only; it does not alter doctor permissions, booking lifecycle, or
 clinical record behavior.
 
+### Overview patient-card layout
+
+The doctor's Overview patient information card follows the same responsive
+layout contract as the clinic dialog:
+
+- One column on narrow screens and two columns from the small-screen
+  breakpoint upward.
+- Complaints, clinical status, and confirmed-by remain full-width rows.
+- Phone value and copy/call controls are grouped together so the controls do
+  not become implicit grid rows at narrow widths.
+- Consent actions wrap as a group when space is limited.
+- Visit-type, treatment, and clinical-status pills remain intrinsic-width with
+  `max-width` constraints and natural wrapping for long values.
+- Simple rows align icon, label, and value centrally; complaints and other
+  multi-line content align from the top.
+
+The shared `AppointmentCard` remains the list-level representation. These rules
+describe the separate patient detail dialog rendered by
+`DoctorDashboard.tsx`.
+
 ## Server boundary
 
 Doctor routes verify the authenticated doctor and the booking's assignment

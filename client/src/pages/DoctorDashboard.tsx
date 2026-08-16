@@ -3251,43 +3251,43 @@ export default function DoctorDashboard() {
                       : [];
                     return (
                       <div className="px-4 pt-3 pb-4">
-                        <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
 
                           {/* Phone */}
-                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Phone className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Phone:</span>
                             {b.customerPhone ? (
-                              <>
-                                <a href={`tel:${b.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
+                              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+                                <a href={`tel:${b.customerPhone}`} className="min-w-0 max-w-full truncate font-semibold text-foreground hover:text-primary transition-colors">
                                   {b.customerPhone}
                                 </a>
-                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
+                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
                                   <Copy className="h-2.5 w-2.5 text-muted-foreground" />
                                 </button>
                                 <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
                                   <Phone className="h-2.5 w-2.5 text-primary" />
                                 </a>
-                              </>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground/50">–</span>
                             )}
                           </div>
 
                           {/* Visit Type */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Repeat2 className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Visit Type:</span>
                             {drVisitType ? (
-                              <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                               <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                                 {DR_VISIT_TYPE_LABELS[drVisitType] ?? drVisitType}
                               </span>
                             ) : drFallbackVisitKey ? (
-                                <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md truncate">
+                                <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md">
                                 {DR_VISIT_TYPE_LABELS[drFallbackVisitKey]}
                               </span>
                             ) : (
@@ -3296,7 +3296,7 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Consent */}
-                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <PenLine className="h-3 w-3 text-muted-foreground" />
                             </div>
@@ -3306,7 +3306,7 @@ export default function DoctorDashboard() {
                                 <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                               </span>
                             ) : b.consentToken ? (
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
                                 <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
                                   <Clock className="h-2.5 w-2.5" />Sent
                                 </span>
@@ -3343,13 +3343,13 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Treatment */}
-                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Tag className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Treatment:</span>
                             {drTreatment ? (
-                              <span className="inline-flex min-w-0 max-w-full items-center justify-self-start font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                               <span className="inline-flex w-fit min-w-0 max-w-full items-center justify-self-start font-semibold whitespace-normal break-words text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
                                 {drTreatment}
                               </span>
                             ) : (
@@ -3358,7 +3358,7 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Complaints — full width */}
-                          <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                          <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
                               <ClipboardList className="h-3 w-3 text-muted-foreground" />
                             </div>
@@ -3378,12 +3378,12 @@ export default function DoctorDashboard() {
 
                           {/* Clinical Status — full width, conditional */}
                           {b.clinicalStatus && (
-                            <div className="col-span-2 grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                          <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                               <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                 <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
                               </div>
                               <span className="text-muted-foreground shrink-0">Clinical Status:</span>
-                              <span className={`inline-flex min-w-0 max-w-full items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus]?.cls ?? "bg-slate-50 dark:bg-slate-900/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"}`}>
+                               <span className={`inline-flex w-fit min-w-0 max-w-full items-center justify-self-start whitespace-normal break-words text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus]?.cls ?? "bg-slate-50 dark:bg-slate-900/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"}`}>
                                 {DR_CLINICAL_STATUS[b.clinicalStatus]?.label ?? b.clinicalStatus.replace(/_/g, " ")}
                               </span>
                             </div>
@@ -3400,12 +3400,12 @@ export default function DoctorDashboard() {
                               null;
                             if (!confirmedByLabel) return null;
                             return (
-                              <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                              <div className="col-span-full flex min-w-0 items-center gap-1.5 text-xs">
                                 <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                   <CheckCircle2 className="h-3 w-3 text-primary" />
                                 </div>
                                 <span className="text-muted-foreground shrink-0">Confirmed by:</span>
-                                <span className="font-semibold text-foreground">{confirmedByLabel}</span>
+                                <span className="min-w-0 break-words font-semibold text-foreground">{confirmedByLabel}</span>
                               </div>
                             );
                           })()}
