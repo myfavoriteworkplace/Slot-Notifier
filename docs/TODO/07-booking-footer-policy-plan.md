@@ -2,17 +2,17 @@
 
 **Scope:** Clinic/admin and doctor appointment-card footer actions  
 **Source recommendation:** `attached_assets/Pasted-Analysis-Past-should-not-determine-one-universal-footer_1786728086567.txt`  
-**Status:** Phases 1–5 complete; Phase 6 in progress — popup/card layout alignment is implemented, browser-level visual verification remains
+**Status:** Policy model and server transition safeguards are complete; UI parity audit found unresolved card/popup action inconsistencies. Remediation is planned below.
 **Last updated:** 2026-08-16
 
 ## Overall progress
 
-There are six planned implementation phases. Phases 1–5 are complete after
-adding the pure policy model, migrating the shared card, aligning the clinic
-and doctor detail experiences, and reconciling server transition semantics.
-Phase 6 now has the full role/lifecycle matrix under automated test, responsive
-card/dialog footer layout, and aligned Overview context placement. Only
-browser-level card/dialog inspection is still outstanding.
+The original six phases established the pure policy model, migrated the shared
+card, added server transition safeguards, and added automated lifecycle
+coverage. A later audit found that the clinic popup still renders legacy
+stage-specific footer branches alongside the shared model, so the earlier
+"card/dialog aligned" conclusion was too broad. The policy model itself is
+usable, but the rendered surfaces still need to be consolidated and verified.
 
 ```text
 Progress: 5 of 6 phases complete — 83%
@@ -32,10 +32,10 @@ Progress: 5 of 6 phases complete — 83%
 |---|---|---|
 | 1. Define shared footer presentation policy | [x] Complete | Pure role/lifecycle model added and tested |
 | 2. Migrate the shared `AppointmentCard` | [x] Complete | Clinic and doctor card footers consume the shared model |
-| 3. Align the clinic detail-dialog footer | [x] Complete | Card and opened booking dialog consume the same action policy |
+| 3. Align the clinic detail-dialog footer | [~] Partial | The shared model is rendered, but legacy popup branches still add duplicate and conflicting actions |
 | 4. Align the doctor detail/modal experience | [x] Complete and verified | Historical doctor visits receive explicit review actions |
 | 5. Reconcile server transition semantics | [x] Complete | Server-side ownership, transition guards, atomic writes, reschedule invariants, and lifecycle audit records added |
-| 6. Complete regression coverage and documentation | [~] In progress | Automated lifecycle matrix and responsive footer structure complete; browser-level card/dialog inspection remains |
+| 6. Complete regression coverage and documentation | [~] In progress | Pure policy matrix exists, but UI-level parity and browser verification remain incomplete |
 
 ## Phase 1 — Define the presentation policy
 
@@ -148,18 +148,22 @@ The migration:
 
 ### What changed
 
-The persistent footer in the opened clinic booking dialog now uses the same
-`getAppointmentFooterModel()` result as the card. Its action targets are mapped
-as follows:
+The persistent footer in the opened clinic booking dialog was updated to call
+the same `getAppointmentFooterModel()` function as the card. Its action targets
+are mapped as follows:
 
 - `actions` opens the Actions tab.
 - `billing` opens the existing Billing workflow.
 - `overview` returns to the booking overview.
 - `rebook` preserves the existing rebook form/session handoff.
 
-The existing cancellation dialog and server mutations remain in place. The
-dialog no longer independently chooses between Resolve Booking, Manage Visit,
-Rebook, billing, and final-closure actions.
+The existing cancellation dialog and server mutations remain in place.
+However, the audit below found that the dialog still contains older
+stage-specific branches after the shared model output. Those branches
+independently choose additional Confirm, Cancel, Bill, Rebook, Revert No-Show,
+and Mark Visit Done controls. This phase is therefore partial until those
+branches are removed or deliberately converted into policy-controlled
+secondary actions.
 
 ### Doctor target routing
 
@@ -272,7 +276,8 @@ The following are intentionally unchanged:
 ### Phase 2–4 checks
 
 - [x] `AppointmentCard` consumes `getAppointmentFooterModel()`.
-- [x] Clinic detail-dialog footer consumes the same model.
+- [~] Clinic detail-dialog footer calls the same model, but legacy stage branches
+  still render additional actions after the model output.
 - [x] Card and dialog action targets route to the existing parent workflows.
 - [x] Doctor Notes, Clinical Records, Prescription, and Overview targets are
   routed separately.
@@ -341,10 +346,12 @@ card/detail layout contract:
 - Existing role-specific actions, lifecycle conditions, callbacks, loading
   states, and authorization boundaries remain unchanged.
 
-The old clinic footer branches after the active model-based return and the
-`false &&` legacy branches in the shared card remain non-rendering legacy code;
-they were not used by this layout pass because removing them is a separate
-cleanup risk.
+The `false &&` legacy branches in the shared card remain non-rendering legacy
+code. They are not currently visible, but they increase the risk of future
+state drift and should be removed only after the active action paths have
+regression coverage. The clinic popup's stage-specific branches are different:
+they are active and render after the shared model output, so they are part of
+the remediation scope below rather than harmless dead code.
 
 ### Phase 6 verification note
 
@@ -369,6 +376,7 @@ visual checklist therefore remains open rather than being marked as passed.
 - [x] Verify server authorization and transition behavior with focused policy
   tests and compare-and-set writes.
 - [x] Run the automated full lifecycle footer matrix.
+- [ ] Complete the UI parity audit remediation described below.
 
 ## Completion criteria for the overall project
 
@@ -381,3 +389,581 @@ This plan is complete only when:
 - Billing buttons reflect actual bill/payment state.
 - Server-side authorization remains authoritative.
 - The full lifecycle matrix is covered by automated tests.
+
+---
+
+## Audit findings and independent remediation plan
+
+### Why this addendum exists
+
+The original plan treated "the card and dialog call the same footer model" as
+equivalent to "the card and dialog show the same actions." Those are not the
+same guarantee. The clinic card calls the shared model for its main footer, but
+also has a clinic-only overflow menu. The clinic booking dialog calls the
+shared model, then renders older manual stage branches in the same persistent
+footer. The doctor card and doctor patient dialog use related but not identical
+review and lifecycle presentation paths.
+
+The implementation work below is intentionally split into independent
+work packages. Each package has a clear boundary, affected files, acceptance
+criteria, and a suggested verification command. A package may be completed by
+a separate developer, provided its stated dependency is satisfied.
+
+### Current source-of-truth contract
+
+Before changing any button, preserve this division of responsibility:
+
+1. `shared/booking-status.ts`
+   - Interprets raw confirmation, doctor approval, visit, date, and terminal
+     fields.
+   - Produces normalized lifecycle and action eligibility.
+   - Does not render controls or perform mutations.
+
+2. `client/src/lib/booking-classification.ts`
+   - Adapts the shared classifier for client use.
+   - Supplies the clinic timezone context.
+   - Must remain the only client boundary that constructs booking
+     classifications.
+
+3. `client/src/lib/appointment-footer-model.ts`
+   - Converts a classification plus bill counts into a role-specific footer
+     model.
+   - Chooses one primary action and zero or more secondary actions.
+   - May choose a target such as `actions`, `billing`, `overview`, `notes`, or
+     `prescription`.
+   - Must not mutate, navigate, or authorize.
+
+4. `AppointmentCard.tsx`, `BookingsPanel.tsx`, and `DoctorDashboard.tsx`
+   - Render the model.
+   - Map action IDs to existing callbacks, tabs, dialogs, and mutations.
+   - Must not independently reimplement lifecycle precedence for the same
+     footer action.
+
+5. Server transition policy and routes
+   - Remain authoritative.
+   - UI visibility is not authorization.
+   - Any client policy tightening must be checked against server behavior, but
+     a button must never be shown merely because a mutation would reject it.
+
+### Finding A — Clinic popup renders two footer policies
+
+**Severity:** High
+**Current area:** `client/src/components/BookingsPanel.tsx`, persistent
+footer around the `getAppointmentFooterModel()` call and the later manual
+`modalIs...` branches.
+
+The popup first renders the shared model in a responsive grid. After that
+output, it still renders manual branches for:
+
+- completed visits;
+- treatment-completed visits;
+- in-consultation visits;
+- checked-in visits;
+- terminal records;
+- pending/confirmed pre-arrival records.
+
+This can produce duplicate controls or controls that contradict the selected
+policy. Examples:
+
+| Lifecycle | Shared model output | Additional manual output |
+|---|---|---|
+| Future pending | Confirm, Cancel | Confirm, Cancel |
+| Checked in | Manage Visit, Open Billing | ₹ Bill, Cancel |
+| In consultation | Manage Visit, Open Billing | ₹ Bill, Cancel |
+| Treatment completed | Mark Visit Done, Open Billing | Mark Visit Done, ₹ Bill, Cancel |
+| Terminal | Review/Rebook/Billing as eligible | Rebook and/or Revert No-Show again |
+
+#### Required result
+
+The clinic popup must render each policy action exactly once. The manual stage
+branches must either be removed or converted into a separate, explicitly
+policy-controlled administrative-actions area. They must not remain as a second
+footer implementation.
+
+### Finding B — Past bookings receive inconsistent popup actions
+
+**Severity:** High
+**Current areas:** `client/src/components/BookingsPanel.tsx`,
+`client/src/lib/appointment-footer-model.ts`.
+
+The shared clinic model intentionally handles past unresolved bookings with
+`Resolve Booking` and, where eligible, `Rebook`. The old popup fallback can
+still show a `Cancel` control for those same records because it uses a broad
+pre-arrival fallback instead of the model's policy state.
+
+The card and popup therefore disagree about whether an old booking should be
+resolved/rebooked or cancelled like a future booking.
+
+#### Required result
+
+For every past, same-day-past-due, unknown-date, old-active, and
+old-treatment-completed state, the popup must use the same primary/secondary
+action IDs as the card model. No legacy fallback may add Confirm or Cancel
+unless the model explicitly returns that action.
+
+### Finding C — No-show visibility is broader than the documented policy
+
+**Severity:** High
+**Current areas:** `client/src/components/AppointmentCard.tsx`,
+`client/src/lib/appointment-footer-model.ts`, `client/src/lib/booking-list.ts`.
+
+The card overflow condition for `Mark No Show` checks that the visit has not
+started, but does not independently require the booking to be past or due.
+The client classifier action policy is also broad enough to make no-show
+eligible for a current future booking. The server transition policy is more
+restrictive and documents manual no-show as confirmed, past, and
+not-started.
+
+This creates a client/server policy mismatch and can expose an inappropriate
+future `Mark No Show` control.
+
+#### Required decision
+
+Confirm and retain the existing server rule:
+
+- clinic-owned booking;
+- confirmed;
+- appointment time/date is past;
+- visit has not started;
+- not terminal;
+- required reason is supplied.
+
+If that is the intended product rule, update the client classifier/model and
+all card/menu renderers to use the same rule. Do not solve this only with a
+visual condition in `AppointmentCard`.
+
+### Finding D — Reassign Doctor is visible but has a no-op handler
+
+**Severity:** High
+**Current area:** `client/src/components/AppointmentCard.tsx`.
+
+The clinic overflow menu displays `Reassign Doctor` when doctors are available,
+but its handler is currently an empty function. `BookingsPanel` passes an
+`onAssignDoctor` callback, but the menu does not invoke it.
+
+#### Required result
+
+Choose exactly one of these outcomes before implementation:
+
+1. Wire the menu item to the existing assignment flow and provide the required
+   doctor-selection UI; or
+2. Remove/hide the menu item until the selection flow is available.
+
+A visible action must never silently do nothing. If wired, preserve
+`canAssignDoctor`, loading state, clinic ownership, and server authorization.
+
+### Finding E — Lifecycle labels differ between card and popup
+
+**Severity:** Medium
+**Current area:** `client/src/components/AppointmentCard.tsx`,
+`client/src/components/BookingsPanel.tsx`, `client/src/pages/DoctorDashboard.tsx`.
+
+The same lifecycle is labelled differently by surface:
+
+| State | Card | Clinic popup | Doctor popup |
+|---|---|---|---|
+| Doctor declined | Cancelled | Declined context in some areas | Appointment declined |
+| Patient left early | No Show | Left Early | Patient left before completion |
+| Treatment completed | In Consult | Tmt. Done | Treatment completed |
+| In consultation | In Consult | With Doctor | In consultation |
+
+The most important semantic defect is that `patient_left_early` is displayed
+as `No Show` on the card even though it is a distinct terminal lifecycle.
+
+#### Required result
+
+Define one canonical user-facing label map for lifecycle status. Surfaces may
+use short labels where space is limited, but they must not merge distinct
+meanings:
+
+- `no_show` → No Show;
+- `patient_left_early` → Left Early;
+- `treatment_completed` → Treatment Completed;
+- `in_consultation` → In Consultation;
+- `doctorApprovalStatus = declined` → Declined, not Cancelled.
+
+Tooltips and explanatory text may be more detailed, but must use the same
+semantic state.
+
+### Finding F — Doctor card and doctor patient popup have partial parity
+
+**Severity:** Medium
+**Current areas:** `client/src/components/AppointmentCard.tsx`,
+`client/src/pages/DoctorDashboard.tsx`.
+
+The doctor card uses the shared footer model for approval, consultation,
+prescription, notes, and review actions. The patient popup derives a related
+review action and separately renders historical/terminal context. This is
+closer to the intended design than the clinic popup, but it still creates two
+places where doctor lifecycle presentation can drift.
+
+#### Required result
+
+The doctor popup must consume the same doctor footer model for action IDs and
+read-only state. Its Overview tab may contain explanatory status context, but
+the persistent actionable footer must not create a separate lifecycle matrix.
+
+### Finding G — Existing tests do not detect duplicate rendered controls
+
+**Severity:** Medium
+**Current areas:** `client/src/lib/appointment-footer-model.matrix.test.ts`,
+`client/src/components/AppointmentCard.tsx`,
+`client/src/components/BookingsPanel.tsx`,
+`client/src/pages/DoctorDashboard.tsx`.
+
+The pure model matrix tests verify the expected action IDs returned by the
+policy. They cannot detect that a component renders the model output and then
+adds a second manual branch with the same action.
+
+#### Required result
+
+Add component-level or render-model-level coverage that verifies:
+
+- each expected action appears exactly once;
+- no action outside the model appears in the persistent footer;
+- past records do not receive future confirmation/cancellation controls;
+- patient-left-early is not labelled as no-show;
+- doctor-declined records are read-only and do not expose approval controls.
+
+---
+
+## Independent implementation work packages
+
+### Work package 1 — Freeze the intended lifecycle/action contract
+
+**Goal:** Make the policy decisions explicit before changing JSX.
+
+**Depends on:** None.
+
+**Files:**
+
+- `shared/booking-status.ts`
+- `client/src/lib/appointment-footer-model.ts`
+- `client/src/lib/appointment-footer-model.matrix.test.ts`
+- this document
+
+**Steps:**
+
+1. Review each row in the clinic and doctor policy tables above.
+2. Confirm whether cancellation is a persistent-footer action or an overflow/
+   secondary administrative action for each active state.
+3. Confirm that manual no-show is past-only.
+4. Confirm the intended action for old unresolved and same-day past-due
+   bookings.
+5. Confirm whether Reassign Doctor is in scope for this pass.
+6. Add or update pure matrix cases for any decision that is not already tested.
+7. Keep the policy output expressed as stable action IDs, not UI copy.
+
+**Acceptance criteria:**
+
+- Every lifecycle row has one unambiguous action set per role.
+- No policy decision is left encoded only in a component condition.
+- Any intentional difference between card overflow and popup secondary actions
+  is documented.
+
+**Verification:**
+
+```bash
+npm test -- client/src/lib/appointment-footer-model.matrix.test.ts
+```
+
+### Work package 2 — Consolidate the clinic popup footer
+
+**Goal:** Remove the second active footer implementation.
+
+**Depends on:** Work package 1.
+
+**Files:**
+
+- `client/src/components/BookingsPanel.tsx`
+- `client/src/lib/appointment-footer-model.ts`
+
+**Steps:**
+
+1. Keep the existing `getAppointmentFooterModel()` calculation.
+2. Keep the existing action-to-mutation mapping, including:
+   - Confirm;
+   - Mark Arrived;
+   - Remind;
+   - Resolve Booking;
+   - Manage Visit;
+   - Mark Visit Done;
+   - Billing;
+   - Review;
+   - Rebook;
+   - Revert No-Show.
+3. Remove the active manual `modalIsVisitCompleted`,
+   `modalIsTreatmentCompleted`, `modalIsInConsultation`,
+   `modalIsCheckedIn`, `modalIsTerminal`, and pre-arrival footer branches
+   from the persistent footer.
+4. Retain the existing cancellation dialog as the renderer for the `cancel`
+   action rather than rendering a separate unconditional cancel button.
+5. If active administrative actions such as Patient Left Early or Admin
+   Override must remain available, render them in a separate Actions-tab
+   section or add explicit action IDs and policy rules. Do not append them
+   directly through lifecycle conditionals.
+6. Keep billing as a target action so opening billing continues to use the
+   existing billing panel.
+7. Ensure an action is rendered once even when its target opens another tab.
+
+**Acceptance criteria:**
+
+- The popup contains one persistent footer action renderer.
+- A treatment-completed booking has one Mark Visit Done action, not two.
+- A checked-in/in-consultation booking has no duplicate billing action.
+- A terminal booking has no duplicate Rebook or Revert No-Show action.
+- Past unresolved bookings do not show Confirm or unconditional Cancel.
+- Existing mutation callbacks, pending states, and dialogs still work.
+
+**Verification:**
+
+```bash
+rg -n "modalIsVisitCompleted|modalIsTreatmentCompleted|modalIsInConsultation|modalIsCheckedIn|modalIsTerminal" client/src/components/BookingsPanel.tsx
+```
+
+The result may still contain Overview status variables, but the persistent
+footer must not use them to create a second action matrix.
+
+### Work package 3 — Make clinic-card overflow actions policy-controlled
+
+**Goal:** Keep non-footer administrative actions intentional and functional.
+
+**Depends on:** Work package 1. Can be developed independently of Work package
+2 if the shared policy decisions are already accepted.
+
+**Files:**
+
+- `client/src/components/AppointmentCard.tsx`
+- `client/src/components/BookingsPanel.tsx`
+- `client/src/lib/booking-list.ts`
+- `shared/booking-status.ts`
+
+**Steps:**
+
+1. Decide whether `Mark No Show` is represented by the shared
+   `BookingActionPolicy` or by a dedicated administrative-action model.
+2. Require the same past/due and not-started conditions used by the server.
+3. Prevent `Mark No Show` from appearing on future appointments.
+4. Keep `Patient Left Early` limited to active visits.
+5. Keep completion override limited to unresolved old/past-due/unknown-date
+   bookings, excluding treatment-completed and terminal states.
+6. Ensure the overflow menu does not appear for states where no valid overflow
+   action remains.
+7. Replace the no-op Reassign Doctor handler with a real selection flow, or
+   remove the menu item until that flow exists.
+8. Preserve pending/disabled behavior for every mutation.
+9. Keep server authorization as the final guard.
+
+**Acceptance criteria:**
+
+- No visible menu item is a no-op.
+- Future appointments do not show Mark No Show.
+- Patient Left Early is shown only for checked-in or in-consultation visits.
+- Override is not shown after treatment completion or terminal closure.
+- Card overflow actions are explainable as intentional actions outside the
+  primary/secondary footer model.
+
+### Work package 4 — Centralize lifecycle labels
+
+**Goal:** Prevent different surfaces from assigning different meanings to the
+same booking state.
+
+**Depends on:** Work package 1. Independent of the popup cleanup.
+
+**Files:**
+
+- `client/src/lib/appointment-footer-model.ts`, or a new small policy label
+  module if that is more appropriate
+- `client/src/components/AppointmentCard.tsx`
+- `client/src/components/BookingsPanel.tsx`
+- `client/src/pages/DoctorDashboard.tsx`
+- tests for the shared label function
+
+**Steps:**
+
+1. Define labels by normalized lifecycle and doctor approval state.
+2. Use `patient_left_early` before generic no-show fallback.
+3. Use doctor declined before generic cancelled/pending labels.
+4. Replace card-local status label branches with the shared result.
+5. Replace popup-local status label branches with the shared result where the
+   same lifecycle is being displayed.
+6. Keep short responsive labels only where necessary, but document any
+   shortening.
+7. Add tooltip text from the same semantic state rather than reclassifying the
+   booking inside JSX.
+
+**Acceptance criteria:**
+
+- Left Early is never displayed as No Show.
+- Doctor declined is never displayed as Cancelled.
+- Completed, treatment-completed, and in-consultation states have consistent
+  meaning across card and popup.
+
+### Work package 5 — Align the doctor patient popup with the doctor footer model
+
+**Goal:** Ensure doctor actions and read-only review behavior are identical in
+the card and popup.
+
+**Depends on:** Work package 1. Can run in parallel with Work package 2.
+
+**Files:**
+
+- `client/src/pages/DoctorDashboard.tsx`
+- `client/src/components/AppointmentCard.tsx`
+- `client/src/lib/appointment-footer-model.ts`
+
+**Steps:**
+
+1. Calculate one doctor classification for the selected booking.
+2. Calculate one doctor footer model from that classification.
+3. Render the model's action IDs once in the persistent modal footer.
+4. Keep Overview content responsible for status explanation and history, not
+   for creating alternate footer actions.
+5. Route:
+   - Add Observation to Diagnosis/records;
+   - Notes to Notes;
+   - View/Edit Rx to Prescription;
+   - Review Visit/Appointment to Overview;
+   - Start Consultation and Done to their existing mutations.
+6. Keep declined, terminal, old, and completed states read-only according to
+   the model.
+7. Remove any duplicate waiting-state or historical review controls.
+
+**Acceptance criteria:**
+
+- Doctor card and popup expose the same action IDs for the same classification.
+- Historical and declined records cannot show Accept, Decline, Start, or Done.
+- Treatment-completed records retain View/Edit Rx only unless the policy
+  explicitly changes.
+
+### Work package 6 — Add UI-level action parity tests
+
+**Goal:** Catch duplicate and out-of-policy controls that pure policy tests
+cannot see.
+
+**Depends on:** Work packages 1 and 2 for final action IDs. Label tests may be
+added alongside Work package 4.
+
+**Files:**
+
+- `client/src/lib/appointment-footer-model.matrix.test.ts`
+- new component/model tests near `AppointmentCard` and `BookingsPanel`
+- `client/src/lib/booking-list.test.ts` where action-state coverage belongs
+
+**Required cases:**
+
+#### Clinic states
+
+- future pending;
+- future confirmed;
+- same-day past due;
+- old unresolved;
+- old active;
+- checked in;
+- in consultation;
+- treatment completed;
+- completed with no bill;
+- completed with unpaid bills;
+- completed with paid bills;
+- cancelled;
+- no-show;
+- patient left early;
+- unknown date.
+
+#### Doctor states
+
+- awaiting approval;
+- checked in;
+- in consultation;
+- treatment completed;
+- completed;
+- old unresolved;
+- same-day past due;
+- doctor declined;
+- cancelled/no-show/early-exit terminal;
+- unknown date;
+
+#### Assertions
+
+1. Expected action IDs are rendered exactly once.
+2. No legacy branch adds an action not returned by the model.
+3. Past bookings do not render future-only Confirm controls.
+4. Past unresolved bookings do not render unconditional Cancel.
+5. Future bookings do not render Mark No Show.
+6. Left Early and No Show use different labels.
+7. Reassign Doctor is either functional or absent.
+8. Pending mutations disable the correct action without disabling unrelated
+   review/navigation actions.
+
+**Acceptance criteria:**
+
+- Pure policy tests remain green.
+- UI tests fail if a second footer branch is reintroduced.
+- Each role/state combination has one expected visible action set.
+
+### Work package 7 — Browser verification and final documentation
+
+**Goal:** Verify the rendered experience after code-level consolidation.
+
+**Depends on:** Work packages 2–6.
+
+**Verification matrix:**
+
+1. Clinic card and popup for future pending.
+2. Clinic card and popup for future confirmed.
+3. Clinic card and popup for checked in.
+4. Clinic card and popup for in consultation.
+5. Clinic card and popup for treatment completed with unpaid bills.
+6. Clinic card and popup for completed with paid bills.
+7. Clinic card and popup for old unresolved.
+8. Clinic card and popup for no-show, cancelled, and left early.
+9. Doctor card and patient popup for approval, checked-in,
+   in-consultation, treatment-completed, completed, and declined.
+10. Narrow mobile width where action labels wrap.
+
+For every row, record:
+
+- visible primary action;
+- visible secondary actions;
+- overflow actions;
+- status label;
+- whether any action is duplicated;
+- whether the action opens the intended tab/dialog;
+- pending/loading behavior;
+- whether the layout remains usable at narrow width.
+
+Run the project verification gate after implementation:
+
+```bash
+npm run build
+```
+
+Then restart the configured Build Check workflow and inspect the application
+preview. If authenticated browser automation is unavailable because of the
+known Chromium native-library limitation, record that limitation explicitly
+and do not mark browser verification as complete based only on source review.
+
+**Acceptance criteria:**
+
+- Card and popup parity is verified for all supported lifecycle rows.
+- No duplicate footer controls are visible.
+- No future-only or past-only action appears in the wrong date state.
+- Build Check completes successfully.
+- This document's tracker and verification record reflect the actual result.
+
+---
+
+## Remediation completion checklist
+
+- [ ] Policy decisions for cancellation, no-show timing, and reassign-doctor
+  scope are confirmed.
+- [ ] Clinic popup has one active footer action renderer.
+- [ ] Clinic card overflow actions are centralized, intentional, and functional.
+- [ ] Past bookings no longer receive future confirmation/cancellation controls.
+- [ ] Future bookings no longer receive Mark No Show.
+- [ ] Reassign Doctor is wired or removed.
+- [ ] Lifecycle labels are semantically consistent across card and popup.
+- [ ] Doctor card and doctor patient popup use the same doctor action model.
+- [ ] UI-level duplicate-action tests pass.
+- [ ] Browser parity matrix is complete.
+- [ ] Build Check passes after the final implementation.
