@@ -160,6 +160,54 @@ test("classifies terminal and early-exit states before date meaning", () => {
   assert.equal(earlyExit.actions.canRebook, true);
 });
 
+test("allows clinic no-show only for confirmed appointments that are past due", () => {
+  const futureConfirmed = classifyBooking(
+    makeBooking({ slot: { startTime: "2026-08-11T10:00:00+05:30" } }),
+    classifierContext,
+    "owner",
+  );
+  assert.equal(futureConfirmed.actions.canNoShow, false);
+
+  const futurePending = classifyBooking(
+    makeBooking({
+      verificationStatus: "pending",
+      confirmedBy: null,
+      slot: { startTime: "2026-08-11T10:00:00+05:30" },
+    }),
+    classifierContext,
+    "owner",
+  );
+  assert.equal(futurePending.actions.canNoShow, false);
+
+  const pastDueConfirmed = classifyBooking(
+    makeBooking({ slot: { startTime: "2026-08-10T07:00:00+05:30" } }),
+    classifierContext,
+    "owner",
+  );
+  assert.equal(pastDueConfirmed.actions.canNoShow, true);
+
+  const pastDuePending = classifyBooking(
+    makeBooking({
+      verificationStatus: "pending",
+      confirmedBy: null,
+      slot: { startTime: "2026-08-10T07:00:00+05:30" },
+    }),
+    classifierContext,
+    "owner",
+  );
+  assert.equal(pastDuePending.actions.canNoShow, false);
+
+  const pastDueCheckedIn = classifyBooking(
+    makeBooking({
+      visitStatus: "checked_in",
+      slot: { startTime: "2026-08-10T07:00:00+05:30" },
+    }),
+    classifierContext,
+    "owner",
+  );
+  assert.equal(pastDueCheckedIn.actions.canNoShow, false);
+});
+
 test("keeps doctor approval separate from confirmation and limits doctor actions", () => {
   const result = classifyBooking(
     makeBooking({ doctorApprovalStatus: "pending", verificationStatus: "pending", confirmedBy: null }),

@@ -580,6 +580,7 @@ export function classifyBooking(
     !isCompleted &&
     !isTreatmentCompleted &&
     (isOld || isPastDueToday || !isDateKnown);
+  const isPastDue = isOld || isPastDueToday;
 
   const actions: BookingActionPolicy = {
     canConfirm:
@@ -603,7 +604,9 @@ export function classifyBooking(
       isClinic &&
       canProgress &&
       !isTreatmentCompleted &&
-      !isStarted,
+      !isStarted &&
+      isConfirmed &&
+      isPastDue,
     canSendReminder: isClinic && canProgress,
     canAssignDoctor: isClinic && canProgress,
     canRequestConsent: isClinic && canProgress,

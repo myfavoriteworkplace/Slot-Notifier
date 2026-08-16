@@ -75,6 +75,13 @@ The following decisions are now fixed for the next implementation phases:
 8. Active and treatment-completed clinic visits retain an Open Billing action
    even when no bill exists yet.
 9. Doctor-declined assignments are explicit read-only Review Visit states.
+10. Clinic cancellation stays in the separate clinic admin action area for
+    confirmed or active appointments, not in the main footer.
+11. Mark No Show is available only for confirmed, past-due, not-started clinic
+    appointments.
+12. Reassign Doctor remains hidden until a working doctor-selection flow exists.
+13. Cards and popups use distinct canonical labels for No Show, Left Early,
+    Treatment Completed, In Consultation, and Declined.
 
 ### Current Phase 1 policy output
 
@@ -429,7 +436,7 @@ first; it does not require one developer to implement every package.
 
 | Independent step | What is still pending | Problem today | What can go wrong if it is not done | Executable work | Minimum dependency | Current progress |
 |---|---|---|---|---|---|---|
-| 1. Confirm the button rules | Decide exactly when Cancel, Mark No Show, Rebook, Resolve Booking, and Reassign Doctor should appear for clinic staff and doctors. | Some rules are in the shared policy, while other rules still live inside individual components. | Different screens can make different decisions about the same appointment. Developers may fix one screen and accidentally contradict another. | Review the clinic/doctor policy tables; decide the date and lifecycle rules; record the decision as action IDs; add missing policy-matrix cases. | None. This is the starting decision package. | **Decision needed** |
+| 1. Confirm the button rules | Record when Cancel, Mark No Show, Rebook, Resolve Booking, and Reassign Doctor should appear for clinic staff and doctors. | The rules were previously not recorded as one approved contract. | Different screens could make different decisions about the same appointment. | Record the approved rules in this document; align the shared past-due no-show policy; add focused policy tests. | None. This is the starting decision package. | **Complete — approved and recorded** |
 | 2. Remove duplicate clinic-popup buttons | Make the opened clinic booking popup render one footer action set only. | The popup renders the shared footer and then renders older stage-specific footer branches as well. Confirm, Bill, Cancel, Rebook, Revert No-Show, and Mark Visit Done can appear twice or conflict. | Clinic staff may click the wrong duplicate button, see contradictory options, or believe an appointment is in a different state than it really is. | Keep the shared footer model and action handlers; remove the active manual `modalIs...` footer branches; keep cancellation/reason dialogs only behind the model action; move any true admin-only controls into a separately controlled Actions area. | Step 1. | **Pending — high risk** |
 | 3. Fix clinic-card overflow actions | Make every overflow action either work correctly or disappear. | `Reassign Doctor` is visible but currently has an empty click handler. `Mark No Show` can be offered for a future appointment. | Staff can click a button that does nothing, or mark a future appointment as a no-show. This damages trust and can create incorrect appointment records. | Wire Reassign Doctor to a real doctor-selection flow, or remove it; make Mark No Show past/due-only; keep Patient Left Early limited to active visits; keep Override limited to its approved states; preserve server checks. | Step 1. | **Pending — high risk** |
 | 4. Make old and future actions agree | Ensure the card and popup show the same actions for past, future, same-day overdue, and unknown-date bookings. | The shared policy uses Resolve Booking/Rebook for old unresolved records, but the popup's old fallback can still show Cancel. | Staff may cancel a booking that should be resolved or rebooked, or see different instructions depending on whether they opened the popup. | Compare card and popup action IDs for every date category; remove unconditional popup Confirm/Cancel fallbacks; verify same-day overdue and unknown-date behavior. | Steps 1 and 2. | **Pending — high risk** |
@@ -449,6 +456,23 @@ work is mainly to make the visible screens obey those rules:
 5. Standardize lifecycle words.
 6. Finish doctor card/popup parity.
 7. Test every state and verify the result in the browser.
+
+### Step 1 completion record
+
+The Step 1 policy decisions were confirmed before implementation:
+
+- Clinic cancellation remains in the separate clinic admin action area for
+  confirmed or active appointments.
+- Mark No Show is limited to confirmed appointments whose scheduled time has
+  passed. The booking must also be not started and non-terminal.
+- Reassign Doctor is hidden until a working doctor-selection flow is available.
+- Lifecycle labels remain semantically distinct: No Show, Left Early,
+  Treatment Completed, In Consultation, and Declined.
+
+The shared classifier now enforces the approved past-due and confirmed
+conditions for clinic no-show eligibility, with focused tests covering future,
+pending, past-due, and already-started appointments. The visual controls and
+popup consolidation remain pending in later steps.
 
 ### Current source-of-truth contract
 
@@ -996,7 +1020,7 @@ and do not mark browser verification as complete based only on source review.
 
 ## Remediation completion checklist
 
-- [ ] Policy decisions for cancellation, no-show timing, and reassign-doctor
+- [x] Policy decisions for cancellation, no-show timing, and reassign-doctor
   scope are confirmed.
 - [ ] Clinic popup has one active footer action renderer.
 - [ ] Clinic card overflow actions are centralized, intentional, and functional.
