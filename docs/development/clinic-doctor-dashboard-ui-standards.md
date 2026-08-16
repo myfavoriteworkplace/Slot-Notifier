@@ -2004,6 +2004,98 @@ No tooltip on the modal version — text is `leading-snug` and wraps naturally i
 
 ---
 
+### 16.2b — Actions tab layout & responsive grid (Clinic Dashboard)
+
+The Actions tab uses a **responsive multi-column layout** to minimize scroll on larger screens while maintaining mobile-first simplicity.
+
+#### Layout structure
+
+```
+┌─────────────────────────────────────────────────┐
+│ GRID: grid-cols-1 md:grid-cols-2 gap-4         │
+├──────────────────┬──────────────────────────────┤
+│ LEFT (md:)       │ RIGHT (md:)                  │
+│                  │                              │
+│ • Assign Doctor  │ • Digital Consent           │
+│   (scrollable)   │                              │
+│                  │ • Appointment Slot/Reschedule
+│                  │   (expandable)               │
+├──────────────────┴──────────────────────────────┤
+│ FULL-WIDTH BELOW GRID                          │
+│ • Clinical Status                               │
+└─────────────────────────────────────────────────┘
+```
+
+#### Responsive behavior
+
+| Breakpoint | Layout | Notes |
+|---|---|---|
+| Mobile (`<640px`) | 1 column, stacked | All sections full-width, vertical scroll |
+| Tablet (`sm:` 640px+) | 1 column, stacked | Easier interaction on smaller screens |
+| Desktop (`md:` 768px+) | 2-column grid | LEFT: Assign Doctor · RIGHT: Consent + Slot |
+| Large (`lg:` 1024px+) | 2-column grid | Improved spacing and breathing room |
+
+#### Left column — Assign Doctor
+
+- **Mobile/Tablet**: Full-width, natural scroll
+- **Desktop (`md:`)**: 
+  - `md:max-h-[350px]` — height constraint
+  - `md:overflow-y-auto` — scrollable when list is long
+  - `space-y-3` — consistent spacing between doctor buttons
+- **Why constrain height**: Prevents the doctor list from dominating the entire modal when multiple doctors are available
+- **Scrollbar**: Native browser scrollbar (no custom styling to maintain accessibility)
+
+#### Right column — Digital Consent + Appointment Slot
+
+- **Mobile/Tablet**: Each section full-width, stacked below Assign Doctor
+- **Desktop (`md:`)**: 
+  - Stacked vertically within the right column
+  - `space-y-4` — generous spacing between consent and slot sections
+  - Both sections grow naturally with their content
+- **Content sections**:
+  - **Digital Consent**: Status badge, send/resend button, link sharing (URL copy), PDF download
+  - **Appointment Slot**: Current slot summary (collapsed) or full date/time picker (expanded)
+
+#### Full-width section — Clinical Status
+
+- **Mobile/Tablet/Desktop**: Always full-width below the grid
+- **Purpose**: Track case outcome separately from action controls
+- **Content**: Status dropdown (`Follow-up Required` / `Case Closed`) + Save button
+- **Semantic grouping**: Positioned below actions to emphasize it as an outcome tracker rather than an immediate action
+
+#### CSS classes
+
+```tsx
+// Grid wrapper (mobile: 1 col, desktop: 2 col)
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  
+  // LEFT: Assign Doctor (scrollable on desktop)
+  <div className="md:max-h-[350px] md:overflow-y-auto space-y-3">
+    {/* Assign Doctor section */}
+  </div>
+  
+  // RIGHT: Consent + Slot (stacked)
+  <div className="space-y-4">
+    {/* Digital Consent */}
+    {/* Appointment Slot */}
+  </div>
+</div>
+
+// Clinical Status (full-width, separate from grid)
+<div>
+  {/* Clinical Status */}
+</div>
+```
+
+#### Mobile-first reasoning
+
+- **Stack-first on small screens**: Easier to scan and interact
+- **Grid on medium screens**: Reduces scroll, groups related actions
+- **Scrollable left column**: Long doctor lists don't overflow the modal
+- **Full-width Clinical Status**: Keeps outcome tracking separate and visible
+
+---
+
 ### 16.3 — Tab strip pattern (modal-level)
 
 ```tsx

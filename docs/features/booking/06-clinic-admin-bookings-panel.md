@@ -178,3 +178,41 @@ query to a patient-specific view. Clearing the filter restores the list.
 booking dialog needs to remain available. The panel may be visually hidden
 while the active dashboard panel is elsewhere because dialog portals render
 outside the hidden container.
+
+### Actions tab — responsive multi-column layout
+
+The Actions tab uses a responsive grid layout that adapts to screen size to minimize scrolling:
+
+**Mobile & Tablet (stacked, full-width)**
+- All sections stack vertically in a single column
+- Assign Doctor, Digital Consent, Appointment Slot, and Clinical Status appear in order
+- Natural vertical scroll on content-heavy sections
+
+**Desktop (md: breakpoint and above — 2-column grid)**
+- **Left column**: Assign Doctor (constrained height with scroll)
+  - `max-h-[350px] overflow-y-auto` on `md:` breakpoint
+  - Contains doctor list and specialist suggestions
+  - Scrollable when doctor list is long, preventing entire form overflow
+  
+- **Right column**: Digital Consent + Appointment Slot (stacked)
+  - `space-y-4` for consistent spacing between sections
+  - Digital Consent: send/resend status and link management
+  - Appointment Slot: reschedule with date/time picker (expandable)
+  
+- **Full-width below grid**: Clinical Status
+  - Positioned below the 2-column grid
+  - Tracks case outcome (Follow-up Required / Case Closed)
+
+**Layout CSS**
+```
+- Grid wrapper: `grid grid-cols-1 md:grid-cols-2 gap-4`
+- Left column: `md:max-h-[350px] md:overflow-y-auto space-y-3`
+- Right column: `space-y-4`
+- Clinical Status: Full-width row below grid
+```
+
+**Benefits**
+- Reduces vertical scroll on larger screens
+- Maintains mobile-first simplicity
+- Consistent with dashboard UI standards
+- Doctor assignment and consent/slot actions visible side-by-side

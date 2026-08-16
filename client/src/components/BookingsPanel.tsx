@@ -2682,10 +2682,14 @@ export default function BookingsPanel({
 
                         {/* ACTIONS TAB */}
                         {getModalTab(booking.id) === 'actions' && (
-                          <div className="p-4 space-y-3">
-
-                            {/* Assign Doctor */}
-                            {booking.visitStatus !== 'completed' && (clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
+                          <div className="p-4">
+                            {/* Two-column grid: Assign Doctor (LEFT) | Consent + Slot (RIGHT); Clinical Status full-width below */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              
+                              {/* LEFT COLUMN: Assign Doctor (scrollable on desktop) */}
+                              <div className="md:max-h-[350px] md:overflow-y-auto space-y-3">
+                                {/* Assign Doctor */}
+                                {booking.visitStatus !== 'completed' && (clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
                               const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
                               const isOOO = (email?: string, name?: string) =>
                                 allDoctorLeaves.some(l =>
@@ -2847,8 +2851,11 @@ export default function BookingsPanel({
                                 </div>
                               );
                             })()}
+                              </div>
 
-                            {/* Digital Consent */}
+                              {/* RIGHT COLUMN: Digital Consent + Appointment Slot */}
+                              <div className="space-y-4">
+                                {/* Digital Consent */}
                             <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
                               <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-1.5">
@@ -3120,8 +3127,10 @@ export default function BookingsPanel({
                                 </div>
                               )}
                             </div>
+                              </div>
+                            </div>
 
-                            {/* Clinical Status */}
+                            {/* Clinical Status (full-width, below grid) */}
                             <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
                               <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
                                 <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
