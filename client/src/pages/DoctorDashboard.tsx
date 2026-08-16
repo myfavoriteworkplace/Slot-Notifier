@@ -43,7 +43,8 @@ import { compressImage } from "@/lib/imageCompression";
 import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
-import { classifyClientBooking, createClientBookingDateContext } from "@/lib/booking-classification";
+import { BookingProgressStrip } from "@/components/BookingProgressStrip";
+import { classifyClientBooking, createClientBookingDateContext, getBookingLifecycleStage } from "@/lib/booking-classification";
 import { getAppointmentFooterModel } from "@/lib/appointment-footer-model";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
@@ -3116,7 +3117,7 @@ export default function DoctorDashboard() {
 
       {/* ── Patient Detail Dialog ── */}
       <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) { setPatientModalId(null); setDialogExpanded(false); } }}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[80vw] sm:max-w-none sm:h-[90vh] sm:max-h-[90vh] p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[width,height,max-width,max-height] duration-200">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[60vw] sm:max-w-[60vw] sm:h-[60vh] sm:max-h-[60vh] p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[width,height,max-width,max-height] duration-200">
 
           {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
           <button
@@ -3250,8 +3251,9 @@ export default function DoctorDashboard() {
                       ? DR_CHIEF_COMPLAINTS.filter(c => b.description!.toLowerCase().includes(c.toLowerCase()))
                       : [];
                     return (
-                      <div className="px-4 pt-3 pb-4">
-                          <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
+                      <div className="px-4 pt-4 pb-4">
+                        <section className="rounded-xl border border-border/60 bg-white dark:bg-card shadow-sm p-3 space-y-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
 
                           {/* Phone */}
                           <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
@@ -3410,7 +3412,30 @@ export default function DoctorDashboard() {
                             );
                           })()}
 
-                        </div>
+                          </div>
+
+                        {modalReviewAction && (
+                          <div className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${
+                            b.doctorApprovalStatus === "declined"
+                              ? "border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-400"
+                              : "border-border/50 bg-muted/30 text-muted-foreground"
+                          }`}>
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span>
+                              {b.doctorApprovalStatus === "declined"
+                                ? "Appointment declined"
+                                : b.verificationStatus === "no_show"
+                                ? "Patient did not arrive"
+                                : b.verificationStatus === "cancelled"
+                                ? "Appointment cancelled"
+                                : (b as any).visitStatus === "completed"
+                                ? "Visit completed"
+                                : (b as any).visitStatus === "patient_left_early"
+                                ? "Patient left before completion"
+                                : "Historical appointment"}
+                            </span>
+                          </div>
+                        )}
 
                         <AppointmentInfoSection
                           role="doctor"
@@ -3423,6 +3448,25 @@ export default function DoctorDashboard() {
                           confirmedBy={b.confirmedBy ? (b.confirmedBy === "doctor" ? `Dr. ${b.assignedDoctor?.split(" ")[0] || "Doctor"}` : "Clinic Admin") : null}
                         />
 
+                        <div className="border-t border-border/40 pt-2">
+                          <BookingProgressStrip
+                            stage={getBookingLifecycleStage(modalClassification)}
+                            isCancelled={b.verificationStatus === "cancelled"}
+                            isNoShow={b.verificationStatus === "no_show"}
+                            isLeftEarly={(b as any).visitStatus === "patient_left_early"}
+                            isOverride={
+                              (b as any).visitStatus === "completed" &&
+                              !(b as any).checkedInAt &&
+                              (b as any).visitStatus !== "patient_left_early"
+                            }
+                            checkedInAt={b.checkedInAt ?? undefined}
+                            completedAt={(b as any).completedAt ?? undefined}
+                            cancellationReason={b.cancellationReason ?? null}
+                            confirmedBy={(b as any).confirmedBy ?? null}
+                            visitCompletionNote={(b as any).visitCompletionNote ?? null}
+                          />
+                        </div>
+                        </section>
                       </div>
                     );
                   })()}
@@ -3564,7 +3608,7 @@ export default function DoctorDashboard() {
                 </div>
 
                 {/* ── STICKY FOOTER — lifecycle action buttons ── */}
-                <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 space-y-2">
+                 <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 space-y-2">
                   {(() => {
                     const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
                     const bIsNoShow = b.verificationStatus === 'no_show';
@@ -3581,32 +3625,9 @@ export default function DoctorDashboard() {
                       <>
                          {modalReviewAction && (
                            <>
-                             <div className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border ${
-                               bIsDeclined
-                                 ? "bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
-                                 : "bg-muted/40 border-border/40"
-                             }`}>
-                               <span className={`text-xs font-semibold ${
-                                 bIsDeclined
-                                   ? "text-rose-600 dark:text-rose-400"
-                                   : "text-muted-foreground"
-                               }`}>
-                                 {bIsDeclined
-                                   ? "Appointment Declined"
-                                   : bIsNoShow
-                                   ? "Patient did not arrive"
-                                   : bIsCancelled
-                                   ? "Appointment cancelled"
-                                   : bIsVisitCompleted
-                                   ? "Visit completed"
-                                   : bIsTerminal
-                                   ? "Patient left before completion"
-                                   : "Historical appointment"}
-                               </span>
-                             </div>
                              <Button
                                variant="outline"
-                                className="w-full sm:max-w-md mx-auto h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
+                                className="w-full h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
                                onClick={() => setPatientModalTab("overview")}
                                data-testid={`modal-button-${modalReviewAction.id}-${b.id}`}
                              >
@@ -3617,16 +3638,16 @@ export default function DoctorDashboard() {
                          )}
 
                         {bIsPending && !bIsPast && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
-                           <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                           <div className="grid grid-cols-1 sm:grid-cols-2 items-stretch gap-2">
                             <Button size="sm"
-                              className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
+                               className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
                               onClick={() => approveMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
                               data-testid={`modal-button-approve-${b.id}`}>
                               {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                               Accept
                             </Button>
                             <Button size="sm" variant="outline"
-                              className="flex-1 h-11 text-sm font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
+                               className="w-full h-11 text-sm font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
                               onClick={() => declineMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
                               data-testid={`modal-button-decline-${b.id}`}>
                               {declineMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
@@ -3635,33 +3656,11 @@ export default function DoctorDashboard() {
                           </div>
                         )}
 
-                         {!modalReviewAction && !bIsPending && !bIsPast && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && !bIsDeclined && (
-                          <TooltipProvider delayDuration={700}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="w-full cursor-not-allowed">
-                                  <Button
-                                    variant="outline"
-                                    className="w-full h-11 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
-                                    disabled tabIndex={-1}
-                                    data-testid={`modal-button-booked-${b.id}`}
-                                  >
-                                    <CalendarDays className="h-3.5 w-3.5" />Booked — Waiting for Arrival
-                                  </Button>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                Waiting for patient to arrive — no action required
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-
                         {bIsCheckedIn && (
                            <>
-                             <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 items-stretch gap-2">
                              <Button
-                               className="flex-1 min-w-0 h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                                className="w-full min-w-0 h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
                               onClick={() => startConsultationMutation.mutate(b.id)}
                               disabled={startConsultationMutation.isPending}
                               data-testid={`modal-button-start-consultation-${b.id}`}
@@ -3670,13 +3669,13 @@ export default function DoctorDashboard() {
                               Start Consultation
                             </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
                                 data-testid={`modal-button-notes-arrived-${b.id}`}>
                                 <FileText className="h-3 w-3" />View Notes
                               </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('diagnosis')}
                                 data-testid={`modal-button-add-observation-${b.id}`}>
                                 <ClipboardList className="h-3 w-3" />Add Observation
@@ -3687,9 +3686,9 @@ export default function DoctorDashboard() {
 
                         {bIsInConsultation && (
                            <>
-                             <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-4 items-stretch gap-2">
                              <Button
-                               className="flex-1 min-w-0 h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
+                                className="w-full min-w-0 h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
                               onClick={() => completeVisitMutation.mutate(b.id)}
                               disabled={completeVisitMutation.isPending}
                               data-testid={`modal-button-done-patient-${b.id}`}
@@ -3698,19 +3697,19 @@ export default function DoctorDashboard() {
                               Done with Patient
                             </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('diagnosis')}
                                 data-testid={`modal-button-add-obs-${b.id}`}>
                                 <ClipboardList className="h-3 w-3" />Add Obs.
                               </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                                 onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
                                 data-testid={`modal-button-notes-consult-${b.id}`}>
                                 <FileText className="h-3 w-3" />Notes
                               </Button>
                               <Button size="sm"
-                                className="flex-1 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('prescription')}
                                 data-testid={`modal-button-issue-rx-${b.id}`}>
                                 <Stethoscope className="h-3 w-3" />Issue Rx
@@ -3740,15 +3739,15 @@ export default function DoctorDashboard() {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                            <div className="flex gap-2">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 items-stretch gap-2">
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                 className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
                                 data-testid={`modal-button-notes-tmt-${b.id}`}>
                                 <FileText className="h-3 w-3" />View Notes
                               </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                 className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('prescription')}
                                 data-testid={`modal-button-view-rx-${b.id}`}>
                                 <Pill className="h-3 w-3" />View / Edit Rx

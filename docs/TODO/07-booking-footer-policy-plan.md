@@ -2,17 +2,17 @@
 
 **Scope:** Clinic/admin and doctor appointment-card footer actions  
 **Source recommendation:** `attached_assets/Pasted-Analysis-Past-should-not-determine-one-universal-footer_1786728086567.txt`  
-**Status:** Phases 1–5 complete; Phase 6 in progress — automated coverage is complete, browser-level visual verification remains
-**Last updated:** 2026-08-15
+**Status:** Phases 1–5 complete; Phase 6 in progress — popup/card layout alignment is implemented, browser-level visual verification remains
+**Last updated:** 2026-08-16
 
 ## Overall progress
 
 There are six planned implementation phases. Phases 1–5 are complete after
 adding the pure policy model, migrating the shared card, aligning the clinic
 and doctor detail experiences, and reconciling server transition semantics.
-Phase 6 now has the full role/lifecycle matrix under automated test and the
-responsive footer layout implemented; only browser-level card/dialog inspection
-is still outstanding.
+Phase 6 now has the full role/lifecycle matrix under automated test, responsive
+card/dialog footer layout, and aligned Overview context placement. Only
+browser-level card/dialog inspection is still outstanding.
 
 ```text
 Progress: 5 of 6 phases complete — 83%
@@ -315,10 +315,41 @@ The following are intentionally unchanged:
 - Updated the clinic detail-dialog footer with the same primary/secondary
   responsive structure and content-wrapping button heights.
 
+### Latest popup layout pass — 2026-08-16
+
+The clinic and doctor booking dialogs were aligned with the documented
+card/detail layout contract:
+
+- Normal dialogs now use an approximately `60vw × 60vh` desktop footprint;
+  narrow screens retain the viewport-safe near-full-width layout.
+- Popup footer actions now use responsive CSS grids rather than flex rows.
+  Each rendered action occupies a full-width grid cell, so two- and
+  three-action states have equal tracks and single actions fill the footer.
+- Clinic popup footer actions continue to come from
+  `getAppointmentFooterModel()`; the visual change does not alter action
+  eligibility, targets, mutations, or server validation.
+- Doctor approval, arrival, consultation, and treatment-completed controls now
+  use explicit two-, three-, or four-column responsive grids as appropriate.
+- Historical/declined/completed/terminal context is displayed in the doctor
+  Overview information section. The persistent footer keeps only the
+  actionable Review Visit control.
+- The duplicate doctor footer waiting-state control was removed. Waiting
+  context remains in `AppointmentInfoSection` within Overview.
+- Clinic and doctor Overview content now use a bordered information section
+  with consistent internal spacing. The doctor Overview also includes the
+  lifecycle progress strip used by the clinic Overview.
+- Existing role-specific actions, lifecycle conditions, callbacks, loading
+  states, and authorization boundaries remain unchanged.
+
+The old clinic footer branches after the active model-based return and the
+`false &&` legacy branches in the shared card remain non-rendering legacy code;
+they were not used by this layout pass because removing them is a separate
+cleanup risk.
+
 ### Phase 6 verification note
 
-The automated matrix, focused policy tests, TypeScript check, and production
-build all pass. A Playwright browser run was attempted, but the workspace
+The automated matrix, focused policy tests, and production Build Check pass
+after the popup layout pass. A Playwright browser run was attempted, but the workspace
 Chromium runtime is missing a remaining native `libgbm`/`libudev` dependency;
 the app preview itself renders successfully, but an authenticated appointment
 card/dialog screenshot could not be completed in this environment. The manual
@@ -331,7 +362,9 @@ visual checklist therefore remains open rather than being marked as passed.
 - [x] Make the detail dialog consume the same footer model.
 - [ ] Verify card/detail-dialog parity for every matrix row manually.
 - [x] Add automated role/lifecycle matrix coverage for clinic and doctor footer actions.
-- [x] Implement full-width primary and wrapping secondary footer layout for card and dialog.
+- [x] Implement full-width primary and equal-track responsive footer layout for card and dialog.
+- [x] Move doctor historical and waiting context into the Overview information section.
+- [x] Align normal clinic/doctor dialog sizing and Overview section spacing.
 - [ ] Verify mobile footer wrapping at narrow card widths in a browser preview.
 - [x] Verify server authorization and transition behavior with focused policy
   tests and compare-and-set writes.

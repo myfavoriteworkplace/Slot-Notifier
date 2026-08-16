@@ -2016,7 +2016,7 @@ export default function BookingsPanel({
                     completeVisitPending={completeVisitMutation.isPending}
                     cancelPending={cancelBookingMutation.isPending}
                   />}
-                    <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[80vw] sm:max-w-none sm:h-[90vh] sm:max-h-[90vh] rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200">
+                    <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[60vw] sm:max-w-[60vw] sm:h-[60vh] sm:max-h-[60vh] rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200">
 
                       {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
                       <button
@@ -2235,10 +2235,12 @@ export default function BookingsPanel({
                             || null;
 
                           return (
-                            <div className="px-4 pt-3 pb-4 space-y-2.5">
+                            <div className="px-4 pt-4 pb-4">
 
-                              {/* ── Patient info card — matches info grid row pattern ── */}
-                              <div className="rounded-xl border border-green-800/30 bg-white dark:bg-card shadow-sm px-3 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
+                              {/* ── Overview information section ── */}
+                              <section className="rounded-xl border border-border/60 bg-white dark:bg-card shadow-sm p-3 space-y-2.5">
+                              {/* Patient details — matches info grid row pattern */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
 
                                 {/* Patient ID */}
                                  <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
@@ -2602,7 +2604,7 @@ export default function BookingsPanel({
                               />
 
                               {/* ── Progress strip ── */}
-                              <div className="pt-1">
+                              <div className="border-t border-border/40 pt-2">
                                 <BookingProgressStrip
                                   stage={ovProgressStage}
                                   isCancelled={isCancelled}
@@ -2637,6 +2639,7 @@ export default function BookingsPanel({
                                 />
                               </div>
 
+                              </section>
                             </div>
                           );
                         })()}
@@ -3335,7 +3338,7 @@ export default function BookingsPanel({
                               <Button
                                 variant={primary ? "default" : "outline"}
                                 size={primary ? "default" : "sm"}
-                                 className={`min-w-0 ${primary ? "flex-1 basis-[140px] min-h-11 h-auto py-2 text-sm font-semibold" : "flex-1 basis-[100px] min-h-10 h-auto py-2 text-xs font-medium"} gap-1.5 whitespace-normal text-center leading-tight active:scale-[0.98] transition-all`}
+                                className={`w-full min-w-0 ${primary ? "min-h-11 h-auto py-2 text-sm font-semibold" : "min-h-10 h-auto py-2 text-xs font-medium"} gap-1.5 whitespace-normal text-center leading-tight active:scale-[0.98] transition-all`}
                                 onClick={() => handleFooterAction(action)}
                                 disabled={pending}
                                 data-testid={`button-dialog-footer-${action.id}-${booking.id}`}
@@ -3344,13 +3347,21 @@ export default function BookingsPanel({
                                 {action.label}
                               </Button>
                             );
-                            return action.id === "cancel"
-                              ? <CancelDialog key={action.id} trigger={button} />
-                              : <span key={action.id} className="min-w-0 flex-1 basis-[100px]">{button}</span>;
+                            return (
+                              <span key={action.id} className="w-full min-w-0">
+                                {action.id === "cancel" ? <CancelDialog trigger={button} /> : button}
+                              </span>
+                            );
                           };
 
+                           const footerActionCount = (footerModel.primary ? 1 : 0) + footerModel.secondary.length;
+                           const footerGridColumns = footerActionCount >= 3
+                             ? "sm:grid-cols-3"
+                             : footerActionCount === 2
+                             ? "sm:grid-cols-2"
+                             : "sm:grid-cols-1";
                            return (
-                             <div className="flex min-w-0 w-full flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                             <div className={`grid min-w-0 w-full grid-cols-1 ${footerGridColumns} items-stretch gap-2`}>
                                {footerModel.primary && renderFooterAction(footerModel.primary, true)}
                                {footerModel.secondary.map((action) => renderFooterAction(action, false))}
                              </div>
