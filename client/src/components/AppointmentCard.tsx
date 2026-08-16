@@ -40,6 +40,7 @@ import {
   getAppointmentFooterModel,
   type AppointmentFooterAction,
 } from "@/lib/appointment-footer-model";
+import { shouldGreyHistoricalBorder } from "@/lib/booking-card-border-policy";
 
 export type AppointmentCardRole = "clinic" | "doctor";
 
@@ -429,13 +430,34 @@ export function AppointmentCard({
   // date badge, not by the top bar.
   // Priority follows the shared classifier: terminal states win over active,
   // completed, confirmed, and pending states.
-  const accentBar = bookingStatus.barClass;
+  const shouldGreyPastCard = shouldGreyHistoricalBorder({
+    isPast,
+    isPastDue,
+    isTerminal,
+    isCancelled,
+    isDoctorDeclined,
+    isNoShowState,
+    isLeftEarlyState,
+    isVisitCompleted,
+    isConfirmed,
+    isCheckedIn,
+    isInConsultation,
+    isTreatmentCompleted,
+    isAutoNoShow,
+  });
 
-  // Left border = STATUS dimension.
+  const historicalPastAccentBar = "bg-gradient-to-r from-slate-300 to-slate-200 dark:from-slate-600 dark:to-slate-500";
+  const historicalPastBorderClass = "border-l-[3px] border-l-slate-300 dark:border-l-slate-600";
+
+  const accentBar = shouldGreyPastCard ? historicalPastAccentBar : bookingStatus.barClass;
+
+  // Left border = STATUS dimension, unless the booking is a historical read-only
+  // record. Past records intentionally lose urgency and use a neutral grey
+  // treatment so they still read as historical rather than active workflow.
   // In Consult group (checked-in → in consult → treatment done) → violet full/left border.
   // Visit Completed merges with Confirmed → emerald.
   // Left Early merges with No Show → slate.
-  const cardBorderClass = bookingStatus.borderClass;
+  const cardBorderClass = shouldGreyPastCard ? historicalPastBorderClass : bookingStatus.borderClass;
 
   const latestPillStatus = isCancelled
     ? { icon: "×", label: "CANCELLED", tone: "rose" }

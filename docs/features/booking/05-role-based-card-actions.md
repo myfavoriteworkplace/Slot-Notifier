@@ -38,6 +38,12 @@ The clinic overflow menu contains actions whose dialogs need reasons or
 confirmation, including no-show, early exit, override completion, and visit
 closure.
 
+Historical past bookings intentionally use a muted grey border and accent bar so
+staff can distinguish archived records from active operational work. The footer
+and overflow actions remain available only when the record is still actionable;
+read-only historical cards do not regain active operational buttons just because
+there are bills or notes attached.
+
 ### Clinic-specific rules
 
 - Marking a patient left early requires a reason.

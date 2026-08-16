@@ -74,6 +74,8 @@ The card deliberately separates two visual dimensions:
 - The relative date badge represents timing: past, today, or future.
 - Timing is no longer represented by the card's top border.
 
+For historical, read-only past cards, the accent bar and left border are intentionally muted to a neutral grey so they read as record history instead of active operational workflow. This override applies only to genuinely historical cards, not to unresolved, action-required, or active visits. Status badges still preserve the event outcome (Completed, Cancelled, No Show, Left Early) even when the border is greyed.
+
 Timing badges use a separate colour system from lifecycle status:
 
 | Timing label | Visual treatment |
