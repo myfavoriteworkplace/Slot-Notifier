@@ -3116,7 +3116,7 @@ export default function DoctorDashboard() {
 
       {/* ── Patient Detail Dialog ── */}
       <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) { setPatientModalId(null); setDialogExpanded(false); } }}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[80vw] sm:max-w-none sm:h-[80vh] sm:max-h-[80vh] p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[width,height,max-width,max-height] duration-200">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[80vw] sm:max-w-none sm:h-[90vh] sm:max-h-[90vh] p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[width,height,max-width,max-height] duration-200">
 
           {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
           <button
@@ -3606,7 +3606,7 @@ export default function DoctorDashboard() {
                              </div>
                              <Button
                                variant="outline"
-                               className="w-full h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
+                                className="w-full sm:max-w-md mx-auto h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
                                onClick={() => setPatientModalTab("overview")}
                                data-testid={`modal-button-${modalReviewAction.id}-${b.id}`}
                              >
@@ -3617,7 +3617,7 @@ export default function DoctorDashboard() {
                          )}
 
                         {bIsPending && !bIsPast && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
-                          <div className="flex gap-2">
+                           <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
                             <Button size="sm"
                               className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
                               onClick={() => approveMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
@@ -3658,9 +3658,10 @@ export default function DoctorDashboard() {
                         )}
 
                         {bIsCheckedIn && (
-                          <>
-                            <Button
-                              className="w-full h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                           <>
+                             <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                             <Button
+                               className="flex-1 min-w-0 h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
                               onClick={() => startConsultationMutation.mutate(b.id)}
                               disabled={startConsultationMutation.isPending}
                               data-testid={`modal-button-start-consultation-${b.id}`}
@@ -3668,7 +3669,6 @@ export default function DoctorDashboard() {
                               {startConsultationMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
                               Start Consultation
                             </Button>
-                            <div className="flex gap-2">
                               <Button variant="outline" size="sm"
                                 className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
@@ -3681,14 +3681,15 @@ export default function DoctorDashboard() {
                                 data-testid={`modal-button-add-observation-${b.id}`}>
                                 <ClipboardList className="h-3 w-3" />Add Observation
                               </Button>
-                            </div>
+                             </div>
                           </>
                         )}
 
                         {bIsInConsultation && (
-                          <>
-                            <Button
-                              className="w-full h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
+                           <>
+                             <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                             <Button
+                               className="flex-1 min-w-0 h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
                               onClick={() => completeVisitMutation.mutate(b.id)}
                               disabled={completeVisitMutation.isPending}
                               data-testid={`modal-button-done-patient-${b.id}`}
@@ -3696,7 +3697,6 @@ export default function DoctorDashboard() {
                               {completeVisitMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                               Done with Patient
                             </Button>
-                            <div className="flex gap-1.5">
                               <Button variant="outline" size="sm"
                                 className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('diagnosis')}
@@ -3715,7 +3715,7 @@ export default function DoctorDashboard() {
                                 data-testid={`modal-button-issue-rx-${b.id}`}>
                                 <Stethoscope className="h-3 w-3" />Issue Rx
                               </Button>
-                            </div>
+                             </div>
                           </>
                         )}
 

@@ -2016,7 +2016,7 @@ export default function BookingsPanel({
                     completeVisitPending={completeVisitMutation.isPending}
                     cancelPending={cancelBookingMutation.isPending}
                   />}
-                    <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[80vw] sm:max-w-none sm:h-[80vh] sm:max-h-[80vh] rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200">
+                    <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[80vw] sm:max-w-none sm:h-[90vh] sm:max-h-[90vh] rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200">
 
                       {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
                       <button
@@ -3350,19 +3350,11 @@ export default function BookingsPanel({
                           };
 
                            return (
-                             <div className="flex min-w-0 flex-col gap-2">
-                              {footerModel.primary && (
-                                 <div className="flex min-w-0 w-full">
-                                  {renderFooterAction(footerModel.primary, true)}
-                                </div>
-                              )}
-                               {footerModel.secondary.length > 0 && (
-                                 <div className="flex min-w-0 w-full flex-wrap items-center gap-2">
-                                   {footerModel.secondary.map((action) => renderFooterAction(action, false))}
-                                 </div>
-                               )}
-                            </div>
-                          );
+                             <div className="flex min-w-0 w-full flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                               {footerModel.primary && renderFooterAction(footerModel.primary, true)}
+                               {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+                             </div>
+                           );
 
                           /* ── Stage 5: Visit Completed ── */
                           if (modalIsVisitCompleted) {
@@ -3370,10 +3362,11 @@ export default function BookingsPanel({
                             const modalNoBill = modalBookingBills.length === 0;
                             const modalOpenBills = modalBookingBills.filter(b => b.paymentStatus !== 'paid').length;
                             return (
-                            <>
-                              {modalOpenBills > 0 ? (
+                              <>
+                              <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                               {modalOpenBills > 0 ? (
                                 <Button
-                                  className="w-full gap-1.5 h-11 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 active:scale-[0.98] transition-all"
+                                   className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 active:scale-[0.98] transition-all"
                                   variant="outline"
                                   onClick={() => handleOpenBilling(booking)}
                                   title="Payment outstanding — tap to settle"
@@ -3383,7 +3376,7 @@ export default function BookingsPanel({
                                 </Button>
                               ) : (
                                 <Button
-                                  className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
+                                   className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
                                   onClick={() => handleOpenBilling(booking)}
                                   title="Preview or download invoice"
                                   data-testid={`button-dialog-bill-done-${booking.id}`}
@@ -3391,9 +3384,8 @@ export default function BookingsPanel({
                                   <Download className="h-4 w-4" />View Invoice
                                 </Button>
                               )}
-                              <div className="flex gap-2">
                                 <Button variant="outline" size="sm"
-                                  className="w-full h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                                  className="flex-1 min-w-0 h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                                   onClick={() => {
                                     const _d = booking.description ?? "";
                                     const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
@@ -3422,16 +3414,16 @@ export default function BookingsPanel({
                           /* ── Stage 4: Treatment Completed → Mark Visit Done ── */
                           if (modalIsTreatmentCompleted) return (
                             <>
-                              <Button
-                                className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
+                               <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                               <Button
+                                 className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
                                 onClick={() => completeVisitMutation.mutate({ bookingId: booking.id })}
                                 disabled={completeVisitMutation.isPending}
                                 data-testid={`button-dialog-visit-done-${booking.id}`}
                               >
                                 {completeVisitMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                                 Mark Visit Done
-                              </Button>
-                              <div className="flex gap-2">
+                               </Button>
                                 <Button variant="outline" size="sm"
                                   className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                   onClick={() => handleOpenBilling(booking)}
@@ -3452,7 +3444,7 @@ export default function BookingsPanel({
                           /* ── Stage 3: In Consultation ── */
                           if (modalIsInConsultation) return (
                             <>
-                              <div className="flex gap-2">
+                              <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
                                 <Button variant="outline" size="sm"
                                   className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                   onClick={() => handleOpenBilling(booking)}
@@ -3473,7 +3465,7 @@ export default function BookingsPanel({
                           /* ── Stage 2: Checked In / Arrived ── */
                           if (modalIsCheckedIn) return (
                             <>
-                              <div className="flex gap-2">
+                              <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
                                 <Button variant="outline" size="sm"
                                   className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                   onClick={() => handleOpenBilling(booking)}
@@ -3493,9 +3485,10 @@ export default function BookingsPanel({
 
                           /* ── Terminal: Cancelled / No-show / Left Early ── */
                           if (modalIsTerminal) return (
-                            <>
-                            {booking.noShowSource === 'batch_admin' && modalIsNoShow && (
-                              <Button variant="outline" className="w-full h-11 text-sm font-medium gap-2"
+                             <>
+                             <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                             {booking.noShowSource === 'batch_admin' && modalIsNoShow && (
+                               <Button variant="outline" className="flex-1 min-w-0 h-11 text-sm font-medium gap-2"
                                 onClick={() => revertNoShowMutation.mutate(booking.id)}
                                 disabled={revertNoShowMutation.isPending}>
                                 {revertNoShowMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -3503,7 +3496,7 @@ export default function BookingsPanel({
                               </Button>
                             )}
                             <Button variant="outline"
-                              className="w-full h-11 text-sm font-medium text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98] transition-all"
+                              className="flex-1 min-w-0 h-11 text-sm font-medium text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98] transition-all"
                               onClick={() => {
                                 const _d = booking.description ?? "";
                                 const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
@@ -3524,32 +3517,35 @@ export default function BookingsPanel({
                               data-testid={`button-dialog-rebook-terminal-${booking.id}`}>
                               <Repeat2 className="h-4 w-4" />Rebook
                             </Button>
+                            </div>
                             </>
                           );
 
                           /* ── Stage 0/1: Pre-arrival (unconfirmed or confirmed) ── */
                           return (
-                            <>
-                              {!isBookingPast && !isConfirmed && (
-                                <Button
-                                  className="w-full gap-1.5 h-11 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-[0.98] border-0 shadow-md shadow-emerald-500/20 text-white transition-all"
+                             <>
+                               <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                               {!isBookingPast && !isConfirmed && (
+                                 <Button
+                                 className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-[0.98] border-0 shadow-md shadow-emerald-500/20 text-white transition-all"
                                   onClick={() => confirmBookingMutation.mutate(booking.id)}
                                   disabled={confirmBookingMutation.isPending}
                                   data-testid={`button-dialog-confirm-${booking.id}`}
-                                >
+                                 >
                                   {confirmBookingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                                   Confirm
-                                </Button>
-                              )}
+                                 </Button>
+                               )}
                               <CancelDialog trigger={
                                 <Button
                                   variant="outline"
-                                  className="w-full gap-1.5 h-11 text-sm font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50 active:bg-destructive/10 active:scale-[0.98] transition-all"
+                                   className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50 active:bg-destructive/10 active:scale-[0.98] transition-all"
                                   data-testid={`button-dialog-cancel-${booking.id}`}
                                 >
                                   <X className="h-3.5 w-3.5" />Cancel
                                 </Button>
                               } />
+                               </div>
                             </>
                           );
                         })()}
