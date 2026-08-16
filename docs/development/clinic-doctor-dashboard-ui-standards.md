@@ -1886,30 +1886,45 @@ The app already has a WebSocket server (`/ws/notifications`) with a `clinicSocke
 
 ## 16. Patient Card Modal — Standards
 
-> **Updated:** 04 Jun 2026  
-> **Applies to:** `ClinicDashboard.tsx` (booking detail dialog) and `DoctorDashboard.tsx` (patient detail dialog)
+> **Updated:** 16 Aug 2026  
+> **Applies to:** `BookingsPanel.tsx` (clinic booking dialog) and `DoctorDashboard.tsx` (patient detail dialog)
 
 ---
 
 ### 16.1 — Dialog dimensions (both dashboards)
 
-Use identical `DialogContent` classes on both dashboards so the modal looks the same regardless of who opens it:
+Use identical `DialogContent` classes on both dashboards so the modal looks the same regardless of who opens it. The dialog supports an expand/collapse button for toggling between normal and expanded sizes:
 
 ```tsx
-<DialogContent className="w-[95vw] sm:max-w-[640px] rounded-2xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+<DialogContent className={`w-[95vw] max-w-[95vw] ${dialogExpanded ? 'sm:w-[95vw] sm:max-w-[95vw] sm:h-[95vh] sm:max-h-[95vh]' : 'sm:w-[80vw] sm:max-w-[80vw] sm:h-[90vh] sm:max-h-[90vh]'} rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200`}>
 ```
+
+**Normal Size (default)**
 
 | Property | Value | Reason |
 |---|---|---|
 | `w-[95vw]` | 95% viewport width on mobile | Fills the screen without overflow |
-| `sm:max-w-[640px]` | 640 px cap on desktop | Consistent readable width |
-| `max-h-[90vh]` | Grows to content, caps at 90% viewport | Prevents overshooting on small screens |
+| `sm:w-[80vw]` | 80% viewport width on tablet+ | Balanced readability and screen real estate |
+| `sm:h-[90vh]` | 90% viewport height on tablet+ | Leaves room for browser chrome and taskbars |
 | `rounded-2xl` | Matches system card rounding | Visual consistency |
 | `p-0 gap-0` | No padding/gap — sections control their own spacing | Clean edge-to-edge header |
 | `flex flex-col` | Column layout for header + tab strip + scrollable panel | Enables the scrollable body pattern |
 | `overflow-hidden` | Clips the header gradient to the rounded corners | No edge bleed |
 
-**Do not use `h-[90vh]` (fixed height)** — prefer `max-h-[90vh]` so the modal can be shorter when content is sparse.
+**Expanded Size (when dialogExpanded = true)**
+
+| Property | Value | Reason |
+|---|---|---|
+| `sm:w-[95vw]` | 95% viewport width | Near fullscreen width |
+| `sm:h-[95vh]` | 95% viewport height | Near fullscreen height |
+| `transition-[width,height,max-width,max-height] duration-200` | Smooth animation | Polished UX when toggling |
+
+**Expand/Collapse Button**
+
+- Hidden on mobile (uses `hidden sm:flex`)
+- Positioned absolutely at `right-11 top-3.5` to sit left of the close (X) button
+- Toggles between `Maximize2` and `Minimize2` icons
+- Uses semi-transparent white styling matching the header gradient background
 
 ---
 
