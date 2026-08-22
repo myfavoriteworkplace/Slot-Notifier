@@ -14,6 +14,34 @@ daily staff email digest
 
 ---
 
+## Progress tracker — read this first
+
+Each row below is a separate piece of work. A developer should be able to
+complete one row, run its checks, and hand the result to the next row. A row
+must not be marked complete until its acceptance criteria and verification
+checks pass.
+
+| Step | Independent work package | Depends on | Progress | What we have achieved so far | What this step will achieve |
+|---|---|---|---|---|---|
+| 1 | Freeze and test the reminder rules | None | **Ready — not started** | The product rules have been written down, but they are not yet covered by automated tests. | A small set of tests will clearly explain which bookings clinics and doctors can see. |
+| 2 | Build the server reminder query/service | Step 1 | **Ready — not started** | The project already has booking lifecycle helpers and timezone boundary helpers. | The server will calculate the live reminder list and keep clinic and doctor data separate. |
+| 3 | Add secure reminder API routes | Step 2 | **Ready — not started** | Existing routes already use authenticated clinic and doctor sessions. | Logged-in dashboards will receive only the reminders their role is allowed to see. |
+| 4 | Build the shared reminder panel | Step 3 | **Ready — not started** | The existing Header already contains the notification bell, popover, drawer, and responsive patterns. | Both dashboards will show a separate calendar/reminder control with loading, empty, error, and appointment states. |
+| 5 | Connect refresh and live updates | Step 4 | **Ready — not started** | The notification hook already polls and listens for booking WebSocket events. | Reminder counts and rows will refresh after booking changes, polling, reconnects, and long idle periods. |
+| 6 | Choose and build the digest scheduler foundation | Step 1 | **Blocked — deployment choice required** | The current app has no durable recurring scheduler or worker. | A protected, repeatable job will run the digest without relying on an unsafe in-process timer. |
+| 7 | Add the digest log and choose recipients | Steps 1, 2, and 6 | **Ready after Step 6** | Clinics, doctors, archive status, and subscription fields already exist in the database. | The system will know who receives each digest, which appointments were included, and whether delivery was already attempted. |
+| 8 | Build and send the daily digest email | Steps 6 and 7 | **Ready after Steps 6–7** | The project already has an email provider and shared email layout helpers. | Staff will receive one privacy-safe morning digest, including a clear empty state for eligible clinics with no appointments. |
+| 9 | Verify the complete module | Steps 1–8 | **Ready after implementation** | Existing booking tests cover lifecycle, timezone, and status edge cases. | The full feature will be checked for authorization, privacy, duplicate emails, timezone boundaries, lifecycle changes, and responsive layouts. |
+
+**Overall progress:** Planning complete; **0 of 9 implementation steps
+complete**.
+
+**Plain-language rule:** The reminder list is calculated from current bookings.
+It is not another notification list, and the browser must never decide whether
+a booking is eligible.
+
+---
+
 ## 1. Purpose
 
 The reminder module will help clinic staff and doctors see confirmed
@@ -66,8 +94,8 @@ These decisions are fixed for implementation.
 | Should doctor approval be treated as admin confirmation? | No. Doctor approval and admin confirmation are separate lifecycle facts, but both can make a booking eligible for the correct role’s reminder view when the role rules below are satisfied. |
 | What does the clinic see? | All active, operationally confirmed appointments belonging to that clinic. |
 | What does a doctor see? | Only appointments assigned to that doctor and approved by the doctor or confirmed by admin on that doctor’s behalf. |
-| What does “Next 2 Days” mean? | Use the existing calendar-day model: today plus the next two calendar days. The UI should explain this clearly, or use the less ambiguous label “Next 3 Days.” |
-| What does “Coming Week” mean? | Calendar days 3 through 7 after today. No appointment may appear in both sections. |
+| What does “Next 3 Days” mean? | Use the existing calendar-day model: today plus the next two calendar days. This is local dates 0, 1, and 2. |
+| What does “Coming Week” mean? | Calendar days 3 through 6 after today. Together with “Next 3 Days,” this covers exactly seven local calendar dates and the sections cannot overlap. |
 | What timezone is used? | The clinic’s configured timezone. Do not use the browser timezone or server timezone for grouping. |
 | Should a clinic receive an email with zero appointments? | Yes. Send the clinic’s daily digest in the morning even when it contains zero appointments, so delivery is consistent. |
 | Should a doctor receive an email with one appointment? | Yes. Send the doctor a daily digest consistently when the doctor has at least one appointment. |
@@ -141,7 +169,7 @@ Recommended response shape:
 
 ```text
 {
-  twoDay: ReminderBooking[],
+  nextThreeDays: ReminderBooking[],
   comingWeek: ReminderBooking[],
   totalCount: number,
   generatedAt: string
@@ -150,6 +178,32 @@ Recommended response shape:
 
 The actual property name may be changed if a clearer UI label is chosen, but
 the two groups must be mutually exclusive.
+
+### 3.5 Clarifications required by the current application
+
+These rules remove common sources of mistakes before implementation:
+
+- Use a seven-date total: **Next 3 Days** contains local dates 0, 1, and 2;
+  **Coming Week** contains local dates 3, 4, 5, and 6. This prevents a booking
+  from appearing in both groups and keeps the total window at seven dates.
+- A doctor reminder requires an assigned doctor email and an explicit approval
+  value of `approved` or `admin_confirmed`. Empty or unknown approval values
+  must not be treated as approved.
+- A doctor may have appointments at more than one clinic. Each appointment
+  keeps its clinic name and clinic-local date/time in the response and email.
+- A digest-eligible clinic must be approved, not archived, and have an active
+  subscription. `unpaid`, `expired`, pending, rejected, and unknown states are
+  excluded unless a later product decision changes this rule.
+- One successful digest is sent per normalized recipient and local digest date.
+  A changed appointment list does not trigger a second same-day digest.
+- A scheduler must use a dedicated protected credential or approved scheduler
+  identity. Do not reuse the session secret or an unauthenticated public route.
+- If a clinic and doctor email address are the same, send one combined,
+  privacy-safe digest containing the clinic appointments and the doctor's
+  assigned appointments, without sending the same appointment twice.
+- The dashboard link in an email must use the approved deployed application URL;
+  never build a production URL from a project name or a development localhost
+  value.
 
 ---
 
@@ -233,7 +287,7 @@ Use the existing email shell and design system:
 1. BookMySlot header and logo.
 2. Recipient-appropriate greeting.
 3. Summary count.
-4. Next 2/3 days section.
+4. Next 3 Days section.
 5. Coming Week section.
 6. Appointment cards containing:
    - Patient name
@@ -578,40 +632,7 @@ are recorded.
 
 ---
 
-## 8. Progress tracker
-
-Status meanings:
-
-- **Complete:** Decision or documentation is finished and verified.
-- **Ready:** Scope and acceptance criteria are defined; implementation can begin.
-- **In progress:** Work has started but acceptance criteria are not complete.
-- **Blocked:** A required product, deployment, or infrastructure decision is
-  missing.
-- **Complete and verified:** Implementation and required checks have passed.
-
-| Step | Exact work | Dependencies | Current status | Completion evidence |
-|---|---|---|---|---|
-| 1. Freeze and test reminder policy | Convert confirmation, role visibility, lifecycle, timezone, and subscription rules into one tested contract | None | **Ready** | Policy tests cover clinic/admin confirmation, doctor approval, terminal states, and boundaries |
-| 2. Server reminder query/service | Calculate live clinic/doctor reminder data with server-side filtering and non-overlapping groups | 1 | **Ready** | Storage tests and query checks pass |
-| 3. Authenticated reminder routes | Expose the reminder contract using authenticated clinic/doctor sessions | 2 | **Ready** | Route authorization and response-shape checks pass |
-| 4. Shared reminder panel | Add icon, badge, responsive popover/drawer, grouping, empty/error states, and booking navigation | 3 | **Ready** | Clinic and doctor UI render the panel at desktop and mobile widths |
-| 5. Refresh/invalidation | Add five-minute polling and WebSocket/lifecycle invalidation without creating bell notifications | 4 | **Ready** | Booking changes update the count/list and timers clean up |
-| 6. Scheduler foundation | Choose and implement authenticated, durable, idempotent digest execution | 1; can run parallel with 2–5 | **Blocked — deployment choice required** | Scheduler invocation, lock, retry, and dry-run checks pass |
-| 7. Digest log and recipients | Add delivery log, clinic/doctor recipient selection, subscription filtering, and deduplication | 1, 2, 6 | **Ready after Step 6** | Recipient matrix and migration checks pass |
-| 8. Consolidated digest email | Add privacy-safe template, zero-state clinic email, daily delivery, and idempotency | 6, 7 | **Ready after Steps 6–7** | Test emails and delivery-log checks pass |
-| 9. Full verification | Run lifecycle, authorization, privacy, duplicate-send, timezone, and responsive checks | 1–8 | **Ready after implementation** | Build, tests, UI checks, and operational notes recorded |
-
-**Overall progress:** Planning complete; 0 of 9 implementation steps complete.
-
-```text
-Planning: complete
-Implementation: 0 of 9 steps complete
-Scheduler decision: blocked pending deployment choice
-```
-
----
-
-## 9. Suggested ownership and execution order
+## 8. Suggested ownership and execution order
 
 The steps can be assigned independently as follows:
 
@@ -632,7 +653,7 @@ integration and release gate.
 
 ---
 
-## 10. Out of scope
+## 9. Out of scope
 
 The following are intentionally not part of this plan:
 
@@ -651,7 +672,7 @@ plan.
 
 ---
 
-## 11. Source map for implementers
+## 10. Source map for implementers
 
 | Concern | Existing source of truth |
 |---|---|
