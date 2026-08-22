@@ -152,6 +152,27 @@ openssl rand -base64 32
 
 What breaks if missing: In production, the server does not boot at all (throws on startup). In local dev, sessions fall back to an insecure hardcoded secret.
 
+### REMINDER_JOB_SECRET
+**Required to activate the reminder digest scheduler.**
+
+Generate a strong value with `openssl rand -hex 32` and set the same value on
+the backend service and in the scheduler request. The scheduler must call:
+
+```text
+POST https://<backend-host>/api/internal/reminders/digest
+x-reminder-job-secret: <secret>
+```
+
+The endpoint rejects unauthenticated requests and uses the database digest log
+to deduplicate one send per normalized recipient and local digest date. Keep
+the variable unset in environments where the scheduler should remain disabled.
+
+### Reminder scheduler
+Configure Supabase `pg_cron`/`pg_net` or a Render Cron Job to call the endpoint
+once each morning. The job calculates each recipient's local date, so the
+schedule should account for the clinic timezones served by the deployment. Do
+not run an in-process timer in the web service.
+
 ---
 
 ### NODE_ENV

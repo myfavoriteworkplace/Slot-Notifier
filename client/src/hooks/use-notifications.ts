@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { api, buildUrl } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
@@ -144,8 +144,12 @@ const BOOKING_LIST_EVENTS = new Set([
  * Apply query invalidations for a WebSocket message.
  * Called for EVERY message regardless of whether it has a notification payload.
  */
-function applyQueryInvalidations(
-  queryClient: ReturnType<typeof useQueryClient>,
+export function invalidateReminderQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ["reminders"] });
+}
+
+export function applyQueryInvalidations(
+  queryClient: QueryClient,
   msg: { type: string; bookingId?: number; [key: string]: unknown },
 ) {
   const { type, bookingId } = msg;
@@ -153,6 +157,7 @@ function applyQueryInvalidations(
   // ── Bookings list (clinic dashboard + doctor dashboard) ─────────────────────
   if (BOOKING_LIST_EVENTS.has(type)) {
     queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+    invalidateReminderQueries(queryClient);
   }
 
   // ── Doctor leaves ────────────────────────────────────────────────────────────
@@ -208,6 +213,7 @@ export function useNotificationSocket(clinicId?: number, doctorId?: number) {
         } else if (doctorId) {
           ws.send(JSON.stringify({ type: "auth", doctorId }));
         }
+        invalidateReminderQueries(queryClient);
       };
 
       ws.onmessage = (event) => {

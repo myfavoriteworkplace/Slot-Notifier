@@ -17,6 +17,7 @@ import ConsentFormPanel from "@/components/ConsentFormPanel";
 import ConfigureSlotsPanel from "@/components/ConfigureSlotsPanel";
 import BookASlotPanel from "@/components/BookASlotPanel";
 import BookingsPanel from "@/components/BookingsPanel";
+import { ReminderControl } from "@/components/ReminderPanel";
 import {
   type BillingService, type BillingDetails, type ClinicInfo,
   generateReceiptPDF, printBillFromRecord, generateConsentPdf,
@@ -912,6 +913,11 @@ export default function ClinicDashboard() {
           data-testid="btn-mobile-notifications"
         >
           <Bell className="h-5 w-5" />
+
+        <ReminderControl
+          role="clinic"
+          onSelectBooking={(bookingId) => applyClinicNotifNav({ bookingId })}
+        />
           {unreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
               {unreadCount > 99 ? '99+' : unreadCount}

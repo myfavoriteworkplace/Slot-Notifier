@@ -49,6 +49,7 @@ import { getAppointmentFooterModel } from "@/lib/appointment-footer-model";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
+import { ReminderControl } from "@/components/ReminderPanel";
 
 type QuickFilter = "all" | "owned" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
@@ -838,6 +839,14 @@ export default function DoctorDashboard() {
           data-testid="btn-mobile-notifications"
         >
           <Bell className="h-5 w-5" />
+
+        <ReminderControl
+          role="doctor"
+          onSelectBooking={(bookingId) => {
+            setPatientModalId(bookingId);
+            setPatientModalTab('overview');
+          }}
+        />
           {awaitingApprovalCount > 0 && (
             <span className="absolute top-1.5 right-1.5 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
               {awaitingApprovalCount > 99 ? '99+' : awaitingApprovalCount}

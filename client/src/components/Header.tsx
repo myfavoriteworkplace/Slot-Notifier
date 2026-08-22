@@ -54,6 +54,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow, isToday, isYesterday } from "date-fns";
 import type { Notification } from "@shared/schema";
+import { ReminderControl } from "@/components/ReminderPanel";
 
 /* ── Notification icon inference ─────────────────────────────────────────── */
 function getNotifMeta(message: string): {
@@ -664,6 +665,7 @@ export function Header() {
       return (
         <div className="flex items-center gap-2">
           <NotificationBellPanel {...bellProps} />
+          <ReminderControl role="clinic" />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -720,6 +722,7 @@ export function Header() {
       return (
         <div className="flex items-center gap-2">
           <NotificationBellPanel {...bellProps} />
+          <ReminderControl role="doctor" />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

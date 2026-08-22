@@ -1,6 +1,6 @@
 import { encryptField, decryptField } from "./encryption.js";
 import { 
-  users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
+  users, slots, bookings, notifications, reminderDigestLogs, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
   inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock, patientCharts,
   patientMedicalHistory,
@@ -8,6 +8,7 @@ import {
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
   type Notification, type InsertNotification,
+  type ReminderDigestLog,
   type Clinic, type InsertClinic,
   type Doctor, type InsertDoctor,
   type DoctorCertification, type InsertDoctorCertification,
@@ -65,6 +66,12 @@ import {
   notCompletedPatientVisitCondition,
   pendingBookingCondition,
 } from "./booking-predicates";
+import {
+  getReminderDateGroup,
+  isClinicReminderEligible,
+  isDoctorReminderEligible,
+  type ReminderPolicyRow,
+} from "./reminder-policy";
 
 export interface VisitTimelineEntry {
   bookingId: number;
@@ -122,6 +129,40 @@ export interface BookingsPagedResult {
   pageSize: number;
   totalPages: number;
   stats: BookingStats;
+}
+
+export interface ReminderBooking {
+  bookingId: number;
+  customerName: string;
+  startTime: Date;
+  endTime: Date;
+  visitType: string | null;
+  treatmentCategory: string | null;
+  assignedDoctor: string | null;
+  assignedDoctorEmail: string | null;
+  clinicId: number;
+  clinicName: string;
+  clinicTimezone: string;
+  localDate: string;
+  dateGroup: 'nextThreeDays' | 'comingWeek';
+}
+
+export interface ReminderResult {
+  nextThreeDays: ReminderBooking[];
+  comingWeek: ReminderBooking[];
+  totalCount: number;
+  generatedAt: string;
+}
+
+export interface ReminderDigestClaim {
+  recipientEmail: string;
+  role: string;
+  clinicId?: number | null;
+  doctorId?: number | null;
+  localDigestDate: string;
+  appointmentIds: number[];
+  templateVersion: string;
+  contentHash: string;
 }
 
 type VisitHistoryMeta = {
@@ -215,6 +256,11 @@ export interface IStorage {
   configureClinicSlots(clinicId: number, date: string, slots: any[]): Promise<Slot[]>;
   getClinicSlots(clinicId: number, date?: string): Promise<Slot[]>;
   getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  getClinicReminders(clinicId: number, now?: Date): Promise<ReminderResult>;
+  getDoctorReminders(doctorEmail: string, now?: Date): Promise<ReminderResult>;
+  claimReminderDigest(claim: ReminderDigestClaim): Promise<ReminderDigestLog | null>;
+  markReminderDigestSent(id: number, sentAt?: Date): Promise<void>;
+  markReminderDigestFailed(id: number, reason: string): Promise<void>;
   getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult>;
   getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult>;
   getClinicBookingStats(clinicId: number): Promise<BookingStats>;
@@ -659,6 +705,164 @@ export class DatabaseStorage implements IStorage {
     .where(eq(slots.clinicId, Number(clinicId)));
     
     return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+  }
+
+  async getClinicReminders(clinicId: number, now = new Date()): Promise<ReminderResult> {
+    const clinic = await this.getClinic(Number(clinicId));
+    const context = createBookingDateBoundaries(
+      now,
+      resolveClinicTimezone(clinic?.timezone),
+    ).context;
+    const boundaries = createBookingDateBoundaries(now, context.timezone);
+    const rows = await db.select({
+      booking: bookings,
+      slot: slots,
+      clinic: { id: clinics.id, name: clinics.name, timezone: clinics.timezone },
+    })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .innerJoin(clinics, eq(slots.clinicId, clinics.id))
+      .where(and(
+        eq(clinics.id, Number(clinicId)),
+        eq(slots.isCancelled, false),
+        gte(slots.startTime, boundaries.todayStart),
+        lt(slots.startTime, boundaries.next7DaysEnd),
+        confirmedBookingCondition(),
+        nonTerminalBookingCondition(),
+        notCompletedPatientVisitCondition(),
+      ))
+      .orderBy(asc(slots.startTime), asc(bookings.id));
+
+    const eligibleRows = rows.filter(row =>
+      isClinicReminderEligible(this.toReminderPolicyRow(row.booking, row.slot), boundaries),
+    );
+    return this.buildReminderResult(eligibleRows, now, () => context);
+  }
+
+  async getDoctorReminders(doctorEmail: string, now = new Date()): Promise<ReminderResult> {
+    const candidateStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const candidateEnd = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
+    const rows = await db.select({
+      booking: bookings,
+      slot: slots,
+      clinic: { id: clinics.id, name: clinics.name, timezone: clinics.timezone },
+    })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .innerJoin(clinics, eq(slots.clinicId, clinics.id))
+      .where(and(
+        eq(bookings.assignedDoctorEmail, doctorEmail),
+        eq(slots.isCancelled, false),
+        gte(slots.startTime, candidateStart),
+        lt(slots.startTime, candidateEnd),
+        or(
+          eq(bookings.doctorApprovalStatus, 'approved'),
+          eq(bookings.doctorApprovalStatus, 'admin_confirmed'),
+        ),
+        nonTerminalBookingCondition(),
+        notCompletedPatientVisitCondition(),
+      ))
+      .orderBy(asc(slots.startTime), asc(bookings.id));
+
+    const eligibleRows = rows.filter(row => {
+      const boundaries = createBookingDateBoundaries(
+        now,
+        resolveClinicTimezone(row.clinic.timezone),
+      );
+      return isDoctorReminderEligible(
+        this.toReminderPolicyRow(row.booking, row.slot),
+        boundaries,
+      );
+    });
+    return this.buildReminderResult(
+      eligibleRows,
+      now,
+      row => createBookingDateBoundaries(
+        now,
+        resolveClinicTimezone(row.clinic.timezone),
+      ).context,
+    );
+  }
+
+  private toReminderPolicyRow(booking: Booking, slot: Slot): ReminderPolicyRow {
+    return {
+      startTime: slot.startTime,
+      verificationStatus: booking.verificationStatus,
+      confirmedBy: booking.confirmedBy,
+      doctorApprovalStatus: booking.doctorApprovalStatus,
+      visitStatus: booking.visitStatus,
+      slotExists: true,
+      slotCancelled: slot.isCancelled,
+      assignedDoctorEmail: booking.assignedDoctorEmail,
+    };
+  }
+
+  private buildReminderResult(
+    rows: Array<{ booking: Booking; slot: Slot; clinic: { id: number; name: string; timezone: string } }>,
+    now: Date,
+    getContext: (row: { clinic: { timezone: string } }) => ReturnType<typeof createBookingDateBoundaries>['context'],
+  ): ReminderResult {
+    const nextThreeDays: ReminderBooking[] = [];
+    const comingWeek: ReminderBooking[] = [];
+    for (const row of rows) {
+      const context = getContext(row);
+      const dateGroup = getReminderDateGroup(
+        this.toReminderPolicyRow(row.booking, row.slot),
+        context,
+      );
+      if (!dateGroup) continue;
+      const reminder = {
+        bookingId: row.booking.id,
+        customerName: row.booking.customerName,
+        startTime: row.slot.startTime,
+        endTime: row.slot.endTime,
+        visitType: row.booking.visitType,
+        treatmentCategory: row.booking.treatmentCategory,
+        assignedDoctor: row.booking.assignedDoctor,
+        assignedDoctorEmail: row.booking.assignedDoctorEmail,
+        clinicId: row.clinic.id,
+        clinicName: row.clinic.name,
+        clinicTimezone: context.timezone,
+        localDate: getCalendarDateInTimezone(row.slot.startTime, context.timezone),
+        dateGroup,
+      } satisfies ReminderBooking;
+      (dateGroup === 'nextThreeDays' ? nextThreeDays : comingWeek).push(reminder);
+    }
+    return {
+      nextThreeDays,
+      comingWeek,
+      totalCount: nextThreeDays.length + comingWeek.length,
+      generatedAt: now.toISOString(),
+    };
+  }
+
+  async claimReminderDigest(claim: ReminderDigestClaim): Promise<ReminderDigestLog | null> {
+    const [row] = await db.insert(reminderDigestLogs).values({
+      recipientEmail: claim.recipientEmail,
+      role: claim.role,
+      clinicId: claim.clinicId ?? null,
+      doctorId: claim.doctorId ?? null,
+      localDigestDate: claim.localDigestDate,
+      appointmentIds: claim.appointmentIds,
+      templateVersion: claim.templateVersion,
+      contentHash: claim.contentHash,
+      status: 'claimed',
+    }).onConflictDoNothing({
+      target: [reminderDigestLogs.recipientEmail, reminderDigestLogs.localDigestDate],
+    }).returning();
+    return row ?? null;
+  }
+
+  async markReminderDigestSent(id: number, sentAt = new Date()): Promise<void> {
+    await db.update(reminderDigestLogs)
+      .set({ status: 'sent', sentAt, failureReason: null })
+      .where(eq(reminderDigestLogs.id, id));
+  }
+
+  async markReminderDigestFailed(id: number, reason: string): Promise<void> {
+    await db.update(reminderDigestLogs)
+      .set({ status: 'failed', failureReason: reason })
+      .where(eq(reminderDigestLogs.id, id));
   }
 
   async getClinicBookingStats(clinicId: number): Promise<BookingStats> {

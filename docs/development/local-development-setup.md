@@ -92,6 +92,7 @@ Then open `.env` in any text editor and fill in the real values. The table below
 | `RESEND_API_KEY` | `re_xxxxxxxxxxxxxxxxxxxx` | From [resend.com](https://resend.com) → API Keys |
 | `EMAIL_FROM` | `onboarding@resend.dev` | Sender address. Use `onboarding@resend.dev` for local testing |
 | `RESEND` | `dev` | Keep as `dev` locally — emails go to test inbox, not real patients |
+| `REMINDER_JOB_SECRET` | *(optional)* | Required only to invoke the internal digest job; local execution remains dry-run unless production mode and Resend credentials are enabled |
 
 ---
 

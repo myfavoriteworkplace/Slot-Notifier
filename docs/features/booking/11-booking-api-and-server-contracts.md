@@ -2,6 +2,9 @@
 
 ## General rules
 
+The internal reminder digest endpoint is scheduler-only and requires the
+`x-reminder-job-secret` header. It is not available through a user session.
+
 Routes are implemented in `server/routes.ts` and persistence is handled by
 `server/storage.ts`. Authenticated routes use the current session and must
 recheck role/ownership and current booking state.
@@ -28,6 +31,7 @@ the source of truth even when the client classifier hides or enables a button.
 | --- | --- | --- |
 | `GET` | `/api/auth/clinic/bookings` | Paginated filtered booking list |
 | `GET` | `/api/auth/clinic/bookings/stats` | Booking counts/statistics |
+| `GET` | `/api/auth/clinic/reminders` | Live clinic-scoped upcoming reminders |
 | `GET` | `/api/auth/clinic/bookings/:id` | Fetch one booking for focus/deep link |
 | `POST` | `/api/auth/clinic/bookings` | Create clinic/admin booking |
 | `PATCH` | `/api/auth/clinic/bookings/:id/confirm` | Confirm booking |
@@ -52,6 +56,7 @@ the source of truth even when the client classifier hides or enables a button.
 | --- | --- | --- |
 | `PATCH` | `/api/doctor/bookings/:id/approve` | Approve assigned booking |
 | `PATCH` | `/api/doctor/bookings/:id/decline` | Decline assigned booking |
+| `GET` | `/api/doctor/reminders` | Live doctor-scoped upcoming reminders |
 | `PATCH` | `/api/doctor/bookings/:id/notes` | Update doctor booking notes |
 | `PATCH` | `/api/doctor/bookings/:id/clinical-status` | Update doctor-side clinical status |
 | `PATCH` | `/api/doctor/bookings/:id/start-consultation` | Move visit to consultation |
