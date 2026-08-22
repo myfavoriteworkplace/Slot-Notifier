@@ -53,8 +53,9 @@ when **Review Booking** is opened. The lookup is clinic-scoped and returns the
 complete union of matching profiles, including duplicate profiles that match
 different identifiers. The review dialog shows each patient's name, patient
 code, email, phone, and visit count. When one or more matches are found, the
-admin must select a profile before **Confirm & Book** becomes available. With
-no matches, the dialog allows the booking to proceed as a new patient.
+admin must select either an existing profile or **Create New Patient Profile**
+before **Confirm & Book** becomes available. The new-profile choice deliberately
+allows a separate patient record to use the same email or phone.
 
 The endpoint is:
 

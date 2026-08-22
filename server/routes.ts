@@ -3312,7 +3312,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Link booking to the correct patient profile
       try {
         const bodyPatientId = req.body.patientId;
-        const selectedId = bodyPatientId ? parseInt(bodyPatientId) : NaN;
+        const isNewProfile = bodyPatientId === 'new';
+        const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
         const customerAge = rawCustomerAge ? parseInt(rawCustomerAge) : null;
         const patientGender = customerGender || null;
         let patient;
@@ -3323,6 +3324,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           patient = existing
             ? await storage.incrementPatientVisit(existing.id, customerAge, patientGender)
             : await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName, customerAge, patientGender);
+        } else if (isNewProfile) {
+          patient = await storage.createNewPatient(clinic.id, customerEmail || '', customerName, customerPhone, customerAge, patientGender);
         } else if (customerEmail && customerEmail.trim()) {
           patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone, customerAge, patientGender);
         } else {

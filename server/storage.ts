@@ -2869,7 +2869,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createNewPatient(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient> {
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = email?.toLowerCase().trim() || null;
     const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
     const seq = (Number(countRows[0]?.count) ?? 0) + 1;
     const patientCode = `PAT-${String(seq).padStart(4, '0')}`;

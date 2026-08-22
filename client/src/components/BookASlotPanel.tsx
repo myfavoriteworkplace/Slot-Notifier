@@ -56,7 +56,7 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
   const [bookingEmail, setBookingEmail] = useState("");
   const [bookingAge, setBookingAge] = useState("");
   const [bookingGender, setBookingGender] = useState("");
-  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<number | "new" | null>(null);
   const [selectedPatientCode, setSelectedPatientCode] = useState<string | null>(null);
   const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -134,6 +134,10 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
 
   const handleBookingPhoneChange = (value: string) => {
     setBookingPhone(value);
+    if (typeof selectedPatientId === 'number') {
+      setSelectedPatientId(null);
+      setSelectedPatientCode(null);
+    }
     if (value && !validateIndianPhone(value)) {
       setPhoneError("Please enter a valid Indian mobile number (10 digits starting with 6-9)");
     } else {
@@ -290,7 +294,7 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
       const response = await apiRequest('GET', `/api/auth/clinic/patients/match?${params.toString()}`);
       if (!response.ok) throw new Error('Patient lookup failed');
       const results = await response.json();
-      if (selectedPatientId !== null && !results.some((patient: any) => patient.id === selectedPatientId)) {
+      if (typeof selectedPatientId === 'number' && !results.some((patient: any) => patient.id === selectedPatientId)) {
         setSelectedPatientId(null);
         setSelectedPatientCode(null);
       }
@@ -312,6 +316,11 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     setBookingEmail(patient.email || bookingEmail);
     setBookingAge(patient.age == null ? bookingAge : String(patient.age));
     setBookingGender(patient.gender || bookingGender);
+  };
+
+  const selectNewPatient = () => {
+    setSelectedPatientId("new");
+    setSelectedPatientCode(null);
   };
 
   return (
@@ -479,7 +488,13 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                     id="booking-email"
                     type="email"
                     value={bookingEmail}
-                    onChange={(e) => setBookingEmail(e.target.value)}
+                    onChange={(e) => {
+                      setBookingEmail(e.target.value);
+                      if (typeof selectedPatientId === 'number') {
+                        setSelectedPatientId(null);
+                        setSelectedPatientCode(null);
+                      }
+                    }}
                     placeholder="e.g. patient@example.com"
                     onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     data-testid="input-booking-email"
@@ -876,7 +891,16 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                         <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Existing patient records found</p>
                         <p className="text-xs text-amber-800/80 dark:text-amber-300/80">Select the patient profile to use before confirming this booking.</p>
                         <div className="space-y-2 max-h-56 overflow-y-auto">
-                          {matchedPatients.map((patient: any) => (
+                            <button
+                              type="button"
+                              onClick={selectNewPatient}
+                              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${selectedPatientId === 'new' ? 'border-primary bg-primary/10' : 'border-amber-200 bg-background hover:border-primary hover:bg-primary/5'}`}
+                              data-testid="button-select-new-patient"
+                            >
+                              <span className="block text-sm font-semibold">Create New Patient Profile{selectedPatientId === 'new' ? ' - Selected' : ''}</span>
+                              <span className="block text-xs text-muted-foreground">Use the entered details as a separate patient record.</span>
+                            </button>
+                            {matchedPatients.map((patient: any) => (
                             <button
                               key={patient.id}
                               type="button"

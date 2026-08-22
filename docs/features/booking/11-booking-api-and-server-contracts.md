@@ -20,6 +20,10 @@ non-no-show bookings for that patient; clients must display the persisted value
 and must not recalculate it from `visitCount`. The `bookedBy` value determines
 whether the display prefix is `Booked by Patient` or `Booked by Clinic Admin`.
 
+The clinic booking request may send `patientId: "new"` when the admin selects
+Create New Patient Profile. The server then creates a separate clinic patient
+record instead of applying the normal email/phone upsert behavior.
+
 ## Public patient routes
 
 | Method | Route | Purpose |
