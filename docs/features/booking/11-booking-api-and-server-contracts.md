@@ -12,6 +12,14 @@ recheck role/ownership and current booking state.
 The route names below are grouped by caller and purpose. The server remains
 the source of truth even when the client classifier hides or enables a button.
 
+Booking list and detail responses may include the nullable
+`patientVisitClassification` field. It is populated only for new bookings
+created by a patient or clinic admin, after the booking is linked to the clinic
+patient profile. The server determines the value from earlier non-cancelled,
+non-no-show bookings for that patient; clients must display the persisted value
+and must not recalculate it from `visitCount`. The `bookedBy` value determines
+whether the display prefix is `Booked by Patient` or `Booked by Clinic Admin`.
+
 ## Public patient routes
 
 | Method | Route | Purpose |
@@ -32,6 +40,7 @@ the source of truth even when the client classifier hides or enables a button.
 | `GET` | `/api/auth/clinic/bookings` | Paginated filtered booking list |
 | `GET` | `/api/auth/clinic/bookings/stats` | Booking counts/statistics |
 | `GET` | `/api/auth/clinic/reminders` | Live clinic-scoped upcoming reminders |
+| `GET` | `/api/auth/clinic/patients/match?email=...&phone=...` | Match patients by email or phone |
 | `GET` | `/api/auth/clinic/bookings/:id` | Fetch one booking for focus/deep link |
 | `POST` | `/api/auth/clinic/bookings` | Create clinic/admin booking |
 | `PATCH` | `/api/auth/clinic/bookings/:id/confirm` | Confirm booking |

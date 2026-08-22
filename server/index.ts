@@ -367,9 +367,12 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='booked_by') THEN
             ALTER TABLE bookings ADD COLUMN booked_by VARCHAR(20);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_visit_classification') THEN
+            ALTER TABLE bookings ADD COLUMN patient_visit_classification VARCHAR(30);
+          END IF;
         END $$;
       `);
-      log("bookings visit_type/treatment_category/booked_by columns verified", "system");
+      log("bookings visit_type/treatment_category/booked_by/patient_visit_classification columns verified", "system");
 
       // Check if doctor_invites table exists
       const checkTable = await db.execute(

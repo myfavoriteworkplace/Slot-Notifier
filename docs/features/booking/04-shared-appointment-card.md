@@ -123,6 +123,12 @@ The card prefers dedicated `visitType` and `treatmentCategory` fields. For
 legacy data it parses the booking description and can fall back to
 `bookedBy` to show “Booked by Patient” or “Admin booked”.
 
+For new patient-origin or clinic-admin bookings, `patientVisitClassification`
+takes precedence over the generic origin fallback. It displays the matching
+origin prefix with `(First Visit)` or `(Existing Patient)`. A null value is
+expected for historical bookings and bookings that could not be linked to a
+patient profile.
+
 ### Consent
 
 - Signed timestamp: `Signed`

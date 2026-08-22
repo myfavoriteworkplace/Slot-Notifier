@@ -1886,6 +1886,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             paymentStatus: 'paid',
             razorpayOrderId: razorpay_order_id,
             razorpayPaymentId: razorpay_payment_id,
+            bookedBy: 'patient',
           } as any).returning();
           booking = newBooking;
         });
@@ -1914,6 +1915,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        if (booking.bookedBy === 'patient') {
+          await storage.classifyPatientBooking(booking.id, clinic.id, patient.id);
+        }
       } catch (e: any) {
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
@@ -1999,6 +2003,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(results);
     } catch (err: any) {
       res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  app.get("/api/auth/clinic/patients/match", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const email = typeof req.query.email === 'string' ? req.query.email : undefined;
+      const phone = typeof req.query.phone === 'string' ? req.query.phone : undefined;
+      const results = await storage.findPatientsByEmailOrPhone(sess.clinicId, email, phone);
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ message: "Patient match lookup failed" });
     }
   });
 
@@ -2138,6 +2155,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        if (booking.bookedBy === 'patient') {
+          await storage.classifyPatientBooking(booking.id, clinic.id, patient.id);
+        }
       } catch (e: any) {
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
@@ -3310,6 +3330,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
 
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        await storage.classifyPatientBooking(booking.id, clinic.id, patient.id);
       } catch (e: any) {
         console.error('[ADMIN BOOKING] Patient link failed:', e.message);
       }

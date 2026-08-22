@@ -313,9 +313,11 @@ export interface IStorage {
   upsertPatientByPhone(clinicId: number, phone: string, name: string, age?: number | null, gender?: string | null): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
   getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]>;
+  findPatientsByEmailOrPhone(clinicId: number, email?: string, phone?: string): Promise<Patient[]>;
   getPatientById(clinicId: number, patientId: number): Promise<Patient | null>;
   createNewPatient(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient>;
   incrementPatientVisit(patientId: number, age?: number | null, gender?: string | null): Promise<Patient>;
+  classifyPatientBooking(bookingId: number, clinicId: number, patientId: number): Promise<"first_visit" | "existing_patient">;
   searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
   getPatientsByClinicPaged(clinicId: number, opts: { q?: string; sort?: string; lastVisitFrom?: string; lastVisitTo?: string; page?: number; pageSize?: number; exportAll?: boolean; }): Promise<{ data: (Patient & { totalBilled: number })[]; total: number; page: number; totalPages: number; stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number; }; }>;
@@ -2847,6 +2849,25 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async classifyPatientBooking(bookingId: number, clinicId: number, patientId: number): Promise<"first_visit" | "existing_patient"> {
+    const [previousBooking] = await db.select({ id: bookings.id })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(
+        eq(bookings.patientId, patientId),
+        eq(slots.clinicId, clinicId),
+        lt(bookings.id, bookingId),
+        ne(bookings.verificationStatus, "cancelled"),
+        ne(bookings.verificationStatus, "no_show"),
+      ))
+      .limit(1);
+    const classification = previousBooking ? "existing_patient" : "first_visit";
+    await db.update(bookings)
+      .set({ patientVisitClassification: classification })
+      .where(eq(bookings.id, bookingId));
+    return classification;
+  }
+
   async createNewPatient(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient> {
     const normalizedEmail = email.toLowerCase().trim();
     const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
@@ -2869,6 +2890,24 @@ export class DatabaseStorage implements IStorage {
   async getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]> {
     return db.select().from(patients)
       .where(and(eq(patients.clinicId, clinicId), eq(patients.email, email.toLowerCase().trim())))
+      .orderBy(desc(patients.lastVisitAt));
+  }
+
+  async findPatientsByEmailOrPhone(clinicId: number, email?: string, phone?: string): Promise<Patient[]> {
+    const normalizedEmail = email?.trim().toLowerCase() || null;
+    const phoneDigits = phone?.replace(/[^0-9]/g, '') || '';
+    const normalizedPhone = phoneDigits.startsWith('91') && phoneDigits.length > 10
+      ? phoneDigits.slice(-10)
+      : phoneDigits || null;
+    if (!normalizedEmail && !normalizedPhone) return [];
+    const phoneCondition = normalizedPhone
+      ? sql`right(regexp_replace(COALESCE(${patients.phone}, ''), '[^0-9]', '', 'g'), 10) = ${normalizedPhone}`
+      : undefined;
+    return db.select().from(patients)
+      .where(and(
+        eq(patients.clinicId, clinicId),
+        or(normalizedEmail ? eq(patients.email, normalizedEmail) : undefined, phoneCondition),
+      ))
       .orderBy(desc(patients.lastVisitAt));
   }
 

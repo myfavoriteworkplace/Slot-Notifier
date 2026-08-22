@@ -122,6 +122,7 @@ export const bookings = pgTable("bookings", {
   visitType: varchar("visit_type", { length: 50 }),
   treatmentCategory: varchar("treatment_category", { length: 255 }),
   bookedBy: varchar("booked_by", { length: 20 }),
+  patientVisitClassification: varchar("patient_visit_classification", { length: 30 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

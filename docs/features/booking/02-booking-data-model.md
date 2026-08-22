@@ -105,6 +105,8 @@ confirmation or visit status.
 - `visitType`
 - `treatmentCategory`
 - `bookedBy`
+- `patientVisitClassification`: nullable booking-time snapshot for new patient
+  or clinic-admin bookings; values are `first_visit` or `existing_patient`.
 - `createdAt`
 
 No-show restoration fields preserve enough information for a permitted
@@ -148,3 +150,6 @@ patient-level history where appropriate. See
   calculated.
 - Historical records should not be rewritten to represent a new booking.
 - A new appointment should create a new booking linked to the same patient.
+- `patientVisitClassification` is assigned by the server after patient linkage
+  and is not backfilled for historical bookings. The display prefix comes
+  from `bookedBy`.
