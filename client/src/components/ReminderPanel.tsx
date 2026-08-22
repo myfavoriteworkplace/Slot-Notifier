@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarDays, Clock3, RefreshCw, UserRound } from "lucide-react";
 import { useReminders, type ReminderBooking, type ReminderRole } from "@/hooks/use-reminders";
 import { Button } from "@/components/ui/button";
@@ -115,8 +115,15 @@ function ReminderPanelContent({ role, onSelectBooking, close, panelOpen }: Remin
 
 export function ReminderControl({ role, onSelectBooking }: ReminderControlProps) {
   const [open, setOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { data } = useReminders(role);
   const count = data?.totalCount ?? 0;
+  useEffect(() => {
+    const updateViewport = () => setIsMobile(window.innerWidth < 640);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
   const trigger = (
     <button
       type="button"
@@ -129,26 +136,25 @@ export function ReminderControl({ role, onSelectBooking }: ReminderControlProps)
     </button>
   );
 
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen} shouldScaleBackground={false}>
+        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        <DrawerContent className="max-h-[85dvh] overflow-hidden rounded-t-2xl p-0">
+          <DrawerTitle className="sr-only">Upcoming reminders</DrawerTitle>
+          <DrawerDescription className="sr-only">Upcoming appointment reminders</DrawerDescription>
+          <ReminderPanelContent role={role} onSelectBooking={onSelectBooking} close={() => setOpen(false)} panelOpen={open} />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
-    <>
-      <div className="hidden sm:block">
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-          <PopoverContent align="end" sideOffset={10} className="w-[390px] overflow-hidden rounded-2xl p-0 shadow-2xl">
-            <ReminderPanelContent role={role} onSelectBooking={onSelectBooking} close={() => setOpen(false)} panelOpen={open} />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="sm:hidden">
-        <Drawer open={open} onOpenChange={setOpen} shouldScaleBackground={false}>
-          <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-          <DrawerContent className="max-h-[85dvh] overflow-hidden rounded-t-2xl p-0">
-            <DrawerTitle className="sr-only">Upcoming reminders</DrawerTitle>
-            <DrawerDescription className="sr-only">Upcoming appointment reminders</DrawerDescription>
-            <ReminderPanelContent role={role} onSelectBooking={onSelectBooking} close={() => setOpen(false)} panelOpen={open} />
-          </DrawerContent>
-        </Drawer>
-      </div>
-    </>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent align="end" sideOffset={10} className="w-[390px] overflow-hidden rounded-2xl p-0 shadow-2xl">
+        <ReminderPanelContent role={role} onSelectBooking={onSelectBooking} close={() => setOpen(false)} panelOpen={open} />
+      </PopoverContent>
+    </Popover>
   );
 }
