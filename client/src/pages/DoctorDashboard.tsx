@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
+import PatientDocumentsTab from "@/components/PatientDocumentsTab";
+import MedicalHistoryTab from "@/components/MedicalHistoryTab";
+import VisitTimelineTab from "@/components/VisitTimelineTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -15,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -26,18 +30,23 @@ import {
   ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight,
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
-  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
+  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, ChevronRight, BriefcaseMedical, KeyRound,
   MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
-  SlidersHorizontal, Maximize2, Minimize2, Layers, Search
+  SlidersHorizontal, Maximize2, Minimize2, Layers, Search, Menu, Bell, LayoutList
 } from "lucide-react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
-import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
+import { Clinic, DoctorCertification, DoctorCase, DoctorLeave, Patient } from "@shared/schema";
 import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
-import { type BookingsPagedResponse } from "@/lib/booking-list";
+import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
+import { BookingProgressStrip } from "@/components/BookingProgressStrip";
+import { classifyClientBooking, createClientBookingDateContext, getBookingLifecycleStage } from "@/lib/booking-classification";
+import { getAppointmentFooterModel } from "@/lib/appointment-footer-model";
+import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
 
@@ -72,6 +81,7 @@ const DR_VISIT_TYPE_LABELS: Record<string, string> = {
   consultation: "Consultation",
   review: "Review",
   booked_by_patient: "Booked by Patient",
+  admin_booked: "Admin booked",
 };
 
 const DR_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {
@@ -94,30 +104,40 @@ export default function DoctorDashboard() {
   const [_, setLocation] = useLocation();
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("today");
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterRowOpen, setFilterRowOpen] = useState(false);
+  const [chipsCollapsed, setChipsCollapsed] = useState(() => window.innerWidth < 640);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<'' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show'>('');
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
-  const [apptSearch, setApptSearch] = useState("");
-  const [apptSearchInput, setApptSearchInput] = useState("");
   const [searchOpen, setSearchOpen] = useState(true);
-  const apptSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
-    apptSearchDebounceRef.current = setTimeout(() => {
-      setApptSearch(apptSearchInput.trim());
-    }, 300);
-    return () => {
-      if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
-    };
-  }, [apptSearchInput]);
+  const [activePatientFilter, setActivePatientFilter] = useState<{ id: number; name: string; patientCode: string | null } | null>(null);
+  const [patientSearchInput, setPatientSearchInput] = useState("");
+  const [patientSearchFocused, setPatientSearchFocused] = useState(false);
+  const [patientSearchHighlightIdx, setPatientSearchHighlightIdx] = useState(-1);
+  const patientSearchInputRef = useRef<HTMLInputElement>(null);
 
-  const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
+
+  const applyDoctorPatientFilter = (p: Patient) => {
+    setActivePatientFilter({ id: p.id, name: p.name, patientCode: p.patientCode ?? null });
+    setPatientSearchInput("");
+    setPatientSearchFocused(false);
+    setPatientSearchHighlightIdx(-1);
+  };
+
+  const clearDoctorPatientFilter = () => {
+    setActivePatientFilter(null);
+    setPatientSearchInput("");
+    setPatientSearchHighlightIdx(-1);
+  };
+
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
 
   const [profName, setProfName] = useState("");
@@ -138,9 +158,9 @@ export default function DoctorDashboard() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
   const [dialogExpanded, setDialogExpanded] = useState(false);
-  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart'>('overview');
+  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart' | 'medical' | 'documents' | 'timeline'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
-  const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number } | null>(() => {
+  const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number; notifType?: string } | null>(() => {
     if (typeof window === "undefined") return null;
     const pending = sessionStorage.getItem("pendingNotifNav");
     if (!pending) return null;
@@ -191,10 +211,26 @@ export default function DoctorDashboard() {
   }, [isLoading, isAuthenticated, setLocation]);
 
   // ── Notification deep-link helpers ────────────────────────────────────────
-  const applyDoctorNotifNav = (detail: { bookingId?: number }) => {
+  const notifTabMap: Record<string, "overview" | "notes" | "diagnosis" | "prescription" | "chart"> = {
+    doctor_assigned: "overview",
+    patient_checked_in: "overview",
+    admin_confirmed: "overview",
+    booking_rescheduled: "overview",
+    booking_cancelled: "overview",
+    patient_no_show: "overview",
+    visit_override_completed: "overview",
+    patient_left_early: "overview",
+    consent_requested: "overview",
+    booking_note_added: "notes",
+  };
+
+  const applyDoctorNotifNav = (detail: { bookingId?: number; notifType?: string }) => {
     if (detail.bookingId) {
-      setActiveTab("appointments");
+      // The patient modal is at the top level of DoctorDashboard so it opens
+      // regardless of which tab is active — no tab switch needed.
       setPatientModalId(detail.bookingId);
+      const tab = detail.notifType ? notifTabMap[detail.notifType] : undefined;
+      setPatientModalTab(tab ?? "overview");
     }
   };
 
@@ -249,12 +285,38 @@ export default function DoctorDashboard() {
     staleTime: 30_000,
   });
 
+  const { data: doctorPatientResults = [] } = useQuery<Patient[]>({
+    queryKey: ["/api/doctor/patients", patientSearchInput.trim()],
+    queryFn: async () => {
+      const q = patientSearchInput.trim();
+      if (q.length < 2) return [];
+      const res = await apiRequest("GET", `/api/doctor/patients?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error("Failed to search patients");
+      return res.json();
+    },
+    enabled: isAuthenticated && activeTab === "appointments" && patientSearchInput.trim().length >= 2 && !activePatientFilter,
+    staleTime: 60_000,
+  });
+
+  // ── Date constants — must be declared BEFORE bookingsQueryKey and useInfiniteQuery
+  // which both reference todayStr. Declaring them here avoids a TDZ ReferenceError
+  // in the production bundle.
+  const bookingDateContext = useMemo(() => createClientBookingDateContext(), []);
+  const todayStr     = bookingDateContext.currentDate;
+  const todayStart   = useMemo(() => startOfDay(new Date()), []);
+  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const thisWeekEnd   = useMemo(() => endOfWeek(new Date(),   { weekStartsOn: 1 }), []);
+  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
+  const nextWeekEnd   = useMemo(() => endOfWeek(addWeeks(new Date(), 1),   { weekStartsOn: 1 }), []);
+
   const bookingsQueryKey = ["/api/auth/clinic/bookings", {
     filter: quickFilter,
+    todayDate: todayStr,
     clinicId: appointmentClinicFilter !== "all" ? appointmentClinicFilter : undefined,
     dateFrom: filterDate ? format(filterDate, "yyyy-MM-dd") : undefined,
     dateTo: filterEndDate ? format(filterEndDate, "yyyy-MM-dd") : undefined,
-    search: apptSearch || undefined,
+    patientId: activePatientFilter?.id,
+    statusFilter: statusFilter || undefined,
   }];
 
   const {
@@ -266,11 +328,12 @@ export default function DoctorDashboard() {
   } = useInfiniteQuery<BookingsPagedResponse>({
     queryKey: bookingsQueryKey,
     queryFn: async ({ pageParam }) => {
-      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20', todayDate: todayStr });
       if (appointmentClinicFilter !== "all") params.set("clinicId", appointmentClinicFilter);
       if (filterDate) params.set("dateFrom", format(filterDate, "yyyy-MM-dd"));
       if (filterEndDate) params.set("dateTo", format(filterEndDate, "yyyy-MM-dd"));
-      if (apptSearch) params.set("search", apptSearch);
+      if (activePatientFilter) params.set("patientId", String(activePatientFilter.id));
+      if (statusFilter) params.set("statusFilter", statusFilter);
       const res = await apiRequest("GET", `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) return { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1, stats: { todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0, thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0, totalPendingCount: 0, totalAllCount: 0, awaitingApprovalCount: 0 } };
@@ -607,6 +670,48 @@ export default function DoctorDashboard() {
   }
 
   const displayBookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+
+  const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
+    activePatientFilter,
+    activePatientBookingsCount: bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount ?? 0,
+    quickFilter,
+    filterDate,
+    filterEndDate,
+    clinicName: appointmentClinicFilter !== "all" ? doctorClinics.find(c => c.id.toString() === appointmentClinicFilter)?.name : undefined,
+  }), [activePatientFilter, bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount, quickFilter, filterDate, filterEndDate, appointmentClinicFilter, doctorClinics]);
+
+  // Visit-number map — when the same patient appears 2+ times in the current list,
+  // tag each booking with "Visit #N of M" so staff can tell them apart at a glance.
+  const drVisitNumberMap = useMemo(() => new Map(
+    displayBookings.map((b: any) => [b.id, {
+      n: b.visitNumber,
+      total: b.totalVisits,
+      latestLabel: b.latestLabel,
+    }])
+  ), [displayBookings]);
+
+  // Individual card collapse state — only toggled manually by the user;
+  // never auto-populated from chip/date filters.
+  const [drCollapsedIds, setDrCollapsedIds] = useState<Set<number>>(new Set());
+
+  // ── Focus-fetch: load the specific booking from a notification when it isn't
+  //    in the currently-filtered displayBookings list (e.g. doctor is on "Today"
+  //    filter but notification is for a past/upcoming booking).
+  const isDoctorFocusInList = useMemo(
+    () => displayBookings.some((b: any) => b.id === patientModalId),
+    [displayBookings, patientModalId],
+  );
+  const { data: doctorFocusBooking = null } = useQuery<any>({
+    queryKey: ["/api/auth/clinic/bookings", patientModalId, "doctor-focus"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/auth/clinic/bookings/${patientModalId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!patientModalId && isAuthenticated && !isDoctorFocusInList,
+    staleTime: 60_000,
+  });
+
   const bookingStats = bookingsInfiniteData?.pages[0]?.stats;
 
   const awaitingApprovalCount = bookingStats?.awaitingApprovalCount ?? 0;
@@ -615,19 +720,13 @@ export default function DoctorDashboard() {
   const confirmedAllCount     = bookingStats?.totalAllCount ?? 0;
   const ownedCount            = bookingStats?.totalOwnedCount ?? 0;
 
-  const todayStr    = useMemo(() => new Date().toISOString().split("T")[0], []);
-  const todayStart  = useMemo(() => startOfDay(new Date()), []);
+  // todayStr, todayStart, thisWeek*, nextWeek* moved above bookingsQueryKey to avoid TDZ
   const statNext7DaysEnd = useMemo(() => addDays(todayStart, 7), [todayStart]);
 
   const pendingNext7Count    = bookingStats?.pendingNext7Count    ?? 0;
   const confirmedNext7Count  = bookingStats?.confirmedNext7Count  ?? 0;
   const thisWeekCount        = bookingStats?.thisWeekCount        ?? 0;
   const nextWeekCount        = bookingStats?.nextWeekCount        ?? 0;
-
-  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
-  const thisWeekEnd   = useMemo(() => endOfWeek(new Date(),   { weekStartsOn: 1 }), []);
-  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
-  const nextWeekEnd   = useMemo(() => endOfWeek(addWeeks(new Date(), 1),   { weekStartsOn: 1 }), []);
 
   const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
 
@@ -708,77 +807,148 @@ export default function DoctorDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
 
-      {/* Temporary password warning */}
-      {(doctor as any).isDefaultPassword && (
-        <div className="bg-gradient-to-r from-amber-500/90 via-yellow-500/90 to-amber-500/90 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2 flex-wrap">
+
+      {/* ═══ MOBILE STICKY TOP BAR ═══ */}
+      <div className="mobile-topbar">
+        {/* Hamburger */}
+        <button
+          onClick={() => setMobileNavOpen(true)}
+          className="h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label="Open navigation"
+          data-testid="btn-mobile-hamburger"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+
+        {/* App branding */}
+        <div className="flex-1 min-w-0 pl-1">
+          <p className="text-[18px] font-bold text-foreground leading-none tracking-tight">
+            book<span className="text-primary">My</span>Slot
+          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-primary leading-none mt-px">
+            Dental
+          </p>
+        </div>
+
+        {/* Notification bell */}
+        <button
+          onClick={() => setMobileNotifOpen(true)}
+          className="h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all relative"
+          aria-label="Notifications"
+          data-testid="btn-mobile-notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {awaitingApprovalCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              {awaitingApprovalCount > 99 ? '99+' : awaitingApprovalCount}
+            </span>
+          )}
+        </button>
+
+        {/* Profile avatar */}
+        <button
+          onClick={() => setActiveTab("profile")}
+          className="h-11 w-11 flex items-center justify-center rounded-xl hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label="Profile"
+          data-testid="btn-mobile-profile"
+        >
+          <Avatar className="h-7 w-7 ring-2 ring-primary/20">
+            <AvatarImage src={(doctor as any).imageUrl || undefined} />
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+              {(doctor as any).name?.charAt(0) || "D"}
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      </div>
+
+      {/* ═══ PAGE CONTAINER ═══ */}
+      <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
+
+      {/* ═══ TEMPORARY PASSWORD BANNER ═══ */}
+      {(doctor as any).isDefaultPassword && !bannerDismissed && (
+        <div className="mb-3 bg-amber-500 text-white rounded-xl px-3 py-2.5 flex items-center gap-2.5 shadow-sm">
           <ShieldAlert className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">You are using a temporary password. Please change it to keep your account secure.</span>
-          <span className="sm:hidden">Temporary password in use — please update it.</span>
+          <p className="text-xs font-medium flex-1 min-w-0 leading-snug">
+            <span className="hidden sm:inline">You are using a temporary password. Please change it to keep your account secure.</span>
+            <span className="sm:hidden">Using a temporary password — update it.</span>
+          </p>
           <button
             onClick={() => setChangePwdOpen(true)}
-            className="ml-2 inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 border border-white/40 text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
+            className="shrink-0 inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 active:bg-white/40 border border-white/40 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors whitespace-nowrap"
+            data-testid="btn-banner-change-password"
           >
             <KeyRound className="h-3 w-3" />
-            Change Password →
+            <span className="hidden sm:inline">Change Password</span>
+            <span className="sm:hidden">Update</span>
+          </button>
+          <button
+            onClick={() => setBannerDismissed(true)}
+            aria-label="Dismiss banner"
+            className="shrink-0 h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 active:bg-white/30 transition-colors"
+            data-testid="btn-banner-dismiss"
+          >
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
-      {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
-      <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-8">
+      {/* ═══ COMPACT HERO + STATS ═══ */}
 
-      {/* ═══ DOCTOR HERO BAR ═══ */}
-      <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
-
-        {/* Top neon accent bar */}
+      {/* Hero card */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-4 py-2.5 sm:px-7 sm:py-6 overflow-hidden">
 
-        {/* Main hero band */}
-        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-4 py-4 sm:px-7 sm:py-6 overflow-hidden">
-
-          {/* Grid texture overlay */}
+          {/* Grid texture — reduced on mobile */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-[0.04]"
+            className="absolute inset-0 pointer-events-none opacity-[0.02] sm:opacity-[0.04]"
             style={{
               backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
               backgroundSize: "32px 32px",
             }}
           />
-          {/* Ambient glow orbs — decorative only */}
           <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
           <div className="absolute -bottom-16 -right-8 w-60 h-60 rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
-          {/* Radial highlight */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07)_0%,transparent_60%)] pointer-events-none" />
 
-          {/* ── Row 1: Identity + Sign Out ── */}
-          <div className="relative flex items-start justify-between gap-4">
+          {/* Mobile: row, left-aligned. Desktop: row, space-between. */}
+          <div className="relative flex flex-row items-start justify-between gap-3 sm:gap-4">
 
-            {/* Left: avatar + identity */}
-            <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-              <Avatar className="h-12 w-12 sm:h-16 sm:w-16 ring-2 ring-white/30 shadow-md shrink-0">
+            {/* Identity: avatar + name + badges */}
+            <div className="flex items-center gap-2.5 sm:gap-5 min-w-0 flex-1">
+              {/* Avatar — slightly smaller on mobile */}
+              <Avatar className="h-10 w-10 sm:h-16 sm:w-16 ring-2 ring-white/30 shadow-md shrink-0">
                 <AvatarImage src={(doctor as any).imageUrl || undefined} />
-                <AvatarFallback className="bg-white/20 text-white font-bold text-lg sm:text-xl">
+                <AvatarFallback className="bg-white/20 text-white font-bold text-sm sm:text-xl">
                   {(doctor as any).name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-xs text-white/50 font-medium mb-0.5">Good {greet},</p>
-                <h1 className="text-base sm:text-3xl font-extrabold text-white tracking-tight leading-tight truncate">
+                {/* Hide greeting on mobile, show on sm+ */}
+                <p className="hidden sm:block text-xs text-white/50 font-medium mb-0.5">Good {greet},</p>
+                <h1 className="text-sm sm:text-3xl font-extrabold text-white tracking-tight leading-tight truncate">
                   Dr. {(doctor as any).name}
                 </h1>
-                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                {/* Compact metadata row on mobile */}
+                <div className="flex items-center gap-1.5 mt-1 sm:mt-2.5 flex-wrap">
                   {(doctor as any).specialization && (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
+                    <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
                       <Stethoscope className="h-3 w-3" />
                       {(doctor as any).specialization}
                     </span>
                   )}
-                  {(doctor as any).degree && (
-                    <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/50 bg-white/[0.06] border border-white/15 px-2.5 py-1 rounded-full">
-                      {(doctor as any).degree}
+                  <span className="sm:hidden inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-1.5 py-px rounded-full">
+                    <Stethoscope className="h-2.5 w-2.5" />
+                    {(doctor as any).specialization || "Doctor"}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-1.5 sm:px-2.5 py-px sm:py-1 rounded-full">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                     </span>
-                  )}
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/50 bg-white/[0.06] border border-white/15 px-2.5 py-1 rounded-full">
+                    Live
+                  </span>
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/50 bg-white/[0.06] border border-white/15 px-2.5 py-1 rounded-full">
                     <Building2 className="h-3 w-3" />
                     {(doctor as any).clinicName}
                   </span>
@@ -786,10 +956,19 @@ export default function DoctorDashboard() {
               </div>
             </div>
 
+            {/* Sign out — desktop only inside hero */}
+            <button
+              onClick={async () => { await logout(); setLocation("/clinic-login?tab=doctor"); }}
+              disabled={isLoggingOut}
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/60 hover:text-white/90 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] shrink-0"
+            >
+              {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+              Sign Out
+            </button>
           </div>
 
-          {/* ── Row 2: Live stats ── */}
-          <div className="relative mt-5">
+          {/* ── Desktop embedded stats (hidden on mobile) ── */}
+          <div className="hidden sm:block relative mt-5">
             <div className="flex items-center gap-2 pt-4">
               <div className="flex-1 h-px bg-white/10" />
               <button
@@ -801,12 +980,12 @@ export default function DoctorDashboard() {
               </button>
             </div>
             {!heroStatsCollapsed && (
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="mt-3 grid grid-cols-4 gap-2">
             {[
-              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookingsCount,       Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,      Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: "pending-7days" as QuickFilter, tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",       count: pendingNext7Count,        Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",             count: awaitingApprovalCount,    Icon: TrendingUp,    text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
+              { label: "Confirmed Appointments Today",                    shortLabel: "Confirmed Appointments",  subTag: "Today",                                    filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                                   count: todayBookingsCount,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+              { label: "Confirmed Appointments (Next 7 Days)",            shortLabel: "Confirmed Appointments",  subTag: "Coming in Next 7 Days",             filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                               count: confirmedNext7Count,   Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              { label: "Pending Appointment Confirmation (Next 7 Days)",  shortLabel: "Pending Confirmation",    subTag: "Next 7 Days · Awaiting Confirmation", filter: "pending-7days" as QuickFilter,   tooltip: "Appointments in the next 7 days that are still waiting for your approval. These need your attention.",          count: pendingNext7Count,     Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+              { label: "All Pending Appointment Confirmations",           shortLabel: "Pending Confirmations",   subTag: "All · Awaiting Confirmation",       filter: "awaiting" as QuickFilter,        tooltip: "Total appointments assigned to you that are still awaiting your approval — across all dates.",                 count: awaitingApprovalCount, Icon: TrendingUp,    text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
             ].map(({ label, shortLabel, subTag, filter, tooltip, count, Icon, text, bg, border }) => (
               <TooltipProvider key={label} delayDuration={700}>
                 <Tooltip>
@@ -824,10 +1003,10 @@ export default function DoctorDashboard() {
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-lg sm:text-xl font-extrabold text-white leading-none tabular-nums">{count}</p>
+                        <p className="text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
                         <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
                         {subTag && (
-                          <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
+                          <span className={`block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none truncate`}>{subTag}</span>
                         )}
                       </div>
                       <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 mt-1`} />
@@ -843,10 +1022,92 @@ export default function DoctorDashboard() {
             )}
           </div>
         </div>
-
-        {/* Bottom accent line */}
         <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
       </div>
+
+      {/* ═══ APPOINTMENTS SECTION HEADER + STATS (mobile-only, appointments tab) ═══ */}
+      {activeTab === "appointments" && (
+        <>
+          {/* Mobile panel header */}
+          <div className="sm:hidden mb-3">
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="flex">
+                <div className="w-1.5 bg-primary/60 shrink-0" />
+                <div className="flex-1 px-4 py-3 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Calendar className="h-[16px] w-[16px] text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold tracking-tight">Appointments</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Your confirmed appointments across all clinics.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile quick stats */}
+          <div className="sm:hidden mb-5">
+            <div className="flex items-center justify-between mb-2 px-0.5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
+                <p className="text-[10px] text-muted-foreground/70 leading-none mt-0.5">Appointment Confirmation Status</p>
+              </div>
+              <button
+                onClick={() => setHeroStatsCollapsed(s => !s)}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
+                title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
+              </button>
+            </div>
+            {!heroStatsCollapsed && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "Confirmed",  subTag: "Today",                  filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                        count: todayBookingsCount,    Icon: Calendar,     text: "text-sky-600",     bg: "bg-sky-50",     border: "border-sky-200",     darkText: "dark:text-sky-400",     darkBg: "dark:bg-sky-950/20",     darkBorder: "dark:border-sky-800" },
+                  { label: "Confirmed",  subTag: "In Coming 7 Days",       filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",               count: confirmedNext7Count,   Icon: CheckCircle2, text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", darkText: "dark:text-emerald-400", darkBg: "dark:bg-emerald-950/20", darkBorder: "dark:border-emerald-800" },
+                  { label: "Pending",    subTag: "Next 7 Days · Awaiting", filter: "pending-7days" as QuickFilter,   tooltip: "Appointments in the next 7 days that are still waiting for your approval. These need your attention.", count: pendingNext7Count,     Icon: Clock,        text: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   darkText: "dark:text-amber-400",   darkBg: "dark:bg-amber-950/20",   darkBorder: "dark:border-amber-800" },
+                  { label: "Pending",    subTag: "All",                    filter: "awaiting" as QuickFilter,        tooltip: "Total appointments assigned to you that are still awaiting your approval — across all dates.",    count: awaitingApprovalCount, Icon: TrendingUp,   text: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-200",    darkText: "dark:text-rose-400",    darkBg: "dark:bg-rose-950/20",    darkBorder: "dark:border-rose-800" },
+                ].map(({ label, subTag, filter, tooltip, count, Icon, text, bg, border, darkText, darkBg, darkBorder }) => (
+                  <TooltipProvider key={label} delayDuration={700}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`flex flex-col gap-1 px-3 py-2 rounded-xl border bg-card ${border} ${darkBorder} cursor-pointer transition-all hover:bg-muted/40 hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-primary/30 bg-primary/5' : ''}`}
+                          onClick={() => {
+                            setActiveTab("appointments");
+                            handleQuickFilter(filter);
+                            setTimeout(() => appointmentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                          }}
+                          data-testid={`stat-card-${filter}`}
+                        >
+                          {/* Single row: icon + label (ellipsis) + count + info */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`shrink-0 ${text} ${darkText} ${bg} ${darkBg} p-1 rounded-md`}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <p className={`text-xs font-semibold ${text} ${darkText} min-w-0 truncate`}>{label}</p>
+                            <p className="text-lg font-extrabold text-foreground leading-none tabular-nums ml-auto shrink-0">
+                              {count}
+                            </p>
+                            <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0`} />
+                          </div>
+                          {subTag && (
+                            <span className="text-[10px] font-medium text-muted-foreground leading-none truncate block">{subTag}</span>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
+                        {tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Two-column layout */}
       <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
@@ -890,7 +1151,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="px-3 pb-3 flex flex-col items-center gap-3">
               {/* QR Code */}
-              <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner w-full flex items-center justify-center">
+              <div className="relative rounded-2xl overflow-hidden bg-white dark:bg-muted/20 p-3 border border-border/40 shadow-inner w-full flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
                 <QRCode
                   value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
@@ -937,8 +1198,8 @@ export default function DoctorDashboard() {
             <>
               <div className="space-y-5" ref={appointmentsSectionRef}>
 
-              {/* Panel header */}
-              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              {/* Panel header — desktop only (mobile header lives above stats) */}
+              <div className="hidden sm:block rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="flex">
                   <div className="w-1.5 bg-primary/60 shrink-0" />
                   <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
@@ -978,6 +1239,8 @@ export default function DoctorDashboard() {
 
               {/* Quick-filter chips */}
               <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
+                {!chipsCollapsed && (
+                <div className="flex flex-wrap gap-1.5 w-full order-2 sm:contents">
                 {/* Today */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
@@ -1072,47 +1335,143 @@ export default function DoctorDashboard() {
                     quickFilter === "owned" ? "bg-teal-500/15 text-teal-700 dark:text-teal-400" : "bg-muted text-muted-foreground"
                   }`}>{ownedCount}</span>
                 </button>
+                </div>)}
 
                 {/* Patient search — collapsed magnifier or expanded input */}
                 {searchOpen ? (
-                  <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all flex-1 min-w-[160px]">
-                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={apptSearchInput}
-                      onChange={(e) => setApptSearchInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') {
-                          setApptSearchInput("");
-                          setApptSearch("");
-                          setSearchOpen(false);
-                          searchInputRef.current?.blur();
-                        }
-                      }}
-                      placeholder="Search by patient name, phone or email…"
-                      className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
-                      data-testid="input-appointment-search"
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setApptSearchInput("");
-                        setApptSearch("");
-                        setSearchOpen(false);
-                      }}
-                      className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                      title="Close search"
-                      data-testid="button-clear-appointment-search"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
+                  activePatientFilter ? (
+                    <div className="flex items-center gap-2.5 bg-card border border-primary/40 rounded-xl px-3 min-h-[44px] shadow-sm ring-1 ring-primary/10 flex-1 min-w-[160px]">
+                      <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                        <User className="h-3 w-3 text-primary" />
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-foreground truncate">{activePatientFilter.name}</span>
+                        {activePatientFilter.patientCode && (
+                          <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md leading-none shrink-0">
+                            {activePatientFilter.patientCode}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onMouseDown={(e) => { e.preventDefault(); clearDoctorPatientFilter(); }}
+                        className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Clear patient filter"
+                        data-testid="button-clear-appointment-search"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative flex-1 min-w-[160px]">
+                      <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all">
+                        <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <input
+                          ref={patientSearchInputRef}
+                          type="text"
+                          value={patientSearchInput}
+                          onChange={(e) => setPatientSearchInput(e.target.value)}
+                          onFocus={() => setPatientSearchFocused(true)}
+                          onBlur={() => setTimeout(() => setPatientSearchFocused(false), 150)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setPatientSearchHighlightIdx(i => Math.min(i + 1, doctorPatientResults.length - 1));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
+                            } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && doctorPatientResults[patientSearchHighlightIdx]) {
+                              e.preventDefault();
+                              applyDoctorPatientFilter(doctorPatientResults[patientSearchHighlightIdx]);
+                            } else if (e.key === 'Escape') {
+                              setPatientSearchInput("");
+                              setPatientSearchFocused(false);
+                              setSearchOpen(false);
+                              patientSearchInputRef.current?.blur();
+                            }
+                          }}
+                          placeholder="Search patient — name, PAT code or phone…"
+                          className="flex-1 min-w-0 bg-transparent text-xs text-foreground outline-none border-none focus:ring-0 h-5 leading-none"
+                          data-testid="input-appointment-search"
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setPatientSearchInput("");
+                            setPatientSearchFocused(false);
+                            setSearchOpen(false);
+                          }}
+                          className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                          title="Close search"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      {/* Dropdown results */}
+                      {patientSearchFocused && !activePatientFilter && (
+                        <>
+                          {doctorPatientResults.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl overflow-hidden">
+                              {doctorPatientResults.map((p, i) => (
+                                <button
+                                  key={p.id}
+                                  onMouseDown={(e) => { e.preventDefault(); applyDoctorPatientFilter(p); }}
+                                  onMouseEnter={() => setPatientSearchHighlightIdx(i)}
+                                  className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors border-b border-border/30 last:border-0 ${
+                                    i === patientSearchHighlightIdx ? 'bg-primary/10' : 'hover:bg-muted/60'
+                                  }`}
+                                  data-testid={`result-patient-${p.id}`}
+                                >
+                                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-xs text-primary">
+                                    {p.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-xs font-semibold text-foreground">{p.name}</span>
+                                      {p.patientCode && (
+                                        <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1 py-0.5 rounded-md leading-none">
+                                          {p.patientCode}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      {p.phone && (
+                                        <span className="text-xs text-muted-foreground">
+                                          ••••• {p.phone.slice(-4)}
+                                        </span>
+                                      )}
+                                      {p.phone && p.email && <span className="text-muted-foreground/30">·</span>}
+                                      {p.email && (
+                                        <span className="text-xs text-muted-foreground truncate max-w-[160px]">{p.email}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {(p as any).visitCount > 0 && (
+                                    <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0 tabular-nums">
+                                      {(p as any).visitCount}v
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {patientSearchInput.trim().length >= 2 && doctorPatientResults.length === 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl px-4 py-3.5 text-center">
+                              <p className="text-xs text-muted-foreground">
+                                No patients found for{" "}
+                                <span className="font-semibold text-foreground">"{patientSearchInput.trim()}"</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground/60 mt-0.5">Try a different name, phone or PAT code</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
                 ) : (
                   <button
-                    onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+                    onClick={() => { setSearchOpen(true); setTimeout(() => patientSearchInputRef.current?.focus(), 50); }}
                     className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
                     data-testid="button-open-appointment-search"
                     title="Search patient"
@@ -1121,22 +1480,60 @@ export default function DoctorDashboard() {
                   </button>
                 )}
 
-                {/* Filter row toggle — only visible when row is collapsed */}
-                {!filterRowOpen && (
-                  <button
-                    onClick={() => setFilterRowOpen(true)}
-                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
-                    data-testid="button-open-filter-row"
-                    title="Show date & week filters"
-                  >
-                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                )}
+                {/* Persistent filter toggle */}
+                <button
+                  onClick={() => setFilterRowOpen(open => !open)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] shrink-0 ${
+                    filterRowOpen
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                  }`}
+                  data-testid="button-toggle-filter-row"
+                  title={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-label={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-expanded={filterRowOpen}
+                  aria-controls="appointment-filters"
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                </button>
+
+                {/* Chip visibility toggle */}
+                <button
+                  onClick={() => setChipsCollapsed(c => !c)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] shrink-0 ${
+                    chipsCollapsed
+                      ? 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                      : 'bg-primary/10 border-primary/40 text-primary'
+                  }`}
+                  data-testid="button-toggle-chips"
+                  title={chipsCollapsed ? "Show filter chips" : "Hide filter chips"}
+                >
+                  <LayoutList className="h-4 w-4" />
+                </button>
               </div>
 
-              {/* Date range + Quick week — collapsible filter row */}
+              <AppointmentFilters
+                role="doctor"
+                filterDate={filterDate}
+                setFilterDate={setFilterDate}
+                filterEndDate={filterEndDate}
+                setFilterEndDate={setFilterEndDate}
+                quickFilter={quickFilter}
+                setQuickFilter={setQuickFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                roleFilter={appointmentClinicFilter === "all" ? "" : appointmentClinicFilter}
+                setRoleFilter={(value) => setAppointmentClinicFilter(value || "all")}
+                roleOptions={doctorClinics.map(clinic => ({ value: clinic.id.toString(), label: clinic.name }))}
+                filterRowOpen={filterRowOpen}
+                onClose={() => setFilterRowOpen(false)}
+                thisWeekCount={thisWeekCount}
+                nextWeekCount={nextWeekCount}
+              />
+              {false && <>
+              {/* Legacy filter markup retained during shared filter migration */}
               {filterRowOpen && (
-                <div className="animate-in fade-in slide-in-from-top-1 duration-150 grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-3 shadow-sm">
+                <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-3 shadow-sm">
 
                   {/* Desktop-only: icon + label */}
                   <div className="hidden sm:flex sm:flex-none items-center gap-1.5">
@@ -1144,55 +1541,70 @@ export default function DoctorDashboard() {
                     <span className="text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
                   </div>
 
-                  {/* Start picker — col 1 on mobile */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`w-full h-11 sm:w-auto sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
-                          filterDate
-                            ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
-                            : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
-                        }`}
-                      >
-                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
-                        {filterDate ? format(filterDate, "MMM d") : "Start"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                      <CalendarPicker mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+                  {/* Mobile row 1: Start + End + × inline | Desktop: flow naturally via sm:contents */}
+                  <div className="flex items-center gap-2 sm:contents">
 
-                  {/* Desktop-only: → arrow */}
-                  <span className="hidden sm:inline text-muted-foreground/40 text-xs shrink-0">→</span>
+                    {/* Start picker */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`flex-1 sm:flex-none h-11 sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                            filterDate
+                              ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                              : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                          }`}
+                        >
+                          <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
+                          {filterDate ? format(filterDate!, "MMM d") : "Start"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                        <CalendarPicker mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} initialFocus />
+                      </PopoverContent>
+                    </Popover>
 
-                  {/* End picker — col 2 on mobile */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!filterDate}
-                        className={`w-full h-11 sm:w-auto sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
-                          filterEndDate
-                            ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
-                            : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
-                        }`}
-                      >
-                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
-                        {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                      <CalendarPicker mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+                    {/* Desktop-only: → arrow */}
+                    <span className="hidden sm:inline text-muted-foreground/40 text-xs shrink-0">→</span>
 
-                  {/* Clear dates — full-width row on mobile (col-span-2), inline on desktop */}
+                    {/* End picker */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!filterDate}
+                          className={`flex-1 sm:flex-none h-11 sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                            filterEndDate
+                              ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                              : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                          }`}
+                        >
+                          <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
+                          {filterEndDate ? format(filterEndDate!, "MMM d") : "End"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                        <CalendarPicker mode="single" selected={filterEndDate} onSelect={(d) => setFilterEndDate(d)} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* Close × — mobile only, inline after End picker */}
+                    <button
+                      onClick={() => setFilterRowOpen(false)}
+                      className="sm:hidden h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
+                      data-testid="button-close-filter-row"
+                      title="Hide filters"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+
+                  </div>
+
+                  {/* Clear dates — full-width on mobile, inline on desktop */}
                   {(filterDate || filterEndDate) && (
-                    <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 sm:contents">
                       <div className="w-px h-4 bg-border/50 shrink-0 hidden sm:block" />
                       <button
                         onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
@@ -1208,63 +1620,68 @@ export default function DoctorDashboard() {
                   {/* Desktop-only divider */}
                   <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />
 
-                  {/* This Week — col 1 on mobile */}
-                  <TooltipProvider delayDuration={700}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
-                          data-testid="chip-filter-this-week"
-                          className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
-                            quickFilter === 'this-week'
-                              ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50'
-                              : 'bg-background text-muted-foreground border-violet-400/30 hover:text-violet-600 active:bg-violet-500/10'
-                          }`}
-                        >
-                          <Calendar className="h-3 w-3 shrink-0" />
-                          This Week
-                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400' : 'bg-violet-500/10 text-violet-600'}`}>
-                            {thisWeekCount}
-                          </span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                        Appointments within the current Mon–Sun week
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  {/* Mobile row 2: This Week + Next Week side-by-side | Desktop: inline */}
+                  <div className="grid grid-cols-2 gap-2 sm:contents">
 
-                  {/* Next Week — col 2 on mobile */}
-                  <TooltipProvider delayDuration={700}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
-                          data-testid="chip-filter-next-week"
-                          className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
-                            quickFilter === 'next-week'
-                              ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-400/50'
-                              : 'bg-background text-muted-foreground border-indigo-400/30 hover:text-indigo-600 active:bg-indigo-500/10'
-                          }`}
-                        >
-                          <CalendarDays className="h-3 w-3 shrink-0" />
-                          Next Week
-                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400' : 'bg-indigo-500/10 text-indigo-600'}`}>
-                            {nextWeekCount}
-                          </span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                        Appointments within next Mon–Sun week
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                    {/* This Week */}
+                    <TooltipProvider delayDuration={700}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
+                            data-testid="chip-filter-this-week"
+                            className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                              quickFilter === 'this-week'
+                                ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50'
+                                : 'bg-background text-muted-foreground border-violet-400/30 hover:text-violet-600 active:bg-violet-500/10'
+                            }`}
+                          >
+                            <Calendar className="h-3 w-3 shrink-0" />
+                            This Week
+                            <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400' : 'bg-violet-500/10 text-violet-600'}`}>
+                              {thisWeekCount}
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                          Appointments within the current Mon–Sun week
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
-                  {/* Clear week — full-width row on mobile (col-span-2), inline on desktop */}
+                    {/* Next Week */}
+                    <TooltipProvider delayDuration={700}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
+                            data-testid="chip-filter-next-week"
+                            className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                              quickFilter === 'next-week'
+                                ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-400/50'
+                                : 'bg-background text-muted-foreground border-indigo-400/30 hover:text-indigo-600 active:bg-indigo-500/10'
+                            }`}
+                          >
+                            <CalendarDays className="h-3 w-3 shrink-0" />
+                            Next Week
+                            <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                              {nextWeekCount}
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                          Appointments within next Mon–Sun week
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                  </div>
+
+                  {/* Clear week — full-width on mobile, inline on desktop */}
                   {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
                     <button
                       onClick={() => setQuickFilter('all')}
-                      className="col-span-2 sm:col-span-1 w-full sm:w-auto h-11 sm:h-auto inline-flex items-center justify-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                      className="w-full sm:w-auto h-11 sm:h-auto inline-flex items-center justify-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
                       data-testid="button-clear-week-filter"
                     >
                       <X className="h-3 w-3" />
@@ -1272,171 +1689,91 @@ export default function DoctorDashboard() {
                     </button>
                   )}
 
+                  {/* Status filters */}
+                  <div className="w-full border-t border-border/40 pt-2 mt-1 flex flex-wrap items-center gap-2 sm:w-auto sm:border-0 sm:pt-0 sm:mt-0">
+                    <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status</span>
+                    {([
+                      ['in-clinic', 'In Clinic Now', Activity],
+                      ['completed', 'Visit Completed', CheckCircle2],
+                      ['cancelled', 'Cancelled', X],
+                      ['no-show', 'No Show', UserX],
+                    ] as const).map(([value, label, Icon]) => (
+                      <button
+                        key={value}
+                        onClick={() => setStatusFilter(statusFilter === value ? '' : value)}
+                        className={`flex-1 sm:flex-none min-h-[44px] px-3 rounded-full border text-xs font-semibold transition-all active:scale-[0.97] ${
+                          statusFilter === value ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50' : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400/40 hover:text-violet-600'
+                        }`}
+                        data-testid={`chip-status-${value}`}
+                      >
+                        <Icon className="inline h-3 w-3 mr-1" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
                   {/* Desktop-only divider before clinic select */}
                   <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />
 
-                  {/* All Clinics — moved into filter row */}
-                  <div className="col-span-2 sm:col-span-1">
-                    <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-                      <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Clinics</SelectItem>
-                        {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* All Clinics — full-width on mobile, fixed-width on desktop */}
+                  <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
+                    <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clinics</SelectItem>
+                      {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
 
-                  {/* Close — desktop only */}
+                  {/* Close — desktop only, far right */}
                   <div className="hidden sm:flex sm:ml-auto">
                     <button
                       onClick={() => setFilterRowOpen(false)}
                       className="h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
-                      data-testid="button-close-filter-row"
-                      title="Hide date & week filters"
+                      title="Hide filters"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               )}
+              </>}
 
-              {/* Dynamic section heading — matches clinic dashboard booking header style */}
-              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-                <div className="flex">
-                  <div className="w-1.5 bg-primary/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                        <Calendar className="h-[18px] w-[18px] text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <h2 className="text-sm sm:text-base font-semibold tracking-tight truncate">
-                          {quickFilter === "today"             ? "Today's Appointments"
-                           : quickFilter === "upcoming"        ? "Upcoming Appointments"
-                           : quickFilter === "owned"           ? "All Owned Appointments"
-                           : quickFilter === "awaiting"        ? "All Pending Bookings"
-                           : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
-                           : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
-                           : quickFilter === "this-week"       ? "This Week's Appointments"
-                           : quickFilter === "next-week"       ? "Next Week's Appointments"
-                           : filterDate                        ? "Filtered Appointments"
-                           : "All Appointments"}
-                        </h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          <span className="tabular-nums font-semibold">{bookingsInfiniteData?.pages[0]?.total ?? 0}</span>{" "}
-                          {(bookingsInfiniteData?.pages[0]?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
-                          {quickFilter === "today"             ? "Appointments assigned to you today"
-                           : quickFilter === "upcoming"        ? "Future appointments beyond today"
-                           : quickFilter === "owned"           ? "Only appointments you've confirmed or accepted"
-                           : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
-                           : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
-                           : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
-                           : quickFilter === "this-week"       ? "Appointments within the current Mon–Sun week"
-                           : quickFilter === "next-week"       ? "Appointments within next Mon–Sun week"
-                           : filterDate                        ? "Showing custom date range"
-                           : "All your patient appointments"}
-                        </p>
-                      </div>
-                    </div>
+              {/* Dynamic section heading — dark green gradient, attached to cards (BookingsPanel style) */}
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">
+                <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between shrink-0">
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-tight">
+                      {quickFilter === "today"             ? "Today's Appointments"
+                       : quickFilter === "upcoming"        ? "Upcoming Appointments"
+                       : quickFilter === "owned"           ? "All Owned Appointments"
+                       : quickFilter === "awaiting"        ? "All Pending Bookings"
+                       : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
+                       : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
+                       : quickFilter === "this-week"       ? "This Week's Appointments"
+                       : quickFilter === "next-week"       ? "Next Week's Appointments"
+                       : filterDate                        ? "Filtered Appointments"
+                       : "All Appointments"}
+                    </h2>
+                    <p className="text-white/70 text-xs mt-0.5">
+                      <span className="tabular-nums font-semibold">{bookingsInfiniteData?.pages[0]?.total ?? 0}</span>{" "}
+                      {(bookingsInfiniteData?.pages[0]?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
+                      {quickFilter === "today"             ? "Appointments assigned to you today"
+                       : quickFilter === "upcoming"        ? "Future appointments beyond today"
+                       : quickFilter === "owned"           ? "Only appointments you've confirmed or accepted"
+                       : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
+                       : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
+                       : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
+                       : quickFilter === "this-week"       ? "Appointments within the current Mon–Sun week"
+                       : quickFilter === "next-week"       ? "Appointments within next Mon–Sun week"
+                       : filterDate                        ? "Showing custom date range"
+                       : "All your patient appointments"}
+                    </p>
                   </div>
                 </div>
-              </div>
-
-              {isBookingsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {[1,2,3,4,5,6].map(i => (
-                    <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Skeleton className="h-4 w-28" />
-                        <Skeleton className="h-5 w-16 rounded-full" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Skeleton className="h-3.5 w-36" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Skeleton className="h-7 flex-1 rounded-md" />
-                        <Skeleton className="h-7 flex-1 rounded-md" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : displayBookings.length > 0 ? (
-                <>
+                <div className="p-5 space-y-5">
+                {isBookingsLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {displayBookings.map((booking: any) => {
-                    const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
-                    const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
-                    const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
-                    const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
-                    const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
-                    const bookingDateStr = startTime ? startTime.toISOString().split("T")[0] : "";
-                    const isApptToday = bookingDateStr === todayStr;
-                    const isApptPast = startTime ? startTime < new Date(new Date().setHours(0, 0, 0, 0)) && !isApptToday : false;
-                    const isApptConfirmed = booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed';
-                    const isApptCancelled = booking.verificationStatus === 'cancelled';
-                    const clinicCity = clinicAddress ? clinicAddress.split(',').at(-1)?.trim() : null;
-
-                    const apptAccentBar = isApptToday
-                      ? "bg-gradient-to-r from-sky-400 to-cyan-400"
-                      : isApptPast
-                      ? "bg-gradient-to-r from-slate-400 to-slate-300"
-                      : "bg-gradient-to-r from-primary to-accent";
-                    const apptHeaderBg = isApptToday
-                      ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
-                      : isApptPast
-                      ? "bg-muted/30"
-                      : "bg-gradient-to-r from-primary/5 to-accent/5";
-                    const apptLeftBorder = isApptCancelled
-                      ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
-                      : isApptConfirmed
-                      ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
-                      : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
-                    const apptTimeLabel = isApptToday ? "Today" : isApptPast ? "Past" : "Upcoming";
-                    const apptTimeClass = isApptToday
-                      ? "text-sky-600 bg-sky-500/10 border-sky-500/25 dark:text-sky-400 dark:bg-sky-400/10 dark:border-sky-500/30"
-                      : isApptPast
-                      ? "text-muted-foreground bg-muted/50 border-border/50"
-                      : "text-primary bg-primary/10 border-primary/25";
-                    const apptStatusLabel = isApptCancelled ? "Cancelled" : isApptConfirmed ? "Confirmed" : "Pending";
-                    const apptStatusClass = isApptCancelled
-                      ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
-                      : isApptConfirmed
-                      ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
-                      : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
-                    return (
-                      <AppointmentCard
-                        key={booking.id}
-                        role="doctor"
-                        booking={booking}
-                        bookingNumber={String(booking.id).padStart(4, '0')}
-                        complaints={(() => {
-                          const raw = booking.description ?? "";
-                          const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
-                          return stripped ? stripped.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : [];
-                        })()}
-                        clinicName={clinicName}
-                        clinicCity={clinicCity ?? undefined}
-                        onCardClick={() => { setOpenedBooking(booking); setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        onApprove={() => approveMutation.mutate(booking.id)}
-                        onDecline={() => declineMutation.mutate(booking.id)}
-                        onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
-                        declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
-                        onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
-                        startConsultPending={startConsultationMutation.isPending}
-                        onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
-                        completeVisitPending={completeVisitMutation.isPending}
-                        onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
-                        consentRequestPending={requestConsentMutation.isPending}
-                      />
-                    );
-                  })}
-                </div>
-                {isFetchingNextPage && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
-                    {[1,2,3].map(i => (
+                    {[1,2,3,4,5,6].map(i => (
                       <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Skeleton className="h-4 w-28" />
@@ -1453,27 +1790,192 @@ export default function DoctorDashboard() {
                       </div>
                     ))}
                   </div>
-                )}
-                {!hasNextPage && displayBookings.length > 0 && (
-                  <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
-                    All {bookingsInfiniteData?.pages[0]?.total ?? displayBookings.length} appointments loaded
-                  </p>
-                )}
-                <div ref={sentinelRef} className="h-2" />
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
-                    {quickFilter === "awaiting" ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
+                ) : displayBookings.length > 0 ? (
+                  <>
+                    {displayBookings.length >= 2 && (
+                      <div className="flex items-center justify-end">
+                        <button
+                          onClick={() => {
+                            if (drCollapsedIds.size === 0) {
+                              setDrCollapsedIds(new Set(displayBookings.map((b: any) => b.id)));
+                            } else {
+                              setDrCollapsedIds(new Set());
+                            }
+                          }}
+                          className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                          data-testid="button-doctor-toggle-collapse-all"
+                        >
+                          {drCollapsedIds.size === 0 ? (
+                            <><Minimize2 className="h-3 w-3" />Collapse all</>
+                          ) : drCollapsedIds.size < displayBookings.length ? (
+                            <><Maximize2 className="h-3 w-3" />Expand remaining</>
+                          ) : (
+                            <><Maximize2 className="h-3 w-3" />Expand all</>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {(() => {
+                      // Group into Future/Today (0) and Past (1) for mixed-date filters
+                      // 'awaiting' is future-only by server definition — grouping adds a redundant "Future / Today" header with no Past section
+                      const isGrouped = (quickFilter === 'all' || quickFilter === 'owned') && !filterDate && !filterEndDate;
+                      const drGroupConfig = [
+                        { label: 'Future / Today', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
+                        { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
+                      ];
+                      let drLastGroup = -1;
+                      return displayBookings.flatMap((booking: any) => {
+                      const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
+                      const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
+                      const classification = classifyClientBooking(booking, "doctor", bookingDateContext);
+                      const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
+                      const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
+                      const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
+                      const isApptToday = classification.isToday;
+                      const isApptPast = classification.isOld;
+                      const isApptConfirmed = booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed';
+                      const isApptCancelled = booking.verificationStatus === 'cancelled';
+                      const clinicCity = clinicAddress ? clinicAddress.split(',').at(-1)?.trim() : null;
+
+                      const apptAccentBar = isApptToday
+                        ? "bg-gradient-to-r from-sky-400 to-cyan-400"
+                        : isApptPast
+                        ? "bg-gradient-to-r from-slate-400 to-slate-300"
+                        : "bg-gradient-to-r from-primary to-accent";
+                      const apptHeaderBg = isApptToday
+                        ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
+                        : isApptPast
+                        ? "bg-muted/30"
+                        : "bg-gradient-to-r from-primary/5 to-accent/5";
+                      const apptLeftBorder = isApptCancelled
+                        ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
+                        : isApptConfirmed
+                        ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
+                        : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
+                      const apptTimeLabel = isApptToday ? "Today" : isApptPast ? "Past" : "Upcoming";
+                      const apptTimeClass = isApptToday
+                        ? "text-sky-600 bg-sky-500/10 border-sky-500/25 dark:text-sky-400 dark:bg-sky-400/10 dark:border-sky-500/30"
+                        : isApptPast
+                        ? "text-muted-foreground bg-muted/50 border-border/50"
+                        : "text-primary bg-primary/10 border-primary/25";
+                      const apptStatusLabel = isApptCancelled ? "Cancelled" : isApptConfirmed ? "Confirmed" : "Pending";
+                      const apptStatusClass = isApptCancelled
+                        ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
+                        : isApptConfirmed
+                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
+                        : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
+                      // Determine which time group this card belongs to and whether to show a divider
+                      const drGroup = isGrouped ? (isApptPast ? 1 : 0) : -1;
+                      const drShowDivider = isGrouped && drGroup !== drLastGroup;
+                      // Monotonic guard: once in Past group never step back to Future/Today
+                      if (isGrouped) drLastGroup = Math.max(drLastGroup, drGroup);
+                      const drGroupCfg = drGroupConfig[Math.max(0, drGroup)];
+                      return [
+                        drShowDivider ? (
+                          <div key={`divider-drgroup-${drGroup}`} className="col-span-full flex items-center gap-2 mb-1">
+                            <div className="h-px flex-1 bg-border/50" />
+                            <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${drGroupCfg.textColor} ${drGroupCfg.bg} ${drGroupCfg.border}`}>
+                              {drGroupCfg.label}
+                              <span className="font-black opacity-70">— {displayBookings.filter((b: any) => {
+                                const bt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+                                const bClassification = classifyClientBooking(b, "doctor", bookingDateContext);
+                                return (bClassification.isOld ? 1 : 0) === drGroup;
+                              }).length}</span>
+                            </span>
+                            <div className="h-px flex-1 bg-border/50" />
+                          </div>
+                        ) : null,
+                        <AppointmentCard
+                          key={booking.id}
+                          role="doctor"
+                          booking={booking}
+                          classification={classification}
+                          bookingNumber={String(booking.id).padStart(4, '0')}
+                          visitNumber={drVisitNumberMap.get(booking.id)?.n}
+                          totalVisits={drVisitNumberMap.get(booking.id)?.total}
+                          latestLabel={drVisitNumberMap.get(booking.id)?.latestLabel}
+                          isCollapsed={drCollapsedIds.has(booking.id)}
+                          onToggleCollapse={() => setDrCollapsedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(booking.id)) next.delete(booking.id);
+                            else next.add(booking.id);
+                            return next;
+                          })}
+                          complaints={(() => {
+                            const raw = booking.description ?? "";
+                            const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
+                            return stripped ? stripped.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : [];
+                          })()}
+                          clinicName={clinicName}
+                          clinicCity={clinicCity ?? undefined}
+                          onCardClick={() => { setOpenedBooking(booking); setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
+                          onApprove={() => approveMutation.mutate(booking.id)}
+                          onDecline={() => declineMutation.mutate(booking.id)}
+                          onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                           onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('diagnosis'); setStatusDraft(booking.clinicalStatus || ""); }}
+                           onOpenPrescription={() => { setPatientModalId(booking.id); setPatientModalTab('prescription'); setStatusDraft(booking.clinicalStatus || ""); }}
+                          approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
+                          declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
+                          onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
+                          startConsultPending={startConsultationMutation.isPending}
+                          onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                          completeVisitPending={completeVisitMutation.isPending}
+                          onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
+                          consentRequestPending={requestConsentMutation.isPending}
+                        />,
+                      ];
+                    });
+                      })()}
+                      {isFetchingNextPage && [1, 2, 3].map(i => (
+                        <div key={`appointment-loading-${i}`} className="rounded-xl border border-border/50 p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-5 w-16 rounded-full" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Skeleton className="h-3.5 w-36" />
+                            <Skeleton className="h-3 w-24" />
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <Skeleton className="h-7 flex-1 rounded-md" />
+                            <Skeleton className="h-7 flex-1 rounded-md" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {!hasNextPage && displayBookings.length > 0 && (
+                      <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
+                        All {bookingsInfiniteData?.pages[0]?.total ?? displayBookings.length} appointments loaded
+                      </p>
+                    )}
+                    <div ref={sentinelRef} className="h-2" />
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
+                      {quickFilter === "awaiting" ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {emptyStateMeta.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 max-w-[340px] text-center leading-relaxed">
+                      {emptyStateMeta.detail}
+                    </p>
+                    {(quickFilter !== 'all' || filterDate || filterEndDate || activePatientFilter || appointmentClinicFilter !== 'all') && (
+                      <button
+                        onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); clearDoctorPatientFilter(); setAppointmentClinicFilter('all'); }}
+                        className="mt-1 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors"
+                        data-testid="button-clear-filters-empty"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Clear all filters
+                      </button>
+                    )}
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {quickFilter === "awaiting" ? "No appointments awaiting approval" : "No appointments found"}
-                  </p>
-                  <p className="text-xs text-muted-foreground/70">
-                    {quickFilter === "awaiting" ? "You're all caught up — nothing waiting for your review." : "Try adjusting your filters"}
-                  </p>
+                )}
                 </div>
-              )}
+              </div>
             </div>
           </>
           )}
@@ -1773,7 +2275,7 @@ export default function DoctorDashboard() {
                       </p>
                     </div>
                     <div className="px-5 py-4 flex flex-col sm:flex-row gap-4 items-center">
-                      <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner shrink-0 flex items-center justify-center">
+                      <div className="relative rounded-2xl overflow-hidden bg-white dark:bg-muted/20 p-3 border border-border/40 shadow-inner shrink-0 flex items-center justify-center">
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
                         <QRCode
                           value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
@@ -1820,7 +2322,7 @@ export default function DoctorDashboard() {
                 )}
 
                 {/* ── Sticky Save Footer ── */}
-                <div className="sticky bottom-0 pb-[env(safe-area-inset-bottom)] bg-background/95 backdrop-blur-sm pt-3 border-t border-border/40">
+                <div className="sticky-action-bar pt-3">
                   <div className="flex gap-3">
                     <Button
                       className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold shadow-md shadow-primary/20 active:scale-[0.98] transition-all min-h-[44px]"
@@ -1886,7 +2388,7 @@ export default function DoctorDashboard() {
                     </div>
                     <div>
                       <h2 className="text-base font-semibold tracking-tight">Leave Management</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">Mark dates when you are unavailable. Clinic admins will see a warning when trying to assign you on these dates.</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Mark your unavailable dates</p>
                     </div>
                   </div>
                 </div>
@@ -2003,7 +2505,7 @@ export default function DoctorDashboard() {
                       )}
                       {/* Legend — reduced padding */}
                       <div className="flex items-center gap-4 px-3 pb-2.5 flex-wrap">
-                        <div className="flex items-center gap-1.5">
+                               <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 justify-self-start">
                           <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
                           <span className="text-xs text-muted-foreground">{multiMode && pendingDates.length > 0 ? `${pendingDates.length} selected` : "Selected"}</span>
                         </div>
@@ -2261,7 +2763,7 @@ export default function DoctorDashboard() {
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="flex">
                   <div className="w-1.5 bg-blue-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
                         <Award className="h-[18px] w-[18px] text-blue-600 dark:text-blue-400" />
@@ -2271,7 +2773,7 @@ export default function DoctorDashboard() {
                         <p className="text-xs text-muted-foreground mt-0.5">Highlight your credentials — these appear on your public profile.</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCert} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                    <Button onClick={openNewCert} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 h-9 px-3">
                       <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Certification</span>
                     </Button>
                   </div>
@@ -2339,17 +2841,17 @@ export default function DoctorDashboard() {
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="flex">
                   <div className="w-1.5 bg-teal-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-teal-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-teal-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
                         <BookOpen className="h-[18px] w-[18px] text-teal-600 dark:text-teal-400" />
                       </div>
                       <div>
                         <h2 className="text-base font-semibold tracking-tight">Case Studies</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">Share your clinical cases with descriptions and media. Visible on your public profile.</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Clinical cases shown on your public profile</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCase} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                    <Button onClick={openNewCase} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 h-9 px-3">
                       <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Case</span>
                     </Button>
                   </div>
@@ -2436,137 +2938,186 @@ export default function DoctorDashboard() {
       </div>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV BAR ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
-        <div className="flex items-stretch">
-          {([
-            { key: "appointments" as Tab, label: "Appointments", Icon: Calendar },
-            { key: "leaves"       as Tab, label: "Leave",        Icon: CalendarOff },
-            { key: "profile"      as Tab, label: "Profile",      Icon: User },
-            { key: "cases"        as Tab, label: "Cases",        Icon: BookOpen },
-          ] as { key: Tab; label: string; Icon: any }[]).map(({ key, label, Icon }) => {
-            const isActive = activeTab === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-                  isActive ? "text-primary" : "text-muted-foreground"
-                }`}
-                data-testid={`bottom-nav-${key}`}
-              >
-                {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-semibold">{label}</span>
-                {key === "appointments" && awaitingApprovalCount > 0 && (
-                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center leading-none">{awaitingApprovalCount}</span>
-                )}
-              </button>
-            );
-          })}
-          {/* More button — utility actions only */}
-          <button
-            onClick={() => setMoreDrawerOpen(true)}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative text-muted-foreground"
-            data-testid="bottom-nav-more"
-          >
-            <MoreHorizontal className="h-5 w-5" />
-            <span className="text-[10px] font-semibold">More</span>
-          </button>
-        </div>
-      </nav>
-
-      {/* ── MORE DRAWER (mobile) ── */}
-      <Sheet open={moreDrawerOpen} onOpenChange={setMoreDrawerOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader className="mb-4">
-            <SheetTitle>More</SheetTitle>
+            {/* ═══ MOBILE LEFT NAVIGATION DRAWER ═══ */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Doctor Menu</SheetTitle>
           </SheetHeader>
-          <div className="space-y-2 pb-6">
-            {/* ── Overflow tab navigation ── */}
-            <button
-              onClick={() => { setActiveTab("certifications"); setMoreDrawerOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "certifications" ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
-              data-testid="drawer-nav-certifications"
-            >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-500/10 border border-blue-500/20">
-                <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Certifications</p>
-                <p className="text-xs text-muted-foreground">Degrees &amp; awards</p>
-              </div>
-              {activeTab === "certifications" && <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
-            </button>
-            <button
-              onClick={() => { setActiveTab("xray"); setMoreDrawerOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "xray" ? "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
-              data-testid="drawer-nav-xray"
-            >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/10 border border-violet-500/20">
-                <Microscope className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-sm">Analyse X-Ray</p>
-                <p className="text-xs text-muted-foreground">AI dental findings</p>
-              </div>
-              {activeTab === "xray" && <div className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />}
-            </button>
-            <div className="h-px bg-border/50 my-1" />
-            <button
-              onClick={() => { setChangePwdOpen(true); setMoreDrawerOpen(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"
-            >
-              <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm">Change Password</p>
-                <p className="text-xs text-muted-foreground">Update your account password</p>
-              </div>
-            </button>
-            {doctor && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border/50 bg-muted/20">
-                <div className="rounded-xl overflow-hidden bg-white p-2 border border-border/40 shadow-inner shrink-0">
-                  <QRCode
-                    value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
-                    size={64}
-                    level="M"
-                    fgColor="#085041"
-                    bgColor="#ffffff"
-                    style={{ display: "block" }}
-                  />
+
+          {/* Doctor identity header */}
+          <div className="px-4 pt-5 pb-4 border-b border-border/50 shrink-0">
+            <div className="flex items-center gap-3">
+              {(doctor as any)?.photoUrl ? (
+                <img
+                  src={(doctor as any).photoUrl}
+                  alt={(doctor as any)?.name || "Doctor"}
+                  className="h-10 w-10 rounded-full object-cover shrink-0 border border-border/40"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                  {(doctor as any)?.name?.charAt(0)?.toUpperCase() || "D"}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">Your QR Code</p>
-                  <p className="text-xs text-muted-foreground mb-2">Scan to view public profile</p>
-                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={copyProfileLink}>
-                    {linkCopied ? <Check className="h-3 w-3 mr-1.5 text-primary" /> : <Copy className="h-3 w-3 mr-1.5" />}
-                    {linkCopied ? "Copied!" : "Copy Profile Link"}
-                  </Button>
-                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {(doctor as any)?.name || "Doctor"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {(doctor as any)?.specialty || "Doctor Portal"}
+                </p>
               </div>
-            )}
-            <button
-              onClick={() => { logout(); setMoreDrawerOpen(false); }}
-              disabled={isLoggingOut}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-red-200 dark:border-red-900/40 bg-background text-left hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors active:scale-[0.98]"
-            >
-              <div className="h-9 w-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-                <LogOut className="h-4 w-4 text-red-500" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-red-600 dark:text-red-400">{isLoggingOut ? "Logging out…" : "Log Out"}</p>
-                <p className="text-xs text-muted-foreground">Sign out of the doctor portal</p>
-              </div>
-            </button>
+            </div>
           </div>
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-1">
+              {([
+                { key: "appointments" as Tab, label: "Appointments", desc: "View your schedule", Icon: Calendar, color: "primary" },
+                { key: "leaves"       as Tab, label: "Leave",        desc: "Apply for time off", Icon: CalendarOff, color: "orange" },
+                { key: "profile"      as Tab, label: "Profile",      desc: "Edit your details",  Icon: User, color: "teal" },
+                { key: "cases"        as Tab, label: "Cases",        desc: "Patient case studies", Icon: BookOpen, color: "emerald" },
+                { key: "certifications" as Tab, label: "Certifications", desc: "Degrees & awards", Icon: Award, color: "blue" },
+                { key: "xray"         as Tab, label: "Analyse X-Ray",  desc: "AI dental findings", Icon: Microscope, color: "violet" },
+              ] as { key: Tab; label: string; desc: string; Icon: any; color: string }[]).map(({ key, label, desc, Icon, color }) => {
+                const isActive = activeTab === key;
+                const bgActive = color === "primary" ? "bg-primary/10 border-primary/25" :
+                                  color === "orange" ? "bg-orange-500/10 border-orange-500/25" :
+                                  color === "teal" ? "bg-teal-500/10 border-teal-500/25" :
+                                  color === "emerald" ? "bg-emerald-500/10 border-emerald-500/25" :
+                                  color === "blue" ? "bg-blue-500/10 border-blue-500/25" :
+                                  "bg-violet-500/10 border-violet-500/25";
+                const iconColor = color === "primary" ? "text-primary" :
+                                   color === "orange" ? "text-orange-600 dark:text-orange-400" :
+                                   color === "teal" ? "text-teal-600 dark:text-teal-400" :
+                                   color === "emerald" ? "text-emerald-600 dark:text-emerald-400" :
+                                   color === "blue" ? "text-blue-600 dark:text-blue-400" :
+                                   "text-violet-600 dark:text-violet-400";
+                return (
+                  <button
+                    key={key}
+                    onClick={() => { setActiveTab(key); setMobileNavOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all active:scale-[0.98] text-left ${isActive ? bgActive : "border-transparent hover:bg-muted/40"}`}
+                    data-testid={`drawer-nav-${key}`}
+                  >
+                    <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? "bg-white/60 dark:bg-white/10" : "bg-muted/60"}`}>
+                      <Icon className={`h-4 w-4 ${iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{label}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                    {isActive && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-5 py-2">
+              <div className="h-px bg-border/50" />
+            </div>
+            <div className="p-3 space-y-1">
+              <button
+                onClick={() => { setChangePwdOpen(true); setMobileNavOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-transparent hover:bg-muted/40 transition-all active:scale-[0.98] text-left"
+              >
+                <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Change Password</p>
+                  <p className="text-xs text-muted-foreground">Update your account password</p>
+                </div>
+              </button>
+              {doctor && (
+                <div className="flex items-center gap-3 px-3 py-3 rounded-xl border border-border/50 bg-muted/20">
+                  <div className="rounded-xl overflow-hidden bg-white dark:bg-muted/20 p-2 border border-border/40 shadow-inner shrink-0">
+                    <QRCode
+                      value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
+                      size={64}
+                      level="M"
+                      fgColor="#085041"
+                      bgColor="#ffffff"
+                      style={{ display: "block" }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">Your QR Code</p>
+                    <p className="text-xs text-muted-foreground mb-2">Scan to view public profile</p>
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { copyProfileLink(); setMobileNavOpen(false); }}>
+                      {linkCopied ? <Check className="h-3 w-3 mr-1.5 text-primary" /> : <Copy className="h-3 w-3 mr-1.5" />}
+                      {linkCopied ? "Copied!" : "Copy Profile Link"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => { logout(); setMobileNavOpen(false); }}
+                disabled={isLoggingOut}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all active:scale-[0.98] text-left"
+              >
+                <div className="h-9 w-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                  <LogOut className="h-4 w-4 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-red-600 dark:text-red-400">{isLoggingOut ? "Logging out…" : "Log Out"}</p>
+                  <p className="text-xs text-muted-foreground">Sign out of the doctor portal</p>
+                </div>
+              </button>
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══ MOBILE NOTIFICATIONS BOTTOM SHEET ═══ */}
+      <Sheet open={mobileNotifOpen} onOpenChange={setMobileNotifOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl h-[70vh] p-0 flex flex-col">
+          <SheetHeader className="px-5 py-4 border-b border-border/40 shrink-0">
+            <SheetTitle className="text-left text-base">Notifications</SheetTitle>
+            <SheetDescription className="text-left">
+              {awaitingApprovalCount > 0 ? `${awaitingApprovalCount} booking${awaitingApprovalCount === 1 ? "" : "s"} awaiting your approval` : "No pending notifications"}
+            </SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="flex-1">
+            <div className="p-3 space-y-2">
+              {awaitingApprovalCount > 0 ? (
+                displayBookings
+                  .filter((b: any) => b.status === "awaitingApproval")
+                  .slice(0, 20)
+                  .map((b: any) => (
+                    <button
+                      key={b.id}
+                      onClick={() => { setPatientModalId(b.id); setMobileNotifOpen(false); }}
+                      className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/20 text-left transition-colors hover:bg-amber-100 dark:hover:bg-amber-950/30"
+                    >
+                      <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{b.patientName || "Patient"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {b.appointmentDate ? new Date(b.appointmentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+                          {b.slotTime ? ` \u2022 ${b.slotTime}` : ""}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                    </button>
+                  ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                    <Bell className="h-5 w-5 opacity-40" />
+                  </div>
+                  <p className="text-sm font-medium">All caught up!</p>
+                  <p className="text-xs mt-1">No notifications right now</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         </SheetContent>
       </Sheet>
 
       {/* ── Patient Detail Dialog ── */}
       <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) { setPatientModalId(null); setDialogExpanded(false); } }}>
-        <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} p-0 gap-0 overflow-hidden h-[90vh] flex flex-col rounded-2xl transition-[max-width] duration-200`}>
+        <DialogContent className={`w-[95vw] max-w-[95vw] ${dialogExpanded ? 'sm:w-[95vw] sm:max-w-[95vw] sm:h-[95vh] sm:max-h-[95vh]' : 'sm:w-[80vw] sm:max-w-[80vw] sm:h-[90vh] sm:max-h-[90vh]'} p-0 gap-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col rounded-2xl transition-[width,height,max-width,max-height] duration-200`}>
 
           {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
           <button
@@ -2581,22 +3132,43 @@ export default function DoctorDashboard() {
           </button>
 
           {patientModalId !== null && (() => {
-            const b = openedBooking?.id === patientModalId ? openedBooking : displayBookings.find((bk: any) => bk.id === patientModalId);
-            if (!b) return null;
+            const b = openedBooking?.id === patientModalId
+              ? openedBooking
+              : (displayBookings.find((bk: any) => bk.id === patientModalId) ?? doctorFocusBooking ?? null);
+            if (!b) return (
+              <div className="flex flex-col items-center justify-center flex-1 gap-3 p-8 text-muted-foreground">
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                  <Search className="h-5 w-5 opacity-40" />
+                </div>
+                <p className="text-sm font-medium">Loading patient details…</p>
+              </div>
+            );
             const startTime = b.slot?.startTime ? new Date(b.slot.startTime) : null;
             const modalClinicName = b.clinic?.name || b.clinicName || doctorClinics.find((c: any) => c.id === b.clinicId)?.name || "Clinic";
+            const modalClassification = classifyClientBooking(b, "doctor", bookingDateContext);
+            const modalFooterModel = getAppointmentFooterModel(modalClassification, "doctor");
+            const modalReviewAction = modalFooterModel.primary &&
+              (modalFooterModel.primary.id === "review_visit" || modalFooterModel.primary.id === "review_appointment")
+              ? modalFooterModel.primary
+              : null;
             return (
               <>
                 {/* Header */}
-                <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 shrink-0 overflow-hidden">
+                <div className="relative min-w-0 bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 sm:px-5 pt-4 sm:pt-5 pb-4 shrink-0 overflow-hidden">
                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                  <div className="relative flex items-center gap-3">
+                  <div className="relative flex min-w-0 items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-base ring-1 ring-white/10 shrink-0">
                       {b.customerName?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                        <p className="min-w-0 max-w-full truncate font-bold text-white text-base leading-tight">{b.customerName}</p>
+                        {(b as any).visitNumber !== undefined && (b as any).totalVisits > 1 && (
+                          <span className="inline-flex items-center gap-1 text-xs leading-none font-semibold text-violet-100 bg-violet-500/25 border border-violet-300/30 px-1.5 py-1 rounded-md shrink-0">
+                            <Repeat2 className="h-3 w-3" />
+                            Visit {(b as any).visitNumber}/{(b as any).totalVisits}
+                          </span>
+                        )}
                         {(b.customerAge || b.customerGender) && (
                           <span className="text-xs text-white/55 shrink-0">
                             {b.customerAge ? `${b.customerAge}y` : ""}
@@ -2610,14 +3182,14 @@ export default function DoctorDashboard() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
-                        <span className="flex items-center gap-1"><Hash className="h-3 w-3" />REF-{String(b.id).padStart(4, "0")}</span>
+                      <div className="flex min-w-0 items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
+                        <span className="flex items-center gap-1"><Hash className="h-3 w-3" />Ref #{String(b.id).padStart(4, "0")}</span>
                         <span>·</span>
-                        <span className="flex items-center gap-1 truncate"><Building2 className="h-3 w-3 shrink-0" />{modalClinicName}</span>
+                        <span className="flex min-w-0 items-center gap-1 truncate"><Building2 className="h-3 w-3 shrink-0" />{modalClinicName}</span>
                       </div>
                       {startTime && (
-                        <p className="text-white/50 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
-                          <span>{startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        <p className="min-w-0 text-white/50 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate">{startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                           {(() => {
                             const now = new Date(); now.setHours(0, 0, 0, 0);
                             const apptDay = new Date(startTime); apptDay.setHours(0, 0, 0, 0);
@@ -2634,20 +3206,23 @@ export default function DoctorDashboard() {
                 </div>
 
                 {/* Tab strip — Overview | Notes | Diagnosis | Prescription | Chart */}
-                <div className="shrink-0 flex border-b border-border/60 bg-card">
+                <div className="shrink-0 flex min-w-0 overflow-x-auto border-b border-border/60 bg-card">
                   {([
                     { key: 'overview'     as const, label: 'Overview',    icon: <User className="h-3.5 w-3.5" /> },
                     { key: 'notes'        as const, label: 'Notes',       icon: <FileText className="h-3.5 w-3.5" /> },
                     { key: 'diagnosis'    as const, label: 'Diagnosis',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
                     { key: 'prescription' as const, label: 'Rx',          icon: <Pill className="h-3.5 w-3.5" /> },
                     { key: 'chart'        as const, label: 'Chart',       icon: <Layers className="h-3.5 w-3.5" /> },
+                    { key: 'medical'      as const, label: 'Medical',     icon: <Activity className="h-3.5 w-3.5" /> },
+                    { key: 'documents'    as const, label: 'Documents',   icon: <FileText className="h-3.5 w-3.5" /> },
+                    { key: 'timeline'     as const, label: 'Timeline',    icon: <CalendarDays className="h-3.5 w-3.5" /> },
                   ]).map(({ key, label, icon }) => {
                     const isActive = patientModalTab === key;
                     return (
                       <button
                         key={key}
                         onClick={() => setPatientModalTab(key)}
-                        className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/30 ${
+                        className={`flex-none sm:flex-1 min-w-[68px] px-2 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/30 ${
                           isActive
                             ? 'text-primary border-primary'
                             : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
@@ -2662,51 +3237,60 @@ export default function DoctorDashboard() {
                 </div>
 
                 {/* Tab panels */}
-                <div className="overflow-y-auto flex-1">
+                <div className="min-h-0 overflow-y-auto flex-1">
 
                   {/* OVERVIEW TAB */}
                   {patientModalTab === 'overview' && (() => {
                     const drVisitType = (b as any).visitType || null;
                     const drTreatment = (b as any).treatmentCategory || null;
+                    const drBookedBy: string | null = (b as any).bookedBy ?? null;
+                    const drFallbackVisitKey = !drVisitType
+                      ? (drBookedBy === 'patient' ? 'booked_by_patient' : drBookedBy === 'admin' ? 'admin_booked' : null)
+                      : null;
                     const drComplaints = b.description
                       ? DR_CHIEF_COMPLAINTS.filter(c => b.description!.toLowerCase().includes(c.toLowerCase()))
                       : [];
                     return (
-                      <div className="px-4 pt-3 pb-4">
-                        <div className="rounded-xl border border-green-800/30 bg-white shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                      <div className="px-4 pt-4 pb-4">
+                        <section className="rounded-xl border border-border/60 bg-white dark:bg-card shadow-sm p-3 space-y-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
 
                           {/* Phone */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Phone className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Phone:</span>
                             {b.customerPhone ? (
-                              <>
-                                <a href={`tel:${b.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
+                              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+                                <a href={`tel:${b.customerPhone}`} className="min-w-0 max-w-full truncate font-semibold text-foreground hover:text-primary transition-colors">
                                   {b.customerPhone}
                                 </a>
-                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
+                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
                                   <Copy className="h-2.5 w-2.5 text-muted-foreground" />
                                 </button>
                                 <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
                                   <Phone className="h-2.5 w-2.5 text-primary" />
                                 </a>
-                              </>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground/50">–</span>
                             )}
                           </div>
 
                           {/* Visit Type */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Repeat2 className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Visit Type:</span>
                             {drVisitType ? (
-                              <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                               <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                                 {DR_VISIT_TYPE_LABELS[drVisitType] ?? drVisitType}
+                              </span>
+                            ) : drFallbackVisitKey ? (
+                                <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md">
+                                {DR_VISIT_TYPE_LABELS[drFallbackVisitKey]}
                               </span>
                             ) : (
                               <span className="text-muted-foreground/50">–</span>
@@ -2714,17 +3298,17 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Consent */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <PenLine className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Consent:</span>
                             {b.consentSignedAt ? (
-                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+                              <span className="inline-flex items-center gap-1 justify-self-start font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                                 <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                               </span>
-                            ) : (b.consentToken || (b as any).consentUrl) ? (
-                              <div className="flex items-center gap-1.5">
+                            ) : b.consentToken ? (
+                              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
                                 <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
                                   <Clock className="h-2.5 w-2.5" />Sent
                                 </span>
@@ -2738,7 +3322,7 @@ export default function DoctorDashboard() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    const url = (b as any).consentUrl || `${window.location.origin}/consent/${b.consentToken}`;
+                                    const url = `${window.location.origin}/consent/${b.consentToken}`;
                                     navigator.clipboard.writeText(url);
                                     notify.success("Consent link copied!");
                                   }}
@@ -2752,7 +3336,7 @@ export default function DoctorDashboard() {
                               <button
                                 onClick={() => requestConsentMutation.mutate(b.id)}
                                 disabled={requestConsentMutation.isPending}
-                                className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                                 className="inline-flex min-w-0 max-w-full items-center justify-self-start gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
                               >
                                 {requestConsentMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
                                 Send Link →
@@ -2761,13 +3345,13 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Treatment */}
-                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                               <Tag className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Treatment:</span>
                             {drTreatment ? (
-                              <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                               <span className="inline-flex w-fit min-w-0 max-w-full items-center justify-self-start font-semibold whitespace-normal break-words text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
                                 {drTreatment}
                               </span>
                             ) : (
@@ -2776,15 +3360,15 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Complaints — full width */}
-                          <div className="col-span-2 flex items-start gap-1.5 text-xs min-w-0">
+                          <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
                               <ClipboardList className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
                             {drComplaints.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
+                              <div className="flex min-w-0 flex-wrap gap-1">
                                 {drComplaints.map((c, idx) => (
-                                  <span key={idx} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                  <span key={idx} className="inline-flex max-w-full items-center break-words text-xs leading-tight font-medium text-muted-foreground bg-muted/30 border border-border/60 px-1.5 py-0.5 rounded-md">
                                     {c}
                                   </span>
                                 ))}
@@ -2795,14 +3379,14 @@ export default function DoctorDashboard() {
                           </div>
 
                           {/* Clinical Status — full width, conditional */}
-                          {b.clinicalStatus && DR_CLINICAL_STATUS[b.clinicalStatus] && (
-                            <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                          {b.clinicalStatus && (
+                          <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
                               <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                 <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
                               </div>
-                              <span className="text-muted-foreground shrink-0">Clinical:</span>
-                              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus].cls}`}>
-                                {DR_CLINICAL_STATUS[b.clinicalStatus].label}
+                              <span className="text-muted-foreground shrink-0">Clinical Status:</span>
+                               <span className={`inline-flex w-fit min-w-0 max-w-full items-center justify-self-start whitespace-normal break-words text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus]?.cls ?? "bg-slate-50 dark:bg-slate-900/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"}`}>
+                                {DR_CLINICAL_STATUS[b.clinicalStatus]?.label ?? b.clinicalStatus.replace(/_/g, " ")}
                               </span>
                             </div>
                           )}
@@ -2818,18 +3402,71 @@ export default function DoctorDashboard() {
                               null;
                             if (!confirmedByLabel) return null;
                             return (
-                              <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                              <div className="col-span-full flex min-w-0 items-center gap-1.5 text-xs">
                                 <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                   <CheckCircle2 className="h-3 w-3 text-primary" />
                                 </div>
                                 <span className="text-muted-foreground shrink-0">Confirmed by:</span>
-                                <span className="font-semibold text-foreground">{confirmedByLabel}</span>
+                                <span className="min-w-0 break-words font-semibold text-foreground">{confirmedByLabel}</span>
                               </div>
                             );
                           })()}
 
-                        </div>
+                          </div>
 
+                        {modalReviewAction && (
+                          <div className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${
+                            b.doctorApprovalStatus === "declined"
+                              ? "border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-400"
+                              : "border-border/50 bg-muted/30 text-muted-foreground"
+                          }`}>
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span>
+                              {b.doctorApprovalStatus === "declined"
+                                ? "Appointment declined"
+                                : b.verificationStatus === "no_show"
+                                ? "Patient did not arrive"
+                                : b.verificationStatus === "cancelled"
+                                ? "Appointment cancelled"
+                                : (b as any).visitStatus === "completed"
+                                ? "Visit completed"
+                                : (b as any).visitStatus === "patient_left_early"
+                                ? "Patient left before completion"
+                                : "Historical appointment"}
+                            </span>
+                          </div>
+                        )}
+
+                        <AppointmentInfoSection
+                          role="doctor"
+                          classification={classifyClientBooking(b, "doctor", createClientBookingDateContext())}
+                          inset={false}
+                          isCheckedInLate={!!b.checkedInAt && new Date(b.checkedInAt) > new Date(b.slot.endTime)}
+                          cancellationReason={b.cancellationReason}
+                          visitCompletionNote={(b as any).visitCompletionNote}
+                          billingStatusKnown={false}
+                          confirmedBy={b.confirmedBy ? (b.confirmedBy === "doctor" ? `Dr. ${b.assignedDoctor?.split(" ")[0] || "Doctor"}` : "Clinic Admin") : null}
+                        />
+
+                        <div className="border-t border-border/40 pt-2">
+                          <BookingProgressStrip
+                            stage={getBookingLifecycleStage(modalClassification)}
+                            isCancelled={b.verificationStatus === "cancelled"}
+                            isNoShow={b.verificationStatus === "no_show"}
+                            isLeftEarly={(b as any).visitStatus === "patient_left_early"}
+                            isOverride={
+                              (b as any).visitStatus === "completed" &&
+                              !(b as any).checkedInAt &&
+                              (b as any).visitStatus !== "patient_left_early"
+                            }
+                            checkedInAt={b.checkedInAt ?? undefined}
+                            completedAt={(b as any).completedAt ?? undefined}
+                            cancellationReason={b.cancellationReason ?? null}
+                            confirmedBy={(b as any).confirmedBy ?? null}
+                            visitCompletionNote={(b as any).visitCompletionNote ?? null}
+                          />
+                        </div>
+                        </section>
                       </div>
                     );
                   })()}
@@ -2838,7 +3475,19 @@ export default function DoctorDashboard() {
                   {patientModalTab === 'notes' && (
                     <div className="p-4 space-y-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                          <TooltipProvider delayDuration={400}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3 w-3 text-muted-foreground cursor-default" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs max-w-[240px]">
+                                Track the outcome of this case. 'Follow-up Required' = patient needs another visit. 'Case Closed' = treatment is complete.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <div className="flex gap-2">
                           <Select value={statusDraft} onValueChange={setStatusDraft}>
                             <SelectTrigger className="h-9 text-sm flex-1" data-testid="select-clinical-status">
@@ -2912,6 +3561,17 @@ export default function DoctorDashboard() {
                   )}
 
                   {/* CHART TAB — Odontogram */}
+                  {patientModalTab === 'documents' && (
+                    <PatientDocumentsTab
+                      bookingId={b.id}
+                      patientName={b.customerName}
+                      doctorName={profName || b.assignedDoctor}
+                      visitDate={startTime?.toISOString()}
+                      authorRole="doctor"
+                    />
+                  )}
+
+                  {/* CHART TAB — Odontogram */}
                   {patientModalTab === 'chart' && (() => {
                     const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
                     const bIsVisitCompleted = (b as any).visitStatus === 'completed';
@@ -2927,10 +3587,28 @@ export default function DoctorDashboard() {
                       />
                     );
                   })()}
+
+                  {/* MEDICAL HISTORY TAB */}
+                  {patientModalTab === 'medical' && (
+                    <MedicalHistoryTab
+                      bookingId={b.id}
+                      dialogExpanded={dialogExpanded}
+                      setDialogExpanded={setDialogExpanded}
+                    />
+                  )}
+
+                  {/* VISIT TIMELINE TAB */}
+                  {patientModalTab === 'timeline' && (
+                    <VisitTimelineTab
+                      bookingId={b.id}
+                      currentBookingId={b.id}
+                      onTabSwitch={(tab) => setPatientModalTab(tab === "prescription" ? "prescription" : "diagnosis")}
+                    />
+                  )}
                 </div>
 
                 {/* ── STICKY FOOTER — lifecycle action buttons ── */}
-                <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 space-y-2">
+                 <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 space-y-2">
                   {(() => {
                     const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
                     const bIsNoShow = b.verificationStatus === 'no_show';
@@ -2941,26 +3619,35 @@ export default function DoctorDashboard() {
                     const bIsCheckedIn = (b as any).visitStatus === 'checked_in';
                     const bIsPending = b.doctorApprovalStatus === 'pending';
                     const bIsDeclined = b.doctorApprovalStatus === 'declined';
+                     const bIsPast = modalClassification.isOld;
 
                     return (
                       <>
-                        {bIsDeclined && (
-                          <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800">
-                            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Appointment Declined</span>
-                          </div>
-                        )}
+                         {modalReviewAction && (
+                           <>
+                             <Button
+                               variant="outline"
+                                className="w-full h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
+                               onClick={() => setPatientModalTab("overview")}
+                               data-testid={`modal-button-${modalReviewAction.id}-${b.id}`}
+                             >
+                               <ClipboardList className="h-3.5 w-3.5" />
+                               {modalReviewAction.label}
+                             </Button>
+                           </>
+                         )}
 
-                        {bIsPending && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
-                          <div className="flex gap-2">
+                        {bIsPending && !bIsPast && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
+                           <div className="grid grid-cols-1 sm:grid-cols-2 items-stretch gap-2">
                             <Button size="sm"
-                              className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
+                               className="w-full h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
                               onClick={() => approveMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
                               data-testid={`modal-button-approve-${b.id}`}>
                               {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                               Accept
                             </Button>
                             <Button size="sm" variant="outline"
-                              className="flex-1 h-11 text-sm font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
+                               className="w-full h-11 text-sm font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
                               onClick={() => declineMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
                               data-testid={`modal-button-decline-${b.id}`}>
                               {declineMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
@@ -2969,40 +3656,11 @@ export default function DoctorDashboard() {
                           </div>
                         )}
 
-                        {bIsTerminal && (
-                          <div className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-muted/40 border border-border/40">
-                            <span className="text-xs text-muted-foreground">
-                              {bIsNoShow ? "Patient did not arrive" : bIsCancelled ? "Appointment cancelled" : "Patient left before completion"}
-                            </span>
-                          </div>
-                        )}
-
-                        {!bIsPending && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && (
-                          <TooltipProvider delayDuration={700}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="w-full cursor-not-allowed">
-                                  <Button
-                                    variant="outline"
-                                    className="w-full h-11 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
-                                    disabled tabIndex={-1}
-                                    data-testid={`modal-button-booked-${b.id}`}
-                                  >
-                                    <CalendarDays className="h-3.5 w-3.5" />Booked — Waiting for Arrival
-                                  </Button>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                Waiting for patient to arrive — no action required
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-
                         {bIsCheckedIn && (
-                          <>
-                            <Button
-                              className="w-full h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                           <>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 items-stretch gap-2">
+                             <Button
+                                className="w-full min-w-0 h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
                               onClick={() => startConsultationMutation.mutate(b.id)}
                               disabled={startConsultationMutation.isPending}
                               data-testid={`modal-button-start-consultation-${b.id}`}
@@ -3010,27 +3668,27 @@ export default function DoctorDashboard() {
                               {startConsultationMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
                               Start Consultation
                             </Button>
-                            <div className="flex gap-2">
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
                                 data-testid={`modal-button-notes-arrived-${b.id}`}>
                                 <FileText className="h-3 w-3" />View Notes
                               </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('diagnosis')}
                                 data-testid={`modal-button-add-observation-${b.id}`}>
                                 <ClipboardList className="h-3 w-3" />Add Observation
                               </Button>
-                            </div>
+                             </div>
                           </>
                         )}
 
                         {bIsInConsultation && (
-                          <>
-                            <Button
-                              className="w-full h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
+                           <>
+                              <div className="grid grid-cols-1 sm:grid-cols-4 items-stretch gap-2">
+                             <Button
+                                className="w-full min-w-0 h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
                               onClick={() => completeVisitMutation.mutate(b.id)}
                               disabled={completeVisitMutation.isPending}
                               data-testid={`modal-button-done-patient-${b.id}`}
@@ -3038,26 +3696,25 @@ export default function DoctorDashboard() {
                               {completeVisitMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                               Done with Patient
                             </Button>
-                            <div className="flex gap-1.5">
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('diagnosis')}
                                 data-testid={`modal-button-add-obs-${b.id}`}>
                                 <ClipboardList className="h-3 w-3" />Add Obs.
                               </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                                 onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
                                 data-testid={`modal-button-notes-consult-${b.id}`}>
                                 <FileText className="h-3 w-3" />Notes
                               </Button>
                               <Button size="sm"
-                                className="flex-1 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
+                                className="w-full h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
                                 onClick={() => setPatientModalTab('prescription')}
                                 data-testid={`modal-button-issue-rx-${b.id}`}>
                                 <Stethoscope className="h-3 w-3" />Issue Rx
                               </Button>
-                            </div>
+                             </div>
                           </>
                         )}
 
@@ -3082,61 +3739,23 @@ export default function DoctorDashboard() {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                            <div className="flex gap-2">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 items-stretch gap-2">
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                 className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                                 onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
                                 data-testid={`modal-button-notes-tmt-${b.id}`}>
                                 <FileText className="h-3 w-3" />View Notes
                               </Button>
                               <Button variant="outline" size="sm"
-                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                onClick={() => setPatientModalTab('diagnosis')}
+                                 className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('prescription')}
                                 data-testid={`modal-button-view-rx-${b.id}`}>
-                                <ClipboardList className="h-3 w-3" />View Rx / Rec
+                                <Pill className="h-3 w-3" />View / Edit Rx
                               </Button>
                             </div>
                           </>
                         )}
 
-                        {bIsVisitCompleted && (
-                          <>
-                            <TooltipProvider delayDuration={700}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="w-full cursor-not-allowed">
-                                    <Button
-                                      variant="outline"
-                                      className="w-full h-11 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
-                                      disabled tabIndex={-1}
-                                      data-testid={`modal-button-visit-complete-${b.id}`}
-                                    >
-                                      <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
-                                    </Button>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                  Visit complete — managed by the clinic
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <Button variant="outline" size="sm"
-                              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                              onClick={() => setPatientModalTab('notes')}
-                              data-testid={`modal-button-view-summary-${b.id}`}>
-                              <ClipboardList className="h-3 w-3" />View Summary
-                            </Button>
-                          </>
-                        )}
-
-                        {!bIsPending && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && !bIsTerminal && !bIsDeclined && (
-                          <Button variant="outline" size="sm"
-                            className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                            onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
-                            data-testid={`modal-button-notes-${b.id}`}>
-                            <FileText className="h-3 w-3" />View Notes
-                          </Button>
-                        )}
                       </>
                     );
                   })()}

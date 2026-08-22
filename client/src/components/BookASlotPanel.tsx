@@ -56,6 +56,8 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
   const [bookingEmail, setBookingEmail] = useState("");
   const [bookingAge, setBookingAge] = useState("");
   const [bookingGender, setBookingGender] = useState("");
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+  const [selectedPatientCode, setSelectedPatientCode] = useState<string | null>(null);
   const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -161,6 +163,11 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
 
   const handleBookingNameChange = (val: string) => {
     setBookingName(val);
+    // If the user edits the name after selecting an existing patient, treat it as a new patient entry
+    if (selectedPatientId !== null) {
+      setSelectedPatientId(null);
+      setSelectedPatientCode(null);
+    }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => fetchPatientSuggestions(val), 300);
   };
@@ -171,6 +178,10 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     setBookingEmail(p.email || "");
     setBookingAge(p.age ? String(p.age) : "");
     setBookingGender(p.gender || "");
+    setSelectedPatientId(p.id ?? null);
+    setSelectedPatientCode(p.patientCode ?? null);
+    // Auto-set visit type to Re-visit for existing patients; preserve manual override if already chosen
+    if (!bookingVisitType) setBookingVisitType("Re-visit");
     setPatientSuggestions([]);
     setShowSuggestions(false);
   };
@@ -181,6 +192,8 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     setBookingEmail("");
     setBookingAge("");
     setBookingGender("");
+    setSelectedPatientId(null);
+    setSelectedPatientCode(null);
     setBookingDescription("");
     setBookingDate(startOfToday());
     setSelectedSlot(null);
@@ -242,44 +255,49 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     const endTime = new Date(bookingDate);
     endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
 
-    const descParts: string[] = [];
-    if (bookingAppointmentCategory) descParts.push(`Category: ${bookingAppointmentCategory}`);
-    if (bookingVisitType) descParts.push(`Visit: ${bookingVisitType}`);
-    if (bookingAge) descParts.push(`Age: ${bookingAge}`);
-    if (bookingGender) descParts.push(`Gender: ${bookingGender}`);
-    if (bookingDescription) descParts.push(bookingDescription);
-
     const slotCost = bookingAppointmentCategory ? (PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) : 1;
 
     createBookingMutation.mutate({
       customerName: bookingName,
       customerPhone: bookingPhone,
       customerEmail: bookingEmail,
+      customerAge: bookingAge || undefined,
+      customerGender: bookingGender || undefined,
+      visitType: bookingVisitType || undefined,
+      treatmentCategory: bookingAppointmentCategory || undefined,
+      description: bookingDescription || undefined,
       clinicId: clinic.id,
       clinicName: clinic.name,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      description: descParts.join(' | '),
       slotCost,
       verificationStatus: 'confirmed',
       confirmedBy: 'admin',
+      patientId: selectedPatientId ?? undefined,
     } as any);
   };
 
   return (
-    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-      <div className="flex border-b border-border/40">
-        <div className="w-1.5 bg-primary/60 shrink-0" />
-        <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <Plus className="h-[18px] w-[18px] text-primary" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">Book a Slot</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Create a new patient appointment</p>
+    <div className="space-y-5">
+
+      {/* Panel header — standalone card */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        <div className="flex">
+          <div className="w-1.5 bg-primary/60 shrink-0" />
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <Plus className="h-[18px] w-[18px] text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">Book a Slot</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Create a new patient appointment</p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Content card — detached */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
       <div className="p-3 sm:p-5">
         {bookingSuccess ? (
           <div className="py-10 flex flex-col items-center gap-5 text-center">
@@ -355,7 +373,15 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
                     autoComplete="off"
                     data-testid="input-booking-name"
+                    className={selectedPatientId !== null ? "border-primary/50 ring-1 ring-primary/20" : ""}
                   />
+                  {selectedPatientCode && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                        {selectedPatientCode}
+                      </span>
+                    </div>
+                  )}
                   {suggestionsLoading && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
@@ -875,6 +901,8 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
           </div>
         )}
       </div>
+      </div>
+
     </div>
   );
 }

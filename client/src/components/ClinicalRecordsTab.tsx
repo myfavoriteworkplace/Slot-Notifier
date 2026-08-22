@@ -7,7 +7,11 @@ import { format } from "date-fns";
 import {
   Loader2, Plus, Pencil, Trash2, Printer, Eye, FileText, Stethoscope,
   ChevronDown, ChevronUp, ChevronRight, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
+  MoreVertical, MapPin, History,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,16 +99,16 @@ const DIAGNOSIS_TAGS = [
 
 // ─── Prescription table display ───────────────────────────────────────────────
 
-function PrescriptionDisplay({ prescription }: { prescription: string | null | undefined }) {
+function PrescriptionDisplay({ prescription, historical = false }: { prescription: string | null | undefined; historical?: boolean }) {
   const rows = parsePrescription(prescription);
   if (rows && rows.length > 0) {
     const hasRoute = rows.some(r => r.route && r.route !== 'Oral');
     const hasRemarks = rows.some(r => r.remarks);
     return (
-      <div className="overflow-x-auto rounded-lg border border-border/50">
+      <div className={`overflow-x-auto rounded-lg border ${historical ? "border-slate-300 dark:border-slate-600" : "border-border/50"}`}>
         <table className="w-full text-xs">
           <thead>
-            <tr className="bg-muted/40 border-b border-border/40">
+            <tr className={historical ? "bg-slate-100/70 dark:bg-slate-800/50 border-b border-slate-300 dark:border-slate-600" : "bg-muted/40 border-b border-border/40"}>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Medicine</th>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Dosage</th>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Qty</th>
@@ -118,8 +122,8 @@ function PrescriptionDisplay({ prescription }: { prescription: string | null | u
             {rows.map((r, i) => {
               const durStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '—');
               return (
-                <tr key={i} className="bg-background">
-                  <td className="px-2 py-1.5 font-medium text-foreground">{r.name || '—'}</td>
+                <tr key={i} className={historical ? "bg-slate-50/80 dark:bg-slate-900/30" : "bg-background"}>
+                  <td className={`px-2 py-1.5 font-medium ${historical ? "text-slate-700 dark:text-slate-300" : "text-foreground"}`}>{r.name || '—'}</td>
                   <td className="px-2 py-1.5 text-muted-foreground">{r.dosage || '—'}</td>
                   <td className="px-2 py-1.5 text-muted-foreground">{r.qty || '—'}</td>
                   <td className="px-2 py-1.5 text-muted-foreground">{r.frequency || '—'}</td>
@@ -274,94 +278,166 @@ function HistoryRow({
   onEdit,
   onPdf,
   mode,
+  historical = false,
 }: {
   record: ClinicalRecord;
   type: "diagnosis" | "prescription";
   onEdit?: () => void;
   onPdf: () => void;
   mode: "doctor" | "admin";
+  historical?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const teeth = (record.affectedTeeth as string[] | null) ?? [];
+  const rxMeds = parsePrescription(record.prescription);
+  const rxPreview = rxMeds ? rxMeds.slice(0, 2).map(r => r.name).filter(Boolean).join(", ") : null;
 
-  const preview =
-    type === "diagnosis"
-      ? (record.diagnosis ?? []).slice(0, 2).join(", ") + ((record.diagnosis ?? []).length > 2 ? "…" : "")
-      : (parsePrescription(record.prescription) ?? []).slice(0, 1).map(r => r.name).join("") || record.prescription?.slice(0, 30) || "";
+  const actionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="ghost"
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+          aria-label="Record actions"
+          onClick={e => e.stopPropagation()}>
+          <MoreVertical className="h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="text-xs w-36">
+        <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Eye className="h-3 w-3" /> Preview</DropdownMenuItem>
+        <DropdownMenuItem onClick={onPdf} className="gap-1.5"><Printer className="h-3 w-3" /> Print</DropdownMenuItem>
+        {onEdit && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onEdit} className="gap-1.5"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
-  return (
-    <div className="px-3 py-2">
-      <button
-        className="w-full flex items-center justify-between gap-2 text-left min-h-[44px]"
-        onClick={() => setExpanded(v => !v)}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs text-muted-foreground font-medium shrink-0">
-            {format(new Date(record.createdAt!), "MMM d, yyyy")}
+  /* ── Collapsed summary row (common to both types) ── */
+  const summaryRow = (
+    <button
+      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors min-h-[44px]"
+      onClick={() => setExpanded(v => !v)}>
+      <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600" />
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+          {format(new Date(record.createdAt!), "d MMM yyyy")}
+        </span>
+        {record.doctorName && (
+          <span className="text-[11px] text-muted-foreground/70 shrink-0">· Dr. {record.doctorName}</span>
+        )}
+        {type === "diagnosis" && (
+          <>
+            {teeth.length > 0 && (
+                <span className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 shrink-0 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50"}`}>
+                [{teeth.join(", ")}]
+              </span>
+            )}
+            {(record.diagnosis ?? []).map(d => (
+              <span key={d} className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-green-700/25 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300"}`}>
+                {d}
+              </span>
+            ))}
+            {record.prescription && (
+              <span className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 shrink-0 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-transparent bg-primary/10 text-primary"}`}>Rx ✓</span>
+            )}
+          </>
+        )}
+        {type === "prescription" && rxPreview && (
+          <span className="text-[11px] text-muted-foreground/70 truncate">{rxPreview}</span>
+        )}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {mode === "doctor" && actionsMenu}
+        {expanded
+          ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" />
+          : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
+      </div>
+    </button>
+  );
+
+  /* ── Expanded detail panel ── */
+  const detailPanel = expanded && (
+    <div className="px-3 pb-3 pt-1 space-y-1.5 border-t border-border/20 bg-muted/20 animate-in slide-in-from-top-1 duration-150">
+      {/* Recorded by */}
+      {record.doctorName && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0">Recorded by</span>
+          <span className="text-xs text-foreground flex items-center gap-1">
+            <Stethoscope className="h-3 w-3 text-muted-foreground" /> Dr. {record.doctorName}
           </span>
-          {preview && (
-            <span className="text-xs text-primary/70 font-semibold truncate">{preview}</span>
-          )}
-          {type === "diagnosis" && record.prescription && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold leading-none shrink-0">Rx ✓</span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button size="sm" variant="ghost"
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-            aria-label="Preview record"
-            onClick={e => { e.stopPropagation(); onPdf(); }}>
-            <Eye className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="sm" variant="ghost"
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-            aria-label="Print record"
-            onClick={e => { e.stopPropagation(); onPdf(); }}>
-            <Printer className="h-3.5 w-3.5" />
-          </Button>
-          {mode === "doctor" && onEdit && (
-            <Button size="sm" variant="ghost"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-              onClick={e => { e.stopPropagation(); onEdit(); }}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {expanded
-            ? <ChevronUp className="h-3 w-3 text-muted-foreground" />
-            : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="mt-2 space-y-1.5 animate-in slide-in-from-top-1 duration-150">
-          {record.doctorName && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Stethoscope className="h-3 w-3" /> Dr. {record.doctorName}
-            </p>
-          )}
-          {type === "diagnosis" && record.diagnosis && record.diagnosis.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {record.diagnosis.map(d => (
-                <Badge key={d} variant="outline"
-                  className="text-xs px-1.5 py-0 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
-                  {d}
-                </Badge>
-              ))}
-            </div>
-          )}
-          {type === "diagnosis" && record.prescription && (
-            <div className="pt-1.5 border-t border-border/20 space-y-1">
-              <div className="flex items-center gap-1.5">
-                <Pill className="h-3 w-3 text-primary" />
-                <span className="text-xs font-semibold text-primary">Linked Prescription</span>
-              </div>
-              <PrescriptionDisplay prescription={record.prescription} />
-            </div>
-          )}
-          {type === "prescription" && record.prescription && (
-            <PrescriptionDisplay prescription={record.prescription} />
-          )}
         </div>
       )}
+
+      {type === "diagnosis" && (
+        <>
+          {/* Anat. Focus */}
+          {teeth.length > 0 && (
+            <div className="flex items-start gap-1.5 flex-wrap">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Anat. Focus</span>
+              <div className="flex flex-wrap gap-1 flex-1">
+                {teeth.map(t => (
+                  <span key={t}
+                    className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-5 ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50"}`}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Findings */}
+          {(record.diagnosis ?? []).length > 0 && (
+            <div className="flex items-start gap-1.5 flex-wrap">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Findings</span>
+              <div className="flex flex-wrap gap-1 flex-1">
+                {(record.diagnosis ?? []).map(d => (
+                  <Badge key={d} variant="outline"
+                    className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${historical ? "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" : "border-green-800/30 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 dark:border-green-700/50"}`}>
+                    {d}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {record.notes && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Notes</span>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line flex-1">{record.notes}</p>
+            </div>
+          )}
+
+          {/* Linked Rx */}
+          {record.prescription && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Medicines</span>
+              <div className="flex-1">
+                <PrescriptionDisplay prescription={record.prescription} historical={historical} />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {type === "prescription" && record.prescription && (
+        <div className="flex items-start gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Medicines</span>
+          <div className="flex-1">
+            <PrescriptionDisplay prescription={record.prescription} historical={historical} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="border-b border-border/30 overflow-hidden mb-1.5 last:mb-0">
+      {summaryRow}
+      {detailPanel}
     </div>
   );
 }
@@ -383,6 +459,8 @@ export default function ClinicalRecordsTab({
   const [showDxForm, setShowDxForm] = useState(false);
   const [dxEditId, setDxEditId] = useState<number | null>(null);
   const [dxTags, setDxTags] = useState<string[]>([]);
+  const [dxTeeth, setDxTeeth] = useState<string[]>([]);
+  const [dxToothInput, setDxToothInput] = useState("");
   const [dxNotes, setDxNotes] = useState("");
   const [showDxHistory, setShowDxHistory] = useState(false);
 
@@ -393,6 +471,9 @@ export default function ClinicalRecordsTab({
   const [showRxHistory, setShowRxHistory] = useState(false);
   // When set, saving the Rx form PATCHes this record id (links Rx to an existing Dx row)
   const [rxLinkedToDxId, setRxLinkedToDxId] = useState<number | null>(null);
+
+  // ── Previous visits history (read-only) ────────────────────────────────────
+  const [showPastVisits, setShowPastVisits] = useState(false);
 
 
   // ── Pharmacy catalogue (doctor mode only) — loaded once, used for autocomplete ──
@@ -421,7 +502,7 @@ export default function ClinicalRecordsTab({
     return null;
   };
 
-  // ── Query ──────────────────────────────────────────────────────────────────
+  // ── Query — current booking records ───────────────────────────────────────
   const queryKey = ["/api/clinical-records/booking", bookingId];
 
   const { data: records = [], isLoading, error } = useQuery<ClinicalRecord[]>({
@@ -434,11 +515,23 @@ export default function ClinicalRecordsTab({
     },
   });
 
+  // ── Query — previous visits for the same patient (read-only) ───────────────
+  interface PastVisit { bookingId: number; slotDate: string; records: ClinicalRecord[] }
+  const { data: pastVisits = [] } = useQuery<PastVisit[]>({
+    queryKey: ["/api/clinical-records/booking", bookingId, "patient-history"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/clinical-records/booking/${bookingId}/patient-history`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // ── Derived record streams ─────────────────────────────────────────────────
   const dxRecords = records.filter(r => r.diagnosis && r.diagnosis.length > 0);
-  // Records that have BOTH diagnosis + prescription show inside the Dx card (linked).
-  // Standalone prescriptions (no diagnosis on the same row) get their own Rx section.
-  const rxRecords = records.filter(r => !!r.prescription && (!r.diagnosis || r.diagnosis.length === 0));
+  // Records that have BOTH diagnosis + prescription show inside the Dx card (linked)
+  // AND in the Prescription tab, so the prescription is visible from either tab.
+  const rxRecords = records.filter(r => !!r.prescription);
   const latestDx = dxRecords[0] ?? null;
   const historyDx = dxRecords.slice(1);
   const latestRx = rxRecords[0] ?? null;
@@ -456,12 +549,13 @@ export default function ClinicalRecordsTab({
 
   // ── Create mutation ────────────────────────────────────────────────────────
   const createMutation = useMutation({
-    mutationFn: async (payload: { diagnosis?: string[]; prescription?: string | null; notes?: string | null }) => {
+    mutationFn: async (payload: { diagnosis?: string[]; affectedTeeth?: string[]; prescription?: string | null; notes?: string | null }) => {
       const res = await apiRequest("POST", "/api/clinical-records", {
         bookingId, clinicId, patientName,
         patientPhone: patientPhone || null,
         doctorName: doctorName || null,
         diagnosis: payload.diagnosis ?? [],
+        affectedTeeth: payload.affectedTeeth ?? [],
         prescription: payload.prescription ?? null,
         notes: payload.notes ?? null,
       });
@@ -478,7 +572,7 @@ export default function ClinicalRecordsTab({
 
   // ── Update mutation ────────────────────────────────────────────────────────
   const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: number; payload: Partial<{ diagnosis: string[]; prescription: string | null; notes: string | null; doctorName: string | null }> }) => {
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<{ diagnosis: string[]; affectedTeeth: string[]; prescription: string | null; notes: string | null; doctorName: string | null }> }) => {
       const res = await apiRequest("PATCH", `/api/clinical-records/${id}`, { ...payload, doctorName: doctorName || null });
       if (!res.ok) { const b = await res.json(); throw new Error(b.message); }
       return res.json();
@@ -503,7 +597,7 @@ export default function ClinicalRecordsTab({
 
   // ── Reset all forms ────────────────────────────────────────────────────────
   const resetForms = () => {
-    setShowDxForm(false); setDxEditId(null); setDxTags([]); setDxNotes("");
+    setShowDxForm(false); setDxEditId(null); setDxTags([]); setDxTeeth([]); setDxToothInput(""); setDxNotes("");
     setShowRxForm(false); setRxEditId(null); setRxRows([emptyRow()]); setRxLinkedToDxId(null);
   };
 
@@ -512,6 +606,7 @@ export default function ClinicalRecordsTab({
     resetForms();
     setDxEditId(record.id);
     setDxTags(record.diagnosis || []);
+    setDxTeeth((record.affectedTeeth as string[] | null) || []);
     setDxNotes(record.notes || "");
     setShowDxForm(true);
   };
@@ -638,7 +733,7 @@ export default function ClinicalRecordsTab({
 
                 {/* Tag picker */}
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label className="label-field">
                     Select diagnosis <span className="normal-case font-normal">(one or more)</span>
                   </Label>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -672,9 +767,71 @@ export default function ClinicalRecordsTab({
                   </div>
                 )}
 
+                {/* Anatomical focus */}
+                <div>
+                  <Label className="label-field flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> Anatomical Focus <span className="normal-case font-normal">(optional — tooth numbers or quadrants)</span>
+                  </Label>
+                  {/* Quick quadrant buttons */}
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {["Generalized", "Upper Right", "Upper Left", "Lower Right", "Lower Left"].map(q => (
+                      <button key={q} type="button"
+                        onClick={() => { if (!dxTeeth.includes(q)) setDxTeeth(prev => [...prev, q]); }}
+                        className="text-[10px] px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold transition-colors dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50"
+                        data-testid={`btn-quadrant-${q.toLowerCase().replace(/ /g,"-")}`}>
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Tooth number input */}
+                  <div className="flex gap-1.5 mt-1.5">
+                    <Input
+                      value={dxToothInput}
+                      onChange={e => setDxToothInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          const val = dxToothInput.trim().replace(/^[Tt]ooth\s*/i, "");
+                          if (val && !dxTeeth.includes(`Tooth ${val}`)) {
+                            setDxTeeth(prev => [...prev, `Tooth ${val}`]);
+                          }
+                          setDxToothInput("");
+                        }
+                      }}
+                      placeholder="e.g. 14, 36"
+                      className="h-7 text-xs w-36"
+                      data-testid="input-tooth-number"
+                    />
+                    <Button size="sm" type="button" variant="outline"
+                      className="h-7 px-2.5 text-xs"
+                      onClick={() => {
+                        const val = dxToothInput.trim().replace(/^[Tt]ooth\s*/i, "");
+                        if (val && !dxTeeth.includes(`Tooth ${val}`)) {
+                          setDxTeeth(prev => [...prev, `Tooth ${val}`]);
+                        }
+                        setDxToothInput("");
+                      }}>
+                      Add
+                    </Button>
+                  </div>
+                  {dxTeeth.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {dxTeeth.map(t => (
+                        <Badge key={t} variant="outline"
+                          className="text-xs px-1.5 py-0 rounded-full border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50 gap-1">
+                          {t}
+                          <button type="button" onClick={() => setDxTeeth(prev => prev.filter(x => x !== t))} className="hover:text-destructive ml-0.5">
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Optional notes */}
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label className="label-field">
                     Notes <span className="normal-case font-normal">(optional)</span>
                   </Label>
                   <textarea
@@ -682,7 +839,7 @@ export default function ClinicalRecordsTab({
                     onChange={e => setDxNotes(e.target.value)}
                     placeholder="Additional observations…"
                     rows={2}
-                    className="w-full mt-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground/60 placeholder:italic focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="w-full mt-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-xs focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/20"
                     data-testid="textarea-dx-notes"
                   />
                 </div>
@@ -690,8 +847,8 @@ export default function ClinicalRecordsTab({
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" className="flex-1 h-8 text-xs font-bold"
                     onClick={() => {
-                      if (dxEditId) updateMutation.mutate({ id: dxEditId, payload: { diagnosis: dxTags, notes: dxNotes || null } });
-                      else createMutation.mutate({ diagnosis: dxTags, notes: dxNotes || null });
+                      if (dxEditId) updateMutation.mutate({ id: dxEditId, payload: { diagnosis: dxTags, affectedTeeth: dxTeeth, notes: dxNotes || null } });
+                      else createMutation.mutate({ diagnosis: dxTags, affectedTeeth: dxTeeth, notes: dxNotes || null });
                     }}
                     disabled={isSaving || dxTags.length === 0}
                     data-testid="button-save-diagnosis">
@@ -718,90 +875,107 @@ export default function ClinicalRecordsTab({
 
           {/* Latest Diagnosis */}
           {latestDx && !(showDxForm && dxEditId === latestDx.id) ? (
-            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
-              <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <ClipboardList className="h-3 w-3 text-green-800" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Latest Diagnosis</span>
-                  <span className="text-xs text-muted-foreground/60 font-medium">
-                    {format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a")}
+            <div className="rounded-md border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
+              {/* ── Consolidated single-row header ─────────────────────── */}
+              <div className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2 min-h-[36px]">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
+                  <ClipboardList className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-green-800 dark:text-green-300 shrink-0">Latest Diagnosis</span>
+                  <span className="text-[10px] text-muted-foreground/70 font-medium shrink-0">
+                    · {format(new Date(latestDx.createdAt!), "d MMM yyyy, h:mm a")}
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                    aria-label="Preview diagnosis"
-                    onClick={() => printClinicalRecord({
-                      type: "diagnosis",
-                      clinicName,
-                      patientName,
-                      patientPhone,
-                      doctorName: latestDx.doctorName,
-                      date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"),
-                      diagnosis: latestDx.diagnosis ?? [],
-                      notes: latestDx.notes,
-                    })}
-                    data-testid="button-preview-dx-pdf">
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                    aria-label="Print diagnosis"
-                    onClick={() => printClinicalRecord({
-                      type: "diagnosis",
-                      clinicName,
-                      patientName,
-                      patientPhone,
-                      doctorName: latestDx.doctorName,
-                      date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"),
-                      diagnosis: latestDx.diagnosis ?? [],
-                      notes: latestDx.notes,
-                    })}
-                    data-testid="button-print-dx-pdf">
-                    <Printer className="h-3.5 w-3.5" />
-                  </Button>
-                  {mode === "doctor" && (
-                    <>
-                      <Button size="sm" variant="ghost"
-                        className="h-7 px-2.5 text-xs gap-1 text-muted-foreground hover:text-primary"
-                        onClick={() => startEditDx(latestDx)}
-                        data-testid="button-edit-dx">
-                        <Pencil className="h-3 w-3" /> Edit
-                      </Button>
-                      <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteMutation.mutate(latestDx.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid="button-delete-dx">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="ghost"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                      aria-label="Diagnosis actions"
+                      data-testid="button-dx-actions">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="text-xs w-36">
+                    <DropdownMenuItem
+                      onClick={() => printClinicalRecord({ type: "diagnosis", clinicName, patientName, patientPhone, doctorName: latestDx.doctorName, date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"), diagnosis: latestDx.diagnosis ?? [], notes: latestDx.notes })}
+                      className="gap-1.5" data-testid="button-preview-dx-pdf">
+                      <Eye className="h-3 w-3" /> Preview
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => printClinicalRecord({ type: "diagnosis", clinicName, patientName, patientPhone, doctorName: latestDx.doctorName, date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"), diagnosis: latestDx.diagnosis ?? [], notes: latestDx.notes })}
+                      className="gap-1.5" data-testid="button-print-dx-pdf">
+                      <Printer className="h-3 w-3" /> Print
+                    </DropdownMenuItem>
+                    {mode === "doctor" && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => startEditDx(latestDx)} className="gap-1.5" data-testid="button-edit-dx">
+                          <Pencil className="h-3 w-3" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => deleteMutation.mutate(latestDx.id)}
+                          className="gap-1.5 text-destructive focus:text-destructive" data-testid="button-delete-dx">
+                          <Trash2 className="h-3 w-3" /> Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <div className="px-3 py-2.5 space-y-2">
+
+              {/* ── Card body ──────────────────────────────────────────── */}
+              <div className="px-3 py-2 space-y-1.5">
+
+                {/* Recorded by */}
                 {latestDx.doctorName && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Stethoscope className="h-3 w-3" /> Dr. {latestDx.doctorName}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-1">
-                  {latestDx.diagnosis!.map(d => (
-                    <Badge key={d} variant="outline"
-                      className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
-                      {d}
-                    </Badge>
-                  ))}
-                </div>
-                {latestDx.notes && (
-                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-t border-border/30 pt-2">
-                    {latestDx.notes}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0">Recorded by</span>
+                    <span className="text-xs text-foreground flex items-center gap-1">
+                      <Stethoscope className="h-3 w-3 text-muted-foreground" /> Dr. {latestDx.doctorName}
+                    </span>
+                  </div>
                 )}
 
-                {/* Linked prescription — shown inline when the Dx record also has a prescription */}
+                {/* Anatomical focus */}
+                {((latestDx.affectedTeeth as string[] | null) ?? []).length > 0 && (
+                  <div className="flex items-start gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Anat. Focus</span>
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {((latestDx.affectedTeeth as string[]) ?? []).map(t => (
+                        <span key={t}
+                          className="text-[10px] px-1.5 py-0 rounded-full border border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/50 font-semibold leading-5">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Clinical findings */}
+                <div className="flex items-start gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Findings</span>
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {latestDx.diagnosis!.map(d => (
+                      <Badge key={d} variant="outline"
+                        className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 dark:border-green-700/50 font-semibold">
+                        {d}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Clinical notes */}
+                {latestDx.notes && (
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Notes</span>
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line flex-1">
+                      {latestDx.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Linked prescription */}
                 {latestDx.prescription && (
-                  <div className="pt-2 border-t border-border/20 space-y-1.5">
+                  <div className="pt-1.5 border-t border-border/20 space-y-1">
                     <div className="flex items-center gap-1.5">
                       <Pill className="h-3 w-3 text-primary" />
                       <span className="text-xs font-semibold text-primary">Linked Prescription</span>
@@ -810,14 +984,14 @@ export default function ClinicalRecordsTab({
                   </div>
                 )}
 
-                {/* Add prescription link — doctor mode only, no Rx yet, form not open */}
+                {/* Add Rx micro-button */}
                 {mode === "doctor" && !latestDx.prescription && !showRxForm && (
-                  <div className="pt-2 border-t border-border/20">
+                  <div className="pt-1.5 border-t border-border/20">
                     <button
                       onClick={() => { setRxLinkedToDxId(latestDx.id); setShowRxForm(true); }}
                       className="flex items-center gap-1 text-xs text-primary hover:text-primary/70 font-medium transition-colors"
                       data-testid="button-add-rx-for-dx">
-                      <Pill className="h-3 w-3" /> Add prescription for this diagnosis →
+                      <Pill className="h-3 w-3" /> + Add Prescription
                     </button>
                   </div>
                 )}
@@ -838,7 +1012,7 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowDxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-dx-history">
                 {mode === "admin" ? (
                   <>View all old diagnosis ({historyDx.length + 1}) <ChevronRight className="h-3 w-3" /></>
@@ -850,7 +1024,7 @@ export default function ClinicalRecordsTab({
                 )}
               </button>
               {showDxHistory && (
-                <div className="rounded-xl border border-border/60 bg-muted/30 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/30 overflow-hidden mt-1 divide-y divide-slate-200 dark:divide-slate-700 animate-in slide-in-from-top-1 duration-150">
                   {historyDx.map(record => (
                     <HistoryRow
                       key={record.id}
@@ -911,17 +1085,17 @@ export default function ClinicalRecordsTab({
                 {/* ── Compact prescription grid ─────────────────────────── */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Label className="label-field flex items-center gap-1">
                       <Pill className="h-3 w-3" /> Medicines
                     </Label>
                   </div>
 
                   {/* Column headers */}
                   <div className="overflow-x-auto">
-                    <div className="min-w-[664px]">
-                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+                    <div className="min-w-[540px]">
+                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "20px 160px 56px 40px 52px 40px 58px 62px 20px" }}>
                         {["#", "Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
-                          <span key={i} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 truncate">{h}</span>
+                          <span key={i} className="label-field/70 truncate">{h}</span>
                         ))}
                       </div>
 
@@ -933,7 +1107,7 @@ export default function ClinicalRecordsTab({
                           <div key={idx} className="space-y-0.5" data-testid={`medicine-row-${idx}`}>
                             <div
                               className="grid gap-x-1 items-center"
-                              style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+                              style={{ gridTemplateColumns: "20px 160px 56px 40px 52px 40px 58px 62px 20px" }}>
 
                             {/* Serial number */}
                             <span className="text-xs text-muted-foreground/60 font-semibold text-center select-none">
@@ -1060,74 +1234,69 @@ export default function ClinicalRecordsTab({
 
           {/* Latest Prescription */}
           {latestRx && !(showRxForm && rxEditId === latestRx.id) && !rxLinkedToDxId ? (
-            <div className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden">
-              <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <Pill className="h-3 w-3 text-primary" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">Latest Prescription</span>
-                  <span className="text-xs text-muted-foreground/60 font-medium">
-                    {format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a")}
+            <div className="rounded-md border border-green-800/30 bg-white dark:bg-card shadow-sm overflow-hidden">
+              {/* ── Single-row header ──────────────────────────────────── */}
+              <div className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2 min-h-[36px]">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
+                  <Pill className="h-3 w-3 text-green-800 dark:text-green-300 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-green-800 dark:text-green-300 shrink-0">Latest Prescription</span>
+                  <span className="text-[10px] text-muted-foreground/70 font-medium shrink-0">
+                    · {format(new Date(latestRx.createdAt!), "d MMM yyyy, h:mm a")}
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                    aria-label="Preview prescription"
-                    onClick={() => printClinicalRecord({
-                      type: "prescription",
-                      clinicName,
-                      patientName,
-                      patientPhone,
-                      doctorName: latestRx.doctorName,
-                      date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"),
-                      medicines: parsePrescription(latestRx.prescription),
-                      rawPrescription: latestRx.prescription,
-                    })}
-                    data-testid="button-preview-rx-pdf">
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                    aria-label="Print prescription"
-                    onClick={() => printClinicalRecord({
-                      type: "prescription",
-                      clinicName,
-                      patientName,
-                      patientPhone,
-                      doctorName: latestRx.doctorName,
-                      date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"),
-                      medicines: parsePrescription(latestRx.prescription),
-                      rawPrescription: latestRx.prescription,
-                    })}
-                    data-testid="button-print-rx-pdf">
-                    <Printer className="h-3.5 w-3.5" />
-                  </Button>
-                  {mode === "doctor" && (
-                    <>
-                      <Button size="sm" variant="ghost"
-                        className="h-7 px-2.5 text-xs gap-1 text-muted-foreground hover:text-primary"
-                        onClick={() => startEditRx(latestRx)}
-                        data-testid="button-edit-rx">
-                        <Pencil className="h-3 w-3" /> Edit
-                      </Button>
-                      <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteMutation.mutate(latestRx.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid="button-delete-rx">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="ghost"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                      aria-label="Prescription actions"
+                      data-testid="button-rx-actions">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="text-xs w-36">
+                    <DropdownMenuItem
+                      onClick={() => printClinicalRecord({ type: "prescription", clinicName, patientName, patientPhone, doctorName: latestRx.doctorName, date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"), medicines: parsePrescription(latestRx.prescription), rawPrescription: latestRx.prescription })}
+                      className="gap-1.5" data-testid="button-preview-rx-pdf">
+                      <Eye className="h-3 w-3" /> Preview
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => printClinicalRecord({ type: "prescription", clinicName, patientName, patientPhone, doctorName: latestRx.doctorName, date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"), medicines: parsePrescription(latestRx.prescription), rawPrescription: latestRx.prescription })}
+                      className="gap-1.5" data-testid="button-print-rx-pdf">
+                      <Printer className="h-3 w-3" /> Print
+                    </DropdownMenuItem>
+                    {mode === "doctor" && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => startEditRx(latestRx)} className="gap-1.5" data-testid="button-edit-rx">
+                          <Pencil className="h-3 w-3" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => deleteMutation.mutate(latestRx.id)}
+                          className="gap-1.5 text-destructive focus:text-destructive" data-testid="button-delete-rx">
+                          <Trash2 className="h-3 w-3" /> Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <div className="px-3 py-2.5 space-y-2">
+
+              {/* ── Card body ──────────────────────────────────────────── */}
+              <div className="px-3 py-2 space-y-1.5">
                 {latestRx.doctorName && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Stethoscope className="h-3 w-3" /> Dr. {latestRx.doctorName}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0">Recorded by</span>
+                    <span className="text-xs text-foreground flex items-center gap-1">
+                      <Stethoscope className="h-3 w-3 text-muted-foreground" /> Dr. {latestRx.doctorName}
+                    </span>
+                  </div>
                 )}
-                <PrescriptionDisplay prescription={latestRx.prescription} />
+                <div className="flex items-start gap-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 w-24 shrink-0 pt-0.5">Medicines</span>
+                  <div className="flex-1">
+                    <PrescriptionDisplay prescription={latestRx.prescription} />
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -1145,7 +1314,7 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowRxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-rx-history">
                 {mode === "admin" ? (
                   <>View all old prescriptions ({historyRx.length + 1}) <ChevronRight className="h-3 w-3" /></>
@@ -1179,6 +1348,108 @@ export default function ClinicalRecordsTab({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Previous Visit Records — read-only, collapsible ─────────────────── */}
+      {pastVisits.length > 0 && (
+        <div className="border-t border-slate-200 dark:border-slate-700 mt-1">
+          <button
+            onClick={() => setShowPastVisits(v => !v)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors min-h-[44px]"
+            data-testid="button-toggle-past-visit-records"
+          >
+            <History className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex-1 text-left">
+              Previous Visit Records
+              <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-500">
+                ({pastVisits.reduce((a, v) => a + v.records.length, 0)} record{pastVisits.reduce((a, v) => a + v.records.length, 0) !== 1 ? "s" : ""} across {pastVisits.length} visit{pastVisits.length !== 1 ? "s" : ""})
+              </span>
+            </span>
+            {showPastVisits
+              ? <ChevronUp className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+              : <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            }
+          </button>
+
+          {showPastVisits && (
+            <div className="border-t border-slate-300 bg-slate-50/60 dark:border-slate-600 dark:bg-slate-900/20 px-0 py-3 space-y-4">
+              {pastVisits.map((visit) => {
+                const visitDx = visit.records.filter(r => r.diagnosis && (r.diagnosis as string[]).length > 0);
+                const visitRx = visit.records.filter(r => !!r.prescription);
+                return (
+                  <div key={visit.bookingId} className="rounded-md border border-slate-300 bg-slate-50/80 dark:border-slate-600 dark:bg-slate-900/30 overflow-hidden">
+                    {/* Visit date header */}
+                    <div className="px-3 py-2 bg-slate-100/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                        Visit — {format(new Date(visit.slotDate), "d MMM yyyy, h:mm a")}
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                      </p>
+                    </div>
+
+                    {visitDx.length > 0 && (
+                      <div>
+                        <p className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <Stethoscope className="h-3 w-3" /> Diagnosis
+                        </p>
+                        <div className="border-t border-slate-200 dark:border-slate-700 bg-muted/20 overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
+                          {visitDx.map(record => (
+                            <HistoryRow
+                              key={record.id}
+                              record={record}
+                              type="diagnosis"
+                              mode={mode}
+                              historical
+                              onPdf={() => printClinicalRecord({
+                                type: "diagnosis",
+                                clinicName,
+                                patientName,
+                                patientPhone,
+                                doctorName: record.doctorName,
+                                date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                                diagnosis: record.diagnosis ?? [],
+                                notes: record.notes,
+                              })}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {visitRx.length > 0 && (
+                      <div>
+                        <p className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <Pill className="h-3 w-3" /> Prescription
+                        </p>
+                        <div className="border-t border-slate-200 dark:border-slate-700 bg-muted/20 overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
+                          {visitRx.map(record => (
+                            <HistoryRow
+                              key={record.id}
+                              record={record}
+                              type="prescription"
+                              mode={mode}
+                              historical
+                              onPdf={() => printClinicalRecord({
+                                type: "prescription",
+                                clinicName,
+                                patientName,
+                                patientPhone,
+                                doctorName: record.doctorName,
+                                date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                                medicines: parsePrescription(record.prescription),
+                                rawPrescription: record.prescription,
+                              })}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

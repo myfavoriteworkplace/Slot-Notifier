@@ -38,7 +38,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Patient (person booking)  
 **Trigger:** Patient clicks "Send Verification Code" on the public booking page  
 **Subject:** `Your BookMySlot verification code`  
-**Header colour:** `#3e34b4` (indigo solid)  
+**Header colour:** `linear-gradient(90deg, #0f9b6e → #1dbe88)` (brand green — verified in `sendOtpEmail`, `server/routes.ts`)  
 **Header title:** Your Verification Code  
 **Header subtitle:** Use this code to verify your email and complete your booking
 
@@ -62,7 +62,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Patient  
 **Trigger:** Patient books a slot (via any booking route — public slot booking, Razorpay flow, or walk-in via clinic portal)  
 **Subject:** `Booking Received at {Clinic Name} — Pending Confirmation`  
-**Header colour:** `linear-gradient(90deg, #3e34b4 → #a83cd2)` (indigo to purple)  
+**Header colour:** `linear-gradient(90deg, #0f9b6e → #1dbe88)` (brand green — matches the Green row in the accent bar guide)  
 **Header title:** Booking Received ✓  
 **Header subtitle:** Your request has been sent to **{Clinic Name}**.
 
@@ -89,7 +89,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Patient  
 **Trigger:** Clinic confirms the booking, or doctor accepts the assigned appointment  
 **Subject:** `Appointment Confirmed at {Clinic Name} — {Full Date & Time}`  
-**Header colour:** `linear-gradient(90deg, #3e34b4 → #a83cd2)` (indigo to purple)  
+**Header colour:** `linear-gradient(90deg, #0f9b6e → #1dbe88)` (brand green, with a green hero band `#0d7a50 → #1a9e6f`)  
 **Header title:** Appointment Confirmed ✓  
 **Header subtitle:** Your booking at **{Clinic Name}** has been confirmed.
 
@@ -123,7 +123,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Patient  
 **Trigger:** Clinic or patient cancels a booking  
 **Subject:** `Appointment Cancelled at {Clinic Name}`  
-**Header colour:** `linear-gradient(90deg, #7c3aed → #c026d3)` (violet to fuchsia)  
+**Header colour:** `linear-gradient(90deg, #dc2626 → #ef4444)` (red — matches the Red row in the accent bar guide, "bad news")  
 **Header title:** Appointment Cancelled  
 **Header subtitle:** Your booking at **{Clinic Name}** has been cancelled.
 
@@ -148,7 +148,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Patient  
 **Trigger:** Clinic moves an existing booking to a different time slot  
 **Subject:** `Your Appointment Has Been Rescheduled — {Clinic Name}`  
-**Header colour:** `linear-gradient(90deg, #085041 → #0F9B6E)` (app brand dark green to primary green)  
+**Header colour:** `linear-gradient(90deg, #d97706 → #f59e0b)` (amber — matches the Amber row in the accent bar guide, "something changed")  
 **Header title:** Appointment Rescheduled  
 **Header subtitle:** Your appointment at **{Clinic Name}** has been moved to a new time.
 
@@ -177,7 +177,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Clinic Admin (the clinic's registered email address)  
 **Trigger:** Patient books a slot — fires together with email #3  
 **Subject:** `New Booking Request: {Patient Name} — {Date & Time}`  
-**Header colour:** `linear-gradient(90deg, #1e1c3c → #3e34b4)` (deep navy to indigo)  
+**Header colour:** `linear-gradient(90deg, #2563eb → #3b82f6)` (blue — matches the Blue row in the accent bar guide, clinic admin)  
 **Header title:** New Booking Request  
 **Header subtitle:** A patient has requested an appointment at **{Clinic Name}**.
 
@@ -203,7 +203,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Clinic Admin  
 **Trigger:** Assigned doctor clicks "Decline" on an appointment in their Doctor Portal  
 **Subject:** `⚠ Doctor Declined: {Patient Name}'s appointment at {Clinic Name} — action needed`  
-**Header colour:** `linear-gradient(90deg, #991b1b → #b45309)` (dark red to amber — urgency)  
+**Header colour:** `linear-gradient(90deg, #dc2626 → #ef4444)` (red — matches the Red row in the accent bar guide, "bad news")  
 **Header title:** Doctor Declined — Action Needed  
 **Header subtitle:** A doctor has declined an assignment at **{Clinic Name}**.
 
@@ -232,7 +232,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Doctor  
 **Trigger:** Clinic assigns a doctor to a booking  
 **Subject:** `Action Required: New appointment assigned to you at {Clinic Name}`  
-**Header colour:** `linear-gradient(90deg, #1e1c3c → #3e34b4)` (navy to indigo)  
+**Header colour:** `linear-gradient(90deg, #7c3aed → #a78bfa)` (violet — matches the Violet row in the accent bar guide, doctor/staff)  
 **Header title:** New Appointment — Action Required  
 **Header subtitle:** You have been assigned a patient at **{Clinic Name}**.
 
@@ -285,7 +285,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Doctor (email address typed in by clinic admin)  
 **Trigger:** Clinic admin invites a new doctor from the Manage Doctors panel  
 **Subject:** `You've been invited to join {Clinic Name} on BookMySlot`  
-**Header colour:** `linear-gradient(90deg, #3e34b4 → #a83cd2)` (indigo to purple)  
+**Header colour:** `linear-gradient(90deg, #7c3aed → #a78bfa)` (violet, with a violet hero band `#5b21b6 → #7c3aed`)  
 **Header title:** You've Been Invited  
 **Header subtitle:** **{Clinic Name}** has added you as a doctor on BookMySlot.
 
@@ -308,7 +308,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Doctor  
 **Trigger:** Clinic admin creates a doctor account directly (auto-provisioned with a temp password, no invite link)  
 **Subject:** `Welcome to {Clinic Name} — Your Doctor Portal credentials`  
-**Header colour:** `linear-gradient(90deg, #059669 → #10b981)` (emerald green)  
+**Header colour:** `linear-gradient(90deg, #7c3aed → #a78bfa)` (violet — matches the Violet row in the accent bar guide, doctor/staff)  
 **Header title:** Welcome to BookMySlot  
 **Header subtitle:** You've been added as a doctor at **{Clinic Name}**
 
@@ -336,7 +336,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Clinic Admin (the email used during registration)  
 **Trigger:** Superadmin approves a pending clinic in the Admin Panel  
 **Subject:** `Your clinic "{Clinic Name}" has been approved on BookMySlot`  
-**Header colour:** `linear-gradient(90deg, #3e34b4 → #1ab97c)` (indigo to teal — celebratory)  
+**Header colour:** `linear-gradient(90deg, #0f9b6e → #1dbe88)` (brand green, with a dark-green hero band `#085041 → #0f9b6e`)  
 **Header title:** 🎉 Your Clinic is Approved!  
 **Header subtitle:** Welcome to BookMySlot, **{Clinic Name}**
 
@@ -370,7 +370,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Clinic Admin or Doctor (depending on who requested it)  
 **Trigger:** User submits "Forgot Password" form  
 **Subject:** `Reset your BookMySlot {Clinic Account / Doctor Account} password`  
-**Header colour:** `linear-gradient(90deg, #3e34b4 → #1ab97c)` (indigo to teal)  
+**Header colour:** `linear-gradient(90deg, #d97706 → #f59e0b)` (amber — matches the Amber row in the accent bar guide, "something changed")  
 **Header title:** 🔐 Reset Your Password  
 **Header subtitle:** Password reset request for your **{Clinic Account / Doctor Account}**
 
@@ -389,7 +389,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Recipient:** Clinic Admin or Doctor  
 **Trigger:** User successfully sets a new password via the reset link  
 **Subject:** `Your BookMySlot {Clinic Account / Doctor Account} password was changed`  
-**Header colour:** `linear-gradient(90deg, #1ab97c → #3e34b4)` (teal to indigo — reversed from #14)  
+**Header colour:** `linear-gradient(90deg, #0f9b6e → #1dbe88)` (brand green — matches the Green row in the accent bar guide)  
 **Header title:** ✅ Password Changed  
 **Header subtitle:** Your **{Clinic Account / Doctor Account}** password was updated
 

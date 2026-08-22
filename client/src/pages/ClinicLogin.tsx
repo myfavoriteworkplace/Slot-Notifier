@@ -360,7 +360,7 @@ export default function ClinicLogin() {
 
                 {/* Username */}
                 <div className="space-y-1.5">
-                  <label htmlFor="clinic-username" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  <label htmlFor="clinic-username" className="label-field">
                     Username
                   </label>
                   <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
@@ -384,7 +384,7 @@ export default function ClinicLogin() {
 
                 {/* Password */}
                 <div className="space-y-1.5">
-                  <label htmlFor="clinic-password" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  <label htmlFor="clinic-password" className="label-field">
                     Password
                   </label>
                   <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
@@ -488,7 +488,7 @@ export default function ClinicLogin() {
 
                 {/* Email */}
                 <div className="space-y-1.5">
-                  <label htmlFor="doctor-email" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  <label htmlFor="doctor-email" className="label-field">
                     Email
                   </label>
                   <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
@@ -512,7 +512,7 @@ export default function ClinicLogin() {
 
                 {/* Password */}
                 <div className="space-y-1.5">
-                  <label htmlFor="doctor-password" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  <label htmlFor="doctor-password" className="label-field">
                     Password
                   </label>
                   <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
@@ -676,7 +676,7 @@ export default function ClinicLogin() {
                   placeholder="your@email.com"
                   required
                   autoFocus
-                  className="flex-1 min-h-[44px] bg-transparent border-0 outline-none pl-3 pr-3 text-sm text-foreground placeholder:text-muted-foreground"
+                  className="flex-1 min-h-[44px] bg-transparent border-0 outline-none pl-3 pr-3 text-sm text-foreground"
                   data-testid="input-forgot-email"
                 />
               </div>

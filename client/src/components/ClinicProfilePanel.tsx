@@ -60,11 +60,11 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
   return (
     <div className="space-y-5">
 
-      {/* Panel header */}
+      {/* Panel header — standalone card */}
       <div className="rounded-2xl overflow-hidden border border-border/50 shadow-sm">
-        <div className="flex border-b border-border/40">
+        <div className="flex">
           <div className="w-1.5 bg-violet-500/60 shrink-0" />
-          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center justify-between gap-3">
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
                 <Building2 className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
@@ -86,12 +86,16 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
             </a>
           </div>
         </div>
+      </div>
+
+      {/* Content card — detached */}
+      <div className="rounded-2xl overflow-hidden border border-border/50 bg-card shadow-sm">
 
         {/* Locked identity row */}
         <div className="px-5 py-3 bg-muted/30 border-b border-border/40 flex items-center gap-3">
           <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Clinic Name</span>
+            <span className="label-field">Clinic Name</span>
             <p className="text-sm font-semibold text-foreground truncate">{clinic?.name}</p>
           </div>
           <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground shrink-0">
@@ -105,7 +109,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
           {/* All text fields in one tight grid */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">
-              <Label htmlFor="profile-phone" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Phone</Label>
+              <Label htmlFor="profile-phone" className="label-field">Phone</Label>
               <div className="relative">
                 <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
@@ -119,7 +123,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="profile-email" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
+              <Label htmlFor="profile-email" className="label-field">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
@@ -134,7 +138,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="profile-website" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Website</Label>
+              <Label htmlFor="profile-website" className="label-field">Website</Label>
               <div className="relative">
                 <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
@@ -148,7 +152,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
               </div>
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="profile-address" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Street Address</Label>
+              <Label htmlFor="profile-address" className="label-field">Street Address</Label>
               <div className="relative">
                 <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
@@ -162,7 +166,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="profile-city" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">City</Label>
+              <Label htmlFor="profile-city" className="label-field">City</Label>
               <Input
                 id="profile-city"
                 value={profileCity}
@@ -173,7 +177,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="profile-pincode" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Pincode</Label>
+              <Label htmlFor="profile-pincode" className="label-field">Pincode</Label>
               <Input
                 id="profile-pincode"
                 value={profilePincode}
@@ -184,7 +188,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="profile-doctor-name" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Lead Doctor</Label>
+              <Label htmlFor="profile-doctor-name" className="label-field">Lead Doctor</Label>
               <div className="relative">
                 <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
@@ -203,7 +207,7 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
           <div className="border border-border/40 rounded-xl overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
               <MapPin className="h-3.5 w-3.5 text-violet-600 shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Map Location</span>
+              <span className="label-field">Map Location</span>
               {profileLatitude && profileLongitude && (
                 <span className="ml-auto text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-full px-2 py-0.5">
                   Pin saved
@@ -249,7 +253,8 @@ export default function ClinicProfilePanel({ clinic, refetchClinic }: Props) {
             )}
           </Button>
         </div>
-      </div>
+
+      </div>{/* end content card */}
 
     </div>
   );

@@ -37,6 +37,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTrigger,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -77,6 +84,291 @@ interface NotificationBellProps {
   onNavigate?: (n: Notification) => void;
 }
 
+/* Groups notifications that share the same bookingId (same patient/visit) within a
+   single day-bucket into one expandable entry, so a burst of updates about one
+   patient doesn't flood the list with separate rows. Notifications without a
+   bookingId (e.g. doctor leave) are never grouped. */
+type DisplayItem =
+  | { kind: "single"; notification: Notification }
+  | { kind: "group"; bookingId: number; items: Notification[] };
+
+function groupByBooking(items: Notification[]): DisplayItem[] {
+  const groupIndex = new Map<number, number>();
+  const result: DisplayItem[] = [];
+
+  for (const n of items) {
+    if (n.bookingId != null) {
+      const existingIdx = groupIndex.get(n.bookingId);
+      if (existingIdx != null) {
+        const existing = result[existingIdx];
+        if (existing.kind === "single") {
+          result[existingIdx] = { kind: "group", bookingId: n.bookingId, items: [existing.notification, n] };
+        } else {
+          existing.items.push(n);
+        }
+        continue;
+      }
+      groupIndex.set(n.bookingId, result.length);
+      result.push({ kind: "single", notification: n });
+    } else {
+      result.push({ kind: "single", notification: n });
+    }
+  }
+
+  return result;
+}
+
+/* ── Shared panel content (used by both mobile drawer + desktop popover) ── */
+function NotificationPanelContent({
+  notifications,
+  unreadCount,
+  onMarkRead,
+  onMarkAllRead,
+  onNavigate,
+  onClose,
+}: NotificationBellProps & { onClose: () => void }) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+
+  const todayItems     = notifications.filter(n => isToday(new Date(n.createdAt!)));
+  const yesterdayItems = notifications.filter(n => isYesterday(new Date(n.createdAt!)));
+  const earlierItems   = notifications.filter(
+    n => !isToday(new Date(n.createdAt!)) && !isYesterday(new Date(n.createdAt!))
+  );
+  const groups = [
+    { label: "Today",     items: groupByBooking(todayItems)     },
+    { label: "Yesterday", items: groupByBooking(yesterdayItems) },
+    { label: "Earlier",   items: groupByBooking(earlierItems)   },
+  ].filter(g => g.items.length > 0);
+
+  const toggleGroup = (bookingId: number, items: Notification[]) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(bookingId)) {
+        next.delete(bookingId);
+      } else {
+        next.add(bookingId);
+        // Expanding a group marks every notification inside it as read.
+        items.filter(n => !n.read).forEach(n => onMarkRead(n.id));
+      }
+      return next;
+    });
+  };
+
+  return (
+    <>
+      {/* Gradient accent strip */}
+      <div className="h-[3px] w-full bg-gradient-to-r from-primary via-accent to-primary/50 shrink-0" />
+
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3 px-4 pt-3.5 pb-3 border-b border-border/40 shrink-0">
+        <div className="relative h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          <Bell className="h-4 w-4 text-primary" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-primary flex items-center justify-center">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-40" />
+            </span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold leading-tight">Notifications</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {unreadCount > 0
+              ? `${unreadCount} unread update${unreadCount !== 1 ? "s" : ""}`
+              : "All caught up"}
+          </p>
+        </div>
+        <button
+          onClick={onMarkAllRead}
+          disabled={unreadCount === 0}
+          className="shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-all min-h-[32px] disabled:opacity-30 disabled:cursor-not-allowed text-primary hover:bg-primary/10 active:scale-95"
+          data-testid="button-mark-all-read"
+        >
+          Mark all read
+        </button>
+      </div>
+
+      {/* ── Body ── */}
+      <ScrollArea className="flex-1 min-h-0 overflow-auto">
+        {notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
+              <Bell className="h-8 w-8 text-muted-foreground/25" />
+            </div>
+            <div className="text-center px-6">
+              <p className="text-sm font-medium text-muted-foreground">No notifications yet</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">We'll let you know when something happens</p>
+            </div>
+          </div>
+        ) : (
+          <div className="pb-2">
+            {groups.map((group, gi) => (
+              <div key={group.label}>
+                {/* Sticky group label */}
+                <div className="sticky top-0 z-10 px-4 py-2 bg-background/95 backdrop-blur-sm">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70 bg-muted/60 px-2.5 py-0.5 rounded-full">
+                    {group.label}
+                  </span>
+                </div>
+
+                {/* Rows */}
+                {group.items.map(item => {
+                  if (item.kind === "single") {
+                    const n = item.notification;
+                    const { Icon, bg, color } = getNotifMeta(n.message);
+                    return (
+                      <div key={n.id} className="group relative">
+                        <button
+                          className={`w-full flex items-start gap-3 pl-4 pr-10 py-3.5 text-left transition-all hover:bg-muted/40 active:bg-muted/60 min-h-[56px] border-l-2 ${
+                            !n.read
+                              ? "bg-primary/[0.06] dark:bg-primary/[0.10] border-primary"
+                              : "border-transparent"
+                          }`}
+                          onClick={() => {
+                            if (!n.read) onMarkRead(n.id);
+                            onClose();
+                            onNavigate?.(n);
+                          }}
+                          data-testid={`notification-item-${n.id}`}
+                        >
+                          {/* Type icon */}
+                          <div className={`h-8 w-8 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                            <Icon className={`h-3.5 w-3.5 ${color}`} />
+                          </div>
+
+                          {/* Text */}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[13px] leading-snug ${
+                              !n.read
+                                ? "font-semibold text-foreground"
+                                : "font-normal text-muted-foreground"
+                            }`}>
+                              {n.message}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground/60 mt-1">
+                              {formatDistanceToNow(new Date(n.createdAt!), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Per-row mark-as-read hover button */}
+                        {!n.read && (
+                          <button
+                            className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-primary/10 hover:bg-primary/20 text-primary"
+                            onClick={e => { e.stopPropagation(); onMarkRead(n.id); }}
+                            title="Mark as read"
+                            data-testid={`notification-mark-read-${n.id}`}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Grouped notifications — same booking, same day.
+                  const { bookingId, items: groupItems } = item;
+                  const sorted = [...groupItems].sort(
+                    (a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+                  );
+                  const latest = sorted[0];
+                  const groupUnread = groupItems.some(n => !n.read);
+                  const isExpanded = expandedGroups.has(bookingId);
+                  const { Icon, bg, color } = getNotifMeta(latest.message);
+
+                  return (
+                    <div key={`group-${bookingId}`} className="relative">
+                      <button
+                        className={`w-full flex items-start gap-3 pl-4 pr-10 py-3.5 text-left transition-all hover:bg-muted/40 active:bg-muted/60 min-h-[56px] border-l-2 ${
+                          groupUnread
+                            ? "bg-primary/[0.06] dark:bg-primary/[0.10] border-primary"
+                            : "border-transparent"
+                        }`}
+                        onClick={() => toggleGroup(bookingId, groupItems)}
+                        data-testid={`notification-group-${bookingId}`}
+                      >
+                        <div className={`h-8 w-8 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                          <Icon className={`h-3.5 w-3.5 ${color}`} />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-[13px] leading-snug truncate ${
+                              groupUnread ? "font-semibold text-foreground" : "font-normal text-muted-foreground"
+                            }`}>
+                              {latest.message}
+                            </p>
+                            <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                              {groupItems.length}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground/60 mt-1">
+                            {formatDistanceToNow(new Date(latest.createdAt!), { addSuffix: true })} · {groupItems.length} updates for this booking
+                          </p>
+                        </div>
+
+                        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-1 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="bg-muted/20 border-l-2 border-primary/30 ml-4">
+                          {sorted.map(n => {
+                            const meta = getNotifMeta(n.message);
+                            return (
+                              <button
+                                key={n.id}
+                                className="w-full flex items-start gap-3 pl-4 pr-4 py-2.5 text-left transition-all hover:bg-muted/40 active:bg-muted/60"
+                                onClick={() => {
+                                  onClose();
+                                  onNavigate?.(n);
+                                }}
+                                data-testid={`notification-item-${n.id}`}
+                              >
+                                <div className={`h-6 w-6 rounded-lg ${meta.bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                                  <meta.Icon className={`h-3 w-3 ${meta.color}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[12px] leading-snug text-foreground">{n.message}</p>
+                                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                    {formatDistanceToNow(new Date(n.createdAt!), { addSuffix: true })}
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {gi < groups.length - 1 && (
+                  <div className="mx-4 my-1 border-t border-border/20" />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* ── Footer ── */}
+      {notifications.length > 0 && (
+        <div className="border-t border-border/40 px-4 py-2.5 flex items-center justify-between shrink-0 bg-muted/20">
+          <span className="text-xs text-muted-foreground/70">
+            {notifications.length} notification{notifications.length !== 1 ? "s" : ""}
+          </span>
+          {unreadCount === 0 ? (
+            <span className="text-xs text-muted-foreground/50 italic">All read ✓</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+              {unreadCount} unread
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 function NotificationBellPanel({
   notifications,
   unreadCount,
@@ -85,154 +377,63 @@ function NotificationBellPanel({
   onNavigate,
 }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const todayItems     = notifications.filter(n => isToday(new Date(n.createdAt!)));
-  const yesterdayItems = notifications.filter(n => isYesterday(new Date(n.createdAt!)));
-  const earlierItems   = notifications.filter(
-    n => !isToday(new Date(n.createdAt!)) && !isYesterday(new Date(n.createdAt!))
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  /* Bell trigger — shared between drawer and popover */
+  const bellTrigger = (
+    <button
+      className={`relative h-9 w-9 flex items-center justify-center rounded-full transition-all ${
+        unreadCount > 0
+          ? "text-primary bg-primary/8 hover:bg-primary/15 shadow-sm shadow-primary/20 active:scale-95"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted/80"
+      }`}
+      data-testid="button-notifications"
+    >
+      <Bell className="h-4 w-4" />
+      {unreadCount > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center">
+          <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-primary opacity-25" />
+          <span className="relative min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-[9px] font-bold text-white flex items-center justify-center leading-none">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        </span>
+      )}
+    </button>
   );
 
-  const groups = [
-    { label: "Today",     items: todayItems     },
-    { label: "Yesterday", items: yesterdayItems  },
-    { label: "Earlier",   items: earlierItems    },
-  ].filter(g => g.items.length > 0);
+  const panelProps = { notifications, unreadCount, onMarkRead, onMarkAllRead, onNavigate, onClose: () => setOpen(false) };
 
+  /* ── MOBILE: Vaul bottom drawer (swipe to dismiss) ── */
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen} shouldScaleBackground={false}>
+        <DrawerTrigger asChild>{bellTrigger}</DrawerTrigger>
+        <DrawerContent className="p-0 flex flex-col overflow-hidden max-h-[85dvh] rounded-t-2xl border border-border/50">
+          <DrawerTitle className="sr-only">Notifications</DrawerTitle>
+          <DrawerDescription className="sr-only">Your recent activity notifications</DrawerDescription>
+          <NotificationPanelContent {...panelProps} />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  /* ── DESKTOP: Enhanced popover with glass + animation ── */
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className="relative h-9 w-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted/80 transition-colors"
-          data-testid="button-notifications"
-        >
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-[9px] font-bold text-white flex items-center justify-center leading-none">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-
+      <PopoverTrigger asChild>{bellTrigger}</PopoverTrigger>
       <PopoverContent
         align="end"
-        sideOffset={8}
-        className="w-[380px] p-0 shadow-xl rounded-2xl overflow-hidden"
+        sideOffset={10}
+        className="w-[400px] p-0 rounded-2xl overflow-hidden border border-border/50 shadow-2xl shadow-black/15 flex flex-col max-h-[520px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-1 duration-200"
       >
-        {/* ── Header ── */}
-        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border/50">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Bell className="h-4 w-4 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold leading-tight">Notifications</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {unreadCount > 0
-                ? `${unreadCount} unread update${unreadCount !== 1 ? "s" : ""}`
-                : "All caught up"}
-            </p>
-          </div>
-          {unreadCount > 0 && (
-            <button
-              onClick={onMarkAllRead}
-              className="shrink-0 text-xs font-semibold text-primary hover:text-primary/80 active:scale-95 transition-all px-2 py-1.5 rounded-lg hover:bg-primary/8 min-h-[32px]"
-            >
-              Mark all read
-            </button>
-          )}
-        </div>
-
-        {/* ── Body ── */}
-        <ScrollArea className="max-h-[360px]">
-          {notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center">
-                <Bell className="h-6 w-6 text-muted-foreground/30" />
-              </div>
-              <p className="text-sm text-muted-foreground">No notifications yet</p>
-            </div>
-          ) : (
-            <div className="py-1.5">
-              {groups.map((group, gi) => (
-                <div key={group.label}>
-                  {/* Group label */}
-                  <div className="px-4 pb-1 pt-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {group.label}
-                    </span>
-                  </div>
-
-                  {/* Rows */}
-                  {group.items.map(n => {
-                    const { Icon, bg, color } = getNotifMeta(n.message);
-                    return (
-                      <button
-                        key={n.id}
-                        className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${
-                          !n.read ? "bg-primary/5" : ""
-                        }`}
-                        onClick={() => {
-                          if (!n.read) onMarkRead(n.id);
-                          setOpen(false);
-                          onNavigate?.(n);
-                        }}
-                      >
-                        {/* Unread dot */}
-                        <div className="shrink-0 w-2 flex justify-center pt-2.5">
-                          {!n.read && (
-                            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                          )}
-                        </div>
-
-                        {/* Type icon */}
-                        <div
-                          className={`h-8 w-8 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}
-                        >
-                          <Icon className={`h-3.5 w-3.5 ${color}`} />
-                        </div>
-
-                        {/* Text */}
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm leading-snug ${
-                              !n.read
-                                ? "font-medium text-foreground"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {n.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatDistanceToNow(new Date(n.createdAt!), {
-                              addSuffix: true,
-                            })}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-
-                  {/* Group divider */}
-                  {gi < groups.length - 1 && (
-                    <div className="mx-4 my-0.5 border-t border-border/30" />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* ── Footer ── */}
-        {notifications.length > 0 && (
-          <div className="border-t border-border/50 px-4 py-2.5 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {notifications.length} notification{notifications.length !== 1 ? "s" : ""}
-            </span>
-            <span className="text-xs font-semibold text-primary">
-              {unreadCount} unread
-            </span>
-          </div>
-        )}
+        <NotificationPanelContent {...panelProps} />
       </PopoverContent>
     </Popover>
   );

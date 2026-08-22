@@ -462,14 +462,20 @@ export default function XrayAnalysisTab() {
   /* ─── Render ─── */
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-          <Microscope className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-base font-bold text-foreground leading-tight">X-Ray Analysis</h2>
-          <p className="text-xs text-muted-foreground">AI-powered dental finding detection</p>
+
+      {/* Panel header — standalone card, consistent with clinic admin panels */}
+      <div className="rounded-2xl overflow-hidden border border-border/50 shadow-sm">
+        <div className="flex">
+          <div className="w-1.5 bg-violet-500/60 shrink-0" />
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+              <Microscope className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">X-Ray Analysis</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">AI-powered dental finding detection</p>
+            </div>
+          </div>
         </div>
       </div>
 

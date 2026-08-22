@@ -1886,30 +1886,45 @@ The app already has a WebSocket server (`/ws/notifications`) with a `clinicSocke
 
 ## 16. Patient Card Modal — Standards
 
-> **Updated:** 04 Jun 2026  
-> **Applies to:** `ClinicDashboard.tsx` (booking detail dialog) and `DoctorDashboard.tsx` (patient detail dialog)
+> **Updated:** 16 Aug 2026  
+> **Applies to:** `BookingsPanel.tsx` (clinic booking dialog) and `DoctorDashboard.tsx` (patient detail dialog)
 
 ---
 
 ### 16.1 — Dialog dimensions (both dashboards)
 
-Use identical `DialogContent` classes on both dashboards so the modal looks the same regardless of who opens it:
+Use identical `DialogContent` classes on both dashboards so the modal looks the same regardless of who opens it. The dialog supports an expand/collapse button for toggling between normal and expanded sizes:
 
 ```tsx
-<DialogContent className="w-[95vw] sm:max-w-[640px] rounded-2xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+<DialogContent className={`w-[95vw] max-w-[95vw] ${dialogExpanded ? 'sm:w-[95vw] sm:max-w-[95vw] sm:h-[95vh] sm:max-h-[95vh]' : 'sm:w-[80vw] sm:max-w-[80vw] sm:h-[90vh] sm:max-h-[90vh]'} rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200`}>
 ```
+
+**Normal Size (default)**
 
 | Property | Value | Reason |
 |---|---|---|
 | `w-[95vw]` | 95% viewport width on mobile | Fills the screen without overflow |
-| `sm:max-w-[640px]` | 640 px cap on desktop | Consistent readable width |
-| `max-h-[90vh]` | Grows to content, caps at 90% viewport | Prevents overshooting on small screens |
+| `sm:w-[80vw]` | 80% viewport width on tablet+ | Balanced readability and screen real estate |
+| `sm:h-[90vh]` | 90% viewport height on tablet+ | Leaves room for browser chrome and taskbars |
 | `rounded-2xl` | Matches system card rounding | Visual consistency |
 | `p-0 gap-0` | No padding/gap — sections control their own spacing | Clean edge-to-edge header |
 | `flex flex-col` | Column layout for header + tab strip + scrollable panel | Enables the scrollable body pattern |
 | `overflow-hidden` | Clips the header gradient to the rounded corners | No edge bleed |
 
-**Do not use `h-[90vh]` (fixed height)** — prefer `max-h-[90vh]` so the modal can be shorter when content is sparse.
+**Expanded Size (when dialogExpanded = true)**
+
+| Property | Value | Reason |
+|---|---|---|
+| `sm:w-[95vw]` | 95% viewport width | Near fullscreen width |
+| `sm:h-[95vh]` | 95% viewport height | Near fullscreen height |
+| `transition-[width,height,max-width,max-height] duration-200` | Smooth animation | Polished UX when toggling |
+
+**Expand/Collapse Button**
+
+- Hidden on mobile (uses `hidden sm:flex`)
+- Positioned absolutely at `right-11 top-3.5` to sit left of the close (X) button
+- Toggles between `Maximize2` and `Minimize2` icons
+- Uses semi-transparent white styling matching the header gradient background
 
 ---
 
@@ -1986,6 +2001,98 @@ Shown when `booking.cancellationReason` is non-null. Follows the **Info/Warning 
 - everything else (cancelled) → rose
 
 No tooltip on the modal version — text is `leading-snug` and wraps naturally inside the wider modal panel.
+
+---
+
+### 16.2b — Actions tab layout & responsive grid (Clinic Dashboard)
+
+The Actions tab uses a **responsive multi-column layout** to minimize scroll on larger screens while maintaining mobile-first simplicity.
+
+#### Layout structure
+
+```
+┌─────────────────────────────────────────────────┐
+│ GRID: grid-cols-1 md:grid-cols-2 gap-4         │
+├──────────────────┬──────────────────────────────┤
+│ LEFT (md:)       │ RIGHT (md:)                  │
+│                  │                              │
+│ • Assign Doctor  │ • Digital Consent           │
+│   (scrollable)   │                              │
+│                  │ • Appointment Slot/Reschedule
+│                  │   (expandable)               │
+├──────────────────┴──────────────────────────────┤
+│ FULL-WIDTH BELOW GRID                          │
+│ • Clinical Status                               │
+└─────────────────────────────────────────────────┘
+```
+
+#### Responsive behavior
+
+| Breakpoint | Layout | Notes |
+|---|---|---|
+| Mobile (`<640px`) | 1 column, stacked | All sections full-width, vertical scroll |
+| Tablet (`sm:` 640px+) | 1 column, stacked | Easier interaction on smaller screens |
+| Desktop (`md:` 768px+) | 2-column grid | LEFT: Assign Doctor · RIGHT: Consent + Slot |
+| Large (`lg:` 1024px+) | 2-column grid | Improved spacing and breathing room |
+
+#### Left column — Assign Doctor
+
+- **Mobile/Tablet**: Full-width, natural scroll
+- **Desktop (`md:`)**: 
+  - `md:max-h-[350px]` — height constraint
+  - `md:overflow-y-auto` — scrollable when list is long
+  - `space-y-3` — consistent spacing between doctor buttons
+- **Why constrain height**: Prevents the doctor list from dominating the entire modal when multiple doctors are available
+- **Scrollbar**: Native browser scrollbar (no custom styling to maintain accessibility)
+
+#### Right column — Digital Consent + Appointment Slot
+
+- **Mobile/Tablet**: Each section full-width, stacked below Assign Doctor
+- **Desktop (`md:`)**: 
+  - Stacked vertically within the right column
+  - `space-y-4` — generous spacing between consent and slot sections
+  - Both sections grow naturally with their content
+- **Content sections**:
+  - **Digital Consent**: Status badge, send/resend button, link sharing (URL copy), PDF download
+  - **Appointment Slot**: Current slot summary (collapsed) or full date/time picker (expanded)
+
+#### Full-width section — Clinical Status
+
+- **Mobile/Tablet/Desktop**: Always full-width below the grid
+- **Purpose**: Track case outcome separately from action controls
+- **Content**: Status dropdown (`Follow-up Required` / `Case Closed`) + Save button
+- **Semantic grouping**: Positioned below actions to emphasize it as an outcome tracker rather than an immediate action
+
+#### CSS classes
+
+```tsx
+// Grid wrapper (mobile: 1 col, desktop: 2 col)
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  
+  // LEFT: Assign Doctor (scrollable on desktop)
+  <div className="md:max-h-[350px] md:overflow-y-auto space-y-3">
+    {/* Assign Doctor section */}
+  </div>
+  
+  // RIGHT: Consent + Slot (stacked)
+  <div className="space-y-4">
+    {/* Digital Consent */}
+    {/* Appointment Slot */}
+  </div>
+</div>
+
+// Clinical Status (full-width, separate from grid)
+<div>
+  {/* Clinical Status */}
+</div>
+```
+
+#### Mobile-first reasoning
+
+- **Stack-first on small screens**: Easier to scan and interact
+- **Grid on medium screens**: Reduces scroll, groups related actions
+- **Scrollable left column**: Long doctor lists don't overflow the modal
+- **Full-width Clinical Status**: Keeps outcome tracking separate and visible
 
 ---
 

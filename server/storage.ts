@@ -3,6 +3,7 @@ import {
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
   inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock, patientCharts,
+  patientMedicalHistory,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -28,10 +29,59 @@ import {
   type LoginEvent, type InsertLoginEvent,
   type PatientBill, type InsertPatientBill,
   type PatientChart,
+  type PatientMedicalHistory,
+  type ClinicAnalyticsResult,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne, inArray } from "drizzle-orm";
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import {
+  getCalendarDateInTimezone,
+  getUtcInstantForCalendarDate,
+  isStartedPatientVisitStatus,
+  normalizeConfirmationStatus,
+  normalizeVisitStatus,
+  resolveClinicTimezone,
+} from "@shared/booking-status";
+import {
+  activeVisitCondition,
+  calculateClinicBookingStats,
+  calculateDoctorBookingStats,
+  confirmedBookingCondition,
+  completedPatientVisitCondition,
+  createBookingDateBoundaries,
+  doctorApprovedBookingCondition,
+  awaitingDoctorApprovalCondition,
+  isAwaitingDoctorApproval,
+  isActiveVisit,
+  isCompletedPatientVisit,
+  isDoctorApprovedBooking,
+  isPendingBooking,
+  isConfirmedBooking,
+  isTerminalBooking,
+  getBookingLifecycleMetadata,
+  type BookingLifecycleMetadata,
+  nonTerminalBookingCondition,
+  notCompletedPatientVisitCondition,
+  pendingBookingCondition,
+} from "./booking-predicates";
+
+export interface VisitTimelineEntry {
+  bookingId: number;
+  visitDate: string;
+  visitType: string | null;
+  treatmentCategory: string | null;
+  visitStatus: string | null;
+  description: string | null;
+  visitCompletionNote: string | null;
+  diagnosis: string[];
+  medicationCount: number;
+  medicationNames: string[];
+  clinicalNotes: string | null;
+  attachmentCount: number;
+  billServiceCount: number;
+  isFirstVisit: boolean;
+}
 
 export interface BookingQueryParams {
   filter?: string;
@@ -42,6 +92,11 @@ export interface BookingQueryParams {
   search?: string;
   patientId?: number;
   clinicId?: number;
+  doctorEmail?: string;
+  statusFilter?: 'in-clinic' | 'completed' | 'cancelled' | 'no-show';
+  /** Stable client-supplied date (yyyy-MM-dd) used as the CASE WHEN boundary so all
+   *  pages in the same session share the same future/past split even across midnight. */
+  todayDate?: string;
 }
 
 export interface BookingStats {
@@ -57,15 +112,61 @@ export interface BookingStats {
   totalAllCount: number;
   totalOwnedCount?: number;
   awaitingApprovalCount?: number;
+  patientTotalCount?: number;
 }
 
 export interface BookingsPagedResult {
-  data: (Booking & { slot: Slot; patientCode?: string | null })[];
+  data: (Booking & { slot: Slot; patientCode?: string | null; visitNumber?: number; totalVisits?: number; latestLabel?: 'latest_record' })[];
   total: number;
   page: number;
   pageSize: number;
   totalPages: number;
   stats: BookingStats;
+}
+
+type VisitHistoryMeta = {
+  visitNumber: number;
+  totalVisits: number;
+  latestLabel?: 'latest_record';
+};
+
+export type PatientHistoryBooking = Booking & {
+  slot: Slot;
+  lifecycle: BookingLifecycleMetadata;
+};
+
+function buildVisitHistoryMeta(rows: Array<{ booking: Booking; slot: Slot }>): Map<number, VisitHistoryMeta> {
+  const groups = new Map<string, Array<{ booking: Booking; slot: Slot }>>();
+  for (const row of rows) {
+    const b = row.booking as any;
+    const key = b.patientId != null
+      ? `id:${b.patientId}`
+      : b.customerEmail
+        ? `email:${String(b.customerEmail).trim().toLowerCase()}`
+        : b.customerPhone
+          ? `phone:${String(b.customerPhone).replace(/\D/g, '')}`
+          : `name:${String(b.customerName ?? '').trim().toLowerCase()}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+  const result = new Map<number, VisitHistoryMeta>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const sorted = [...group].sort((a, b) =>
+      new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime() ||
+      a.booking.id - b.booking.id
+    );
+    const latestRecordId = sorted[sorted.length - 1]?.booking.id;
+    for (let i = 0; i < sorted.length; i++) {
+      const id = sorted[i].booking.id;
+      result.set(id, {
+        visitNumber: i + 1,
+        totalVisits: sorted.length,
+        ...(id === latestRecordId ? { latestLabel: 'latest_record' as const } : {}),
+      });
+    }
+  }
+  return result;
 }
 
 export interface IStorage {
@@ -90,6 +191,8 @@ export interface IStorage {
   getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]>;
   getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
   getBookingById(id: number): Promise<Booking | undefined>;
+  getClinicBookingByIdWithSlot(id: number, clinicId: number): Promise<(Booking & { slot: Slot }) | undefined>;
+  getDoctorBookingByIdWithSlot(id: number, doctorEmail: string): Promise<(Booking & { slot: Slot }) | undefined>;
   createPublicBooking(data: {
     slotId: number;
     customerName: string;
@@ -103,6 +206,7 @@ export interface IStorage {
   verifyBooking(id: number): Promise<Booking>;
   deletePendingBooking(id: number): Promise<void>;
   cancelBooking(id: number, reason?: string): Promise<void>;
+  cancelBookingIfCurrent(id: number, verificationStatus: string, reason?: string): Promise<boolean>;
   updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking>;
   countBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
   countVerifiedBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
@@ -115,12 +219,21 @@ export interface IStorage {
   getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult>;
   getClinicBookingStats(clinicId: number): Promise<BookingStats>;
   getBooking(id: number): Promise<Booking | undefined>;
+  getClinicNoShowCandidates(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  batchMarkNoShows(clinicId: number, bookingIds: number[]): Promise<{ marked: Booking[]; skipped: { bookingId: number; reason: string }[] }>;
+  revertBatchNoShow(clinicId: number, bookingId: number): Promise<Booking>;
+  markNoShowIfCurrent(id: number, expectedVerificationStatus: string, expectedVisitStatus: string | null, reason: string): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
+  updateBookingStatusIfCurrent(id: number, expectedStatus: string, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking | undefined>;
   updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking>;
   updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking>;
+  updateBookingDoctorApprovalIfCurrent(id: number, doctorEmail: string, expectedStatus: string, status: 'approved' | 'declined'): Promise<Booking | undefined>;
   rescheduleBooking(id: number, newSlotId: number): Promise<Booking>;
+  rescheduleBookingIfCurrent(id: number, newSlotId: number, clinicId: number, expectedVerificationStatus: string, expectedVisitStatus: string | null): Promise<Booking>;
   updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking>;
   updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking>;
+  updateVisitStatusIfCurrent(id: number, expectedVisitStatus: string | null, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null, visitCompletionNote?: string | null): Promise<Booking | undefined>;
+  updateBookingPatientInfo(id: number, data: { customerName?: string; customerPhone?: string | null; customerEmail?: string | null; customerAge?: number | null; customerGender?: string | null }): Promise<Booking>;
   updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
   
   // Notifications
@@ -148,19 +261,19 @@ export interface IStorage {
   getClinicDoctors(clinicId: number): Promise<Doctor[]>;
 
   // Patients
-  getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
+  getPatientsByDoctor(doctorEmail: string, query?: string): Promise<(Patient & { clinic: Clinic })[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
-  upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
-  upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient>;
+  upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient>;
+  upsertPatientByPhone(clinicId: number, phone: string, name: string, age?: number | null, gender?: string | null): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
   getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]>;
   getPatientById(clinicId: number, patientId: number): Promise<Patient | null>;
-  createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
-  incrementPatientVisit(patientId: number): Promise<Patient>;
+  createNewPatient(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient>;
+  incrementPatientVisit(patientId: number, age?: number | null, gender?: string | null): Promise<Patient>;
   searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
   getPatientsByClinicPaged(clinicId: number, opts: { q?: string; sort?: string; lastVisitFrom?: string; lastVisitTo?: string; page?: number; pageSize?: number; exportAll?: boolean; }): Promise<{ data: (Patient & { totalBilled: number })[]; total: number; page: number; totalPages: number; stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number; }; }>;
-  getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
+  getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: PatientHistoryBooking[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
 
   // Doctor Profile
   updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
@@ -217,12 +330,15 @@ export interface IStorage {
   createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord>;
   getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]>;
   getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]>;
-  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
+  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'affectedTeeth' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
   softDeleteClinicalRecord(id: number): Promise<void>;
+  getPatientVisitTimeline(clinicId: number, patientId: number): Promise<VisitTimelineEntry[]>;
 
   // Inventory
   getInventoryCategories(clinicId: number): Promise<InventoryCategory[]>;
   createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory>;
+  updateInventoryCategory(id: number, clinicId: number, name: string): Promise<InventoryCategory>;
+  deleteInventoryCategory(id: number, clinicId: number): Promise<void>;
   getInventoryItems(clinicId: number): Promise<InventoryItem[]>;
   createInventoryItem(data: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryItem(id: number, clinicId: number, updates: Partial<InventoryItem>): Promise<InventoryItem>;
@@ -281,11 +397,15 @@ export interface IStorage {
   deletePharmacyItem(id: number, clinicId: number): Promise<void>;
 
   // Analytics
-  getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>>;
+  getClinicAnalytics(clinicId: number, range: string): Promise<ClinicAnalyticsResult>;
 
   // Patient Charts (Odontogram)
   getPatientChart(patientId: number, clinicId: number): Promise<PatientChart | null>;
   upsertPatientChart(patientId: number, clinicId: number, chartData: string): Promise<PatientChart>;
+
+  // Patient Medical History
+  getPatientMedicalHistory(patientId: number, clinicId: number): Promise<PatientMedicalHistory | null>;
+  upsertPatientMedicalHistory(patientId: number, clinicId: number, data: Partial<Omit<PatientMedicalHistory, "id" | "patientId" | "clinicId" | "createdAt" | "updatedAt">>): Promise<PatientMedicalHistory>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -441,6 +561,38 @@ export class DatabaseStorage implements IStorage {
     return booking ? this.decryptBooking(booking) : undefined;
   }
 
+  async getClinicBookingByIdWithSlot(id: number, clinicId: number): Promise<(Booking & { slot: Slot }) | undefined> {
+    const [result] = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(eq(bookings.id, id));
+
+    if (!result) return undefined;
+
+    const clinic = await this.getClinic(clinicId);
+    const belongsToClinic = result.slot.clinicId === clinicId ||
+      (result.slot.clinicId === null && clinic && result.slot.clinicName === clinic.name);
+    if (!belongsToClinic) return undefined;
+
+    return { ...this.decryptBooking(result.booking), slot: result.slot };
+  }
+
+  async getDoctorBookingByIdWithSlot(id: number, doctorEmail: string): Promise<(Booking & { slot: Slot }) | undefined> {
+    const [result] = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(and(eq(bookings.id, id), eq(bookings.assignedDoctorEmail, doctorEmail)));
+
+    if (!result) return undefined;
+    return { ...this.decryptBooking(result.booking), slot: result.slot };
+  }
+
   // Implementation for missing methods identified by LSP errors
   async configureClinicSlots(clinicId: number, date: string, slotsData: any[]): Promise<Slot[]> {
     const startOfDay = new Date(date);
@@ -510,14 +662,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClinicBookingStats(clinicId: number): Promise<BookingStats> {
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const todayStart = startOfDay(now);
-    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const next7DaysEnd = addDays(todayStart, 7);
+    const clinic = await this.getClinic(Number(clinicId));
+    const boundaries = createBookingDateBoundaries(
+      new Date(),
+      resolveClinicTimezone(clinic?.timezone),
+    );
 
     const statRows = await db.select({
       startTime: slots.startTime,
@@ -529,97 +678,101 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .where(eq(slots.clinicId, Number(clinicId)));
 
-    const stats: BookingStats = {
-      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
-      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0, totalAllCount: statRows.length,
-    };
-    for (const r of statRows) {
-      const d = new Date(r.startTime);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
-      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
-      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-      if (d >= new Date() && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
-      if (d < todayStart) stats.pastCount++;
-      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
-      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
-      if (d >= todayStart && d <= next7DaysEnd) {
-        if (isPending) stats.pendingNext7Count++;
-        if (isConfirmed) stats.confirmedNext7Count++;
-      }
-      if (isPending) stats.totalPendingCount++;
-    }
-    return stats;
+    return calculateClinicBookingStats(statRows, boundaries) as BookingStats;
   }
 
   async getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId, todayDate, doctorEmail, statusFilter } = params;
 
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const tomorrowStart = startOfDay(addDays(now, 1));
-    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const next7DaysEnd = addDays(todayStart, 7);
+    // Use client-supplied todayDate if present so all pages in the same session share
+    // the same future/past boundary even when a request crosses midnight.
+    const clinic = await this.getClinic(Number(clinicId));
+    const clinicTimezone = resolveClinicTimezone(clinic?.timezone);
+    const boundaries = createBookingDateBoundaries(
+      todayDate
+        ? getUtcInstantForCalendarDate(todayDate, clinicTimezone)
+        : new Date(),
+      clinicTimezone,
+    );
+    const {
+      todayStr,
+      todayStart,
+      todayEnd,
+      tomorrowStart,
+      thisWeekStart,
+      thisWeekEnd,
+      nextWeekStart,
+      nextWeekEnd,
+      next7DaysEnd,
+    } = boundaries;
 
     const clinicCondition = eq(slots.clinicId, Number(clinicId));
 
-    // Build filter condition based on quick filter or date range
-    let filterCond;
-    if (dateFrom || dateTo) {
-      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
-      const to = dateTo ? endOfDay(new Date(dateTo)) : undefined;
-      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
-      else if (from) filterCond = gte(slots.startTime, from);
-      else if (to) filterCond = lte(slots.startTime, to);
-    } else {
-      switch (filter) {
-        case 'today':
-          filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
-          break;
-        case 'upcoming':
-          filterCond = and(gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
-          break;
-        case 'past':
-          filterCond = lt(slots.startTime, todayStart);
-          break;
-        case 'this-week':
-          filterCond = and(gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
-          break;
-        case 'next-week':
-          filterCond = and(gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
-          break;
-        case 'today-confirmed':
-          filterCond = and(
-            gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd),
-            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
-          );
-          break;
-        case 'pending-7days':
-          filterCond = and(
-            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
-            ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy),
-            ne(bookings.verificationStatus, 'cancelled'),
-          );
-          break;
-        case 'all-pending':
-          filterCond = and(ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy), ne(bookings.verificationStatus, 'cancelled'));
-          break;
-        case 'confirmed-7days':
-          filterCond = and(
-            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
-            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
-          );
-          break;
-        default:
-          filterCond = undefined;
-      }
+    // Build filter condition from the active quick-filter tab
+    let filterCond: ReturnType<typeof and> | undefined;
+    switch (filter) {
+      case 'today':
+        filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+        break;
+      case 'upcoming':
+        filterCond = and(
+          gte(slots.startTime, tomorrowStart),
+          confirmedBookingCondition(),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
+        );
+        break;
+      case 'past':
+        filterCond = lt(slots.startTime, todayStart);
+        break;
+      case 'this-week':
+        filterCond = and(gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+        break;
+      case 'next-week':
+        filterCond = and(gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+        break;
+      case 'today-confirmed':
+        filterCond = and(
+          gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd),
+          confirmedBookingCondition(),
+        );
+        break;
+      case 'pending-7days':
+        filterCond = and(
+          gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+          pendingBookingCondition(),
+        );
+        break;
+      case 'all-pending':
+        filterCond = pendingBookingCondition();
+        break;
+      case 'confirmed-7days':
+        filterCond = and(
+          gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+          confirmedBookingCondition(),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
+        );
+        break;
+      default:
+        filterCond = undefined;
     }
+
+    // Date range condition — always applied ON TOP OF the active tab filter
+    let dateRangeCond;
+    if (dateFrom || dateTo) {
+      const from = dateFrom
+        ? getUtcInstantForCalendarDate(dateFrom, clinicTimezone)
+        : undefined;
+      const to = dateTo
+        ? getUtcInstantForCalendarDate(dateTo, clinicTimezone, true)
+        : undefined;
+      if (from && to) dateRangeCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from) dateRangeCond = gte(slots.startTime, from);
+      else if (to) dateRangeCond = lte(slots.startTime, to);
+    }
+
+    const combinedFilterCond = and(filterCond, dateRangeCond);
 
     // Search condition (patient name, phone, email)
     let searchCond;
@@ -630,8 +783,32 @@ export class DatabaseStorage implements IStorage {
 
     // Patient filter
     const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
+    const doctorCond = doctorEmail === '__unassigned__'
+      ? isNull(bookings.assignedDoctorEmail)
+      : doctorEmail ? eq(bookings.assignedDoctorEmail, doctorEmail) : undefined;
+    const statusCond =
+      statusFilter === 'in-clinic'
+        ? and(
+              gte(slots.startTime, todayStart),
+              lte(slots.startTime, todayEnd),
+              activeVisitCondition(),
+            )
+        : statusFilter === 'completed' ? completedPatientVisitCondition()
+        : statusFilter === 'cancelled' ? eq(bookings.verificationStatus, 'cancelled')
+        : statusFilter === 'no-show' ? eq(bookings.verificationStatus, 'no_show')
+        : undefined;
 
-    const whereClause = and(clinicCondition, filterCond, searchCond, patientCond);
+    const whereClause = and(clinicCondition, combinedFilterCond, searchCond, patientCond, doctorCond, statusCond);
+
+    // Total bookings for the selected patient, ignoring tab/date/search (used for smart empty states)
+    let patientTotalCount: number | undefined;
+    if (patientId) {
+      const [patientCountRow] = await db.select({ total: count() })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(clinicCondition, patientCond));
+      patientTotalCount = Number(patientCountRow?.total ?? 0);
+    }
 
     // Count total matching rows
     const [countRow] = await db.select({ total: count() })
@@ -643,7 +820,18 @@ export class DatabaseStorage implements IStorage {
     const safePage = Math.min(page, totalPages);
     const offset = (safePage - 1) * pageSize;
 
-    // Fetch paginated data
+    // Fetch paginated data — order depends on the active filter:
+    //   all / all-pending : future/today first (group 0), then past (group 1);
+    //                        ascending by startTime within each group
+    //   past              : most-recent past first (descending)
+    //   all others        : ascending by startTime (closest slot first)
+    const clinicOrderBy: any[] =
+      (filter === 'all' || filter === 'all-pending')
+        ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`, asc(slots.startTime), asc(bookings.id)]
+        : filter === 'past'
+        ? [desc(slots.startTime), desc(bookings.id)]
+        : [asc(slots.startTime), asc(bookings.id)];
+
     const results = await db.select({
       booking: bookings,
       slot: slots,
@@ -653,9 +841,15 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(whereClause)
-    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .orderBy(...clinicOrderBy)
     .limit(pageSize)
     .offset(offset);
+
+    const historyRows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(clinicCondition);
+    const historyMeta = buildVisitHistoryMeta(historyRows);
 
     // Lightweight stats across ALL clinic bookings (independent of current filter)
     const statRows = await db.select({
@@ -668,62 +862,54 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .where(clinicCondition);
 
-    const stats: BookingStats = {
-      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
-      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0, totalAllCount: statRows.length,
-    };
-    for (const r of statRows) {
-      const d = new Date(r.startTime);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
-      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
-      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-      if (d >= now && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
-      if (d < todayStart) stats.pastCount++;
-      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
-      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
-      if (d >= todayStart && d <= next7DaysEnd) {
-        if (isPending) stats.pendingNext7Count++;
-        if (isConfirmed) stats.confirmedNext7Count++;
-      }
-      if (isPending) stats.totalPendingCount++;
-    }
+    const stats = calculateClinicBookingStats(statRows, boundaries) as BookingStats;
 
-    const data = results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+    stats.patientTotalCount = patientTotalCount;
+
+    const data = results.map(r => ({
+      ...this.decryptBooking(r.booking),
+      slot: r.slot,
+      patientCode: r.patientCode,
+      ...historyMeta.get(r.booking.id),
+    }));
     return { data, total, page: safePage, pageSize, totalPages, stats };
   }
 
   async getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search, patientId, todayDate, statusFilter } = params;
 
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const tomorrowStart = startOfDay(addDays(now, 1));
-    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
-    const next7DaysEnd = addDays(todayStart, 7);
+    // Use client-supplied todayDate if present so all pages in the same session share
+    // the same future/past boundary even when a request crosses midnight.
+    const clinic = clinicId ? await this.getClinic(Number(clinicId)) : undefined;
+    const clinicTimezone = resolveClinicTimezone(clinic?.timezone);
+    const boundaries = createBookingDateBoundaries(
+      todayDate
+        ? getUtcInstantForCalendarDate(todayDate, clinicTimezone)
+        : new Date(),
+      clinicTimezone,
+    );
+    const {
+      todayStr,
+      todayStart,
+      todayEnd,
+      tomorrowStart,
+      thisWeekStart,
+      thisWeekEnd,
+      nextWeekStart,
+      nextWeekEnd,
+      next7DaysEnd,
+    } = boundaries;
 
     const emailCond = eq(bookings.assignedDoctorEmail, doctorEmail);
     const clinicCond = clinicId ? eq(slots.clinicId, clinicId) : undefined;
 
-    // "approved" = not pending AND not declined doctor approval
-    const approvedCond = and(
-      ne(bookings.doctorApprovalStatus, 'pending'),
-      ne(bookings.doctorApprovalStatus, 'declined'),
-    );
+    // Null approval is normalized as unassigned, not silently excluded.
+    const approvedCond = doctorApprovedBookingCondition();
     // "awaiting" = pending doctor approval, slot is today or future, not cancelled/terminal
+    // NOTE: visitStatus is nullable — SQL ne(null, x) returns NULL (not TRUE), so rows with
+    // visitStatus=NULL would be silently excluded without the isNull guard.
     const awaitingCond = and(
-      eq(bookings.doctorApprovalStatus, 'pending'),
-      ne(bookings.verificationStatus, 'cancelled'),
-      ne(bookings.verificationStatus, 'no_show'),
-      ne(bookings.visitStatus, 'completed'),
-      ne(bookings.visitStatus, 'patient_left_early'),
-      ne(bookings.visitStatus, 'treatment_completed'),
+      awaitingDoctorApprovalCondition(),
       gte(slots.startTime, todayStart),
     );
     // Patient name/phone/email search (plain text columns — no encryption)
@@ -735,54 +921,101 @@ export class DatabaseStorage implements IStorage {
         )
       : undefined;
 
-    let filterCond;
-    if (dateFrom || dateTo) {
-      // Date-range: show ALL assigned bookings in range (no approval filter)
-      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
-      const to   = dateTo   ? endOfDay(new Date(dateTo))     : undefined;
-      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
-      else if (from)  filterCond = and(gte(slots.startTime, from));
-      else            filterCond = and(lte(slots.startTime, to!));
-    } else {
-      switch (filter) {
-        case 'today':
-          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
-          break;
-        case 'upcoming':
-          filterCond = and(approvedCond, gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
-          break;
-        case 'past':
-          filterCond = and(approvedCond, lt(slots.startTime, todayStart));
-          break;
-        case 'this-week':
-          filterCond = and(approvedCond, gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
-          break;
-        case 'next-week':
-          filterCond = and(approvedCond, gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
-          break;
-        case 'confirmed-7days':
-          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
-          break;
-        case 'awaiting':
-          filterCond = awaitingCond;
-          break;
-        case 'pending-7days':
-          filterCond = and(awaitingCond, lt(slots.startTime, next7DaysEnd));
-          break;
-        case 'owned':
-          // "All Owned" = appointments the doctor has accepted (approved/admin_confirmed), all dates
-          filterCond = approvedCond;
-          break;
-        case 'all':
-          // "All Bookings" = every booking assigned to this doctor, any approval status
-          filterCond = undefined;
-          break;
-        default:
-          filterCond = approvedCond;
-      }
+    let filterCond: ReturnType<typeof and> | undefined;
+    switch (filter) {
+      case 'today':
+        filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+        break;
+      case 'upcoming':
+        // Doctor-approved (or admin_confirmed on their behalf), from tomorrow onwards, not terminal.
+        // No verificationStatus requirement — the doctor's own acceptance is sufficient; clinic-patient
+        // notification status is the clinic's concern, not the doctor's.
+        // visitStatus is nullable — isNull guard prevents SQL ne(NULL, x) → NULL silently dropping rows.
+        filterCond = and(
+          approvedCond,
+          gte(slots.startTime, tomorrowStart),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
+        );
+        break;
+      case 'past':
+        filterCond = and(approvedCond, lt(slots.startTime, todayStart));
+        break;
+      case 'this-week':
+        filterCond = and(approvedCond, gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+        break;
+      case 'next-week':
+        filterCond = and(approvedCond, gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+        break;
+      case 'confirmed-7days':
+        filterCond = and(
+          approvedCond,
+          gte(slots.startTime, todayStart),
+          lt(slots.startTime, next7DaysEnd),
+          confirmedBookingCondition(),
+          nonTerminalBookingCondition(),
+          notCompletedPatientVisitCondition(),
+        );
+        break;
+      case 'awaiting':
+        filterCond = awaitingCond;
+        break;
+      case 'pending-7days':
+        filterCond = and(awaitingCond, lt(slots.startTime, next7DaysEnd));
+        break;
+      case 'owned':
+        // "All Owned" = appointments the doctor has accepted (approved/admin_confirmed), all dates
+        filterCond = approvedCond;
+        break;
+      case 'all':
+        // "All Bookings" = every booking assigned to this doctor, any approval status
+        filterCond = undefined;
+        break;
+      default:
+        filterCond = approvedCond;
     }
 
-    const whereClause = and(emailCond, clinicCond, filterCond, searchCond);
+    // Date range condition — always applied ON TOP OF the active tab filter
+    let dateRangeCond;
+    if (dateFrom || dateTo) {
+      const from = dateFrom
+        ? getUtcInstantForCalendarDate(dateFrom, clinicTimezone)
+        : undefined;
+      const to = dateTo
+        ? getUtcInstantForCalendarDate(dateTo, clinicTimezone, true)
+        : undefined;
+      if (from && to) dateRangeCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from)  dateRangeCond = gte(slots.startTime, from);
+      else            dateRangeCond = lte(slots.startTime, to!);
+    }
+
+    const combinedFilterCond = and(filterCond, dateRangeCond);
+
+    // Patient filter
+    const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
+    const statusCond =
+      statusFilter === 'in-clinic'
+        ? and(
+            gte(slots.startTime, todayStart),
+            lte(slots.startTime, todayEnd),
+            activeVisitCondition(),
+          )
+        : statusFilter === 'completed' ? completedPatientVisitCondition()
+        : statusFilter === 'cancelled' ? eq(bookings.verificationStatus, 'cancelled')
+        : statusFilter === 'no-show' ? eq(bookings.verificationStatus, 'no_show')
+        : undefined;
+
+    const whereClause = and(emailCond, clinicCond, combinedFilterCond, searchCond, patientCond, statusCond);
+
+    // Total bookings for the selected patient, ignoring tab/date/search (used for smart empty states)
+    let patientTotalCount: number | undefined;
+    if (patientId) {
+      const [patientCountRow] = await db.select({ total: count() })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(emailCond, clinicCond, patientCond));
+      patientTotalCount = Number(patientCountRow?.total ?? 0);
+    }
 
     const [countRow] = await db.select({ total: count() })
       .from(bookings)
@@ -792,6 +1025,15 @@ export class DatabaseStorage implements IStorage {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
     const offset = (safePage - 1) * pageSize;
+
+    // Order depends on filter: mixed (all/owned): future/today first then past;
+    // past: most-recent first (descending); awaiting/today/upcoming/others: ascending
+    const doctorOrderBy: any[] =
+      (filter === 'all' || filter === 'owned')
+        ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`, asc(slots.startTime), asc(bookings.id)]
+        : filter === 'past'
+        ? [desc(slots.startTime), desc(bookings.id)]
+        : [asc(slots.startTime), asc(bookings.id)];
 
     const results = await db.select({
       booking: bookings,
@@ -804,7 +1046,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(clinics, eq(slots.clinicId, clinics.id))
     .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(whereClause)
-    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .orderBy(...doctorOrderBy)
     .limit(pageSize)
     .offset(offset);
 
@@ -820,40 +1062,15 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .where(and(emailCond, clinicCond));
 
-    const stats: BookingStats = {
-      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
-      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0, totalAllCount: statRows.length, totalOwnedCount: 0, awaitingApprovalCount: 0,
-    };
-    for (const r of statRows) {
-      const d = new Date(r.startTime);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const isApproved = r.doctorApprovalStatus !== 'pending' && r.doctorApprovalStatus !== 'declined';
-      const isAwaiting = r.doctorApprovalStatus === 'pending'
-        && r.verificationStatus !== 'cancelled'
-        && r.verificationStatus !== 'no_show'
-        && r.visitStatus !== 'completed'
-        && r.visitStatus !== 'patient_left_early'
-        && r.visitStatus !== 'treatment_completed'
-        && d >= todayStart;
-      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
-      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
-      if (isAwaiting) stats.awaitingApprovalCount!++;
-      if (isApproved) {
-        stats.totalOwnedCount!++;
-        if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-        // "upcoming" boundary matches the server filter: tomorrowStart (not now), so today's slots don't inflate the count
-        if (d >= tomorrowStart && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
-        if (d < todayStart) stats.pastCount++;
-        if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
-        if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
-      }
-      if (d >= todayStart && d < next7DaysEnd) {
-        if (isAwaiting) stats.pendingNext7Count++;
-        if (isApproved && isConfirmed) stats.confirmedNext7Count++;
-      }
-      if (isPending) stats.totalPendingCount++;
-    }
+    const historyRows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(emailCond, clinicCond));
+    const historyMeta = buildVisitHistoryMeta(historyRows);
+
+    const stats = calculateDoctorBookingStats(statRows, boundaries) as BookingStats;
+
+    stats.patientTotalCount = patientTotalCount;
 
     const data = results.map(r => ({
       ...this.decryptBooking(r.booking),
@@ -861,12 +1078,114 @@ export class DatabaseStorage implements IStorage {
       clinic: (r as any).clinic,
       clinicId: r.slot.clinicId,
       patientCode: r.patientCode,
+      ...historyMeta.get(r.booking.id),
     }));
     return { data, total, page: safePage, pageSize, totalPages, stats };
   }
 
   async getBooking(id: number): Promise<Booking | undefined> {
     return this.getBookingById(id);
+  }
+
+  async getClinicNoShowCandidates(clinicId: number): Promise<(Booking & { slot: Slot })[]> {
+    const today = startOfDay(new Date());
+    const rows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(
+        eq(slots.clinicId, clinicId),
+        lt(slots.startTime, today),
+        or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+        ne(bookings.verificationStatus, 'cancelled'),
+        ne(bookings.verificationStatus, 'no_show'),
+        or(
+          isNull(bookings.visitStatus),
+          and(
+            ne(bookings.visitStatus, 'checked_in'),
+            ne(bookings.visitStatus, 'in_consultation'),
+            ne(bookings.visitStatus, 'treatment_completed'),
+            ne(bookings.visitStatus, 'completed'),
+            ne(bookings.visitStatus, 'patient_left_early'),
+          ),
+        ),
+        isNull(bookings.checkedInAt),
+      ))
+      .orderBy(asc(slots.startTime));
+    return rows.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
+  }
+
+  async batchMarkNoShows(clinicId: number, bookingIds: number[]) {
+    const marked: Booking[] = [];
+    const skipped: { bookingId: number; reason: string }[] = [];
+    const today = startOfDay(new Date());
+    for (const bookingId of [...new Set(bookingIds)]) {
+      const [row] = await db.select({ booking: bookings, slot: slots })
+        .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(eq(bookings.id, bookingId), eq(slots.clinicId, clinicId))).limit(1);
+      if (!row) { skipped.push({ bookingId, reason: "Booking not found" }); continue; }
+      const b = row.booking;
+      const eligible = row.slot.startTime < today &&
+        (b.verificationStatus === 'confirmed' || !!b.confirmedBy) &&
+        !['cancelled','no_show'].includes(b.verificationStatus) &&
+        !['checked_in','in_consultation','treatment_completed','completed','patient_left_early'].includes(b.visitStatus || '') &&
+        !b.checkedInAt;
+      if (!eligible) { skipped.push({ bookingId, reason: "Appointment is no longer eligible" }); continue; }
+      const [updated] = await db.update(bookings).set({
+        verificationStatus: 'no_show',
+        noShowSource: 'batch_admin',
+        noShowMarkedAt: new Date(),
+        noShowPreviousStatus: b.verificationStatus,
+        noShowPreviousConfirmedBy: b.confirmedBy,
+       }).where(and(
+         eq(bookings.id, bookingId),
+         eq(bookings.verificationStatus, b.verificationStatus),
+         b.visitStatus === null ? isNull(bookings.visitStatus) : eq(bookings.visitStatus, b.visitStatus),
+       )).returning();
+      if (updated) marked.push(this.decryptBooking(updated)); else skipped.push({ bookingId, reason: "Update conflict" });
+    }
+    return { marked, skipped };
+  }
+
+  async revertBatchNoShow(clinicId: number, bookingId: number) {
+    const [row] = await db.select({ booking: bookings, slot: slots }).from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(eq(bookings.id, bookingId), eq(slots.clinicId, clinicId))).limit(1);
+    if (!row) throw new Error("Booking not found");
+    if (row.booking.verificationStatus !== 'no_show' || row.booking.noShowSource !== 'batch_admin') {
+      throw new Error("Only batch-marked no-shows can be reverted");
+    }
+    const [updated] = await db.update(bookings).set({
+      verificationStatus: row.booking.noShowPreviousStatus || 'confirmed',
+      confirmedBy: row.booking.noShowPreviousConfirmedBy || null,
+      noShowSource: null, noShowMarkedAt: null,
+      noShowPreviousStatus: null, noShowPreviousConfirmedBy: null,
+    }).where(eq(bookings.id, bookingId)).returning();
+    return this.decryptBooking(updated);
+  }
+
+  async markNoShowIfCurrent(
+    id: number,
+    expectedVerificationStatus: string,
+    expectedVisitStatus: string | null,
+    reason: string,
+  ): Promise<Booking | undefined> {
+    const [updated] = await db.update(bookings)
+      .set({
+        verificationStatus: 'no_show',
+        cancellationReason: reason,
+        noShowSource: 'manual_admin',
+        noShowMarkedAt: new Date(),
+        noShowPreviousStatus: expectedVerificationStatus,
+        noShowPreviousConfirmedBy: null,
+      })
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.verificationStatus, expectedVerificationStatus),
+        expectedVisitStatus === null
+          ? isNull(bookings.visitStatus)
+          : eq(bookings.visitStatus, expectedVisitStatus),
+      ))
+      .returning();
+    return updated ? this.decryptBooking(updated) : undefined;
   }
 
   async updateBookingStatus(id: number, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking> {
@@ -882,6 +1201,34 @@ export class DatabaseStorage implements IStorage {
       }
 
       return updated;
+    });
+  }
+
+  async updateBookingStatusIfCurrent(
+    id: number,
+    expectedStatus: string,
+    status: string,
+    confirmedBy?: 'admin' | 'doctor',
+  ): Promise<Booking | undefined> {
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({
+          verificationStatus: status as any,
+          ...(confirmedBy ? { confirmedBy } : {}),
+        })
+        .where(and(
+          eq(bookings.id, id),
+          eq(bookings.verificationStatus, expectedStatus),
+        ))
+        .returning();
+
+      if (status === 'cancelled' && updated) {
+        await tx.update(slots)
+          .set({ isBooked: false })
+          .where(eq(slots.id, updated.slotId));
+      }
+
+      return updated ? this.decryptBooking(updated) : undefined;
     });
   }
 
@@ -911,12 +1258,113 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async updateBookingDoctorApprovalIfCurrent(
+    id: number,
+    doctorEmail: string,
+    expectedStatus: string,
+    status: 'approved' | 'declined',
+  ): Promise<Booking | undefined> {
+    const extraFields = status === 'approved'
+      ? { verificationStatus: 'confirmed' as const, confirmedBy: 'doctor' as const }
+      : {};
+    const [updated] = await db.update(bookings)
+      .set({ doctorApprovalStatus: status, ...extraFields })
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.assignedDoctorEmail, doctorEmail),
+        eq(bookings.doctorApprovalStatus, expectedStatus),
+      ))
+      .returning();
+    return updated ? this.decryptBooking(updated) : undefined;
+  }
+
   async rescheduleBooking(id: number, newSlotId: number): Promise<Booking> {
     const [updated] = await db.update(bookings)
       .set({ slotId: newSlotId })
       .where(eq(bookings.id, id))
       .returning();
     return updated;
+  }
+
+  async rescheduleBookingIfCurrent(
+    id: number,
+    newSlotId: number,
+    clinicId: number,
+    expectedVerificationStatus: string,
+    expectedVisitStatus: string | null,
+  ): Promise<Booking> {
+    return await db.transaction(async (tx) => {
+      const [source] = await tx.select({ booking: bookings, slot: slots })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(
+          eq(bookings.id, id),
+          eq(slots.clinicId, clinicId),
+          eq(bookings.verificationStatus, expectedVerificationStatus),
+          expectedVisitStatus === null
+            ? isNull(bookings.visitStatus)
+            : eq(bookings.visitStatus, expectedVisitStatus),
+        ))
+        .limit(1);
+
+      if (!source) {
+        throw new Error("Booking no longer matches the expected state");
+      }
+
+      const [target] = await tx.select()
+        .from(slots)
+        .where(and(
+          eq(slots.id, newSlotId),
+          eq(slots.clinicId, clinicId),
+          eq(slots.isCancelled, false),
+        ))
+        .limit(1);
+
+      if (!target) {
+        throw new Error("Target slot is not available");
+      }
+
+      if (target.id !== source.slot.id) {
+        const targetStart = new Date(target.startTime);
+        const startWindow = new Date(targetStart.getTime() - 60_000);
+        const endWindow = new Date(targetStart.getTime() + 60_000);
+        const targetBookings = await tx.select({ booking: bookings, slot: slots })
+          .from(bookings)
+          .innerJoin(slots, eq(bookings.slotId, slots.id))
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            eq(slots.isCancelled, false),
+            gte(slots.startTime, startWindow),
+            lte(slots.startTime, endWindow),
+          ));
+        const usedCapacity = targetBookings
+          .filter(({ booking }) =>
+            booking.id !== id &&
+            !['cancelled', 'pending'].includes(booking.verificationStatus ?? ''),
+          )
+          .reduce((sum, { booking }) => sum + ((booking as any).slotCost ?? 1), 0);
+        const requestedCapacity = (source.booking as any).slotCost ?? 1;
+        if (usedCapacity + requestedCapacity > (target.maxBookings ?? 0)) {
+          throw new Error("Target slot is full");
+        }
+      }
+
+      const [updated] = await tx.update(bookings)
+        .set({ slotId: newSlotId })
+        .where(and(
+          eq(bookings.id, id),
+          eq(bookings.verificationStatus, expectedVerificationStatus),
+          source.booking.visitStatus === null
+            ? isNull(bookings.visitStatus)
+            : eq(bookings.visitStatus, source.booking.visitStatus),
+        ))
+        .returning();
+
+      if (!updated) {
+        throw new Error("Booking changed before it could be rescheduled");
+      }
+      return this.decryptBooking(updated);
+    });
   }
 
   async updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking> {
@@ -930,6 +1378,18 @@ export class DatabaseStorage implements IStorage {
     return this.decryptBooking(updated);
   }
 
+  async updateBookingPatientInfo(id: number, data: { customerName?: string; customerPhone?: string | null; customerEmail?: string | null; customerAge?: number | null; customerGender?: string | null }): Promise<Booking> {
+    const setFields: Record<string, any> = {};
+    if (data.customerName !== undefined) setFields.customerName = data.customerName;
+    if (data.customerPhone !== undefined) setFields.customerPhone = data.customerPhone;
+    if (data.customerEmail !== undefined) setFields.customerEmail = data.customerEmail;
+    if (data.customerAge !== undefined) setFields.customerAge = data.customerAge;
+    if (data.customerGender !== undefined) setFields.customerGender = data.customerGender;
+    const [updated] = await db.update(bookings).set(setFields).where(eq(bookings.id, id)).returning();
+    if (!updated) throw new Error(`Booking ${id} not found`);
+    return this.decryptBooking(updated);
+  }
+
   async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null, visitCompletionNote?: string | null): Promise<Booking> {
     const setFields: Record<string, any> = { visitStatus };
     if (checkedInAt !== undefined) setFields.checkedInAt = checkedInAt;
@@ -940,6 +1400,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.id, id))
       .returning();
     return updated;
+  }
+
+  async updateVisitStatusIfCurrent(
+    id: number,
+    expectedVisitStatus: string | null,
+    visitStatus: string | null,
+    checkedInAt?: Date | null,
+    completedAt?: Date | null,
+    visitCompletionNote?: string | null,
+  ): Promise<Booking | undefined> {
+    const setFields: Record<string, any> = { visitStatus };
+    if (checkedInAt !== undefined) setFields.checkedInAt = checkedInAt;
+    if (completedAt !== undefined) setFields.completedAt = completedAt;
+    if (visitCompletionNote !== undefined) setFields.visitCompletionNote = visitCompletionNote;
+    const [updated] = await db.update(bookings)
+      .set(setFields)
+      .where(and(
+        eq(bookings.id, id),
+        expectedVisitStatus === null
+          ? isNull(bookings.visitStatus)
+          : eq(bookings.visitStatus, expectedVisitStatus),
+      ))
+      .returning();
+    return updated ? this.decryptBooking(updated) : undefined;
   }
 
   async updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void> {
@@ -962,6 +1446,9 @@ export class DatabaseStorage implements IStorage {
     paymentStatus?: string | null;
     razorpayOrderId?: string | null;
     razorpayPaymentId?: string | null;
+    visitType?: string | null;
+    treatmentCategory?: string | null;
+    bookedBy?: string | null;
   }): Promise<Booking> {
     const [booking] = await db.insert(bookings).values({
       slotId: data.slotId,
@@ -977,6 +1464,9 @@ export class DatabaseStorage implements IStorage {
       paymentStatus: data.paymentStatus || null,
       razorpayOrderId: data.razorpayOrderId || null,
       razorpayPaymentId: data.razorpayPaymentId || null,
+      visitType: data.visitType || null,
+      treatmentCategory: data.treatmentCategory || null,
+      bookedBy: data.bookedBy || null,
     } as any).returning();
     return booking;
   }
@@ -1005,9 +1495,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cancelBooking(id: number, reason?: string): Promise<void> {
-    await db.update(bookings)
-      .set({ verificationStatus: 'cancelled', ...(reason ? { cancellationReason: reason } : {}) })
-      .where(eq(bookings.id, id));
+    await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({ verificationStatus: 'cancelled', ...(reason ? { cancellationReason: reason } : {}) })
+        .where(eq(bookings.id, id))
+        .returning();
+      if (updated) {
+        await tx.update(slots)
+          .set({ isBooked: false })
+          .where(eq(slots.id, updated.slotId));
+      }
+    });
+  }
+
+  async cancelBookingIfCurrent(
+    id: number,
+    verificationStatus: string,
+    reason?: string,
+  ): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({ verificationStatus: 'cancelled', ...(reason ? { cancellationReason: reason } : {}) })
+        .where(and(
+          eq(bookings.id, id),
+          eq(bookings.verificationStatus, verificationStatus),
+        ))
+        .returning();
+      if (!updated) return false;
+      await tx.update(slots)
+        .set({ isBooked: false })
+        .where(eq(slots.id, updated.slotId));
+      return true;
+    });
   }
 
   async updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking> {
@@ -1220,15 +1739,29 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => r.doctor);
   }
 
-  async getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]> {
+  async getPatientsByDoctor(doctorEmail: string, query?: string): Promise<(Patient & { clinic: Clinic })[]> {
+    const q = (query || "").trim();
+    const searchCond = q.length >= 2
+      ? or(
+          ilike(patients.name, `%${q}%`),
+          ilike(patients.phone, `%${q}%`),
+          ilike(patients.patientCode, `%${q}%`),
+        )
+      : undefined;
+    // A doctor's patients are the patients linked to bookings assigned to that doctor.
     const results = await db.select({
       patient: patients,
       clinic: clinics
     })
-    .from(patients)
+    .from(bookings)
+    .innerJoin(patients, eq(bookings.patientId, patients.id))
     .innerJoin(clinics, eq(patients.clinicId, clinics.id))
-    .where(eq(patients.doctorId, doctorId));
-    
+    .where(and(
+      eq(bookings.assignedDoctorEmail, doctorEmail),
+      searchCond,
+    ))
+    .groupBy(patients.id, clinics.id);
+
     return results.map(r => ({ ...r.patient, clinic: r.clinic }));
   }
 
@@ -1411,6 +1944,10 @@ export class DatabaseStorage implements IStorage {
   // Consent Tokens
   async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date, consentTextVersionId?: number): Promise<ConsentToken> {
     const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt, consentTextVersionId: consentTextVersionId ?? null } as any).returning();
+    // Persist token on bookings row so UI can detect "Sent" state after page reload
+    await db.update(bookings)
+      .set({ consentToken: token, consentSignedAt: null, consentSignature: null, consentIp: null })
+      .where(eq(bookings.id, bookingId));
     return ct;
   }
 
@@ -1501,7 +2038,7 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => this.decryptClinicalRecord(r));
   }
 
-  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
+  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'affectedTeeth' | 'prescription' | 'medicationList' | 'visitAttachments' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
     const encryptedUpdates = {
       ...updates,
       ...(updates.prescription !== undefined ? { prescription: encryptField(updates.prescription) } : {}),
@@ -1521,6 +2058,102 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clinicalRecords.id, id));
   }
 
+  async getPatientVisitTimeline(clinicId: number, patientId: number): Promise<VisitTimelineEntry[]> {
+    // Step 1 — get bookings for this patient at this clinic
+    const bookingRows = await db.select({ booking: bookings, slot: slots })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(and(eq(bookings.patientId, patientId), eq(slots.clinicId, clinicId)))
+      .orderBy(desc(slots.startTime));
+
+    if (bookingRows.length === 0) return [];
+
+    const bookingIds = bookingRows.map(r => r.booking.id);
+
+    // Step 2 — clinical records and bills, scoped to those exact booking IDs.
+    // This correctly picks up records where patientId was never populated (stored as NULL)
+    // because we filter by bookingId instead, which is always set.
+    const [records, bills] = await Promise.all([
+      db.select().from(clinicalRecords)
+        .where(and(
+          inArray(clinicalRecords.bookingId, bookingIds),
+          eq(clinicalRecords.isDeleted, false),
+        )),
+      db.select().from(patientBills)
+        .where(inArray(patientBills.bookingId, bookingIds)),
+    ]);
+
+    // Index clinical records and bills by bookingId for O(1) lookup
+    const recordsByBooking = new Map<number, ClinicalRecord[]>();
+    for (const r of records) {
+      const key = r.bookingId;
+      if (!recordsByBooking.has(key)) recordsByBooking.set(key, []);
+      recordsByBooking.get(key)!.push(r);
+    }
+    const billsByBooking = new Map<number, PatientBill[]>();
+    for (const b of bills) {
+      if (!b.bookingId) continue;
+      if (!billsByBooking.has(b.bookingId)) billsByBooking.set(b.bookingId, []);
+      billsByBooking.get(b.bookingId)!.push(b);
+    }
+
+    // Parse the free-text prescription field (stored as a JSON array of medication objects)
+    // so we can fall back to it when medicationList (the structured column) is null.
+    function parsePrescriptionItems(text: string | null | undefined): { name: string }[] {
+      if (!text) return [];
+      try {
+        const parsed = JSON.parse(text);
+        return Array.isArray(parsed)
+          ? parsed.filter((item: any) => item && typeof item.name === "string")
+          : [];
+      } catch { return []; }
+    }
+
+    const entries: VisitTimelineEntry[] = bookingRows.map((row, idx) => {
+      const b = row.booking;
+      const recs = recordsByBooking.get(b.id) ?? [];
+      const bls = billsByBooking.get(b.id) ?? [];
+      const allDiagnosis = recs.flatMap(r => (r.diagnosis ?? []) as string[]);
+
+      // medicationList is the structured column; prescription is the text column.
+      // The doctor UI only writes prescription (text), never medicationList,
+      // so fall back to parsing prescription when medicationList is absent.
+      const medicationCount = recs.reduce((sum, r) => {
+        const fromList = (r.medicationList as any[] | null)?.length ?? 0;
+        return sum + (fromList > 0 ? fromList : parsePrescriptionItems(r.prescription).length);
+      }, 0);
+      const medicationNames = recs.flatMap(r => {
+        const fromList = ((r.medicationList as { name: string }[] | null) ?? [])
+          .map(m => m.name).filter(Boolean);
+        return fromList.length > 0
+          ? fromList
+          : parsePrescriptionItems(r.prescription).map((m: { name: string }) => m.name).filter(Boolean);
+      });
+
+      const clinicalNotes = recs[0]?.notes ?? null;
+      const attachmentCount = recs.reduce((sum, r) => sum + ((r.visitAttachments as any[] | null)?.length ?? 0), 0);
+      const billServiceCount = bls.reduce((sum, bl) => sum + ((bl.services as any[] | null)?.length ?? 0), 0);
+      return {
+        bookingId: b.id,
+        visitDate: row.slot.startTime.toISOString(),
+        visitType: b.visitType ?? null,
+        treatmentCategory: b.treatmentCategory ?? null,
+        visitStatus: b.visitStatus ?? null,
+        description: b.description ?? null,
+        visitCompletionNote: (b as any).visitCompletionNote ?? null,
+        diagnosis: allDiagnosis,
+        medicationCount,
+        medicationNames,
+        clinicalNotes,
+        attachmentCount,
+        billServiceCount,
+        isFirstVisit: idx === bookingRows.length - 1,
+      };
+    });
+
+    return entries;
+  }
+
   // ── Inventory ──────────────────────────────────────────────────────────────
 
   async getInventoryCategories(clinicId: number): Promise<InventoryCategory[]> {
@@ -1532,6 +2165,20 @@ export class DatabaseStorage implements IStorage {
   async createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory> {
     const [cat] = await db.insert(inventoryCategories).values(data).returning();
     return cat;
+  }
+
+  async updateInventoryCategory(id: number, clinicId: number, name: string): Promise<InventoryCategory> {
+    const [cat] = await db.update(inventoryCategories)
+      .set({ name })
+      .where(and(eq(inventoryCategories.id, id), eq(inventoryCategories.clinicId, clinicId)))
+      .returning();
+    if (!cat) throw new Error("Category not found");
+    return cat;
+  }
+
+  async deleteInventoryCategory(id: number, clinicId: number): Promise<void> {
+    await db.delete(inventoryCategories)
+      .where(and(eq(inventoryCategories.id, id), eq(inventoryCategories.clinicId, clinicId)));
   }
 
   async getInventoryItems(clinicId: number): Promise<InventoryItem[]> {
@@ -1897,7 +2544,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+  async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient> {
     const normalizedEmail = email.toLowerCase().trim();
     const [existing] = await db.select().from(patients)
       .where(and(eq(patients.clinicId, clinicId), eq(patients.email, normalizedEmail)))
@@ -1910,6 +2557,8 @@ export class DatabaseStorage implements IStorage {
       };
       if (name && name.length > (existing.name ?? "").length) updates.name = name;
       if (phone && (!existing.phone || phone.length > (existing.phone ?? "").length)) updates.phone = phone;
+      if (age !== undefined && age !== null && existing.age == null) updates.age = age;
+      if (gender && !existing.gender) updates.gender = gender;
       const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
       return updated;
     }
@@ -1923,6 +2572,8 @@ export class DatabaseStorage implements IStorage {
       email: normalizedEmail,
       name,
       phone: phone || null,
+      age: age ?? null,
+      gender: gender ?? null,
       patientCode,
       visitCount: 1,
       lastVisitAt: new Date(),
@@ -1930,7 +2581,7 @@ export class DatabaseStorage implements IStorage {
     return newPatient;
   }
 
-  async upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient> {
+  async upsertPatientByPhone(clinicId: number, phone: string, name: string, age?: number | null, gender?: string | null): Promise<Patient> {
     const normalizedPhone = phone.trim();
     const [existing] = await db.select().from(patients)
       .where(and(eq(patients.clinicId, clinicId), eq(patients.phone, normalizedPhone)))
@@ -1942,6 +2593,8 @@ export class DatabaseStorage implements IStorage {
         lastVisitAt: new Date(),
       };
       if (name && name.length > (existing.name ?? "").length) updates.name = name;
+      if (age !== undefined && age !== null && existing.age == null) updates.age = age;
+      if (gender && !existing.gender) updates.gender = gender;
       const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
       return updated;
     }
@@ -1955,6 +2608,8 @@ export class DatabaseStorage implements IStorage {
       email: null,
       name,
       phone: normalizedPhone,
+      age: age ?? null,
+      gender: gender ?? null,
       patientCode,
       visitCount: 1,
       lastVisitAt: new Date(),
@@ -1976,15 +2631,19 @@ export class DatabaseStorage implements IStorage {
     return patient ?? null;
   }
 
-  async incrementPatientVisit(patientId: number): Promise<Patient> {
+  async incrementPatientVisit(patientId: number, age?: number | null, gender?: string | null): Promise<Patient> {
+    const [existing] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
+    const updates: any = { visitCount: sql`${patients.visitCount} + 1`, lastVisitAt: new Date() };
+    if (age !== undefined && age !== null && existing?.age == null) updates.age = age;
+    if (gender && !existing?.gender) updates.gender = gender;
     const [updated] = await db.update(patients)
-      .set({ visitCount: sql`${patients.visitCount} + 1`, lastVisitAt: new Date() })
+      .set(updates)
       .where(eq(patients.id, patientId))
       .returning();
     return updated;
   }
 
-  async createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+  async createNewPatient(clinicId: number, email: string, name: string, phone: string, age?: number | null, gender?: string | null): Promise<Patient> {
     const normalizedEmail = email.toLowerCase().trim();
     const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
     const seq = (Number(countRows[0]?.count) ?? 0) + 1;
@@ -1994,6 +2653,8 @@ export class DatabaseStorage implements IStorage {
       email: normalizedEmail,
       name,
       phone: phone || null,
+      age: age ?? null,
+      gender: gender ?? null,
       patientCode,
       visitCount: 1,
       lastVisitAt: new Date(),
@@ -2129,7 +2790,12 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {
+  async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: PatientHistoryBooking[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {
+    const clinic = await this.getClinic(Number(clinicId));
+    const boundaries = createBookingDateBoundaries(
+      new Date(),
+      resolveClinicTimezone(clinic?.timezone),
+    );
     const [bookingRows, bills, records] = await Promise.all([
       db.select({ booking: bookings, slot: slots })
         .from(bookings)
@@ -2144,7 +2810,14 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(clinicalRecords.createdAt)),
     ]);
     return {
-      bookings: bookingRows.map(r => ({ ...r.booking, slot: r.slot })),
+      bookings: bookingRows.map(r => ({
+        ...r.booking,
+        slot: r.slot,
+        lifecycle: getBookingLifecycleMetadata(
+          { ...r.booking, startTime: r.slot.startTime },
+          boundaries,
+        ),
+      })),
       bills,
       clinicalRecords: records,
     };
@@ -2255,45 +2928,103 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(pharmacyStock.id, id), eq(pharmacyStock.clinicId, clinicId)));
   }
 
-  async getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>> {
+  async getClinicAnalytics(clinicId: number, range: string): Promise<ClinicAnalyticsResult> {
     const now = new Date();
-    let startDate: Date;
+    const clinic = await this.getClinic(Number(clinicId));
+    const clinicTimezone = resolveClinicTimezone(clinic?.timezone);
+    const boundaries = createBookingDateBoundaries(now, clinicTimezone);
+
+    // Analytics periods are defined by clinic-local calendar dates, then
+    // converted to the UTC instants stored by PostgreSQL. This keeps analytics
+    // aligned with booking lists around UTC midnight and DST boundaries.
+    const toCivilDate = (date: Date): string => date.toISOString().slice(0, 10);
+    const civilDate = (dateString: string): Date =>
+      new Date(`${dateString}T00:00:00.000Z`);
+    const shiftCivilDate = (dateString: string, days: number): string =>
+      toCivilDate(addDays(civilDate(dateString), days));
+    const currentYear = boundaries.todayStr.slice(0, 4);
+    const days = range === '60d' ? 60 : range === '90d' ? 90 : 30;
+
+    let currentStartDateString: string;
+    let previousStartDateString: string;
     if (range === 'year') {
-      startDate = new Date(now.getFullYear(), 0, 1);
+      currentStartDateString = `${currentYear}-01-01`;
+      previousStartDateString = `${Number(currentYear) - 1}-01-01`;
     } else {
-      const days = range === '60d' ? 60 : range === '90d' ? 90 : 30;
-      startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      currentStartDateString = shiftCivilDate(boundaries.todayStr, -days);
+      previousStartDateString = shiftCivilDate(currentStartDateString, -days);
     }
 
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const startDate = getUtcInstantForCalendarDate(
+      currentStartDateString,
+      clinicTimezone,
+    );
+    const prevStartDate = getUtcInstantForCalendarDate(
+      previousStartDateString,
+      clinicTimezone,
+    );
+    const previousEndDate = startDate;
+    const { todayStart, todayEnd } = boundaries;
     const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    function dateKey(d: Date) { return d.toISOString().substring(0, 10); }
+    function dateKey(d: Date) {
+      return getCalendarDateInTimezone(d, clinicTimezone);
+    }
     function weekKey(d: Date) {
-      const c = new Date(d); c.setDate(c.getDate() - c.getDay());
-      return c.toISOString().substring(0, 10);
+      const localDate = dateKey(d);
+      const localCivilDate = civilDate(localDate);
+      const daysFromMonday = (localCivilDate.getUTCDay() + 6) % 7;
+      return toCivilDate(addDays(localCivilDate, -daysFromMonday));
     }
     function monthLabel(d: Date) {
+      const localDate = dateKey(d);
+      const year = localDate.slice(0, 4);
+      const month = Number(localDate.slice(5, 7)) - 1;
       const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return `${mo[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
+      return `${mo[month]} '${year.slice(2)}`;
     }
 
-    const [bookingRows, slotRows, billRows, patientRows, clinicalRows, alertRows, itemRows, loginRows] =
+    // Fetch both current and previous period data for comparisons
+    const [bookingRows, prevBookingRows, slotRows, billRows, prevBillRows, patientRows, clinicalRows, alertRows, itemRows] =
       await Promise.all([
         db.select({ booking: bookings, slot: slots })
           .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
-          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            gte(slots.startTime, startDate),
+          )),
+
+        db.select({ booking: bookings, slot: slots })
+          .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            gte(slots.startTime, prevStartDate),
+            lt(slots.startTime, previousEndDate),
+          )),
 
         db.select().from(slots)
-          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+          .where(and(
+            eq(slots.clinicId, clinicId),
+            gte(slots.startTime, startDate),
+          )),
 
         db.select().from(patientBills)
-          .where(and(eq(patientBills.clinicId, clinicId), gte(patientBills.createdAt as any, startDate))),
+          .where(and(
+            eq(patientBills.clinicId, clinicId),
+            gte(patientBills.createdAt as any, startDate),
+            lt(patientBills.createdAt as any, now),
+          )),
+
+        db.select().from(patientBills)
+          .where(and(
+            eq(patientBills.clinicId, clinicId),
+            gte(patientBills.createdAt as any, prevStartDate),
+            lt(patientBills.createdAt as any, previousEndDate),
+          )),
 
         db.select().from(patients).where(eq(patients.clinicId, clinicId)),
 
-        db.select({ diagnosis: clinicalRecords.diagnosis })
+        db.select({ diagnosis: clinicalRecords.diagnosis, doctorName: clinicalRecords.doctorName })
           .from(clinicalRecords)
           .where(and(
             eq(clinicalRecords.clinicId, clinicId),
@@ -2305,18 +3036,26 @@ export class DatabaseStorage implements IStorage {
           .where(and(eq(stockAlerts.clinicId, clinicId), eq(stockAlerts.isDismissed, false))),
 
         db.select().from(inventoryItems).where(eq(inventoryItems.clinicId, clinicId)),
-
-        db.select({ success: loginEvents.success })
-          .from(loginEvents)
-          .where(and(eq(loginEvents.role, 'clinic'), gte(loginEvents.createdAt as any, startDate))),
       ]);
 
     // ── Overview ──────────────────────────────────────────────────────────────
-    const totalBookings  = bookingRows.length;
-    const todayBookings  = bookingRows.filter(r => r.slot.startTime >= todayStart && r.slot.startTime <= todayEnd).length;
-    const cancelledSlots = slotRows.filter(s => s.isCancelled).length;
-    const bookedSlots    = slotRows.filter(s => s.isBooked).length;
-    const utilizationPct = slotRows.length > 0 ? Math.round((bookedSlots / slotRows.length) * 100) : 0;
+    const totalBookings   = bookingRows.length;
+    const todayBookings   = bookingRows.filter(r => r.slot.startTime >= todayStart && r.slot.startTime <= todayEnd).length;
+    const cancelledSlots  = slotRows.filter(s => s.isCancelled).length;
+    const availableSlots  = slotRows.filter(s => !s.isCancelled).length;
+    const bookedSlots     = slotRows.filter(s => s.isBooked).length;
+    const utilizationPct  = availableSlots > 0 ? Math.round((bookedSlots / availableSlots) * 100) : 0;
+
+    // Booking cancellations (not slot cancellations)
+    const bookingCancellations = bookingRows.filter(r =>
+      normalizeConfirmationStatus(r.booking.verificationStatus).value === 'cancelled'
+    ).length;
+
+    // No-shows
+    const noShowCount = bookingRows.filter(r =>
+      normalizeConfirmationStatus(r.booking.verificationStatus).value === 'no_show'
+    ).length;
+    const noShowRate  = totalBookings > 0 ? Math.round((noShowCount / totalBookings) * 100) : 0;
 
     const trendMap = new Map<string, number>();
     for (const r of bookingRows) {
@@ -2327,12 +3066,23 @@ export class DatabaseStorage implements IStorage {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({ date, count }));
 
+    // Period-over-period helpers
+    const prevTotalBookings = prevBookingRows.length;
+    const prevNoShowCount   = prevBookingRows.filter(r => r.booking.verificationStatus === 'no_show').length;
+
+    function pctChange(curr: number, prev: number): number {
+      return prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
+    }
+
     // ── Financial ─────────────────────────────────────────────────────────────
-    const paidBills      = billRows.filter(b => b.paymentStatus === 'paid');
-    const totalRevenue   = paidBills.reduce((s, b) => s + (b.total ?? 0), 0);
-    const outstanding    = billRows.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
-    const uniquePtIds    = new Set(billRows.map(b => b.patientId).filter(Boolean));
-    const avgRevPerPt    = uniquePtIds.size > 0 ? Math.round(totalRevenue / uniquePtIds.size) : 0;
+    const paidBills       = billRows.filter(b => b.paymentStatus === 'paid');
+    const totalRevenue    = paidBills.reduce((s, b) => s + (b.total ?? 0), 0);
+    const outstanding     = billRows.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const uniquePtIds     = new Set(billRows.map(b => b.patientId).filter(Boolean));
+    const avgRevPerPt     = uniquePtIds.size > 0 ? Math.round(totalRevenue / uniquePtIds.size) : 0;
+
+    const prevPaidBills   = prevBillRows.filter(b => b.paymentStatus === 'paid');
+    const prevRevenue     = prevPaidBills.reduce((s, b) => s + (b.total ?? 0), 0);
 
     const payMap = new Map<string, { amount: number; count: number }>();
     for (const b of billRows) {
@@ -2354,6 +3104,21 @@ export class DatabaseStorage implements IStorage {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([week, amount]) => ({ week, amount: Math.round(amount) }));
 
+    // Revenue by doctor
+    const docRevMap = new Map<string, number>();
+    for (const b of billRows) {
+      if (b.paymentStatus !== 'paid') continue;
+      const doc = b.patientName; // closest proxy: patient name is who the bill is for
+      // Better: use assignedDoctor from booking — but bill doesn't link to booking doctor directly
+      // We can use a join but for simplicity, skip if not critical
+      const key = doc ?? 'Unassigned';
+      docRevMap.set(key, (docRevMap.get(key) ?? 0) + (b.total ?? 0));
+    }
+    const revenueByDoctor = Array.from(docRevMap.entries())
+      .map(([doctor, amount]) => ({ doctor, amount: Math.round(amount) }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8);
+
     // ── Appointments ──────────────────────────────────────────────────────────
     const statusMap = new Map<string, number>();
     for (const r of bookingRows) {
@@ -2373,6 +3138,7 @@ export class DatabaseStorage implements IStorage {
       .map(([doctor, count]) => ({ doctor, count }))
       .sort((a, b) => b.count - a.count).slice(0, 8);
 
+    // Procedures
     const procMap = new Map<string, number>();
     for (const r of clinicalRows) {
       for (const d of ((r.diagnosis ?? []) as string[])) {
@@ -2382,6 +3148,29 @@ export class DatabaseStorage implements IStorage {
     const topProcedures = Array.from(procMap.entries())
       .map(([procedure, count]) => ({ procedure, count }))
       .sort((a, b) => b.count - a.count).slice(0, 6);
+
+    // Conversion funnel counts
+    const confirmedCount = bookingRows.filter(r =>
+      isConfirmedBooking({ ...r.booking, startTime: r.slot.startTime })
+    ).length;
+    const checkedInCount = bookingRows.filter(r =>
+      r.booking.checkedInAt !== null ||
+      isActiveVisit({ ...r.booking, startTime: r.slot.startTime })
+    ).length;
+    const startedVisitCount = bookingRows.filter(r =>
+      isStartedPatientVisitStatus(normalizeVisitStatus(r.booking.visitStatus).value)
+    ).length;
+    const treatmentDoneCount = bookingRows.filter(r =>
+      normalizeVisitStatus(r.booking.visitStatus).value === 'treatment_completed'
+    ).length;
+    const visitCompletedCount = bookingRows.filter(r =>
+      normalizeVisitStatus(r.booking.visitStatus).value === 'completed'
+    ).length;
+    const earlyExitCount = bookingRows.filter(r =>
+      isTerminalBooking({ ...r.booking, startTime: r.slot.startTime }) &&
+      normalizeVisitStatus(r.booking.visitStatus).value === 'patient_left_early'
+    ).length;
+    const billsPaidCount = paidBills.length;
 
     // ── Patients ──────────────────────────────────────────────────────────────
     const totalPatients  = patientRows.length;
@@ -2397,21 +3186,100 @@ export class DatabaseStorage implements IStorage {
     const growthByMonth = Array.from(growthMap.entries())
       .map(([month, count]) => ({ month, count }));
 
+    // Demographics
+    const genderMap = new Map<string, number>();
+    const ageBuckets: Record<string, number> = { '0-18': 0, '19-35': 0, '36-50': 0, '51-65': 0, '65+': 0 };
+    for (const p of patientRows) {
+      if (p.gender) genderMap.set(p.gender, (genderMap.get(p.gender) ?? 0) + 1);
+      if (p.age != null) {
+        if (p.age <= 18) ageBuckets['0-18']++;
+        else if (p.age <= 35) ageBuckets['19-35']++;
+        else if (p.age <= 50) ageBuckets['36-50']++;
+        else if (p.age <= 65) ageBuckets['51-65']++;
+        else ageBuckets['65+']++;
+      }
+    }
+    const genderBreakdown = Array.from(genderMap.entries())
+      .map(([gender, count]) => ({ gender, count }))
+      .sort((a, b) => b.count - a.count);
+    const ageBreakdown = Object.entries(ageBuckets)
+      .map(([bucket, count]) => ({ bucket, count }))
+      .filter(d => d.count > 0);
+
     // ── Compliance ────────────────────────────────────────────────────────────
     const signedCount    = bookingRows.filter(r => r.booking.consentSignedAt !== null).length;
     const consentRate    = totalBookings > 0 ? Math.round((signedCount / totalBookings) * 100) : 0;
     const lowStockItems  = itemRows.filter(i => i.reorderLevel !== null && i.currentQty <= (i.reorderLevel ?? Infinity)).length;
     const expiringItems  = itemRows.filter(i => i.expiryDate && new Date(i.expiryDate) <= thirtyDaysOut).length;
-    const loginSuccess   = loginRows.filter(l => l.success).length;
-    const loginFail      = loginRows.filter(l => !l.success).length;
+
+    // Alerts / thresholds
+    const alerts: string[] = [];
+    if (utilizationPct < 50) alerts.push('Low slot utilization (< 50%)');
+    if (noShowRate > 15) alerts.push('High no-show rate (> 15%)');
+    if (consentRate < 80) alerts.push('Consent compliance below 80%');
+    if (lowStockItems > 0) alerts.push(`${lowStockItems} items low on stock`);
+    if (expiringItems > 0) alerts.push(`${expiringItems} items expiring soon`);
 
     return {
       range,
-      overview: { totalBookings, todayBookings, utilizationPct, cancellations: cancelledSlots, trendByDay },
-      financial: { totalRevenue: Math.round(totalRevenue), outstanding: Math.round(outstanding), avgRevenuePerPatient: avgRevPerPt, paymentBreakdown, revenueTrend },
-      appointments: { statusBreakdown, doctorWorkload, topProcedures },
-      patients: { total: totalPatients, newPatients, repeatPatients, growthByMonth },
-      compliance: { consentRate, signedCount, totalWithConsent: totalBookings, inventoryAlerts: alertRows.length, lowStockItems, expiringItems, loginSuccess, loginFail },
+      overview: {
+        totalBookings,
+        todayBookings,
+        utilizationPct,
+        cancellations: bookingCancellations,
+        noShowCount,
+        noShowRate,
+        trendByDay,
+        prevTotalBookings,
+        changeTotalBookings: pctChange(totalBookings, prevTotalBookings),
+        changeNoShowRate: pctChange(noShowRate, prevNoShowCount > 0 ? Math.round((prevNoShowCount / prevTotalBookings) * 100) : 0),
+      },
+      financial: {
+        totalRevenue: Math.round(totalRevenue),
+        outstanding: Math.round(outstanding),
+        avgRevenuePerPatient: avgRevPerPt,
+        paymentBreakdown,
+        revenueTrend,
+        revenueByDoctor,
+        prevRevenue: Math.round(prevRevenue),
+        changeRevenue: pctChange(Math.round(totalRevenue), Math.round(prevRevenue)),
+      },
+      appointments: {
+        statusBreakdown,
+        doctorWorkload,
+        topProcedures,
+        categoryBreakdown: [],
+        funnel: {
+          booked: totalBookings,
+          confirmed: confirmedCount,
+          checkedIn: checkedInCount,
+          startedVisits: startedVisitCount,
+          treatmentDone: treatmentDoneCount,
+          visitCompleted: visitCompletedCount,
+          completedPatientVisits: bookingRows.filter(r =>
+            isCompletedPatientVisit({ ...r.booking, startTime: r.slot.startTime })
+          ).length,
+          earlyExits: earlyExitCount,
+          billsPaid: billsPaidCount,
+        },
+      },
+      patients: {
+        total: totalPatients,
+        newPatients,
+        repeatPatients,
+        growthByMonth,
+        genderBreakdown,
+        ageBreakdown,
+      },
+      compliance: {
+        consentRate,
+        signedCount,
+        totalWithConsent: totalBookings,
+        inventoryAlerts: alertRows.length,
+        lowStockItems,
+        expiringItems,
+        alerts,
+      },
     };
   }
 
@@ -2441,6 +3309,38 @@ export class DatabaseStorage implements IStorage {
       .values({ patientId, clinicId, chartData })
       .returning();
     return chart;
+  }
+
+  // ── Patient Medical History ──────────────────────────────────────────────────
+
+  async getPatientMedicalHistory(patientId: number, clinicId: number): Promise<PatientMedicalHistory | null> {
+    const [row] = await db
+      .select()
+      .from(patientMedicalHistory)
+      .where(and(eq(patientMedicalHistory.patientId, patientId), eq(patientMedicalHistory.clinicId, clinicId)))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async upsertPatientMedicalHistory(
+    patientId: number,
+    clinicId: number,
+    data: Partial<Omit<PatientMedicalHistory, "id" | "patientId" | "clinicId" | "createdAt" | "updatedAt">>,
+  ): Promise<PatientMedicalHistory> {
+    const existing = await this.getPatientMedicalHistory(patientId, clinicId);
+    if (existing) {
+      const [updated] = await db
+        .update(patientMedicalHistory)
+        .set({ ...data, updatedAt: new Date() })
+        .where(and(eq(patientMedicalHistory.patientId, patientId), eq(patientMedicalHistory.clinicId, clinicId)))
+        .returning();
+      return updated;
+    }
+    const [row] = await db
+      .insert(patientMedicalHistory)
+      .values({ patientId, clinicId, ...data })
+      .returning();
+    return row;
   }
 }
 

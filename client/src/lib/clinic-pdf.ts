@@ -154,14 +154,15 @@ export function generateReceiptPDF(details: BillingDetails): void {
   const cls        = statusClass(details.paymentStatus);
   const lbl        = statusLabel(details.paymentStatus);
 
-  const pharmItems = details.services.filter(s => s.category === "Pharmacy");
-  const svcItems   = details.services.filter(s => s.category !== "Pharmacy");
-  const subtotal   = details.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
-  const disc       = parseFloat(details.discount) || 0;
-  const tax        = parseFloat(details.tax) || 0;
-  const discAmt    = subtotal * (disc / 100);
-  const taxAmt     = (subtotal - discAmt) * (tax / 100);
-  const total      = subtotal - discAmt + taxAmt;
+  const pharmItems  = details.services.filter(s => s.category === "Pharmacy");
+  const otherItems  = details.services.filter(s => s.category === "Other");
+  const svcItems    = details.services.filter(s => s.category !== "Pharmacy" && s.category !== "Other");
+  const subtotal    = details.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+  const disc        = parseFloat(details.discount) || 0;
+  const tax         = parseFloat(details.tax) || 0;
+  const discAmt     = subtotal * (disc / 100);
+  const taxAmt      = (subtotal - discAmt) * (tax / 100);
+  const total       = subtotal - discAmt + taxAmt;
 
   const pharmBlock = pharmItems.length > 0 ? `
     <div class="sec">Pharmacy</div>
@@ -175,9 +176,18 @@ export function generateReceiptPDF(details: BillingDetails): void {
   const svcBlock = svcItems.length > 0 ? `
     <div class="sec">Services &amp; Procedures</div>
     <table>
-      <thead><tr><th>Description</th><th>Category</th><th class="tr">Qty</th><th class="tr">Unit Price</th><th class="tr">Amount</th></tr></thead>
-      <tbody>${svcItems.map(s => `
-        <tr><td>${esc(s.description)}</td><td>${esc(s.category) || "Consultation"}</td><td class="tr">${s.qty ?? 1}</td><td class="tr">${s.unitPrice ? `&#8377;${Number(s.unitPrice).toFixed(0)}` : "&mdash;"}</td><td class="tr">&#8377;${(parseFloat(s.amount) || 0).toFixed(0)}</td></tr>`).join("")}
+      <thead><tr><th>#</th><th>Description</th><th class="tr">&#8377;/Unit</th><th class="tr">Qty</th><th class="tr">Amount</th></tr></thead>
+      <tbody>${svcItems.map((s, i) => `
+        <tr><td class="tr">${i + 1}</td><td>${esc(s.description)}</td><td class="tr">${s.unitPrice ? `&#8377;${Number(s.unitPrice).toFixed(0)}` : "&mdash;"}</td><td class="tr">${s.qty ?? 1}</td><td class="tr">&#8377;${(parseFloat(s.amount) || 0).toFixed(0)}</td></tr>`).join("")}
+      </tbody>
+    </table>` : "";
+
+  const otherBlock = otherItems.length > 0 ? `
+    <div class="sec">Other</div>
+    <table>
+      <thead><tr><th>#</th><th>Description</th><th class="tr">&#8377;/Unit</th><th class="tr">Qty</th><th class="tr">Amount</th></tr></thead>
+      <tbody>${otherItems.map((s, i) => `
+        <tr><td class="tr">${i + 1}</td><td>${esc(s.description)}</td><td class="tr">${s.unitPrice ? `&#8377;${Number(s.unitPrice).toFixed(0)}` : "&mdash;"}</td><td class="tr">${s.qty ?? 1}</td><td class="tr">&#8377;${(parseFloat(s.amount) || 0).toFixed(0)}</td></tr>`).join("")}
       </tbody>
     </table>` : "";
 

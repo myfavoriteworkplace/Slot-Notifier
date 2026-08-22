@@ -92,14 +92,26 @@
     @apply font-bold tracking-tight text-foreground;
   }
 
-  /* Global placeholder style — italic + lighter so it's never confused with real input */
+  /* ── Ghost text — single source of truth ──────────────────────────────────
+     Change ONLY here to update every placeholder across the entire application.
+     Color = --muted-foreground at 55% opacity = muted green-gray, italic.
+     Do NOT add placeholder:* or data-[placeholder]:* classes in other files.  */
   ::placeholder {
+    color: hsl(var(--muted-foreground) / 0.55);
     font-style: italic;
-    opacity: 0.6;
+  }
+
+  /* Radix <Select> — SelectValue renders a real <span>, not a ::placeholder.
+     Targets the text span inside any Radix select trigger in placeholder state. */
+  button[data-placeholder] > span:first-of-type {
+    color: hsl(var(--muted-foreground) / 0.55);
+    font-style: italic;
   }
 }
 
-/* Glassmorphism utilities */
+/* ── Shared utility classes — extracted from 2+ files ────────────────────────
+   Change here → updates every usage across the app.
+   See frontend-design-document-v2.md § 35.0 for the full rule catalogue.     */
 @layer utilities {
   .glass-panel {
     @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
@@ -107,6 +119,45 @@
 
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+
+  /* Hides scrollbar on any overflow element (Firefox + Webkit/Chrome/Safari).
+     Replaces inline style={{ scrollbarWidth: "none" }} — that misses ::-webkit-scrollbar. */
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fixed mobile top navigation bar.
+     Shared exactly by ClinicDashboard.tsx and DoctorDashboard.tsx.            */
+  .mobile-topbar {
+    @apply lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-2 gap-1 bg-background/90 backdrop-blur-[18px] border-b border-black/[0.06] dark:border-white/[0.06] shadow-sm;
+  }
+
+  /* Sticky bottom action bar — safe-area-aware for notched phones.
+     Shared by ConsentFormPanel and DoctorDashboard sticky save footers.
+     Add layout padding (pt-*, px-*, py-*) at the usage site.                 */
+  .sticky-action-bar {
+    @apply sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/40 pb-[env(safe-area-inset-bottom)];
+  }
+
+  /* ── Form field label — THE canonical style for every clinic-facing field label.
+     Change once here → updates every panel, modal, and form across the app.
+     Always uppercase + tracked. Color is --muted-foreground at full opacity.
+     Add spacing (mb-1, mb-1.5, block) at the usage site — it's contextual.
+     Do NOT use this on patient-facing labels (Book.tsx) — those stay sentence-case.
+     Do NOT use on coloured exception labels (yellow/red thresholds in Inventory).  */
+  .label-field {
+    @apply text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
+  /* Native <select> with standard border + focus ring.
+     Use with w-full on raw <select> elements (AppointmentCard, BookingsPanel).
+     Shadcn <Select> does NOT need this — it uses its own trigger styles.      */
+  .select-base {
+    @apply rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-ring/20;
   }
 }
 

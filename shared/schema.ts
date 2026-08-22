@@ -60,6 +60,8 @@ export const clinics = pgTable("clinics", {
   clinicRegCertUrl: varchar("clinic_reg_cert_url", { length: 1000 }),
   trustScore: integer("trust_score").default(0),
   plan: varchar("plan", { length: 20 }).default("starter"),
+  storageLimitBytes: integer("storage_limit_bytes"),
+  timezone: varchar("timezone", { length: 100 }).notNull().default("Asia/Kolkata"),
   subscriptionStatus: varchar("subscription_status", { length: 20 }).default("unpaid"), // unpaid, active, expired
   billingCycle: varchar("billing_cycle", { length: 10 }).default("monthly"), // monthly, annual
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
@@ -111,10 +113,15 @@ export const bookings = pgTable("bookings", {
   consentToken: varchar("consent_token", { length: 255 }),
   paymentAmount: integer("payment_amount"),
   cancellationReason: text("cancellation_reason"),
+  noShowSource: varchar("no_show_source", { length: 20 }),
+  noShowMarkedAt: timestamp("no_show_marked_at"),
+  noShowPreviousStatus: varchar("no_show_previous_status", { length: 20 }),
+  noShowPreviousConfirmedBy: varchar("no_show_previous_confirmed_by", { length: 20 }),
   visitCompletionNote: text("visit_completion_note"),
   slotCost: integer("slot_cost").default(1),
   visitType: varchar("visit_type", { length: 50 }),
   treatmentCategory: varchar("treatment_category", { length: 255 }),
+  bookedBy: varchar("booked_by", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -507,7 +514,10 @@ export const clinicalRecords = pgTable("clinical_records", {
   patientPhone: varchar("patient_phone", { length: 50 }),
   doctorName: varchar("doctor_name", { length: 255 }),
   diagnosis: jsonb("diagnosis").$type<string[]>().default([]),
+  affectedTeeth: jsonb("affected_teeth").$type<string[]>(),
   prescription: text("prescription"),
+  medicationList: jsonb("medication_list").$type<{ name: string; dose?: string; frequency?: string }[]>(),
+  visitAttachments: jsonb("visit_attachments").$type<{ name: string; url: string; type?: string; uploadedAt?: string }[]>(),
   notes: text("notes"),
   isDeleted: boolean("is_deleted").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -562,10 +572,20 @@ export const inventoryItems = pgTable("inventory_items", {
   currentQty: integer("current_qty").notNull().default(0),
   reorderLevel: integer("reorder_level"),
   criticalLevel: integer("critical_level"),
+  unitPrice: real("unit_price"),
   expiryDate: timestamp("expiry_date"),
   warrantyExpiry: timestamp("warranty_expiry"),
   nextServiceDate: timestamp("next_service_date"),
   notes: text("notes"),
+  sku: varchar("sku", { length: 100 }),
+  barcode: varchar("barcode", { length: 100 }),
+  manufacturer: varchar("manufacturer", { length: 255 }),
+  supplierName: varchar("supplier_name", { length: 255 }),
+  supplierContact: varchar("supplier_contact", { length: 255 }),
+  purchasePrice: real("purchase_price"),
+  lastPurchasedDate: timestamp("last_purchased_date"),
+  location: varchar("location", { length: 255 }),
+  batchNumber: varchar("batch_number", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -727,6 +747,75 @@ export const patientCharts = pgTable("patient_charts", {
 });
 export type PatientChart = typeof patientCharts.$inferSelect;
 
+// ── PATIENT MEDICAL HISTORY ──────────────────────────────────────────────────
+// One row per (patientId, clinicId). All sections stored as JSONB — nullable,
+// so any section can be omitted. Unique constraint enforced in migration SQL.
+
+export type MedicalAlert       = { text: string; color?: string };
+export type CurrentMedication  = { medicine: string; dose: string; frequency: string; startedOn?: string };
+export type AllergyEntry       = { allergy: string; type: string; reaction?: string; severity?: "High" | "Medium" | "Low"; verifiedOn?: string };
+export type SurgicalEntry      = { procedure: string; year?: string; hospital?: string; notes?: string };
+export type DentalHistoryMap   = { rootCanal?: string; bruxism?: string; implant?: string; sensitivity?: string; orthodontic?: string; gumDisease?: string; wisdomExtraction?: string; dentures?: string; tobaccoChewing?: string };
+export type MedHistLifestyle   = { smoking?: string; alcohol?: string; tobacco?: string; pregnancy?: string; heightCm?: number; weightKg?: number };
+export type MedHistClearance   = { required?: string; requestedOn?: string; receivedOn?: string; documentUrl?: string };
+export type MedHistInsurance   = { provider?: string; policyNumber?: string; expiryDate?: string };
+export type MedHistEmergency   = { name?: string; relationship?: string; phone?: string };
+export type MedHistAttachment  = {
+  url: string; name: string; type: string; uploadedAt: string;
+  size?: number; category?: string; description?: string;
+  bookingId?: number | null; visitDate?: string | null; doctorName?: string | null;
+  clinicalRecordId?: number | null; diagnosisSnapshot?: string[]; affectedTeethSnapshot?: string[];
+  uploadedBy?: string | null; uploadedByRole?: string | null;
+};
+
+export const patientMedicalHistory = pgTable("patient_medical_history", {
+  id:                 serial("id").primaryKey(),
+  patientId:          integer("patient_id").notNull().references(() => patients.id),
+  clinicId:           integer("clinic_id").notNull().references(() => clinics.id),
+  medicalAlerts:      jsonb("medical_alerts").$type<MedicalAlert[]>().default([]),
+  generalConditions:  jsonb("general_conditions").$type<string[]>().default([]),
+  currentMedications: jsonb("current_medications").$type<CurrentMedication[]>().default([]),
+  allergies:          jsonb("allergies").$type<AllergyEntry[]>().default([]),
+  surgicalHistory:    jsonb("surgical_history").$type<SurgicalEntry[]>().default([]),
+  familyHistory:      jsonb("family_history").$type<string[]>().default([]),
+  dentalHistory:      jsonb("dental_history").$type<DentalHistoryMap>(),
+  vaccinationHistory: jsonb("vaccination_history").$type<string[]>().default([]),
+  insuranceDetails:   jsonb("insurance_details").$type<MedHistInsurance>(),
+  emergencyContact:   jsonb("emergency_contact").$type<MedHistEmergency>(),
+  lifestyle:          jsonb("lifestyle").$type<MedHistLifestyle>(),
+  medicalClearance:   jsonb("medical_clearance").$type<MedHistClearance>(),
+  generalNotes:       text("general_notes"),
+  attachments:        jsonb("attachments").$type<MedHistAttachment[]>().default([]),
+  updatedAt:          timestamp("updated_at").defaultNow(),
+  createdAt:          timestamp("created_at").defaultNow(),
+});
+export type PatientMedicalHistory = typeof patientMedicalHistory.$inferSelect;
+
+export const patientDocuments = pgTable("patient_documents", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  clinicalRecordId: integer("clinical_record_id"),
+  storageKey: text("storage_key"),
+  publicUrl: text("public_url"),
+  originalName: varchar("original_name", { length: 500 }).notNull(),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type", { length: 255 }),
+  category: varchar("category", { length: 100 }),
+  description: text("description"),
+  visitDate: timestamp("visit_date"),
+  doctorName: varchar("doctor_name", { length: 255 }),
+  uploadedBy: varchar("uploaded_by", { length: 255 }),
+  uploadedByRole: varchar("uploaded_by_role", { length: 50 }),
+  diagnosisSnapshot: jsonb("diagnosis_snapshot").$type<string[]>().default([]),
+  affectedTeethSnapshot: jsonb("affected_teeth_snapshot").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by", { length: 255 }),
+});
+export type PatientDocument = typeof patientDocuments.$inferSelect;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {
@@ -737,4 +826,89 @@ export interface ClinicSession {
   doctorId?: number;
   clinicId?: number;
   role?: 'superuser' | 'owner' | 'doctor' | 'customer';
+}
+
+// ── ANALYTICS TYPES ──────────────────────────────────────────────────────────
+
+export interface AnalyticsTrendPoint { date: string; count: number }
+export interface AnalyticsRevenueTrendPoint { week: string; amount: number }
+export interface AnalyticsPaymentBreakdown { method: string; amount: number; count: number }
+export interface AnalyticsStatusBreakdown { status: string; count: number }
+export interface AnalyticsDoctorWorkload { doctor: string; count: number }
+export interface AnalyticsTopProcedure { procedure: string; count: number }
+export interface AnalyticsCategoryBreakdown { category: string; count: number }
+export interface AnalyticsGrowthPoint { month: string; count: number }
+export interface AnalyticsGenderBreakdown { gender: string; count: number }
+export interface AnalyticsAgeBreakdown { bucket: string; count: number }
+export interface AnalyticsRevenueByDoctor { doctor: string; amount: number }
+export interface AnalyticsFunnel {
+  booked: number;
+  confirmed: number;
+  checkedIn: number;
+  startedVisits?: number;
+  treatmentDone: number;
+  visitCompleted: number;
+  completedPatientVisits?: number;
+  earlyExits?: number;
+  billsPaid: number;
+}
+
+export interface AnalyticsOverview {
+  totalBookings: number;
+  todayBookings: number;
+  utilizationPct: number;
+  cancellations: number;
+  noShowCount: number;
+  noShowRate: number;
+  trendByDay: AnalyticsTrendPoint[];
+  prevTotalBookings: number;
+  changeTotalBookings: number;
+  changeNoShowRate: number;
+}
+
+export interface AnalyticsFinancial {
+  totalRevenue: number;
+  outstanding: number;
+  avgRevenuePerPatient: number;
+  paymentBreakdown: AnalyticsPaymentBreakdown[];
+  revenueTrend: AnalyticsRevenueTrendPoint[];
+  revenueByDoctor: AnalyticsRevenueByDoctor[];
+  prevRevenue: number;
+  changeRevenue: number;
+}
+
+export interface AnalyticsAppointments {
+  statusBreakdown: AnalyticsStatusBreakdown[];
+  doctorWorkload: AnalyticsDoctorWorkload[];
+  topProcedures: AnalyticsTopProcedure[];
+  categoryBreakdown: AnalyticsCategoryBreakdown[];
+  funnel: AnalyticsFunnel;
+}
+
+export interface AnalyticsPatients {
+  total: number;
+  newPatients: number;
+  repeatPatients: number;
+  growthByMonth: AnalyticsGrowthPoint[];
+  genderBreakdown: AnalyticsGenderBreakdown[];
+  ageBreakdown: AnalyticsAgeBreakdown[];
+}
+
+export interface AnalyticsCompliance {
+  consentRate: number;
+  signedCount: number;
+  totalWithConsent: number;
+  inventoryAlerts: number;
+  lowStockItems: number;
+  expiringItems: number;
+  alerts: string[];
+}
+
+export interface ClinicAnalyticsResult {
+  range: string;
+  overview: AnalyticsOverview;
+  financial: AnalyticsFinancial;
+  appointments: AnalyticsAppointments;
+  patients: AnalyticsPatients;
+  compliance: AnalyticsCompliance;
 }

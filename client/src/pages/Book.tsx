@@ -348,6 +348,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     subscriptionStatus: "unpaid",
     billingCycle: "monthly",
     razorpaySubscriptionId: null,
+    storageLimitBytes: null,
+    timezone: "Asia/Kolkata",
     websiteConfig: { theme: "classic" },
     defaultSlotConfig: { isClosed: false, sections: {} },
   };
@@ -684,6 +686,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const selectedClinicObj = clinics.find(c => c.name === selectedClinic);
   const selectedSlotInfo  = slotTimings.find(s => s.id === selectedSlot);
 
+  // Change 5 — dynamic browser tab title for clinic-specific links
+  useEffect(() => {
+    if (clinicIdFromUrl && selectedClinicObj) {
+      document.title = `Book at ${selectedClinicObj.name} | BookMySlot`;
+    } else {
+      document.title = "BookMySlot — Book a Dental Appointment";
+    }
+    return () => { document.title = "BookMySlot"; };
+  }, [clinicIdFromUrl, selectedClinicObj?.name]);
+
   if (clinicsLoading) {
     return (
       <div className="min-h-screen bg-background overflow-x-hidden">
@@ -781,30 +793,52 @@ export default function Book(props: { params: { clinicId?: string } }) {
             <CalendarDays className="h-3 w-3" /> BookMySlot
           </p>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
-            Book a <span className="text-primary">Dental Appointment</span>
+            {clinicIdFromUrl && selectedClinicObj ? (
+              <>Book a dental appointment at <span className="text-primary">{selectedClinicObj.name}</span></>
+            ) : (
+              <>Book a <span className="text-primary">Dental Appointment</span></>
+            )}
           </h1>
           <p className="text-white/50 text-sm sm:text-base mb-5 sm:mb-7 max-w-md">
-            Find a verified clinic near you, pick a slot, and get confirmed instantly. No account needed.
+            {clinicIdFromUrl && selectedClinicObj
+              ? `Secure your slot at ${selectedClinicObj.name}. Pick a time that works and get confirmed instantly — no account needed.`
+              : "Find a verified clinic near you, pick a slot, and get confirmed instantly. No account needed."}
           </p>
-          <div className="hidden sm:flex flex-wrap gap-2">
-            {[
-              { Icon: MapPin,    label: "50+ verified clinics across Kerala" },
-              { Icon: Shield,   label: "No sign-up — just email verification" },
-              { Icon: Sparkles, label: "Instant WhatsApp confirmation"        },
-            ].map(({ Icon, label }) => (
-              <div key={label} className="flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.1] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/70 backdrop-blur-sm">
-                <Icon className="h-3 w-3" />
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className="flex sm:hidden gap-3 text-[11px] text-white/50 font-semibold">
-            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> 50+ clinics</span>
-            <span>·</span>
-            <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Email verified</span>
-            <span>·</span>
-            <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" /> Instant</span>
-          </div>
+          {(() => {
+            const clinicLocation = clinicIdFromUrl && selectedClinicObj
+              ? ((selectedClinicObj as any).city || selectedClinicObj.address || null)
+              : null;
+            const desktopPills = clinicLocation
+              ? [
+                  { Icon: MapPin,    label: clinicLocation                       },
+                  { Icon: Shield,   label: "No sign-up — just email verification" },
+                  { Icon: Sparkles, label: "Instant WhatsApp confirmation"        },
+                ]
+              : [
+                  { Icon: MapPin,    label: "50+ verified clinics across Kerala"  },
+                  { Icon: Shield,   label: "No sign-up — just email verification" },
+                  { Icon: Sparkles, label: "Instant WhatsApp confirmation"        },
+                ];
+            return (
+              <>
+                <div className="hidden sm:flex flex-wrap gap-2">
+                  {desktopPills.map(({ Icon, label }) => (
+                    <div key={label} className="flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.1] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/70 backdrop-blur-sm">
+                      <Icon className="h-3 w-3" />
+                      {label}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex sm:hidden gap-3 text-[11px] text-white/50 font-semibold">
+                  <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {clinicLocation ?? "50+ clinics"}</span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Email verified</span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" /> Instant</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Bottom accent bar */}
@@ -958,7 +992,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Type clinic name, city, or area…"
-                    className="flex-1 h-12 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                    className="flex-1 h-12 bg-transparent pl-3 pr-3 text-sm outline-none"
                     data-testid="input-clinic-search"
                   />
                   {searchQuery && (
@@ -1057,11 +1091,20 @@ export default function Book(props: { params: { clinicId?: string } }) {
             <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 sm:px-5 py-3 sm:py-4 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
               <div className="relative flex items-center gap-3 sm:gap-4">
-                {/* Avatar */}
+                {/* Avatar — show clinic logo if available, otherwise first-letter initial */}
                 <div className="relative shrink-0">
                   <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
-                  <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center ring-1 ring-white/10">
-                    <span className="text-lg sm:text-xl font-black text-white">{selectedClinic.charAt(0)}</span>
+                  <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center ring-1 ring-white/10 overflow-hidden">
+                    {selectedClinicObj?.logoUrl ? (
+                      <img
+                        src={selectedClinicObj.logoUrl}
+                        alt={selectedClinic}
+                        className="h-full w-full object-cover"
+                        fetchPriority="high"
+                      />
+                    ) : (
+                      <span className="text-lg sm:text-xl font-black text-white">{selectedClinic.charAt(0)}</span>
+                    )}
                   </div>
                 </div>
                 {/* Info */}
@@ -1074,6 +1117,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       <span className="truncate">
                         Dr. {selectedClinicObj.doctorName}
                         {selectedClinicObj.doctorSpecialization ? ` · ${selectedClinicObj.doctorSpecialization}` : ""}
+                      </span>
+                    </p>
+                  )}
+                  {((selectedClinicObj as any)?.city || selectedClinicObj?.address) && (
+                    <p className="text-white/50 text-xs mt-0.5 flex items-center gap-1 overflow-hidden">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {(selectedClinicObj as any).city || selectedClinicObj?.address}
                       </span>
                     </p>
                   )}
@@ -1616,7 +1667,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           onChange={e => setCustomerName(e.target.value)}
                           placeholder="e.g. Rahul Verma"
                           onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none"
                           data-testid="input-name"
                         />
                       </div>
@@ -1638,7 +1689,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             onChange={e => setCustomerAge(e.target.value)}
                             placeholder="Age"
                             onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                            className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
+                            className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none"
                             data-testid="input-age"
                           />
                           <span className="text-xs text-muted-foreground pr-3 shrink-0">yrs</span>
@@ -1678,7 +1729,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           onChange={e => handlePhoneChange(e.target.value)}
                           placeholder="+91 9876543210"
                           onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none"
                           data-testid="input-phone"
                         />
                       </div>
@@ -1710,7 +1761,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             onChange={e => handleEmailChange(e.target.value)}
                             placeholder="you@example.com"
                             onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
-                            className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                            className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none"
                             data-testid="input-email"
                           />
                         </div>
@@ -1820,7 +1871,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                           digit
                                             ? "border-primary/35 bg-primary/8 text-foreground shadow-primary/10"
                                             : "border-border/60 bg-background text-foreground"
-                                        } focus:border-primary/70 focus:bg-white focus:ring-4 focus:ring-primary/15 focus:shadow-lg focus:shadow-primary/15 disabled:opacity-60`}
+                                        } focus:border-primary/70 focus:bg-white dark:focus:bg-card focus:ring-4 focus:ring-primary/15 focus:shadow-lg focus:shadow-primary/15 disabled:opacity-60`}
                                         data-testid={`input-otp-digit-${index}`}
                                         aria-label={`OTP digit ${index + 1}`}
                                       />
@@ -2035,7 +2086,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             onChange={e => setAdditionalNotes(e.target.value)}
                             placeholder="e.g. Allergies, previous treatments, other concerns…"
                             rows={2}
-                            className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground resize-none transition-all"
+                            className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none resize-none transition-all"
                             data-testid="textarea-additional-notes"
                           />
                         </div>

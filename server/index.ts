@@ -7,6 +7,7 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
+import { registerOgRouteProduction } from "./og-inject";
 import { createServer } from "http";
 import cors from "cors";
 import { pool } from "./db";
@@ -233,11 +234,26 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='clinic_reg_cert_url') THEN
             ALTER TABLE clinics ADD COLUMN clinic_reg_cert_url varchar(1000);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_source') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_source varchar(20);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_marked_at') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_marked_at timestamp;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_previous_status') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_previous_status varchar(20);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='no_show_previous_confirmed_by') THEN
+            ALTER TABLE bookings ADD COLUMN no_show_previous_confirmed_by varchar(20);
+          END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='trust_score') THEN
             ALTER TABLE clinics ADD COLUMN trust_score integer DEFAULT 0;
           END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='plan') THEN
             ALTER TABLE clinics ADD COLUMN plan varchar(20) DEFAULT 'starter';
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='storage_limit_bytes') THEN
+            ALTER TABLE clinics ADD COLUMN storage_limit_bytes integer;
           END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='subscription_status') THEN
             ALTER TABLE clinics ADD COLUMN subscription_status varchar(20) DEFAULT 'unpaid';
@@ -250,6 +266,9 @@ app.use((req, res, next) => {
           END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='default_slot_config') THEN
             ALTER TABLE clinics ADD COLUMN default_slot_config jsonb;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='timezone') THEN
+            ALTER TABLE clinics ADD COLUMN timezone varchar(100) NOT NULL DEFAULT 'Asia/Kolkata';
           END IF;
         END $$;
       `);
@@ -336,6 +355,21 @@ app.use((req, res, next) => {
         END $$;
       `);
       log("bookings columns verified/updated", "system");
+
+      await db.execute(sql`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='visit_type') THEN
+            ALTER TABLE bookings ADD COLUMN visit_type VARCHAR(50);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='treatment_category') THEN
+            ALTER TABLE bookings ADD COLUMN treatment_category VARCHAR(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='booked_by') THEN
+            ALTER TABLE bookings ADD COLUMN booked_by VARCHAR(20);
+          END IF;
+        END $$;
+      `);
+      log("bookings visit_type/treatment_category/booked_by columns verified", "system");
 
       // Check if doctor_invites table exists
       const checkTable = await db.execute(
@@ -706,6 +740,15 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='patient_id') THEN
             ALTER TABLE clinical_records ADD COLUMN patient_id INTEGER REFERENCES patients(id);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='affected_teeth') THEN
+            ALTER TABLE clinical_records ADD COLUMN affected_teeth JSONB;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='medication_list') THEN
+            ALTER TABLE clinical_records ADD COLUMN medication_list JSONB;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='visit_attachments') THEN
+            ALTER TABLE clinical_records ADD COLUMN visit_attachments JSONB;
+          END IF;
         END $$;
       `);
       log("patient identity columns ready", "system");
@@ -931,6 +974,54 @@ By signing below, I confirm that I have read and understood the above and volunt
         log(`notifications column migration warning: ${e.message}`, "system");
       }
 
+      // ── Backfill notifications.user_id with clinic:/doctor: prefix ──────────
+      // clinics.id and doctors.id are both independent serial sequences that
+      // start at 1, so legacy bare-numeric user_id values (e.g. "3") were
+      // ambiguous and could collide between a clinic and a doctor with the
+      // same numeric id, leaking notifications across roles. New rows are
+      // always written with a "clinic:" or "doctor:" prefix — this backfills
+      // old rows so they still resolve under the new scheme. Idempotent: only
+      // touches rows whose user_id has no prefix yet.
+      try {
+        await db.execute(sql`
+          UPDATE notifications n
+          SET user_id = 'clinic:' || n.user_id
+          WHERE n.user_id !~ ':'
+            AND n.user_id ~ '^[0-9]+$'
+            AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = n.user_id::integer)
+            AND NOT EXISTS (SELECT 1 FROM doctors d WHERE d.id = n.user_id::integer);
+        `);
+        await db.execute(sql`
+          UPDATE notifications n
+          SET user_id = 'doctor:' || n.user_id
+          WHERE n.user_id !~ ':'
+            AND n.user_id ~ '^[0-9]+$'
+            AND EXISTS (SELECT 1 FROM doctors d WHERE d.id = n.user_id::integer)
+            AND NOT EXISTS (SELECT 1 FROM clinics c WHERE c.id = n.user_id::integer);
+        `);
+        // Genuine collisions (same numeric id exists in both clinics and
+        // doctors): unrecoverable — the original role was never stored — so
+        // mark them read rather than guess wrong and leak them into a bell
+        // that isn't theirs.
+        const collisionResult: any = await db.execute(sql`
+          UPDATE notifications n
+          SET read = true
+          WHERE n.user_id !~ ':'
+            AND n.user_id ~ '^[0-9]+$'
+            AND EXISTS (SELECT 1 FROM clinics c WHERE c.id = n.user_id::integer)
+            AND EXISTS (SELECT 1 FROM doctors d WHERE d.id = n.user_id::integer)
+            AND n.read = false
+          RETURNING n.id;
+        `);
+        const collisionCount = collisionResult?.rows?.length ?? collisionResult?.rowCount ?? 0;
+        if (collisionCount > 0) {
+          log(`notifications user_id backfill: ${collisionCount} ambiguous legacy rows (id collision between a clinic and doctor) marked read — role unrecoverable`, "system");
+        }
+        log("notifications user_id clinic:/doctor: backfill complete", "system");
+      } catch (e: any) {
+        log(`notifications user_id backfill warning: ${e.message}`, "system");
+      }
+
       // ── patient_charts table (odontogram — one chart per patient per clinic) ──
       try {
         await db.execute(sql`
@@ -947,6 +1038,121 @@ By signing below, I confirm that I have read and understood the above and volunt
         log("patient_charts table ensured", "system");
       } catch (e: any) {
         log(`patient_charts migration warning: ${e.message}`, "system");
+      }
+      // ── patient_medical_history table (cross-visit medical profile) ──────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS patient_medical_history (
+            id                  SERIAL PRIMARY KEY,
+            patient_id          INTEGER NOT NULL REFERENCES patients(id),
+            clinic_id           INTEGER NOT NULL REFERENCES clinics(id),
+            medical_alerts      JSONB DEFAULT '[]',
+            general_conditions  JSONB DEFAULT '[]',
+            current_medications JSONB DEFAULT '[]',
+            allergies           JSONB DEFAULT '[]',
+            surgical_history    JSONB DEFAULT '[]',
+            family_history      JSONB DEFAULT '[]',
+            dental_history      JSONB,
+            vaccination_history JSONB DEFAULT '[]',
+            insurance_details   JSONB,
+            emergency_contact   JSONB,
+            lifestyle           JSONB,
+            medical_clearance   JSONB,
+            general_notes       TEXT,
+            attachments         JSONB DEFAULT '[]',
+            updated_at          TIMESTAMP DEFAULT NOW(),
+            created_at          TIMESTAMP DEFAULT NOW(),
+            UNIQUE(patient_id, clinic_id)
+          );
+        `);
+        log("patient_medical_history table ensured", "system");
+      } catch (e: any) {
+        log(`patient_medical_history migration warning: ${e.message}`, "system");
+      }
+      // ── normalized patient document inventory ─────────────────────────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS patient_documents (
+            id SERIAL PRIMARY KEY,
+            clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+            patient_id INTEGER NOT NULL REFERENCES patients(id),
+            booking_id INTEGER REFERENCES bookings(id),
+            clinical_record_id INTEGER,
+            storage_key TEXT,
+            public_url TEXT,
+            original_name VARCHAR(500) NOT NULL,
+            file_size INTEGER,
+            mime_type VARCHAR(255),
+            category VARCHAR(100),
+            description TEXT,
+            visit_date TIMESTAMP,
+            doctor_name VARCHAR(255),
+            uploaded_by VARCHAR(255),
+            uploaded_by_role VARCHAR(50),
+            diagnosis_snapshot JSONB DEFAULT '[]',
+            affected_teeth_snapshot JSONB DEFAULT '[]',
+            created_at TIMESTAMP DEFAULT NOW(),
+            deleted_at TIMESTAMP,
+            deleted_by VARCHAR(255)
+          );
+          CREATE INDEX IF NOT EXISTS patient_documents_clinic_idx ON patient_documents(clinic_id);
+          CREATE INDEX IF NOT EXISTS patient_documents_booking_idx ON patient_documents(booking_id);
+          CREATE INDEX IF NOT EXISTS patient_documents_storage_key_idx ON patient_documents(storage_key);
+          CREATE INDEX IF NOT EXISTS patient_documents_deleted_at_idx ON patient_documents(deleted_at);
+        `);
+        await db.execute(sql`
+          INSERT INTO patient_documents
+            (clinic_id, patient_id, booking_id, clinical_record_id, storage_key, public_url,
+             original_name, file_size, mime_type, category, description, visit_date, doctor_name,
+             uploaded_by, uploaded_by_role, diagnosis_snapshot, affected_teeth_snapshot, created_at)
+          SELECT pmh.clinic_id, pmh.patient_id,
+            CASE WHEN a->>'bookingId' ~ '^[0-9]+$' THEN (a->>'bookingId')::integer END,
+            CASE WHEN a->>'clinicalRecordId' ~ '^[0-9]+$' THEN (a->>'clinicalRecordId')::integer END,
+            NULLIF(a->>'key', ''), NULLIF(a->>'url', ''), COALESCE(NULLIF(a->>'name', ''), 'Legacy document'),
+            CASE WHEN COALESCE(a->>'fileSize', a->>'size') ~ '^[0-9]+$' THEN COALESCE(a->>'fileSize', a->>'size')::integer END,
+            NULLIF(a->>'type', ''), NULLIF(a->>'category', ''), NULLIF(a->>'description', ''),
+            CASE WHEN a->>'visitDate' <> '' THEN (a->>'visitDate')::timestamp END,
+            NULLIF(a->>'doctorName', ''), NULLIF(a->>'uploadedBy', ''), NULLIF(a->>'uploadedByRole', ''),
+            COALESCE(a->'diagnosisSnapshot', '[]'::jsonb), COALESCE(a->'affectedTeethSnapshot', '[]'::jsonb),
+            CASE WHEN a->>'uploadedAt' <> '' THEN (a->>'uploadedAt')::timestamp ELSE NOW() END
+          FROM patient_medical_history pmh
+          CROSS JOIN LATERAL jsonb_array_elements(COALESCE(pmh.attachments, '[]'::jsonb)) a
+          WHERE NOT EXISTS (
+            SELECT 1 FROM patient_documents pd
+            WHERE pd.clinic_id = pmh.clinic_id
+              AND pd.patient_id = pmh.patient_id
+              AND COALESCE(pd.storage_key, pd.public_url) = COALESCE(NULLIF(a->>'key', ''), NULLIF(a->>'url', ''))
+          );
+        `);
+        log("patient_documents table and legacy backfill ensured", "system");
+      } catch (e: any) {
+        log(`patient_documents migration warning: ${e.message}`, "system");
+      }
+
+      // ── Add unit_price column to inventory_items ──────────────────────────
+      try {
+        await db.execute(sql`ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS unit_price REAL;`);
+        log("inventory_items unit_price column ensured", "system");
+      } catch (e: any) {
+        log(`inventory_items unit_price migration warning: ${e.message}`, "system");
+      }
+      // ── Add supplier/barcode/location/batch columns to inventory_items ────
+      try {
+        await db.execute(sql`
+          ALTER TABLE inventory_items
+            ADD COLUMN IF NOT EXISTS sku VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS barcode VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS supplier_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS supplier_contact VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS purchase_price REAL,
+            ADD COLUMN IF NOT EXISTS last_purchased_date TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS location VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS batch_number VARCHAR(100);
+        `);
+        log("inventory_items supplier/barcode/location/batch columns ensured", "system");
+      } catch (e: any) {
+        log(`inventory_items supplier/barcode/location/batch migration warning: ${e.message}`, "system");
       }
       // ─────────────────────────────────────────────────────────────────────────
 
@@ -984,6 +1190,8 @@ By signing below, I confirm that I have read and understood the above and volunt
   // Serve frontend static files in production
   if (process.env.NODE_ENV === "production") {
     console.log("[SYSTEM] Production mode: Serving static files");
+    // Must be registered before serveStatic so the route fires before the catch-all
+    registerOgRouteProduction(app);
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");

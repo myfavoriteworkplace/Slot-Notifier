@@ -1,5 +1,9 @@
 import { format, startOfDay, endOfDay } from "date-fns";
 import type { BookingWithSlot } from "@/lib/clinic-constants";
+import {
+  classifyClientBooking,
+  createClientBookingDateContext,
+} from "@/lib/booking-classification";
 
 export interface BookingStats {
   todayCount: number;
@@ -14,6 +18,7 @@ export interface BookingStats {
   totalAllCount: number;
   totalOwnedCount?: number;
   awaitingApprovalCount?: number;
+  patientTotalCount?: number;
 }
 
 export interface BookingsPagedResponse {
@@ -41,11 +46,24 @@ export type BookingListFilters = {
 };
 
 function getStatusGroup(booking: BookingWithSlot, todayStart: Date, todayStr: string): number {
-  const d = new Date(booking.slot.startTime);
-  const isPast = d < todayStart && format(d, "yyyy-MM-dd") !== todayStr;
-  if (isPast) return 2;
-  if (booking.verificationStatus === "confirmed" || !!booking.confirmedBy) return 1;
+  const classification = classifyClientBooking(booking, "clinic", {
+    ...createClientBookingDateContext(todayStart),
+    currentDate: todayStr,
+  });
+  if (classification.isOld) return 2;
+  if (classification.isConfirmed) return 1;
   return 0;
+}
+
+/**
+ * Returns 0 for Future/Today slots, 1 for Past slots.
+ * Used to split mixed-date booking lists (All, All Pending, Owned) into
+ * a "Future / Today" group above and a "Past" group below, matching the
+ * server-side CASE WHEN sort order.
+ */
+export function getTimeGroup(booking: BookingWithSlot, todayStart: Date): number {
+  const classification = classifyClientBooking(booking, "clinic", createClientBookingDateContext(todayStart));
+  return classification.isOld ? 1 : 0;
 }
 
 export function getBookingDisplayMeta({
@@ -57,13 +75,15 @@ export function getBookingDisplayMeta({
   todayStart: Date;
   todayStr: string;
 }) {
-  const bookingDateTime = new Date(booking.slot.startTime);
-  const bookingDateStr = format(bookingDateTime, "yyyy-MM-dd");
-  const isBookingToday = bookingDateStr === todayStr;
-  const isBookingPast = bookingDateTime < todayStart && !isBookingToday;
-  const isConfirmed = booking.verificationStatus === "confirmed" || !!booking.confirmedBy;
-  const isCancelled = booking.verificationStatus === "cancelled";
-  const isPending = !isConfirmed && !isBookingPast;
+  const classification = classifyClientBooking(booking, "clinic", {
+    ...createClientBookingDateContext(todayStart),
+    currentDate: todayStr,
+  });
+  const isBookingToday = classification.isToday;
+  const isBookingPast = classification.isOld;
+  const isConfirmed = classification.isConfirmed;
+  const isCancelled = classification.normalizedLifecycle === "cancelled";
+  const isPending = classification.normalizedLifecycle === "pending_not_started" && !isBookingPast;
 
   return {
     group: getStatusGroup(booking, todayStart, todayStr),
@@ -93,29 +113,21 @@ export type BookingActionState = {
 };
 
 export function getBookingActionState({ booking }: { booking: BookingWithSlot }): BookingActionState {
-  const isCancelled = booking.verificationStatus === "cancelled";
-  const isNoShow = booking.verificationStatus === "no_show";
-  const isLeftEarly = booking.visitStatus === "patient_left_early";
-  const isCompleted = booking.visitStatus === "completed";
-  const isTreatmentCompleted = booking.visitStatus === "treatment_completed";
-  const isInConsultation = booking.visitStatus === "in_consultation";
-  const isCheckedIn = booking.visitStatus === "checked_in";
-  const isTerminal = isCancelled || isNoShow || isLeftEarly;
-  const isAlreadyConfirmed = booking.verificationStatus === "confirmed" || !!booking.confirmedBy;
+  const actions = classifyClientBooking(booking, "clinic").actions;
 
   return {
-    canConfirm: !isTerminal && !isCompleted && !isTreatmentCompleted && !isInConsultation && !isCheckedIn && !isAlreadyConfirmed,
-    canCancel: !isTerminal && !isCompleted,
-    canCheckIn: !isTerminal && !isCompleted && !isTreatmentCompleted && !isInConsultation && !isCheckedIn,
-    canCompleteVisit: !isTerminal && !isCompleted && (isTreatmentCompleted || isInConsultation || isCheckedIn),
-    canNoShow: !isTerminal && !isCompleted && !isTreatmentCompleted && !isInConsultation && !isCheckedIn,
-    canSendReminder: !isTerminal && !isCompleted,
-    canOverrideComplete: !isTerminal && !isCompleted && !isTreatmentCompleted,
-    canPatientLeftEarly: !isTerminal && !isCompleted && (isInConsultation || isCheckedIn),
-    canAssignDoctor: !isTerminal && !isCompleted,
-    canRequestConsent: !isTerminal && !isCompleted,
-    canReschedule: !isTerminal && !isCompleted,
-    canUpdateClinicalStatus: !isTerminal && !isCompleted,
+    canConfirm: actions.canConfirm,
+    canCancel: actions.canCancel,
+    canCheckIn: actions.canCheckIn,
+    canCompleteVisit: actions.canCompleteVisit,
+    canNoShow: actions.canNoShow,
+    canSendReminder: actions.canSendReminder,
+    canOverrideComplete: actions.canOverride,
+    canPatientLeftEarly: actions.canContinueVisit,
+    canAssignDoctor: actions.canAssignDoctor,
+    canRequestConsent: actions.canRequestConsent,
+    canReschedule: actions.canReschedule,
+    canUpdateClinicalStatus: actions.canUpdateClinicalStatus,
   };
 }
 
@@ -141,21 +153,49 @@ export function getBookingEmptyStateMeta({
   quickFilter,
   filterDate,
   filterEndDate,
+  clinicName,
 }: {
   activePatientFilter?: { id: number; name: string; patientCode?: string | null } | null;
   activePatientBookingsCount: number;
   quickFilter: string;
   filterDate?: Date;
   filterEndDate?: Date;
+  clinicName?: string;
 }) {
+  const patientName = activePatientFilter?.name.split(" ")[0];
+  const dateRangeText = filterDate && filterEndDate
+    ? `between ${format(filterDate, "MMM d")} and ${format(filterEndDate, "MMM d")}`
+    : filterDate
+    ? `on ${format(filterDate, "MMM d")}`
+    : filterEndDate
+    ? `before ${format(filterEndDate, "MMM d")}`
+    : "";
+  const clinicSuffix = clinicName ? ` at ${clinicName}` : "";
+  const allBookingsHint = clinicName
+    ? "Try clearing the clinic filter or switching to All Bookings."
+    : "Try switching to All Bookings.";
+
+  // Patient + tab + date combinations
   if (activePatientFilter) {
+    const hasDate = !!(filterDate || filterEndDate);
+    const tabHint = quickFilter === "all"
+      ? ""
+      : ` Switching to All Bookings will show ${patientName}'s complete schedule${clinicSuffix}.`;
+    if (activePatientBookingsCount === 0) {
+      const detail = hasDate
+        ? `${patientName} has no bookings ${dateRangeText}${clinicSuffix}. Clear the date filter or switch to All Bookings.`
+        : `${patientName} has no bookings${clinicSuffix} matching the active tab.${tabHint}`;
+      return {
+        title: `No bookings found for ${patientName}`,
+        detail,
+      };
+    }
+    const detail = hasDate
+      ? `${patientName} has ${activePatientBookingsCount} booking${activePatientBookingsCount === 1 ? "" : "s"}${clinicSuffix}, but none ${dateRangeText}. Try adjusting the date range or tab.`
+      : `${patientName} has ${activePatientBookingsCount} booking${activePatientBookingsCount === 1 ? "" : "s"}${clinicSuffix}, but the active tab filter is hiding them.${tabHint}`;
     return {
-      title: activePatientBookingsCount === 0
-        ? `${activePatientFilter.name.split(" ")[0]} has no bookings here`
-        : "No matching appointments",
-      detail: activePatientBookingsCount === 0
-        ? "This patient is registered but hasn't booked here yet."
-        : "Their appointments exist — the active filter is hiding them.",
+      title: `No matching appointments for ${patientName}`,
+      detail,
     };
   }
 
@@ -169,22 +209,46 @@ export function getBookingEmptyStateMeta({
     ? "Nothing scheduled this week"
     : quickFilter === "next-week"
     ? "Nothing booked next week"
+    : quickFilter === "awaiting"
+    ? "No appointments awaiting approval"
+    : quickFilter === "pending-7days"
+    ? "No pending appointments in the next 7 days"
+    : quickFilter === "confirmed-7days"
+    ? "No confirmed appointments in the next 7 days"
+    : quickFilter === "owned"
+    ? "No owned appointments"
     : filterDate || filterEndDate
     ? "No appointments in this range"
     : "No bookings yet";
 
   const detail = quickFilter === "today"
-    ? "No slots are booked for today. Check Upcoming for future appointments."
+    ? (filterDate || filterEndDate
+        ? `The Today tab only shows today's bookings${clinicSuffix}. The selected date range ${dateRangeText} doesn't overlap with today. ${allBookingsHint}`
+        : `No slots are booked for today${clinicSuffix}. Check Upcoming for future appointments.`)
     : quickFilter === "upcoming"
-    ? "There are no future appointments. Past bookings may be in the Past filter."
+    ? (filterDate || filterEndDate
+        ? `No upcoming appointments ${dateRangeText}${clinicSuffix}. ${allBookingsHint}`
+        : `There are no future appointments${clinicSuffix}. Past bookings may be in the Past filter.`)
     : quickFilter === "past"
-    ? "No appointment history yet — your clinic is just getting started!"
+    ? (filterDate || filterEndDate
+        ? `No past appointments ${dateRangeText}${clinicSuffix}. ${allBookingsHint}`
+        : `No appointment history yet${clinicSuffix} — your clinic is just getting started!`)
     : quickFilter === "this-week"
-    ? "No appointments fall within Mon–Sun of this week. Try Next Week or All Bookings."
+    ? `No appointments fall within Mon–Sun of this week${clinicSuffix}. Try Next Week or All Bookings.`
     : quickFilter === "next-week"
-    ? "No appointments are scheduled for next week yet."
+    ? `No appointments are scheduled for next week${clinicSuffix} yet.`
+    : quickFilter === "awaiting"
+    ? (filterDate || filterEndDate
+        ? `Nothing is awaiting your approval ${dateRangeText}${clinicSuffix}. ${allBookingsHint}`
+        : `You're all caught up${clinicSuffix} — nothing is waiting for your review.`)
+    : quickFilter === "pending-7days"
+    ? `No pending appointments in the next 7 days${clinicSuffix}. Switch to All Bookings to see every pending request.`
+    : quickFilter === "confirmed-7days"
+    ? `No confirmed appointments in the next 7 days${clinicSuffix}. Try Upcoming or All Bookings.`
+    : quickFilter === "owned"
+    ? `No appointments you have accepted${clinicSuffix}. The Awaiting tab shows requests still needing your approval.`
     : filterDate || filterEndDate
-    ? "No bookings fall in the selected date range. Clear the date filter to see all."
+    ? `No bookings fall in the selected date range${clinicSuffix}. Clear the date filter to see all.`
     : "Once patients book a slot, their appointments will appear here.";
 
   return { title, detail };

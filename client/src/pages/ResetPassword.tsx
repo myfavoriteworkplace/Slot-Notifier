@@ -108,7 +108,7 @@ export default function ResetPassword() {
 
               {/* New password */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                <label className="label-field">
                   New Password
                 </label>
                 <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
@@ -138,7 +138,7 @@ export default function ResetPassword() {
 
               {/* Confirm password */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                <label className="label-field">
                   Confirm Password
                 </label>
                 <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">

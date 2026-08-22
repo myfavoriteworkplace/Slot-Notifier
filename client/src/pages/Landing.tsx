@@ -162,11 +162,9 @@ export default function Landing() {
           .lnd-hero-actions    { flex-direction: column !important; align-items: stretch !important; }
           .lnd-hero-actions > * { width: 100% !important; justify-content: center !important; }
           .lnd-float-badge     { display: none !important; }
-          .lnd-feat-4          { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
-          .lnd-feat-4::-webkit-scrollbar { display: none !important; }
+          .lnd-feat-4          { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; }
           .lnd-feat-4 > *      { flex: 0 0 82% !important; scroll-snap-align: start !important; }
-          .lnd-feat-3          { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
-          .lnd-feat-3::-webkit-scrollbar { display: none !important; }
+          .lnd-feat-3          { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; }
           .lnd-feat-3 > *      { flex: 0 0 82% !important; scroll-snap-align: start !important; }
           .lnd-swipe-hint      { display: flex !important; }
           .lnd-how-inner       { border-radius: 16px !important; padding: 32px 18px !important; }
@@ -752,7 +750,7 @@ export default function Landing() {
 
             </motion.div>{/* clinic card */}
 
-            <div className="lnd-feat-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+            <div className="lnd-feat-4 hide-scrollbar" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
               {clinicFeatures.map((f, i) => (
                 <motion.div key={f.title} {...fadeUp(i * 0.07)}
                   style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "24px 22px 26px", transition: "all .3s cubic-bezier(.16,1,.3,1)", cursor: "default" }}
@@ -959,7 +957,7 @@ export default function Landing() {
 
             </motion.div>{/* green card */}
 
-            <div className="lnd-feat-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+            <div className="lnd-feat-3 hide-scrollbar" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
               {patientFeatures.map((f, i) => (
                 <motion.div key={f.title} {...fadeUp(i * 0.07)}
                   style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "24px 22px 26px", transition: "all .3s cubic-bezier(.16,1,.3,1)", cursor: "default" }}

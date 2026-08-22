@@ -3,27 +3,81 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
+import { sql, eq, and, gte, lte, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { format } from 'date-fns';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
+import { getClinicStorageQuota, assertClinicStorageAvailable, registerIssuedUpload, consumeIssuedUpload, PLAN_STORAGE_LIMITS, DEFAULT_STORAGE_LIMIT_BYTES } from "./storageQuota";
+import { ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
+import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
 import { wakeAndAnalyse } from "./aiService";
+import {
+  assertBookingTransition,
+  assertClinicBookingOwnership,
+  BookingTransitionError,
+} from "./booking-transition-policy";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
 const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmail.com';
+
+function sendTransitionError(res: Response, err: unknown): void {
+  if (err instanceof BookingTransitionError) {
+    res.status(err.statusCode).json({ message: err.message });
+    return;
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  const status = /not found/i.test(message) ? 404 : /not available|full|expected state|changed before/i.test(message) ? 409 : 500;
+  res.status(status).json({ message });
+}
+
+async function getClinicTransitionContext(
+  bookingId: number,
+  sess: any,
+): Promise<{ booking: any; slot: any; clinic: any }> {
+  const booking = await storage.getBookingById(bookingId);
+  if (!booking) throw new BookingTransitionError("Booking not found", 404);
+  const slot = await storage.getSlot(booking.slotId);
+  assertClinicBookingOwnership(slot, sess.clinicId, sess.role === "superuser");
+  const clinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+  return {
+    booking: { ...booking, slot: { startTime: slot?.startTime ?? null } },
+    slot,
+    clinic,
+  };
+}
+
+async function recordBookingTransition(
+  bookingId: number,
+  fromState: string | null | undefined,
+  toState: string,
+  sess: any,
+  reason?: string | null,
+): Promise<void> {
+  await db.execute(sql`INSERT INTO booking_state_log
+    (booking_id, from_state, to_state, actor_role, actor_name, reason)
+    VALUES (
+      ${bookingId},
+      ${fromState ?? null},
+      ${toState},
+      ${sess.role === "doctor" ? "doctor" : "admin"},
+      ${sess.clinicUsername || sess.doctorEmail || "Admin"},
+      ${reason || null}
+    )`);
+}
 
 const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
   ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
@@ -55,7 +109,7 @@ function makeGoogleCalLink(title: string, start: Date, location?: string | null)
 
 // ─── EMAIL DESIGN SYSTEM ──────────────────────────────────────────────────────
 // All 17 emails share one structural shell. Only the 4-px accent bar colour
-// and the inner body HTML differ per template. See docs/email-design-system.md.
+// and the inner body HTML differ per template. See docs/notifications/email-design-system.md.
 //
 // Helpers:
 //   logoBlock(onDark)              — "bookMySlot DENTAL" mark
@@ -923,6 +977,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   const clinicSockets = new Map<string, Set<WebSocket>>();
   const doctorSockets = new Map<string, Set<WebSocket>>();
 
+  // Notification `userId` prefixes — clinics.id and doctors.id are independent
+  // serial sequences that both start at 1, so a bare numeric string like "3"
+  // would collide between a clinic and a doctor. Prefixing keeps the two ID
+  // spaces disjoint so `getNotifications(userId)` never mixes roles.
+  const clinicUid = (id: number | string) => `clinic:${id}`;
+  const doctorUid = (id: number | string) => `doctor:${id}`;
+
   function broadcastToClinic(clinicId: string, data: object) {
     const clients = clinicSockets.get(clinicId);
     if (!clients) return;
@@ -1284,6 +1345,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
     try {
       const { fileName, contentType, fileType, fileSize, folder } = req.body;
+      // Patient documents must use the dedicated booking-based endpoint. That
+      // route derives clinic/patient ownership and enforces the clinic quota.
+      if (folder === "patient-docs") {
+        return res.status(400).json({ message: "Patient documents must be uploaded through the visit document endpoint" });
+      }
       const result = await generateSignedUploadUrl({
         fileName: fileName || `upload-${Date.now()}`,
         fileType: fileType || contentType,
@@ -1294,6 +1360,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       res.status(400).json({ message: err.message });
     }
+  });
+
+  // Patient files use a server-derived clinic/patient/visit path. The browser
+  // supplies only the booking; it cannot choose another clinic or patient.
+  app.post("/api/patient-documents/upload-url", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.body?.bookingId));
+      if (!booking?.patientId) return res.status(404).json({ message: "Booking is not linked to a patient" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
+      const { fileName, contentType, fileSize } = req.body;
+      await assertClinicStorageAvailable(Number(slot.clinicId), Number(fileSize));
+      const result = await generateSignedUploadUrl({
+        fileName: fileName || `upload-${Date.now()}`,
+        fileType: contentType,
+        fileSize,
+        folder: "patient-docs",
+        keyPrefix: `private/clinics/${slot.clinicId}/patients/${booking.patientId}/visits/${booking.id}/documents`,
+      });
+      registerIssuedUpload(result.key, Number(slot.clinicId), Number(fileSize));
+      res.json(result);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
 
   app.post("/api/clinics/:id/doctors", isAuthenticated, async (req, res) => {
@@ -1387,7 +1477,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .where(eq(emailOtps.id, existing.id));
 
         if (resend && RESEND_MODE === 'PRODUCTION') {
-          await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+          const sendResult = await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+          if (sendResult.error) {
+            console.error(`[OTP EMAIL ERROR] from=${EMAIL_FROM} to=${email} error=${JSON.stringify(sendResult.error)}`);
+          } else {
+            console.log(`[OTP EMAIL] Sent to ${email} id=${sendResult.data?.id}`);
+          }
         } else {
           console.log(`[OTP DEV] Resend for ${email}: ${code}`);
         }
@@ -1410,7 +1505,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
 
       if (resend && RESEND_MODE === 'PRODUCTION') {
-        await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+        const sendResult = await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+        if (sendResult.error) {
+          console.error(`[OTP EMAIL ERROR] from=${EMAIL_FROM} to=${email} error=${JSON.stringify(sendResult.error)}`);
+        } else {
+          console.log(`[OTP EMAIL] Sent to ${email} id=${sendResult.data?.id}`);
+        }
       } else {
         console.log(`[OTP DEV] Code for ${email}: ${code}`);
       }
@@ -1659,6 +1759,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         customerName, customerPhone, customerEmail,
+        customerAge, customerGender,
         clinicId, clinicName, startTime, endTime, description, verifiedToken,
       } = req.body;
 
@@ -1748,6 +1849,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             customerName,
             customerPhone,
             customerEmail,
+            customerAge: customerAge ? parseInt(customerAge) : null,
+            customerGender: customerGender || null,
             description: description || null,
             verificationCode: null,
             verificationExpiresAt: null,
@@ -1769,16 +1872,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const bodyPatientId = req.body.patientId;
         const isNewProfile = bodyPatientId === 'new';
         const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
+        const pubAge = customerAge ? parseInt(customerAge) : null;
+        const pubGender = customerGender || null;
         let patient;
         if (!isNaN(selectedId)) {
           const existing = await storage.getPatientById(clinic.id, selectedId);
           patient = existing
-            ? await storage.incrementPatientVisit(existing.id)
-            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+            ? await storage.incrementPatientVisit(existing.id, pubAge, pubGender)
+            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else if (isNewProfile) {
-          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else {
-          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
@@ -1790,6 +1895,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+        await sendBookingConfirmationSms(
+          customerPhone,
+          customerName,
+          clinic.name,
+          requestedStart,
+          null,
+          (clinic as any).phone ?? null,
+          `BMS-${booking.id}`,
+        );
       }
 
       // In-app notification for clinic admin — paid booking confirmed
@@ -1797,7 +1911,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const dateStr = requestedStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
         const timeStr = requestedStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
         const paidNotif = await storage.createNotification({
-          userId: String(clinic.id),
+          userId: clinicUid(clinic.id),
           message: `Paid booking confirmed — ${customerName} on ${dateStr} at ${timeStr}`,
           read: false,
           type: "paid_booking_confirmed",
@@ -1966,6 +2080,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             verificationCode: null,
             verificationExpiresAt: null,
             verificationStatus: 'email_verified',
+            treatmentCategory: 'Consultation',
+            bookedBy: 'patient',
           } as any).returning();
           booking = newBooking;
         });
@@ -1980,16 +2096,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const bodyPatientId = req.body.patientId;
         const isNewProfile = bodyPatientId === 'new';
         const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
+        const pubAge = customerAge ? parseInt(customerAge) : null;
+        const pubGender = customerGender || null;
         let patient;
         if (!isNaN(selectedId)) {
           const existing = await storage.getPatientById(clinic.id, selectedId);
           patient = existing
-            ? await storage.incrementPatientVisit(existing.id)
-            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+            ? await storage.incrementPatientVisit(existing.id, pubAge, pubGender)
+            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else if (isNewProfile) {
-          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         } else {
-          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
@@ -2001,13 +2119,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+        await sendBookingReceivedSms(customerPhone, customerName, clinic.name, requestedStart);
       }
 
       // Create in-app notification and push it instantly to the clinic admin via WebSocket
       try {
         const notifMessage = `New booking from ${customerName} on ${requestedStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at ${requestedStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
         const notification = await storage.createNotification({
-          userId: String(clinic.id),
+          userId: clinicUid(clinic.id),
           message: notifMessage,
           read: false,
           type: "new_booking",
@@ -2184,6 +2303,115 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/auth/clinic/settings/storage", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
+    try {
+      const clinicId = Number(sess.clinicId);
+      const quota = await getClinicStorageQuota(clinicId);
+      const documentRows = await db.select({ fileSize: patientDocuments.fileSize })
+        .from(patientDocuments)
+        .where(and(eq(patientDocuments.clinicId, clinicId), sql`${patientDocuments.deletedAt} IS NULL`));
+      const trackedBytes = documentRows.reduce((sum, row) => sum + Number(row.fileSize ?? 0), 0);
+      const trackedFiles = documentRows.length;
+
+      let exact: any = null;
+      if (R2_CONFIGURED) {
+        let continuationToken: string | undefined;
+        let bytes = 0;
+        let files = 0;
+        const byPrefix: Record<string, { files: number; bytes: number }> = {};
+        do {
+          const page = await r2Client.send(new ListObjectsV2Command({
+            Bucket: R2_BUCKET_NAME,
+            ContinuationToken: continuationToken,
+          }));
+          for (const object of page.Contents ?? []) {
+            const key = object.Key ?? "";
+            const root = key.startsWith("private/") ? "private" : key.split("/")[0] || "other";
+            byPrefix[root] ??= { files: 0, bytes: 0 };
+            byPrefix[root].files++;
+            byPrefix[root].bytes += Number(object.Size ?? 0);
+            bytes += Number(object.Size ?? 0);
+            files++;
+          }
+          continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+        } while (continuationToken);
+        exact = { files, bytes, byPrefix, scannedAt: new Date().toISOString() };
+      }
+       res.json({ tracked: { files: trackedFiles, bytes: trackedBytes }, quota, planLimits: PLAN_STORAGE_LIMITS, defaultLimitBytes: DEFAULT_STORAGE_LIMIT_BYTES, exact, r2Configured: R2_CONFIGURED });
+    } catch (err: any) {
+      console.error("[CLINIC STORAGE REPORT]", err.message);
+      res.status(500).json({ message: "Unable to calculate storage report" });
+    }
+  });
+
+  app.get("/api/auth/clinic/settings/storage/untracked", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
+    if (!R2_CONFIGURED) return res.status(503).json({ message: "R2 credentials are not configured" });
+    try {
+      const clinicId = Number(sess.clinicId);
+      const prefix = `private/clinics/${clinicId}/`;
+      const trackedKeys = new Set<string>();
+      const documents = await db.select({ storageKey: patientDocuments.storageKey, publicUrl: patientDocuments.publicUrl })
+        .from(patientDocuments).where(and(eq(patientDocuments.clinicId, clinicId), sql`${patientDocuments.deletedAt} IS NULL`));
+      for (const file of documents) {
+        if (file.storageKey?.startsWith(prefix)) trackedKeys.add(file.storageKey);
+        if (file.publicUrl) {
+          try { const key = decodeURIComponent(new URL(file.publicUrl).pathname.replace(/^\/+/, "")); if (key.startsWith(prefix)) trackedKeys.add(key); } catch {}
+        }
+      }
+      const candidates: any[] = [];
+      let continuationToken: string | undefined;
+      do {
+        const page = await r2Client.send(new ListObjectsV2Command({
+          Bucket: R2_BUCKET_NAME, Prefix: prefix, ContinuationToken: continuationToken,
+        }));
+        for (const object of page.Contents ?? []) {
+          const key = object.Key ?? "";
+          if (key && !trackedKeys.has(key)) {
+            candidates.push({ key, bytes: Number(object.Size ?? 0), lastModified: object.LastModified?.toISOString() ?? null });
+          }
+        }
+        continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+      } while (continuationToken);
+      res.json({ prefix, candidates, scannedAt: new Date().toISOString(), count: candidates.length });
+    } catch (err: any) {
+      console.error("[CLINIC UNTRACKED SCAN]", err.message);
+      res.status(500).json({ message: "Unable to scan clinic storage" });
+    }
+  });
+
+  app.post("/api/auth/clinic/settings/storage/untracked/delete", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
+    if (!R2_CONFIGURED) return res.status(503).json({ message: "R2 credentials are not configured" });
+    try {
+      const clinicId = Number(sess.clinicId);
+      const prefix = `private/clinics/${clinicId}/`;
+      const keys = Array.isArray(req.body?.keys) ? req.body.keys.filter((key: unknown): key is string => typeof key === "string") : [];
+      if (!keys.length || keys.length > 100) return res.status(400).json({ message: "Select between 1 and 100 files" });
+       if (keys.some((key: string) => !key.startsWith(prefix) || key.includes(".."))) return res.status(400).json({ message: "Only this clinic's private files can be deleted" });
+      const trackedKeys = new Set<string>();
+      const documents = await db.select({ storageKey: patientDocuments.storageKey, publicUrl: patientDocuments.publicUrl })
+        .from(patientDocuments).where(and(eq(patientDocuments.clinicId, clinicId), sql`${patientDocuments.deletedAt} IS NULL`));
+      for (const file of documents) {
+        if (file.storageKey?.startsWith(prefix)) trackedKeys.add(file.storageKey);
+        if (file.publicUrl) {
+          try { const key = decodeURIComponent(new URL(file.publicUrl).pathname.replace(/^\/+/, "")); if (key.startsWith(prefix)) trackedKeys.add(key); } catch {}
+        }
+      }
+       const deletable = keys.filter((key: string) => !trackedKeys.has(key));
+      if (!deletable.length) return res.status(409).json({ message: "Selected files are now tracked or no longer eligible" });
+      for (const key of deletable) await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+       res.json({ deleted: deletable, skipped: keys.filter((key: string) => !deletable.includes(key)) });
+    } catch (err: any) {
+      console.error("[CLINIC UNTRACKED DELETE]", err.message);
+      res.status(500).json({ message: "Unable to delete selected files" });
+    }
+  });
+
   app.get("/api/smile-deals", async (req, res) => {
     const onlyActive = req.query.active === 'true';
     const audience = req.query.audience as string | undefined;
@@ -2318,7 +2546,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.json([]);
     }
 
-    const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+    const userId = sess.doctorId ? doctorUid(sess.doctorId) : sess.clinicId ? clinicUid(sess.clinicId) : String(sess.adminEmail || "superuser");
 
     try {
       const userNotifications = await storage.getNotifications(userId);
@@ -2333,7 +2561,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess?.adminLoggedIn && !sess?.doctorLoggedIn) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+    const userId = sess.doctorId ? doctorUid(sess.doctorId) : sess.clinicId ? clinicUid(sess.clinicId) : String(sess.adminEmail || "superuser");
     try {
       await storage.markAllNotificationsRead(userId);
       res.json({ ok: true });
@@ -2847,6 +3075,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Static route must precede /:id routes so "no-show-candidates" is not parsed as a booking id.
+  app.get("/api/auth/clinic/bookings/no-show-candidates", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      res.json(await storage.getClinicNoShowCandidates(Number(sess.clinicId)));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/auth/clinic/bookings/:id — fetch a single booking (with slot) for the notification-click focus flow
+  // Shared by clinic-owner and doctor sessions (DoctorDashboard also focus-fetches via this same path).
+  app.get("/api/auth/clinic/bookings/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "Invalid booking id" });
+    try {
+      let booking;
+      if (sess.role === 'doctor' && sess.doctorEmail) {
+        booking = await storage.getDoctorBookingByIdWithSlot(id, sess.doctorEmail);
+      } else if (sess.clinicId) {
+        booking = await storage.getClinicBookingByIdWithSlot(id, sess.clinicId);
+      } else {
+        return res.status(403).json({ message: "Clinic or doctor session required" });
+      }
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      return res.json(booking);
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
   app.get("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (sess.role === 'doctor') {
@@ -2859,8 +3118,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           pageSize: z.coerce.number().min(1).max(500).optional().default(20),
           dateFrom: z.string().optional(),
           dateTo:   z.string().optional(),
+          todayDate: z.string().optional(),
           clinicId: z.coerce.number().optional(),
           search:   z.string().optional(),
+          patientId: z.coerce.number().optional(),
+          statusFilter: z.enum(['in-clinic', 'completed', 'cancelled', 'no-show']).optional(),
         }).safeParse(req.query);
         if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
         const paged = await storage.getDoctorBookingsPaged(email, parseResult.data);
@@ -2888,8 +3150,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           pageSize: z.coerce.number().min(1).max(500).optional().default(20),
           dateFrom: z.string().optional(),
           dateTo:   z.string().optional(),
+          todayDate: z.string().optional(),
           search:   z.string().optional(),
           patientId: z.coerce.number().optional(),
+          doctorEmail: z.string().optional(),
+          statusFilter: z.enum(['in-clinic', 'completed', 'cancelled', 'no-show']).optional(),
         }).safeParse(req.query);
         if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
         const paged = await storage.getClinicBookingsPaged(sess.clinicId, parseResult.data);
@@ -2913,7 +3178,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
 
     try {
-      const { customerName, customerPhone, customerEmail, startTime, endTime, description, slotCost: rawSlotCost } = req.body;
+      const {
+        customerName, customerPhone, customerEmail, startTime, endTime,
+        description, slotCost: rawSlotCost,
+        visitType, treatmentCategory,
+        customerAge: rawCustomerAge, customerGender,
+      } = req.body;
 
       if (!customerName || !customerPhone || !startTime || !endTime) {
         return res.status(400).json({ message: "Name, phone, start time and end time are required" });
@@ -2962,10 +3232,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         customerName,
         customerPhone,
         customerEmail: customerEmail || null,
+        customerAge: rawCustomerAge ? parseInt(rawCustomerAge) : null,
+        customerGender: customerGender || null,
         description: description || null,
         verificationCode: null,
         verificationExpiresAt: null,
         verificationStatus: 'admin_booked',
+        treatmentCategory: treatmentCategory || 'Consultation',
+        visitType: visitType || null,
+        bookedBy: 'admin',
       });
 
       // Store slot_cost on the booking
@@ -2973,17 +3248,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         await db.update(bookings).set({ slotCost } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) { console.error('[ADMIN BOOKING] slot_cost update failed:', e.message); }
 
-      // Upsert patient record so they appear in the Patients tab
+      // Link booking to the correct patient profile
       try {
-        if (customerEmail && customerEmail.trim()) {
-          const patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone);
-          await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        const bodyPatientId = req.body.patientId;
+        const selectedId = bodyPatientId ? parseInt(bodyPatientId) : NaN;
+        const customerAge = rawCustomerAge ? parseInt(rawCustomerAge) : null;
+        const patientGender = customerGender || null;
+        let patient;
+
+        if (!isNaN(selectedId)) {
+          // Clinic explicitly selected an existing patient from search — use it directly
+          const existing = await storage.getPatientById(clinic.id, selectedId);
+          patient = existing
+            ? await storage.incrementPatientVisit(existing.id, customerAge, patientGender)
+            : await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName, customerAge, patientGender);
+        } else if (customerEmail && customerEmail.trim()) {
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone, customerAge, patientGender);
         } else {
-          const patient = await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName);
-          await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+          patient = await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName, customerAge, patientGender);
         }
+
+        await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
-        console.error('[ADMIN BOOKING] Patient upsert failed:', e.message);
+        console.error('[ADMIN BOOKING] Patient link failed:', e.message);
       }
 
       // Send confirmation email to patient if email provided
@@ -2999,8 +3286,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (customerPhone) {
         try {
           await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+          await sendBookingConfirmationSms(
+            customerPhone,
+            customerName,
+            clinic.name,
+            requestedStart,
+            null,
+            (clinic as any).phone ?? null,
+            `BMS-${booking.id}`,
+          );
         } catch (e: any) {
-          console.error('[ADMIN BOOKING] WhatsApp send failed:', e.message);
+          console.error('[ADMIN BOOKING] WhatsApp/SMS send failed:', e.message);
         }
       }
 
@@ -3505,15 +3801,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const sess = req.session as any;
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
-    const { newSlotId } = req.body;
-    if (!newSlotId) return res.status(400).json({ message: "newSlotId is required" });
+    const newSlotId = Number(req.body?.newSlotId);
+    if (!Number.isInteger(newSlotId) || newSlotId <= 0) return res.status(400).json({ message: "newSlotId is required" });
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const oldSlot = await storage.getSlot(booking.slotId);
-      const updated = await storage.rescheduleBooking(bookingId, newSlotId);
+      const { booking, slot: oldSlot, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_reschedule", { clinicTimezone: clinic?.timezone });
+      const updated = await storage.rescheduleBookingIfCurrent(
+        bookingId,
+        newSlotId,
+        Number(oldSlot.clinicId),
+        booking.verificationStatus,
+        booking.visitStatus ?? null,
+      );
       const newSlot = await storage.getSlot(newSlotId);
-      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
       if (booking.customerEmail && newSlot) {
         sendRescheduleEmail(
           booking.customerEmail,
@@ -3530,7 +3830,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         try {
           const newDateStr = new Date(newSlot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
           const reschedNotif = await storage.createNotification({
-            userId: String(clinic.id),
+            userId: clinicUid(clinic.id),
             message: `Booking #${bookingId} for ${booking.customerName} rescheduled to ${newDateStr}`,
             read: false,
             type: "booking_rescheduled",
@@ -3549,7 +3849,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (reschedDoc) {
             const newTimeStr = format(new Date(newSlot.startTime), 'EEE d MMM, h:mm a');
             const reschedDocNotif = await storage.createNotification({
-              userId: String(reschedDoc.id),
+              userId: doctorUid(reschedDoc.id),
               message: `Appointment for ${booking.customerName} has been rescheduled to ${newTimeStr}`,
               read: false,
               type: "booking_rescheduled",
@@ -3574,9 +3874,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         } catch { /* WhatsApp unavailable */ }
       }
 
+      await recordBookingTransition(bookingId, booking.visitStatus, "rescheduled", sess);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3604,7 +3905,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const label = statusLabels[clinicalStatus] ?? clinicalStatus;
             const notifType = clinicalStatus === 'case_closed' ? 'case_closed_by_clinic' : 'clinical_status_updated';
             const notif = await storage.createNotification({
-              userId: String(doc.id),
+              userId: doctorUid(doc.id),
               message: `Clinic admin updated ${booking.customerName}'s clinical status to "${label}"`,
               read: false,
               type: notifType,
@@ -3626,25 +3927,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const bookingId = parseInt(req.params.id);
     try {
       const { undo } = req.body;
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_checkin", {
+        clinicTimezone: clinic?.timezone,
+        undo: !!undo,
+      });
       const visitStatus = undo ? null : 'checked_in';
       const checkedInAt = undo ? null : new Date();
-      const updated = await storage.updateVisitStatus(bookingId, visitStatus, checkedInAt);
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        visitStatus,
+        checkedInAt,
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before check-in could be saved", 409);
       if (!undo && booking.assignedDoctorEmail) {
         try {
           const [doc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (doc) {
             const slot = await storage.getSlot(booking.slotId);
             const timeStr = slot ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-            const notif = await storage.createNotification({ userId: String(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false, type: "patient_checked_in", bookingId });
+            const notif = await storage.createNotification({ userId: doctorUid(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false, type: "patient_checked_in", bookingId });
             broadcastToDoctor(String(doc.id), { type: "patient_checked_in", bookingId, notification: notif });
           }
         } catch (e: any) { console.error('[NOTIFICATION] Check-in notification failed:', e.message); }
       }
+      await recordBookingTransition(bookingId, booking.visitStatus, undo ? "not_started" : "checked_in", sess);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3653,13 +3964,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_complete", { clinicTimezone: clinic?.timezone });
       const { note } = req.body ?? {};
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), note?.trim() || null);
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'completed',
+        undefined,
+        new Date(),
+        note?.trim() || null,
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before completion could be saved", 409);
+      await recordBookingTransition(bookingId, booking.visitStatus, "completed", sess, note?.trim() || null);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3668,21 +3988,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      if (booking.verificationStatus === 'confirmed') return res.status(400).json({ message: "Booking already confirmed" });
+      const { booking, slot, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_confirm", { clinicTimezone: clinic?.timezone });
 
       // If a doctor was assigned and their approval is still pending, admin is overriding — mark as admin_confirmed
       const needsDoctorOverride = booking.assignedDoctorEmail && booking.doctorApprovalStatus === 'pending';
-      const updated = await storage.updateBookingStatus(bookingId, 'confirmed', 'admin');
+      const updated = await storage.updateBookingStatusIfCurrent(
+        bookingId,
+        booking.verificationStatus,
+        'confirmed',
+        'admin',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before confirmation could be saved", 409);
       if (needsDoctorOverride) {
         await storage.updateBookingAssignment(bookingId, booking.assignedDoctor!, booking.assignedDoctorEmail!, 'admin_confirmed');
       }
 
       // Fetch clinic details for the email
-      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
-      const slot = await storage.getSlot(booking.slotId);
-
       // Send confirmation email to patient (fire-and-forget)
       const clinicLat = (clinic as any)?.latitude ?? null;
       const clinicLng = (clinic as any)?.longitude ?? null;
@@ -3720,6 +4042,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           confirmMapsLink,
           `BMS-${bookingId}`,
         ).catch(() => {});
+        sendBookingConfirmationSms(
+          booking.customerPhone,
+          booking.customerName,
+          clinic?.name || slot?.clinicName || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
+          clinicPhone,
+          `BMS-${bookingId}`,
+        ).catch((err) => console.error('[SMS ERROR] Confirm SMS failed:', err.message));
       }
 
       // Notify the doctor that the admin confirmed on their behalf (fire-and-forget)
@@ -3742,7 +4073,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
               : '';
             const overrideNotif = await storage.createNotification({
-              userId: String(overriddenDoc.id),
+              userId: doctorUid(overriddenDoc.id),
               message: `Admin confirmed ${booking.customerName}'s appointment on your behalf${dateStr ? ` on ${dateStr}` : ''} — no action needed`,
               read: false,
               type: "admin_confirmed",
@@ -3755,9 +4086,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(bookingId, booking.verificationStatus, "confirmed", sess);
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3768,18 +4100,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const bookingId = parseInt(req.params.id);
     if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      if (booking.verificationStatus === 'cancelled') return res.status(400).json({ message: "Booking is already cancelled" });
-
-      // Verify ownership — the booking's slot must belong to this clinic
-      const slot = await storage.getSlot(booking.slotId);
-      if (!slot || (slot.clinicId !== sess.clinicId && sess.role !== 'superuser')) {
-        return res.status(403).json({ message: "Not authorised to cancel this booking" });
-      }
+      const { booking, slot, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_cancel", { clinicTimezone: clinic?.timezone });
 
       const { reason } = req.body as { reason?: string };
-      await storage.cancelBooking(bookingId, reason);
+      const cancelled = await storage.cancelBookingIfCurrent(
+        bookingId,
+        booking.verificationStatus,
+        reason,
+      );
+      if (!cancelled) throw new BookingTransitionError("Booking changed before cancellation could be saved", 409);
 
       // Send cancellation email to patient (fire-and-forget)
       if (booking.customerEmail) {
@@ -3800,7 +4130,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         const clinicId = sess.clinicId || slot.clinicId;
         const notif = await storage.createNotification({
-          userId: String(clinicId),
+          userId: clinicUid(clinicId),
           message: `Booking for ${booking.customerName} has been cancelled`,
           read: false,
           type: "booking_cancelled",
@@ -3818,7 +4148,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (cancelDoc) {
             const dateStr = slot ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
             const cancelDocNotif = await storage.createNotification({
-              userId: String(cancelDoc.id),
+              userId: doctorUid(cancelDoc.id),
               message: `Appointment for ${booking.customerName}${dateStr ? ` on ${dateStr}` : ''} has been cancelled by the clinic`,
               read: false,
               type: "booking_cancelled",
@@ -3831,9 +4161,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(bookingId, booking.verificationStatus, "cancelled", sess, reason || null);
       res.json({ message: "Booking cancelled successfully" });
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -3885,7 +4216,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
               : '';
             const assignNotif = await storage.createNotification({
-              userId: String(assignedDoc.id),
+              userId: doctorUid(assignedDoc.id),
               message: `New appointment assigned: ${booking.customerName} on ${dateStr}${timeStr ? ` at ${timeStr}` : ''} — awaiting your approval`,
               read: false,
               type: "doctor_assigned",
@@ -3912,13 +4243,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(Number(req.params.id));
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      if (booking.doctorApprovalStatus !== 'pending') return res.status(400).json({ message: "No pending approval for this booking" });
-
-      const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'approved');
-
-      // Notify patient via email and WhatsApp that their appointment is confirmed (fire-and-forget)
       const slot = await storage.getSlot(booking.slotId);
       const doctorClinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_approve",
+        { clinicTimezone: doctorClinic?.timezone },
+      );
+
+      const updated = await storage.updateBookingDoctorApprovalIfCurrent(
+        Number(req.params.id),
+        sess.doctorEmail,
+        booking.doctorApprovalStatus || "",
+        'approved',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before approval could be saved", 409);
+
+      // Notify patient via email and WhatsApp that their appointment is confirmed (fire-and-forget)
       const dClinicLat = (doctorClinic as any)?.latitude ?? null;
       const dClinicLng = (doctorClinic as any)?.longitude ?? null;
       const dClinicAddress = (doctorClinic as any)?.address ?? null;
@@ -3953,6 +4294,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           dMapsLink,
           `BMS-${booking.id}`,
         ).catch(() => {});
+        sendBookingConfirmationSms(
+          booking.customerPhone,
+          booking.customerName,
+          doctorClinic?.name || slot?.clinicName || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
+          dClinicPhone,
+          `BMS-${booking.id}`,
+        ).catch((err) => console.error('[SMS ERROR] Confirm SMS failed:', err.message));
       }
 
       // In-app notification for clinic admin — doctor approved
@@ -3962,7 +4312,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
             : '';
           const approveNotif = await storage.createNotification({
-            userId: String(doctorClinic.id),
+            userId: clinicUid(doctorClinic.id),
             message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} confirmed ${booking.customerName}'s appointment${dateStr ? ` on ${dateStr}` : ''}`,
             read: false,
             type: "doctor_approved",
@@ -3974,8 +4324,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(booking.id, booking.doctorApprovalStatus, "approved", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
       res.status(status).json({ message: err.message });
     }
@@ -3989,14 +4341,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(Number(req.params.id));
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      if (booking.doctorApprovalStatus !== 'pending') return res.status(400).json({ message: "No pending approval for this booking" });
+      const slot = await storage.getSlot(booking.slotId);
+      const clinicForDecline = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_decline",
+        { clinicTimezone: clinicForDecline?.timezone },
+      );
 
-      const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'declined');
+      const updated = await storage.updateBookingDoctorApprovalIfCurrent(
+        Number(req.params.id),
+        sess.doctorEmail,
+        booking.doctorApprovalStatus || "",
+        'declined',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before decline could be saved", 409);
 
       // Notify clinic admin that the doctor has declined (fire-and-forget + in-app)
-      const slot = await storage.getSlot(booking.slotId);
       if (slot?.clinicId) {
-        const clinicForDecline = await storage.getClinic(slot.clinicId);
         if (clinicForDecline?.email) {
           sendAdminDoctorDeclineEmail(
             clinicForDecline.email,
@@ -4011,7 +4373,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           try {
             const dateStr = new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
             const declineNotif = await storage.createNotification({
-              userId: String(clinicForDecline.id),
+              userId: clinicUid(clinicForDecline.id),
               message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} declined ${booking.customerName}'s appointment on ${dateStr} — reassignment needed`,
               read: false,
               type: "doctor_declined",
@@ -4024,8 +4386,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
+      await recordBookingTransition(booking.id, booking.doctorApprovalStatus, "declined", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
       res.status(status).json({ message: err.message });
     }
@@ -4069,7 +4433,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/clinics/:id", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {
-      const clinic = await storage.updateClinic(Number(req.params.id), req.body);
+      const updateData = { ...req.body };
+      if (updateData.storageLimitBytes !== undefined && updateData.storageLimitBytes !== null) {
+        const bytes = Number(updateData.storageLimitBytes);
+        if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes > 2147483647) {
+          return res.status(400).json({ message: "Storage limit must be a whole number between 1 MB and 2047 MB" });
+        }
+        updateData.storageLimitBytes = bytes;
+      }
+      const clinic = await storage.updateClinic(Number(req.params.id), updateData);
       res.json(clinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4160,7 +4532,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const email = sess.doctorEmail;
       const d = await storage.getDoctorByEmail(email);
       if (!d) return res.json([]);
-      const ps = await storage.getPatientsByDoctor(d.id);
+      const q = ((req.query.q as string) || "").trim();
+      const ps = await storage.getPatientsByDoctor(d.email, q.length >= 2 ? q : undefined);
       res.json(ps);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4300,7 +4673,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const leaveDateFmt = new Date(leaveDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
         for (const { clinic } of linkedClinics) {
           const leaveNotif = await storage.createNotification({
-            userId: String(clinic.id),
+            userId: clinicUid(clinic.id),
             message: `Dr. ${d.name} has marked ${leaveDateFmt} as leave${reason ? ` — ${reason}` : ''}`,
             read: false,
             type: "doctor_on_leave",
@@ -4331,7 +4704,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .where(eq(clinicDoctors.doctorId, d.id));
         for (const { clinic } of linkedClinics) {
           const cancelLeaveNotif = await storage.createNotification({
-            userId: String(clinic.id),
+            userId: clinicUid(clinic.id),
             message: `Dr. ${d.name} cancelled a leave and is now available`,
             read: false,
             type: "doctor_leave_cancelled",
@@ -4408,7 +4781,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             if (slot) {
               const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
               if (clinic) {
-                const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+                const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
                 broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
               }
             }
@@ -4430,6 +4803,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const notes = await storage.getBookingNotes(bookingId);
       res.json(notes);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/booking/:id/notes/history — read-only notes from all OTHER visits for the same patient
+  app.get("/api/booking/:id/notes/history", isAuthenticated, async (req, res) => {
+    const bookingId = Number(req.params.id);
+    if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking id" });
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const patientId = (booking as any).patientId ?? null;
+      if (!patientId) return res.json([]);
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.json([]);
+      const clinicId = slot.clinicId;
+
+      // All other bookings for this patient at this clinic, newest first
+      const otherBookings = await db
+        .select({ bookingId: bookings.id, slotStart: slots.startTime })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(
+          eq(bookings.patientId, patientId),
+          eq(slots.clinicId, clinicId),
+          ne(bookings.id, bookingId),
+        ))
+        .orderBy(desc(slots.startTime));
+
+      if (!otherBookings.length) return res.json([]);
+
+      // Fetch notes for each past booking; skip bookings with no notes
+      const result: { bookingId: number; slotDate: string; notes: any[] }[] = [];
+      for (const row of otherBookings) {
+        const notes = await storage.getBookingNotes(row.bookingId);
+        if (notes.length > 0) {
+          result.push({ bookingId: row.bookingId, slotDate: String(row.slotStart), notes });
+        }
+      }
+      return res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -4473,7 +4887,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const noteSlot = await storage.getSlot(noteBooking.slotId);
             if (noteSlot?.clinicId) {
               const clinicNoteNotif = await storage.createNotification({
-                userId: String(noteSlot.clinicId),
+                userId: clinicUid(noteSlot.clinicId),
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
                 type: "booking_note_added",
@@ -4485,7 +4899,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const [noteDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, noteBooking.assignedDoctorEmail)).limit(1);
             if (noteDoc) {
               const docNoteNotif = await storage.createNotification({
-                userId: String(noteDoc.id),
+                userId: doctorUid(noteDoc.id),
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
                 type: "booking_note_added",
@@ -4526,7 +4940,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (slot) {
             const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
             if (clinic) {
-              const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+              const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
               broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
             }
           }
@@ -4547,19 +4961,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      const updated = await storage.updateVisitStatus(bookingId, 'in_consultation');
+      const slot = await storage.getSlot(booking.slotId);
+      const clinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_start_consultation",
+        { clinicTimezone: clinic?.timezone },
+      );
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'in_consultation',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before consultation could start", 409);
       try {
         const slot = await storage.getSlot(booking.slotId);
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false, type: "consultation_started", bookingId });
+            const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false, type: "consultation_started", bookingId });
             broadcastToClinic(String(clinic.id), { type: "consultation_started", bookingId, notification: notif });
           }
         }
       } catch (e: any) { console.error('[NOTIFICATION] Start consultation notification failed:', e.message); }
+      await recordBookingTransition(bookingId, booking.visitStatus, "in_consultation", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       res.status(500).json({ message: err.message });
     }
   });
@@ -4573,19 +5001,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
       // Stage 5 — Treatment Completed (doctor side). Clinic still needs to close with Stage 6.
-      const updated = await storage.updateVisitStatus(bookingId, 'treatment_completed', undefined, new Date());
+      const slot = await storage.getSlot(booking.slotId);
+      const clinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      assertBookingTransition(
+        { ...booking, slot: { startTime: slot?.startTime ?? null } },
+        "doctor_complete",
+        { clinicTimezone: clinic?.timezone },
+      );
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'treatment_completed',
+        undefined,
+        new Date(),
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before treatment completion could be saved", 409);
       try {
         const slot = await storage.getSlot(booking.slotId);
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false, type: "visit_completed", bookingId });
+            const notif = await storage.createNotification({ userId: clinicUid(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false, type: "visit_completed", bookingId });
             broadcastToClinic(String(clinic.id), { type: "visit_completed", bookingId, notification: notif });
           }
         }
       } catch (e: any) { console.error('[NOTIFICATION] Treatment complete notification failed:', e.message); }
+      await recordBookingTransition(bookingId, booking.visitStatus, "treatment_completed", sess);
       res.json(updated);
     } catch (err: any) {
+      if (err instanceof BookingTransitionError) return sendTransitionError(res, err);
       res.status(500).json({ message: err.message });
     }
   });
@@ -4595,16 +5039,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
       const { reason } = req.body;
-      const [updated] = await db.update(bookings)
-        .set({ verificationStatus: 'no_show', ...(reason ? { cancellationReason: reason } : {}) })
-        .where(eq(bookings.id, bookingId))
-        .returning();
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_no_show", {
+        clinicTimezone: clinic?.timezone,
+        reason,
+      });
+      const updated = await storage.markNoShowIfCurrent(
+        bookingId,
+        booking.verificationStatus,
+        booking.visitStatus ?? null,
+        reason.trim(),
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before no-show could be saved", 409);
       // Audit log
-      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
-        VALUES (${bookingId}, ${booking.verificationStatus}, 'no_show', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || null})`);
+      await recordBookingTransition(bookingId, booking.verificationStatus, 'no_show', sess, reason.trim());
 
       // G11 — Notify assigned doctor that patient is a no-show
       if (booking.assignedDoctorEmail) {
@@ -4612,7 +5061,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [nsDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (nsDoc) {
             const nsNotif = await storage.createNotification({
-              userId: String(nsDoc.id),
+              userId: doctorUid(nsDoc.id),
               message: `${booking.customerName} did not show up for their appointment — marked as No-Show`,
               read: false,
               type: "patient_no_show",
@@ -4627,7 +5076,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
+    }
+  });
+
+  app.post("/api/auth/clinic/bookings/mark-no-show-batch", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const ids = z.array(z.number().int().positive()).safeParse(req.body?.bookingIds);
+    if (!ids.success) return res.status(400).json({ message: "bookingIds must be an array of positive integers" });
+    try {
+      const result = await storage.batchMarkNoShows(Number(sess.clinicId), ids.data);
+      for (const booking of result.marked) {
+        const notification = await storage.createNotification({
+          userId: clinicUid(Number(sess.clinicId)),
+          message: `${booking.customerName}'s appointment was marked as No-Show by clinic admin`,
+          read: false, type: "patient_no_show", bookingId: booking.id,
+        });
+        broadcastToClinic(String(sess.clinicId), { type: "patient_no_show", bookingId: booking.id, notification });
+      }
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/revert-no-show", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const updated = await storage.revertBatchNoShow(Number(sess.clinicId), parseInt(req.params.id));
+      await recordBookingTransition(updated.id, "no_show", updated.verificationStatus, sess, "Batch no-show reversal");
+      broadcastToClinic(String(sess.clinicId), { type: "booking_no_show_reverted", bookingId: updated.id });
+      res.json(updated);
+    } catch (err: any) {
+      const status = err.message === "Booking not found" ? 404 : 409;
+      res.status(status).json({ message: err.message });
     }
   });
 
@@ -4661,18 +5143,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      if (['cancelled', 'no_show'].includes(booking.verificationStatus)) {
-        return res.status(400).json({ message: "Cannot override a terminal state" });
-      }
       const { reason } = req.body;
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_override_complete", {
+        clinicTimezone: clinic?.timezone,
+        reason,
+      });
       const prevVisit = (booking as any).visitStatus || 'booked';
-      const overrideNote = reason?.trim() ? `Override: ${reason.trim()}` : 'Admin override';
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), overrideNote);
+      const overrideNote = `Override: ${reason.trim()}`;
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'completed',
+        undefined,
+        new Date(),
+        overrideNote,
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before override could be saved", 409);
       // Audit log
-      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
-        VALUES (${bookingId}, ${prevVisit}, 'completed_override', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || 'Admin override'})`);
+      await recordBookingTransition(bookingId, prevVisit, 'completed_override', sess, reason.trim());
 
       // G12 — Notify assigned doctor the visit was force-completed by admin
       if (booking.assignedDoctorEmail) {
@@ -4680,7 +5169,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [ocDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (ocDoc) {
             const ocNotif = await storage.createNotification({
-              userId: String(ocDoc.id),
+              userId: doctorUid(ocDoc.id),
               message: `${booking.customerName}'s visit was marked complete by clinic admin${reason ? ` — "${reason}"` : ''}`,
               read: false,
               type: "visit_override_completed",
@@ -4695,35 +5184,62 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
   // PATCH /api/auth/clinic/bookings/:id/patient-left-early
   // Admin records that the patient walked out during or before consultation
+  app.patch("/api/auth/clinic/bookings/:id/patient-info", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const schema = z.object({
+        customerName:   z.string().min(1).optional(),
+        customerPhone:  z.string().nullable().optional(),
+        customerEmail:  z.string().email().nullable().optional(),
+        customerAge:    z.number().int().min(0).max(150).nullable().optional(),
+        customerGender: z.string().nullable().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.errors });
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (sess.clinicId) {
+        const slot = await storage.getSlot(booking.slotId);
+        if (!slot || slot.clinicId !== Number(sess.clinicId)) {
+          return res.status(403).json({ message: "Booking does not belong to this clinic" });
+        }
+      }
+      const updated = await storage.updateBookingPatientInfo(bookingId, parsed.data);
+      console.log(`[BOOKING] Patient info updated for booking ${bookingId} by clinic ${sess.clinicId}`);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[BOOKING] patient-info update error:', err.message);
+      res.status(500).json({ message: "Failed to update patient info" });
+    }
+  });
+
   app.patch("/api/auth/clinic/bookings/:id/patient-left-early", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
     const bookingId = parseInt(req.params.id);
     try {
-      const booking = await storage.getBookingById(bookingId);
-      if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const terminalStates = ['cancelled', 'no_show'];
-      if (terminalStates.includes(booking.verificationStatus)) {
-        return res.status(400).json({ message: "Cannot act on a terminal booking" });
-      }
-      if (booking.visitStatus === 'completed' || booking.visitStatus === 'treatment_completed') {
-        return res.status(400).json({ message: "Visit is already completed — use override if needed" });
-      }
       const { reason } = req.body;
-      if (!reason?.trim()) return res.status(400).json({ message: "Reason is required" });
+      const { booking, clinic } = await getClinicTransitionContext(bookingId, sess);
+      assertBookingTransition(booking, "clinic_patient_left_early", {
+        clinicTimezone: clinic?.timezone,
+        reason,
+      });
       const prevVisit = booking.visitStatus || 'checked_in';
-      const [updated] = await db.update(bookings)
-        .set({ visitStatus: 'patient_left_early' })
-        .where(eq(bookings.id, bookingId))
-        .returning();
-      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
-        VALUES (${bookingId}, ${prevVisit}, 'patient_left_early', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason})`);
+      const updated = await storage.updateVisitStatusIfCurrent(
+        bookingId,
+        booking.visitStatus ?? null,
+        'patient_left_early',
+      );
+      if (!updated) throw new BookingTransitionError("Booking changed before early-exit could be saved", 409);
+      await recordBookingTransition(bookingId, prevVisit, 'patient_left_early', sess, reason.trim());
 
       // G12b — Notify assigned doctor that patient left early
       if (booking.assignedDoctorEmail) {
@@ -4731,7 +5247,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [pleDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (pleDoc) {
             const pleNotif = await storage.createNotification({
-              userId: String(pleDoc.id),
+              userId: doctorUid(pleDoc.id),
               message: `${booking.customerName} left early${reason ? ` — "${reason}"` : ''}`,
               read: false,
               type: "patient_left_early",
@@ -4746,7 +5262,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json(updated);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      sendTransitionError(res, err);
     }
   });
 
@@ -4835,7 +5351,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         createdByEmail,
       });
 
-      await auditLog({ resource: "consent_version", action: "create" })(req, res as any, () => {});
+      await auditLog({ resource: "consent", action: "create" })(req, res as any, () => {});
       res.json(version);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4882,7 +5398,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const [clinicConsentDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, (booking as any).assignedDoctorEmail)).limit(1);
           if (clinicConsentDoc) {
             const clinicConsentNotif = await storage.createNotification({
-              userId: String(clinicConsentDoc.id),
+              userId: doctorUid(clinicConsentDoc.id),
               message: `Clinic sent a consent form request to ${booking.customerName}`,
               read: false,
               type: "consent_requested",
@@ -4980,7 +5496,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // G14 — Notify clinic admin that the doctor requested a consent form
       try {
         const drConsentNotif = await storage.createNotification({
-          userId: String(clinic.id),
+          userId: clinicUid(clinic.id),
           message: `Consent form requested for ${booking.customerName} by Dr. ${sess.doctorEmail}`,
           read: false,
           type: "consent_requested",
@@ -5062,7 +5578,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ? new Date(consentSlot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
             : '';
           const consentNotif = await storage.createNotification({
-            userId: String(consentClinicId),
+            userId: clinicUid(consentClinicId),
             message: `Consent signed by ${record.booking.customerName}${dateStr ? ` for appointment on ${dateStr}` : ''}`,
             read: false,
             type: "consent_signed",
@@ -5081,6 +5597,54 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── CLINICAL RECORDS ────────────────────────────────────────────────────────
+
+  // GET /api/clinical-records/booking/:bookingId/patient-history — read-only Dx/Rx from all previous visits
+  app.get("/api/clinical-records/booking/:bookingId/patient-history", isAuthenticated, async (req, res) => {
+    try {
+      const session = req.session as any;
+      if (!session?.doctorLoggedIn && !session?.adminLoggedIn) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const bookingId = parseInt(req.params.bookingId);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const patientId = (booking as any).patientId ?? null;
+      if (!patientId) return res.json([]);
+
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.json([]);
+      const clinicId = slot.clinicId;
+
+      // All other bookings for this patient at this clinic, newest first
+      const otherBookings = await db
+        .select({ bookingId: bookings.id, slotStart: slots.startTime })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(
+          eq(bookings.patientId, patientId),
+          eq(slots.clinicId, clinicId),
+          ne(bookings.id, bookingId),
+        ))
+        .orderBy(desc(slots.startTime));
+
+      if (!otherBookings.length) return res.json([]);
+
+      // Fetch clinical records for each past booking; skip visits with no records
+      const result: { bookingId: number; slotDate: string; records: any[] }[] = [];
+      for (const row of otherBookings) {
+        const records = await storage.getClinicalRecordsByBookingId(row.bookingId);
+        if (records.length > 0) {
+          result.push({ bookingId: row.bookingId, slotDate: String(row.slotStart), records });
+        }
+      }
+      return res.json(result);
+    } catch (err: any) {
+      console.error("[CLINICAL-RECORDS-HISTORY]", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
 
   // GET /api/clinical-records/booking/:bookingId — doctor or clinic admin
   app.get("/api/clinical-records/booking/:bookingId", isAuthenticated, async (req, res) => {
@@ -5113,20 +5677,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (bookingId == null || !patientName) {
         return res.status(400).json({ message: "bookingId and patientName are required" });
       }
+      // Always look up the booking to get patientId; also resolve clinicId if not supplied
+      const [bkRow] = await db
+        .select({ slotClinicId: slots.clinicId, patientId: bookings.patientId })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(eq(bookings.id, Number(bookingId)))
+        .limit(1);
       if (clinicId == null) {
-        const [row] = await db.select({ slotClinicId: slots.clinicId })
-          .from(bookings)
-          .innerJoin(slots, eq(bookings.slotId, slots.id))
-          .where(eq(bookings.id, Number(bookingId)))
-          .limit(1);
-        clinicId = row?.slotClinicId ?? null;
+        clinicId = bkRow?.slotClinicId ?? null;
       }
+      const resolvedPatientId = bkRow?.patientId ?? null;
       if (clinicId == null) {
         return res.status(400).json({ message: "Could not determine clinic for this booking" });
       }
       const record = await storage.createClinicalRecord({
         bookingId: Number(bookingId),
         clinicId: Number(clinicId),
+        patientId: resolvedPatientId,
         patientName,
         patientPhone: patientPhone || null,
         doctorName: doctorName || null,
@@ -5139,7 +5707,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (clinicId) {
         try {
           const crNotif = await storage.createNotification({
-            userId: String(clinicId),
+            userId: clinicUid(clinicId),
             message: `${doctorName || 'Doctor'} created a clinical record for ${patientName}${prescription ? ' (includes prescription)' : ''}`,
             read: false,
             type: "clinical_record_created",
@@ -5166,9 +5734,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid record ID" });
-      const { diagnosis, prescription, notes, doctorName } = req.body;
+      const { diagnosis, affectedTeeth, prescription, notes, doctorName } = req.body;
       const record = await storage.updateClinicalRecord(id, {
         ...(diagnosis !== undefined ? { diagnosis } : {}),
+        ...(affectedTeeth !== undefined ? { affectedTeeth } : {}),
         ...(prescription !== undefined ? { prescription } : {}),
         ...(notes !== undefined ? { notes } : {}),
         ...(doctorName !== undefined ? { doctorName } : {}),
@@ -5178,7 +5747,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (record.clinicId) {
         try {
           const crUpdateNotif = await storage.createNotification({
-            userId: String(record.clinicId),
+            userId: clinicUid(record.clinicId),
             message: `${record.doctorName || 'Doctor'} updated clinical record for ${record.patientName}${prescription !== undefined ? ' (prescription updated)' : ''}`,
             read: false,
             type: "clinical_record_updated",
@@ -5243,6 +5812,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // PATCH /api/clinic/inventory/categories/:id
+  app.patch("/api/clinic/inventory/categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { name } = req.body;
+      if (!name || !name.trim()) return res.status(400).json({ message: "Name required" });
+      const cat = await storage.updateInventoryCategory(id, clinicId, name.trim());
+      res.json(cat);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // DELETE /api/clinic/inventory/categories/:id
+  app.delete("/api/clinic/inventory/categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deleteInventoryCategory(id, clinicId);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/clinic/inventory/items
   app.get("/api/clinic/inventory/items", isAuthenticated, async (req, res) => {
     try {
@@ -5259,7 +5854,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
       const { name, trackingType, unit, currentQty, reorderLevel, criticalLevel,
-              expiryDate, warrantyExpiry, nextServiceDate, notes, categoryId } = req.body;
+              expiryDate, warrantyExpiry, nextServiceDate, notes, categoryId, unitPrice,
+              sku, barcode, manufacturer, supplierName, supplierContact, purchasePrice,
+              lastPurchasedDate, location, batchNumber } = req.body;
       if (!name) return res.status(400).json({ message: "Name required" });
       const item = await storage.createInventoryItem({
         clinicId, name,
@@ -5268,11 +5865,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         currentQty: currentQty ?? 0,
         reorderLevel: reorderLevel ?? null,
         criticalLevel: criticalLevel ?? null,
+        unitPrice: unitPrice ?? null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null,
         nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
         notes: notes || null,
         categoryId: categoryId || null,
+        sku: sku || null,
+        barcode: barcode || null,
+        manufacturer: manufacturer || null,
+        supplierName: supplierName || null,
+        supplierContact: supplierContact || null,
+        purchasePrice: purchasePrice ?? null,
+        lastPurchasedDate: lastPurchasedDate ? new Date(lastPurchasedDate) : null,
+        location: location || null,
+        batchNumber: batchNumber || null,
       });
       // Record initial stock transaction if qty > 0
       if (item.currentQty > 0) {
@@ -5300,6 +5907,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (updates.expiryDate) updates.expiryDate = new Date(updates.expiryDate);
       if (updates.warrantyExpiry) updates.warrantyExpiry = new Date(updates.warrantyExpiry);
       if (updates.nextServiceDate) updates.nextServiceDate = new Date(updates.nextServiceDate);
+      if (updates.lastPurchasedDate) updates.lastPurchasedDate = new Date(updates.lastPurchasedDate);
       const item = await storage.updateInventoryItem(id, clinicId, updates);
       res.json(item);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -5843,6 +6451,177 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: "AI service is currently unavailable. Please try again shortly.",
       });
     }
+  });
+
+  // ── GET /api/doctor/bookings/:id/visit-timeline ──────────────────────────
+  app.get("/api/doctor/bookings/:id/visit-timeline", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.json([]);
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found for this booking" });
+      const timeline = await storage.getPatientVisitTimeline(slot.clinicId, patientId);
+      return res.json(timeline);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── GET /api/doctor/bookings/:id/medical-history ─────────────────────────
+  app.get("/api/doctor/bookings/:id/medical-history", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.json({ patientId: null, clinicId: null, data: null });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found for this booking" });
+      const clinicId = slot.clinicId;
+      const history = await storage.getPatientMedicalHistory(patientId, clinicId);
+      return res.json({ patientId, clinicId, data: history ?? null });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PUT /api/doctor/bookings/:id/medical-history ──────────────────────────
+  app.put("/api/doctor/bookings/:id/medical-history", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    const bodySchema = z.object({
+      medicalAlerts:      z.array(z.object({ text: z.string(), color: z.string().optional() })).optional(),
+      generalConditions:  z.array(z.string()).optional(),
+      currentMedications: z.array(z.object({ medicine: z.string(), dose: z.string(), frequency: z.string(), startedOn: z.string().optional() })).optional(),
+      allergies:          z.array(z.object({ allergy: z.string(), type: z.string(), reaction: z.string().optional(), severity: z.enum(["High", "Medium", "Low"]).optional(), verifiedOn: z.string().optional() })).optional(),
+      surgicalHistory:    z.array(z.object({ procedure: z.string(), year: z.string().optional(), hospital: z.string().optional(), notes: z.string().optional() })).optional(),
+      familyHistory:      z.array(z.string()).optional(),
+      dentalHistory:      z.record(z.string(), z.string()).optional().nullable(),
+      vaccinationHistory: z.array(z.string()).optional(),
+      insuranceDetails:   z.record(z.string(), z.string()).optional().nullable(),
+      emergencyContact:   z.record(z.string(), z.string()).optional().nullable(),
+      lifestyle:          z.object({ smoking: z.string().optional(), alcohol: z.string().optional(), tobacco: z.string().optional(), pregnancy: z.string().optional(), heightCm: z.number().optional(), weightKg: z.number().optional() }).optional().nullable(),
+      medicalClearance:   z.record(z.string(), z.string()).optional().nullable(),
+      generalNotes:       z.string().optional().nullable(),
+      attachments:        z.array(z.object({ url: z.string(), name: z.string(), type: z.string(), uploadedAt: z.string() })).optional(),
+    });
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = booking.patientId ?? null;
+      if (!patientId) return res.status(400).json({ message: "Patient record not linked to this booking — cannot save medical history" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(400).json({ message: "Clinic not found for this booking" });
+      const clinicId = slot.clinicId;
+      const history = await storage.upsertPatientMedicalHistory(patientId, clinicId, parsed.data as any);
+      return res.json({ patientId, clinicId, data: history });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Visit documents are stored with the patient's medical history, but retain
+  // the booking context so the patient card can present them by visit.
+  app.get("/api/patient-documents/booking/:bookingId", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.params.bookingId));
+      if (!booking?.patientId) return res.json([]);
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.json([]);
+      const docs = await db.select().from(patientDocuments).where(and(
+        eq(patientDocuments.patientId, booking.patientId), eq(patientDocuments.clinicId, slot.clinicId),
+        eq(patientDocuments.bookingId, booking.id), sql`${patientDocuments.deletedAt} IS NULL`,
+      ));
+      res.json(docs.map(d => ({ ...d, url: d.publicUrl, name: d.originalName, type: d.mimeType, size: d.fileSize, fileSize: d.fileSize, key: d.storageKey, uploadedAt: d.createdAt })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/patient-documents/booking/:bookingId", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.params.bookingId));
+      if (!booking?.patientId) return res.status(400).json({ message: "Booking is not linked to a patient" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(400).json({ message: "Clinic not found" });
+      const body = req.body ?? {};
+      const documentUrl = body.publicUrl || body.url;
+      if (!documentUrl || !body.name || !body.type) return res.status(400).json({ message: "File metadata is required" });
+      const key = typeof body.key === "string" ? body.key : "";
+      if (!key) return res.status(400).json({ message: "Upload authorization is required" });
+      const trustedSize = consumeIssuedUpload(key, Number(slot.clinicId));
+      await assertClinicStorageAvailable(Number(slot.clinicId), trustedSize);
+      let linkedRecord: any = null;
+      if (body.clinicalRecordId != null) {
+        const records = await storage.getClinicalRecordsByBookingId(booking.id);
+        linkedRecord = records.find(r => Number(r.id) === Number(body.clinicalRecordId)) ?? null;
+        if (!linkedRecord) {
+          const history = await storage.getPatientMedicalHistory(booking.patientId, slot.clinicId);
+          if (!history) return res.status(400).json({ message: "Linked diagnosis record not found for this patient" });
+          const patientBookings = await db.select({ bookingId: bookings.id }).from(bookings)
+            .innerJoin(slots, eq(bookings.slotId, slots.id))
+            .where(and(eq(bookings.patientId, booking.patientId), eq(slots.clinicId, slot.clinicId)));
+          for (const row of patientBookings) {
+            const pastRecords = await storage.getClinicalRecordsByBookingId(row.bookingId);
+            linkedRecord = pastRecords.find(r => Number(r.id) === Number(body.clinicalRecordId)) ?? null;
+            if (linkedRecord) break;
+          }
+        }
+        if (!linkedRecord) return res.status(400).json({ message: "Linked diagnosis record not found for this patient" });
+      }
+      const [saved] = await db.insert(patientDocuments).values({
+        clinicId: slot.clinicId, patientId: booking.patientId, bookingId: booking.id,
+        clinicalRecordId: linkedRecord?.id ?? null, storageKey: key, publicUrl: documentUrl,
+        originalName: body.name, mimeType: body.type, fileSize: trustedSize,
+        category: body.category || "Other", description: body.description || "",
+        visitDate: slot.startTime, doctorName: booking.assignedDoctor || null,
+        uploadedBy: sess.doctorEmail || sess.adminEmail || null,
+        uploadedByRole: body.uploadedByRole || (sess.doctorLoggedIn ? "doctor" : "clinic_admin"),
+        diagnosisSnapshot: linkedRecord?.diagnosis ?? body.diagnosisSnapshot ?? [],
+        affectedTeethSnapshot: linkedRecord?.affectedTeeth ?? body.affectedTeethSnapshot ?? [],
+      }).returning();
+      res.status(201).json({ ...saved, url: saved.publicUrl, name: saved.originalName, type: saved.mimeType, size: saved.fileSize, key: saved.storageKey, uploadedAt: saved.createdAt });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/patient-documents/booking/:bookingId", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn && !sess.adminLoggedIn) return res.status(401).json({ message: "Not authenticated" });
+    try {
+      const booking = await storage.getBooking(Number(req.params.bookingId));
+      if (!booking?.patientId) return res.status(404).json({ message: "Booking not found" });
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
+      const id = Number(req.body?.id);
+      const url = typeof req.body?.url === "string" ? req.body.url : "";
+      if (!id && !url) return res.status(400).json({ message: "Document ID is required" });
+      const [doc] = await db.select({ id: patientDocuments.id }).from(patientDocuments).where(and(
+        id ? eq(patientDocuments.id, id) : eq(patientDocuments.publicUrl, url),
+        eq(patientDocuments.patientId, booking.patientId), eq(patientDocuments.clinicId, slot.clinicId),
+        eq(patientDocuments.bookingId, booking.id), sql`${patientDocuments.deletedAt} IS NULL`,
+      ));
+      if (!doc) return res.status(404).json({ message: "Document not found for this visit" });
+      await db.update(patientDocuments).set({ deletedAt: new Date(), deletedBy: sess.doctorEmail || sess.adminEmail || "clinic_user" }).where(eq(patientDocuments.id, doc.id));
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   return createServer(app);

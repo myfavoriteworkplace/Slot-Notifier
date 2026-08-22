@@ -21,7 +21,30 @@ type PatientPagedResponse = {
 };
 
 type PatientHistory = {
-  bookings: (Booking & { slot: Slot })[];
+  bookings: (Booking & {
+    slot: Slot;
+    lifecycle: {
+      localDate: string | null;
+      dateCategory: 'unknown' | 'old' | 'today_past_due' | 'today_upcoming' | 'future';
+      operationalState: string;
+      normalizedConfirmationStatus: string;
+      normalizedDoctorApprovalStatus: string;
+      normalizedVisitStatus: string;
+      isToday: boolean;
+      isPast: boolean;
+      isUpcoming: boolean;
+      isOld: boolean;
+      isPastDueToday: boolean;
+      isActive: boolean;
+      isStarted: boolean;
+      isTreatmentCompleted: boolean;
+      isCompleted: boolean;
+      isTerminal: boolean;
+      isEarlyExit: boolean;
+      isConfirmed: boolean;
+      isAwaitingDoctorApproval: boolean;
+    };
+  })[];
   bills: PatientBill[];
   clinicalRecords: ClinicalRecord[];
 };
@@ -154,7 +177,7 @@ export default function PatientDirectoryPanel({
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="flex">
           <div className="w-1.5 bg-rose-500/60 shrink-0" />
-          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-rose-500/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-rose-500/[0.06] to-transparent flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
                 <Users className="h-[18px] w-[18px] text-rose-500" />
@@ -206,7 +229,7 @@ export default function PatientDirectoryPanel({
                       color === 'blue' ? 'text-blue-500' : 'text-amber-600'
                     }`} />
                   </div>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
+                  <p className="label-field leading-none">{label}</p>
                 </div>
                 <p className="text-xl font-bold text-foreground">{value}</p>
               </>
@@ -225,7 +248,7 @@ export default function PatientDirectoryPanel({
             onChange={e => setPatientSearch(e.target.value)}
             placeholder="Search by name, email, phone or PAT code…"
             data-testid="input-patient-search"
-            className="w-full h-9 pl-9 pr-8 text-sm rounded-xl border border-border/60 bg-card focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/10 transition-all placeholder:text-muted-foreground"
+            className="w-full h-9 pl-9 pr-8 text-sm rounded-xl border border-border/60 bg-card focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/10 transition-all"
           />
           {patientSearch && (
             <button

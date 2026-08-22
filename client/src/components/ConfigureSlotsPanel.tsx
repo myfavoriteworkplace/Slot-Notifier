@@ -279,19 +279,26 @@ export default function ConfigureSlotsPanel({ clinic, isAuthenticated }: Configu
   };
 
   return (
-    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-      <div className="flex border-b border-border/40">
-        <div className="w-1.5 bg-blue-500/60 shrink-0" />
-        <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-            <Clock className="h-[18px] w-[18px] text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">Configure Slots</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Set capacity per slot, close days, and apply bulk schedules</p>
+    <div className="space-y-5">
+
+      {/* Panel header — standalone card */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        <div className="flex">
+          <div className="w-1.5 bg-blue-500/60 shrink-0" />
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+              <Clock className="h-[18px] w-[18px] text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">Configure Slots</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Set capacity per slot, close days, and apply bulk schedules</p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Content card — detached */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
 
       {defaultConfigData !== undefined && !hasDefaultConfig && (
         <div className="flex items-start gap-3 px-5 py-3.5 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/25">
@@ -905,5 +912,7 @@ export default function ConfigureSlotsPanel({ clinic, isAuthenticated }: Configu
         </div>
       </div>
     </div>
+
+  </div>
   );
 }

@@ -99,7 +99,7 @@ export default function ConsentFormPanel() {
       {/* Current version card */}
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-border/40">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current Live Version</p>
+          <p className="label-field">Current Live Version</p>
         </div>
         <div className="px-4 sm:px-5 py-3 sm:py-4">
           {loadingCurrent ? (
@@ -163,7 +163,7 @@ export default function ConsentFormPanel() {
       {/* Editor */}
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-border/40 flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Edit Consent Text</p>
+          <p className="label-field">Edit Consent Text</p>
           <Button
             variant="ghost"
             size="sm"
@@ -178,7 +178,7 @@ export default function ConsentFormPanel() {
         </div>
         <div className="px-4 sm:px-5 py-3 sm:py-4 space-y-3">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Form Title</p>
+            <p className="label-field">Form Title</p>
             <Input
               value={editTitle}
               onChange={(e) => { setEditTitle(e.target.value); setHasEdited(true); }}
@@ -189,7 +189,7 @@ export default function ConsentFormPanel() {
             />
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Consent Body Text</p>
+            <p className="label-field">Consent Body Text</p>
             <Textarea
               value={editText}
               onChange={(e) => handleTextChange(e.target.value)}
@@ -205,7 +205,7 @@ export default function ConsentFormPanel() {
         </div>
 
         {/* Sticky save bar */}
-        <div className="sticky bottom-0 px-4 sm:px-5 pb-[env(safe-area-inset-bottom)] py-3 bg-background/95 backdrop-blur-sm border-t border-border/40">
+        <div className="sticky-action-bar px-4 sm:px-5 py-3">
           <Button
             onClick={handleSave}
             disabled={saveMutation.isPending || !hasEdited || editText.trim().length < 20}

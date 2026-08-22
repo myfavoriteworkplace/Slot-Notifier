@@ -10,6 +10,7 @@ import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
+import ClinicStorageSettingsPanel from "@/components/ClinicStorageSettingsPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import ConsentFormPanel from "@/components/ConsentFormPanel";
@@ -21,6 +22,8 @@ import {
   generateReceiptPDF, printBillFromRecord, generateConsentPdf,
 } from "@/lib/clinic-pdf";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
+import { useNotifications, useMarkAllNotificationsRead } from "@/hooks/use-notifications";
+import { useTheme } from "next-themes";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -33,6 +36,7 @@ import {
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
   ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight,
   Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb,
+  Menu, Bell,
 } from "lucide-react";
 import {
   ToothIcon, SlotTiming, SectionConfig, DayConfig, BookingWithSlot,
@@ -125,30 +129,31 @@ function BookingCardSkeleton() {
 
 function ClinicDashboardSkeleton() {
   return (
-    <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-0">
-      {/* Header skeleton — mirrors dark gradient hero */}
-      <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
+    <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
+      {/* Header skeleton — mirrors compact hero + white stats */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
-        <div className="bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-3 sm:px-7 sm:py-6">
+        <div className="bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-4 py-2.5 sm:px-7 sm:py-6">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4 sm:gap-5">
-              <Skeleton className="h-16 w-16 rounded-2xl bg-white/10 shrink-0" />
-              <div className="space-y-2.5">
-                <Skeleton className="h-7 w-40 rounded-lg bg-white/10" />
-                <div className="flex gap-2 flex-wrap">
-                  <Skeleton className="h-6 w-28 rounded-full bg-white/10" />
-                  <Skeleton className="h-6 w-14 rounded-full bg-white/10" />
+            <div className="flex items-center gap-3 sm:gap-5">
+              <Skeleton className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl bg-white/10 shrink-0" />
+              <div className="space-y-1.5 sm:space-y-2.5">
+                <Skeleton className="h-5 sm:h-7 w-40 rounded-lg bg-white/10" />
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                  <Skeleton className="h-4 sm:h-6 w-20 sm:w-28 rounded-full bg-white/10" />
+                  <Skeleton className="h-4 sm:h-6 w-12 sm:w-14 rounded-full bg-white/10" />
                 </div>
               </div>
             </div>
-            <Skeleton className="h-9 w-24 rounded-lg bg-white/10 shrink-0" />
-          </div>
-          <div className="mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-16 rounded-xl bg-white/10" />
-            ))}
+            <Skeleton className="hidden sm:block h-9 w-24 rounded-lg bg-white/10 shrink-0" />
           </div>
         </div>
+      </div>
+      {/* Stats skeleton — white cards outside hero */}
+      <div className="mb-5 sm:mb-8 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-20 sm:h-24 rounded-xl" />
+        ))}
       </div>
 
       {/* Tab nav skeleton */}
@@ -177,6 +182,9 @@ function ClinicDashboardSkeleton() {
 
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
+  const { data: notifications = [] } = useNotifications();
+  const markAllRead = useMarkAllNotificationsRead();
+  const { theme, setTheme } = useTheme();
   const [_, setLocation] = useLocation();
 
   const updateLogoMutation = useMutation({
@@ -198,6 +206,15 @@ export default function ClinicDashboard() {
   // ── Notification deep-link helpers ────────────────────────────────────────
   const applyClinicNotifNav = (detail: { bookingId?: number; notifType?: string; panel?: string }) => {
     const tabMap: Record<string, "overview" | "clinical" | "notes" | "actions" | "billing"> = {
+      new_booking: "overview",
+      paid_booking_confirmed: "billing",
+      booking_rescheduled: "overview",
+      booking_cancelled: "actions",
+      doctor_assigned: "overview",
+      doctor_approved: "overview",
+      doctor_declined: "actions",
+      consultation_started: "actions",
+      visit_completed: "billing",
       clinical_record_created: "clinical",
       clinical_record_updated: "clinical",
       case_closed_by_doctor: "clinical",
@@ -208,7 +225,8 @@ export default function ClinicDashboard() {
     if (detail.panel) {
       setActivePanel(detail.panel as any);
     } else if (detail.bookingId) {
-      setActivePanel("bookings");
+      // Do NOT switch panels — BookingsPanel is mounted hidden when needed so the
+      // dialog portal can open over whatever panel the user is currently viewing.
       setOpenBookingId(detail.bookingId);
       if (detail.notifType && tabMap[detail.notifType]) {
         const tab = tabMap[detail.notifType];
@@ -224,6 +242,13 @@ export default function ClinicDashboard() {
           return { ...prev, [detail.bookingId!]: [...current, tab] };
         });
       }
+
+      // Notification clicks open the single-appointment Booking Detail dialog
+      // (setOpenBookingId above) — the same popup used in the Bookings panel and
+      // in the Doctor dashboard. We intentionally do NOT switch to the Patient
+      // Directory panel here: doing so previously replaced the Booking Detail
+      // dialog with the patient's aggregate, all-visits card, which showed the
+      // wrong visit and didn't match the notification's specific booking.
     }
   };
 
@@ -249,6 +274,8 @@ export default function ClinicDashboard() {
 
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<'' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show'>('');
+  const [doctorFilter, setDoctorFilter] = useState('');
   const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days'>('today');
   const bookingsSectionRef = useRef<HTMLDivElement>(null);
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
@@ -269,9 +296,9 @@ export default function ClinicDashboard() {
   const [cancelReasonOther, setCancelReasonOther] = useState("");
 
   // Modal tab state — keyed by booking id
-  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'notes' | 'actions' | 'billing'>>({});
+  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'documents' | 'notes' | 'actions' | 'billing'>>({});
   const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
-  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions' | 'billing') =>
+  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'documents' | 'notes' | 'actions' | 'billing') =>
     setModalTabs(prev => ({ ...prev, [id]: tab }));
   // Controls which booking's detail dialog is open (state-driven, replaces DialogTrigger)
   const [openBookingId, setOpenBookingId] = useState<number | null>(null);
@@ -280,12 +307,12 @@ export default function ClinicDashboard() {
   const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
-  const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   // Booking form state
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics' | 'consent-form'>('bookings');
-  const [clinicMoreDrawerOpen, setClinicMoreDrawerOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics' | 'consent-form' | 'settings'>('bookings');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
 
 
   // Bookings patient search
@@ -392,6 +419,30 @@ export default function ClinicDashboard() {
     refetchInterval: activePanel === 'bookings' ? 30_000 : false,
     staleTime: 30_000,
   });
+
+  // Auto-select the most relevant filter once per panel-open, when stats first arrive.
+  // Guard ref prevents re-firing on the 30 s refetch interval (which would override manual selections).
+  const hasAutoSelectedFilterRef = useRef(false);
+  useEffect(() => {
+    if (!bookingHeroStats) return;
+    if (hasAutoSelectedFilterRef.current) return;
+    hasAutoSelectedFilterRef.current = true;
+    if (bookingHeroStats.todayCount > 0) {
+      setQuickFilter('today');
+    } else if (bookingHeroStats.upcomingCount > 0) {
+      setQuickFilter('upcoming');
+    } else if (bookingHeroStats.totalPendingCount > 0) {
+      setQuickFilter('all-pending');
+    }
+    // else stay on 'today' — all three filters are empty, show the empty state
+  }, [bookingHeroStats]);
+
+  // Reset auto-select guard whenever the bookings panel is re-opened
+  useEffect(() => {
+    if (activePanel !== 'bookings') {
+      hasAutoSelectedFilterRef.current = false;
+    }
+  }, [activePanel]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -700,10 +751,9 @@ export default function ClinicDashboard() {
         const err = await response.json();
         throw new Error(err.message || 'Failed to send consent request');
       }
-      return response.json() as Promise<{ consentUrl: string }>;
+      return response.json();
     },
-    onSuccess: (data, bookingId) => {
-      setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
     },
@@ -827,8 +877,100 @@ export default function ClinicDashboard() {
   const totalPendingCount   = bookingHeroStats?.totalPendingCount ?? 0;
   const confirmedNext7Count = bookingHeroStats?.confirmedNext7Count ?? 0;
 
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   return (
-    <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-0">
+    <div className="w-full px-4 pt-14 pb-6 sm:px-6 lg:px-8 2xl:px-16 lg:pt-6 lg:pb-0">
+
+      {/* ── MOBILE STICKY TOP BAR ── */}
+      <div className="mobile-topbar">
+        {/* Hamburger */}
+        <button
+          onClick={() => setMobileNavOpen(true)}
+          className="h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label="Open navigation"
+          data-testid="btn-mobile-hamburger"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+
+        {/* App branding */}
+        <div className="flex-1 min-w-0 pl-1">
+          <p className="text-[18px] font-bold text-foreground leading-none tracking-tight">
+            book<span className="text-primary">My</span>Slot
+          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-primary leading-none mt-px">
+            Dental
+          </p>
+        </div>
+
+        {/* Notification bell */}
+        <button
+          onClick={() => setMobileNotifOpen(true)}
+          className="relative h-11 w-11 flex items-center justify-center rounded-xl text-foreground hover:bg-muted/60 active:scale-95 transition-all"
+          aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+          data-testid="btn-mobile-notifications"
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* Avatar dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="h-11 w-11 flex items-center justify-center rounded-xl hover:bg-muted/60 active:scale-95 transition-all"
+              aria-label="Profile menu"
+              data-testid="btn-mobile-avatar"
+            >
+              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                {clinic?.name?.charAt(0)?.toUpperCase() || 'C'}
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <div className="px-2 py-1.5">
+              <p className="text-xs font-semibold text-foreground truncate">{clinic?.name}</p>
+              <p className="text-[11px] text-muted-foreground">Clinic Admin</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setActivePanel('clinic-profile')}
+              data-testid="mobile-menu-clinic-profile"
+            >
+              <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+              Clinic Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              data-testid="mobile-menu-theme"
+            >
+              {theme === 'dark'
+                ? <Sun className="h-4 w-4 mr-2 text-muted-foreground" />
+                : <Moon className="h-4 w-4 mr-2 text-muted-foreground" />
+              }
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="text-rose-600 dark:text-rose-400 focus:text-rose-600 dark:focus:text-rose-400"
+              data-testid="mobile-menu-sign-out"
+            >
+              {isLoggingOut
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <LogOut className="h-4 w-4 mr-2" />
+              }
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Subscription payment pending banner */}
       {(clinic as any)?.subscriptionStatus === "pending_payment" && (
@@ -853,44 +995,30 @@ export default function ClinicDashboard() {
         </div>
       )}
 
-      {/* ═══════════════ PAGE HEADER ═══════════════ */}
-      <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
-
-        {/* Top neon accent bar */}
+      {/* Hero card */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-4 py-2.5 sm:px-7 sm:py-6 overflow-hidden">
 
-        {/* Main hero band */}
-        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-3 sm:px-7 sm:py-6 overflow-hidden">
-
-          {/* Grid texture overlay */}
+          {/* Grid texture — reduced on mobile */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-[0.04]"
+            className="absolute inset-0 pointer-events-none opacity-[0.02] sm:opacity-[0.04]"
             style={{
               backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
               backgroundSize: "32px 32px",
             }}
           />
-          {/* Ambient glow orbs — decorative only */}
           <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
           <div className="absolute -bottom-16 -right-8 w-60 h-60 rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
-          {/* Radial highlight */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07)_0%,transparent_60%)] pointer-events-none" />
 
-          {/*
-           * Mobile: column, centred — avatar stacks above title, no side compression.
-           * Desktop (sm+): row, space-between — avatar left, sign-out right.
-           */}
-          <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+          {/* Mobile: row, left-aligned. Desktop: row, space-between. */}
+          <div className="relative flex flex-row items-start justify-between gap-3 sm:gap-4">
 
-            {/* Identity block */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-5 min-w-0 w-full sm:w-auto">
-
-              {/*
-               * Logo with glow ring.
-               * pointer-events-none on mobile prevents accidental upload triggers
-               * when the user taps the hero card. Editable only on sm+ screens.
-               */}
-              <div className="shrink-0 relative sm:mt-1 pointer-events-none sm:pointer-events-auto">
+            {/* Identity: avatar + name + badges */}
+            <div className="flex items-center gap-2.5 sm:gap-5 min-w-0 flex-1">
+              {/* Logo — scaled down on mobile */}
+              <div className="shrink-0 relative pointer-events-none sm:pointer-events-auto scale-75 sm:scale-100 origin-left">
                 <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-accent/35 via-primary/20 to-transparent blur-md pointer-events-none" />
                 <div className="relative ring-2 ring-white/25 rounded-2xl">
                   <ImageUpload
@@ -904,28 +1032,20 @@ export default function ClinicDashboard() {
                 </div>
               </div>
 
-              {/* Name + status badges — centred on mobile, left-aligned on sm+ */}
-              <div className="min-w-0 text-center sm:text-left">
-                <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                  <h1 className="text-xl sm:text-3xl font-extrabold text-white tracking-tight truncate">
-                    {clinic?.name}
-                  </h1>
-                  {clinic?.id && clinic.id >= 999 && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2.5 py-1 rounded-full">
-                      <FlaskConical className="h-3 w-3" />
-                      Demo
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-center sm:justify-start gap-2 mt-2.5 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-3xl font-extrabold text-white tracking-tight truncate">
+                  {clinic?.name}
+                </h1>
+                {/* Single compact metadata row on mobile */}
+                <div className="flex items-center gap-1.5 mt-1 sm:mt-2.5 flex-wrap">
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
                     <Building2 className="h-3 w-3" />
-                    {/* Shorter label on mobile to save space */}
-                    <span className="sm:hidden">Clinic Admin</span>
-                    <span className="hidden sm:inline">Clinic Administration</span>
+                    Clinic Administration
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2.5 py-1 rounded-full">
+                  <span className="sm:hidden inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-1.5 py-px rounded-full">
+                    Clinic Admin
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-1.5 sm:px-2.5 py-px sm:py-1 rounded-full">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
@@ -940,10 +1060,20 @@ export default function ClinicDashboard() {
               </div>
             </div>
 
+            {/* Sign out — desktop only inside hero */}
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/60 hover:text-white/90 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] shrink-0"
+              data-testid="btn-sign-out"
+            >
+              {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+              Sign Out
+            </button>
           </div>
 
-          {/* ── Live stats row ── */}
-          <div className="relative mt-5">
+          {/* ── Desktop embedded stats (hidden on mobile) ── */}
+          <div className="hidden sm:block relative mt-5">
             <div className="flex items-center gap-2 pt-4">
               <div className="flex-1 h-px bg-white/10" />
               <button
@@ -955,12 +1085,12 @@ export default function ClinicDashboard() {
               </button>
             </div>
             {!heroStatsCollapsed && (
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="mt-3 grid grid-cols-4 gap-2">
             {[
-              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                                             value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",      bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: 'pending-7days' as const,    tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.",               value: pendingNext7Count,   Icon: Clock,        text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",             value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
+              { label: "Confirmed Bookings Today",                   shortLabel: "Confirmed Bookings",    subTag: "Today",                                    filter: 'today-confirmed' as const, tooltip: "Bookings scheduled for today that have been confirmed by the clinic.",                                                    value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",      bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+              { label: "Confirmed Bookings (Coming in Next 7 Days)",  shortLabel: "Confirmed Bookings",    subTag: "Coming in Next 7 Days",             filter: 'confirmed-7days' as const, tooltip: "Confirmed bookings scheduled within the next 7 days. These are locked in.",                                                 value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              { label: "Pending Booking Confirmation (Next 7 Days)",  shortLabel: "Pending Confirmation",  subTag: "Next 7 Days · Awaiting Confirmation", filter: 'pending-7days' as const,   tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.",                  value: pendingNext7Count,   Icon: Clock,        text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+              { label: "All Pending Booking Confirmations",           shortLabel: "Pending Confirmations", subTag: "All · Awaiting Confirmation",       filter: 'all-pending' as const,     tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",                 value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
             ].map(({ label, shortLabel, subTag, filter, tooltip, value, Icon, text, bg, border }, i) => (
               <TooltipProvider key={i} delayDuration={700}>
                 <Tooltip>
@@ -980,12 +1110,12 @@ export default function ClinicDashboard() {
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-2xl sm:text-lg font-extrabold text-white leading-none tabular-nums">
+                        <p className="text-lg font-extrabold text-white leading-none tabular-nums">
                           {bookingsLoading ? "—" : value}
                         </p>
                         <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
                         {subTag && (
-                          <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
+                          <span className={`block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none truncate`}>{subTag}</span>
                         )}
                       </div>
                       <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 mt-1`} />
@@ -1001,10 +1131,94 @@ export default function ClinicDashboard() {
             )}
           </div>
         </div>
-
-        {/* Bottom accent line */}
         <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
       </div>
+
+      {/* ═══════════════ BOOKINGS SECTION HEADER + STATS (mobile-only, bookings panel) ═══════════════ */}
+      {activePanel === 'bookings' && (
+        <>
+          {/* Mobile panel header */}
+          <div className="sm:hidden mb-3">
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="flex">
+                <div className="w-1.5 bg-sky-500/60 shrink-0" />
+                <div className="flex-1 px-4 py-3 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                    <CalendarIcon className="h-[16px] w-[16px] text-sky-600 dark:text-sky-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold tracking-tight">Bookings</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Manage all patient appointments</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile quick stats */}
+          <div className="sm:hidden mb-5">
+            <div className="flex items-center justify-between mb-2 px-0.5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Stats</p>
+                <p className="text-[10px] text-muted-foreground/70 leading-none mt-0.5">Booking Confirmation Status</p>
+              </div>
+              <button
+                onClick={() => setHeroStatsCollapsed(s => !s)}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
+                title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
+              </button>
+            </div>
+            {!heroStatsCollapsed && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "Confirmed",  subTag: "Today",                  filter: 'today-confirmed' as const, tooltip: "Bookings scheduled for today that have been confirmed by the clinic.",                                        value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-600",      bg: "bg-sky-50",     border: "border-sky-200",     darkText: "dark:text-sky-400",     darkBg: "dark:bg-sky-950/20",     darkBorder: "dark:border-sky-800" },
+                  { label: "Confirmed",  subTag: "In Coming 7 Days",       filter: 'confirmed-7days' as const, tooltip: "Confirmed bookings scheduled within the next 7 days. These are locked in.",                               value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", darkText: "dark:text-emerald-400", darkBg: "dark:bg-emerald-950/20", darkBorder: "dark:border-emerald-800" },
+                  { label: "Pending",    subTag: "Next 7 Days · Awaiting", filter: 'pending-7days' as const,   tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.", value: pendingNext7Count,   Icon: Clock,        text: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   darkText: "dark:text-amber-400",   darkBg: "dark:bg-amber-950/20",   darkBorder: "dark:border-amber-800" },
+                  { label: "Pending",    subTag: "All",                    filter: 'all-pending' as const,     tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.", value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-600",    bg: "bg-rose-50",    border: "border-rose-200",    darkText: "dark:text-rose-400",    darkBg: "dark:bg-rose-950/20",    darkBorder: "dark:border-rose-800" },
+                ].map(({ label, subTag, filter, tooltip, value, Icon, text, bg, border, darkText, darkBg, darkBorder }, i) => (
+                  <TooltipProvider key={i} delayDuration={700}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`flex flex-col gap-1 px-3 py-2 rounded-xl border bg-card ${border} ${darkBorder} cursor-pointer transition-all hover:bg-muted/40 hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-primary/30 bg-primary/5' : ''}`}
+                          onClick={() => {
+                            setFilterDate(undefined);
+                            setFilterEndDate(undefined);
+                            setActivePanel('bookings');
+                            setQuickFilter(filter);
+                            setTimeout(() => bookingsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                          }}
+                          data-testid={`stat-card-${filter}`}
+                        >
+                          {/* Single row: icon + label (ellipsis) + count + info */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`shrink-0 ${text} ${darkText} ${bg} ${darkBg} p-1 rounded-md`}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <p className={`text-xs font-semibold ${text} ${darkText} min-w-0 truncate`}>{label}</p>
+                            <p className="text-lg font-extrabold text-foreground leading-none tabular-nums ml-auto shrink-0">
+                              {bookingsLoading ? "—" : value}
+                            </p>
+                            <Info className={`h-3 w-3 ${text} ${darkText} ${quickFilter === filter ? 'opacity-80' : 'opacity-40'} shrink-0`} />
+                          </div>
+                          {subTag && (
+                            <span className="text-[10px] font-medium text-muted-foreground leading-none truncate block">{subTag}</span>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+                        {tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Two-column layout: left sidebar + main content */}
       <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
@@ -1232,6 +1446,21 @@ export default function ClinicDashboard() {
             </div>
           </div>
 
+          <button
+            onClick={() => setActivePanel('settings')}
+            data-testid="nav-settings"
+            className={`mt-3 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'settings' ? 'bg-slate-500/10 border border-slate-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+          >
+            <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'settings' ? 'bg-slate-500/10 border-slate-500/20' : 'bg-muted/50 border-border/50'}`}>
+              <Settings className={`h-4 w-4 ${activePanel === 'settings' ? 'text-slate-600 dark:text-slate-300' : 'text-muted-foreground'}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm font-semibold leading-tight ${activePanel === 'settings' ? 'text-slate-700 dark:text-slate-300' : 'text-foreground'}`}>Settings</p>
+              <p className="text-xs text-muted-foreground">Storage &amp; file settings</p>
+            </div>
+            {activePanel === 'settings' && <div className="h-1.5 w-1.5 rounded-full bg-slate-500 shrink-0" />}
+          </button>
+
           {/* Scan & Share Card */}
           {clinic && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden mt-3">
@@ -1285,31 +1514,42 @@ export default function ClinicDashboard() {
         {/* ===== MAIN CONTENT ===== */}
         <div className="flex-1 min-w-0">
 
-          {/* BOOKINGS PANEL */}
-          {activePanel === 'bookings' && (
-            <BookingsPanel
-              clinic={clinic}
-              isAuthenticated={isAuthenticated}
-              slotTimings={slotTimings}
-              formatTime={formatTime}
-              allBills={allBills}
-              notifHighlight={notifHighlight}
-              tabBadges={tabBadges}
-              setTabBadges={setTabBadges}
-              onNavigate={(panel) => setActivePanel(panel as any)}
-              onViewPatient={handleViewPatient}
-              quickFilter={quickFilter}
-              setQuickFilter={setQuickFilter}
-              filterDate={filterDate}
-              setFilterDate={setFilterDate}
-              filterEndDate={filterEndDate}
-              setFilterEndDate={setFilterEndDate}
-              bookingsSectionRef={bookingsSectionRef}
-              openBookingId={openBookingId}
-              setOpenBookingId={setOpenBookingId}
-              modalTabs={modalTabs}
-              setModalTabs={setModalTabs}
-            />
+          {/* BOOKINGS PANEL
+              Mounted when: (a) bookings is the active panel, OR
+              (b) a notification has set openBookingId while the user is on another panel.
+              In case (b) the panel is hidden via `display:none` — the Radix Dialog portal
+              still renders to document.body, so the booking detail dialog appears over
+              whatever panel the user is currently viewing without a panel switch. */}
+          {(activePanel === 'bookings' || openBookingId !== null) && (
+            <div className={activePanel !== 'bookings' ? 'hidden' : ''}>
+              <BookingsPanel
+                clinic={clinic}
+                isAuthenticated={isAuthenticated}
+                slotTimings={slotTimings}
+                formatTime={formatTime}
+                allBills={allBills}
+                notifHighlight={notifHighlight}
+                tabBadges={tabBadges}
+                setTabBadges={setTabBadges}
+                onNavigate={(panel) => setActivePanel(panel as any)}
+                onViewPatient={handleViewPatient}
+                quickFilter={quickFilter}
+                setQuickFilter={setQuickFilter}
+                filterDate={filterDate}
+                setFilterDate={setFilterDate}
+                filterEndDate={filterEndDate}
+                setFilterEndDate={setFilterEndDate}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                doctorFilter={doctorFilter}
+                setDoctorFilter={setDoctorFilter}
+                bookingsSectionRef={bookingsSectionRef}
+                openBookingId={openBookingId}
+                setOpenBookingId={setOpenBookingId}
+                modalTabs={modalTabs}
+                setModalTabs={setModalTabs}
+              />
+            </div>
           )}
           {/* CONFIGURE SLOTS PANEL */}
           {activePanel === 'configure-slots' && (
@@ -1330,6 +1570,8 @@ export default function ClinicDashboard() {
           {activePanel === 'clinic-profile' && (
             <ClinicProfilePanel clinic={clinic} refetchClinic={refetchClinic} />
           )}
+
+          {activePanel === 'settings' && <ClinicStorageSettingsPanel />}
 
           {/* BOOK A SLOT PANEL */}
           {activePanel === 'book-a-slot' && (
@@ -1448,7 +1690,7 @@ export default function ClinicDashboard() {
                         value={(billingDetails as any)[key]}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, [key]: e.target.value }))}
                         placeholder={placeholder}
-                        className="h-6 text-xs border-0 bg-transparent p-0 font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/50"
+                        className="h-6 text-xs border-0 bg-transparent p-0 font-medium focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   </div>
@@ -1729,105 +1971,177 @@ export default function ClinicDashboard() {
       </Dialog>
 
 
-      {/* ── CLINIC MOBILE BOTTOM NAV ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
-        <div className="flex items-stretch">
-          {([
-            { key: 'bookings'   as const, label: 'Bookings', Icon: CalendarIcon },
-            { key: 'book-a-slot'as const, label: 'Book',     Icon: Plus },
-            { key: 'patients'   as const, label: 'Patients', Icon: Users },
-            { key: 'accounts'   as const, label: 'Accounts', Icon: IndianRupee },
-          ]).map(({ key, label, Icon }) => {
-            const isActive = activePanel === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setActivePanel(key)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                }`}
-                data-testid={`bottom-nav-clinic-${key}`}
-              >
-                {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-semibold">{label}</span>
-              </button>
-            );
-          })}
-          <button
-            onClick={() => setClinicMoreDrawerOpen(true)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-              ['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data','consent-form'].includes(activePanel)
-                ? 'text-primary' : 'text-muted-foreground'
-            }`}
-            data-testid="bottom-nav-clinic-more"
-          >
-            {['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data','consent-form'].includes(activePanel) && (
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
-            )}
-            <MoreHorizontal className="h-5 w-5" />
-            <span className="text-[10px] font-semibold">More</span>
-          </button>
-        </div>
-      </nav>
+      {/* ── MOBILE LEFT NAVIGATION DRAWER ── */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-[320px] max-w-[80vw] p-0 flex flex-col lg:hidden">
 
-      {/* ── CLINIC MORE DRAWER (mobile) ── */}
-      <Sheet open={clinicMoreDrawerOpen} onOpenChange={setClinicMoreDrawerOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader className="mb-4">
-            <SheetTitle>More</SheetTitle>
-          </SheetHeader>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              { key: 'configure-slots' as const, label: 'Configure Slots', desc: 'Capacity & cancellation',  Icon: Clock,       cls: 'bg-blue-500/10 border-blue-500/20 text-blue-600' },
-              { key: 'manage-doctors'  as const, label: 'Manage Doctors',  desc: 'Add or remove doctors',    Icon: Stethoscope, cls: 'bg-teal-500/10 border-teal-500/20 text-teal-600' },
-              { key: 'inventory'       as const, label: 'Inventory',        desc: 'Stock, assets & alerts',   Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
-              { key: 'pharmacy-stock'  as const, label: 'Pharmacy Stock',   desc: 'Medicines & supplies',     Icon: Pill,        cls: 'bg-orange-500/10 border-orange-500/20 text-orange-600' },
-              { key: 'clinic-profile'  as const, label: 'Clinic Profile',   desc: 'Edit public about page',   Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
-              { key: 'website'         as const, label: 'Clinic Website',   desc: 'Theme & content',          Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
-              { key: 'analytics'       as const, label: 'Analytics',        desc: 'Clinic performance',       Icon: TrendingUp,  cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
-              { key: 'export-data'     as const, label: 'Export Data',      desc: 'Download patient records', Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
-              { key: 'consent-form'   as const, label: 'Consent Form',     desc: 'Edit patient wording',     Icon: ScrollText,  cls: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' },
-            ]).map(({ key, label, desc, Icon, cls }) => (
-              <button
-                key={key}
-                onClick={() => { setActivePanel(key); setClinicMoreDrawerOpen(false); }}
-                className={`flex items-center gap-3 px-3 py-3 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98] ${
-                  activePanel === key ? 'ring-2 ring-primary/30' : ''
-                }`}
-                data-testid={`drawer-clinic-${key}`}
-              >
-                <div className={`h-8 w-8 rounded-xl border flex items-center justify-center shrink-0 ${cls}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm leading-tight">{label}</p>
-                  <p className="text-xs text-muted-foreground truncate">{desc}</p>
-                </div>
-              </button>
-            ))}
+          {/* Drawer header */}
+          <div className="px-4 pt-5 pb-4 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {clinic?.name?.charAt(0)?.toUpperCase() || 'C'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{clinic?.name}</p>
+                <p className="text-[11px] text-muted-foreground">Clinic Admin</p>
+              </div>
+            </div>
           </div>
 
-          {/* Sign Out — lives here on mobile; hidden from the green hero on small screens */}
-          <div className="mt-3 pt-3 border-t border-border/50 pb-4">
+          {/* Nav groups */}
+          <ScrollArea className="flex-1 px-3 py-3">
+            {([
+              {
+                label: 'SCHEDULING',
+                items: [
+                  { key: 'bookings'    as const, label: 'Bookings',    desc: 'All appointments',          Icon: CalendarIcon, activeBg: 'bg-primary/10 border-primary/20',        iconCls: 'bg-primary/10 border-primary/20 text-primary',         textCls: 'text-primary' },
+                  { key: 'book-a-slot' as const, label: 'Book a Slot', desc: 'New patient appointment',   Icon: Plus,         activeBg: 'bg-primary/10 border-primary/20',        iconCls: 'bg-primary/10 border-primary/20 text-primary',         textCls: 'text-primary' },
+                ],
+              },
+              {
+                label: 'PATIENTS & STAFF',
+                items: [
+                  { key: 'patients'       as const, label: 'Patients',       desc: 'Patient directory',      Icon: Users,       activeBg: 'bg-rose-500/10 border-rose-500/20',       iconCls: 'bg-rose-500/10 border-rose-500/20 text-rose-500',       textCls: 'text-rose-600 dark:text-rose-400' },
+                  { key: 'manage-doctors' as const, label: 'Manage Doctors', desc: 'Add or remove doctors',  Icon: Stethoscope, activeBg: 'bg-teal-500/10 border-teal-500/20',       iconCls: 'bg-teal-500/10 border-teal-500/20 text-teal-600',       textCls: 'text-teal-700 dark:text-teal-400' },
+                ],
+              },
+              {
+                label: 'BILLING',
+                items: [
+                  { key: 'accounts' as const, label: 'Accounts', desc: 'All patient billing history', Icon: IndianRupee, activeBg: 'bg-primary/10 border-primary/20', iconCls: 'bg-primary/10 border-primary/20 text-primary', textCls: 'text-primary' },
+                ],
+              },
+              {
+                label: 'INVENTORY',
+                items: [
+                  { key: 'inventory'      as const, label: 'Inventory',      desc: 'Stock, assets & alerts',      Icon: Package, activeBg: 'bg-emerald-500/10 border-emerald-500/20', iconCls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600', textCls: 'text-emerald-700 dark:text-emerald-400' },
+                  { key: 'pharmacy-stock' as const, label: 'Pharmacy Stock', desc: 'Medicine catalog & pricing',   Icon: Pill,    activeBg: 'bg-orange-500/10 border-orange-500/20',   iconCls: 'bg-orange-500/10 border-orange-500/20 text-orange-600',   textCls: 'text-orange-700 dark:text-orange-400' },
+                ],
+              },
+              {
+                label: 'CLINIC',
+                items: [
+                  { key: 'clinic-profile' as const, label: 'Clinic Profile',  desc: 'Edit public about page',  Icon: Building2,  activeBg: 'bg-violet-500/10 border-violet-500/20', iconCls: 'bg-violet-500/10 border-violet-500/20 text-violet-600', textCls: 'text-violet-700 dark:text-violet-400' },
+                  { key: 'website'        as const, label: 'Clinic Website',  desc: 'Theme & content',          Icon: Globe,      activeBg: 'bg-sky-500/10 border-sky-500/20',       iconCls: 'bg-sky-500/10 border-sky-500/20 text-sky-600',         textCls: 'text-sky-700 dark:text-sky-400' },
+                  { key: 'analytics'      as const, label: 'Analytics',       desc: 'Clinic performance',       Icon: TrendingUp, activeBg: 'bg-violet-500/10 border-violet-500/20', iconCls: 'bg-violet-500/10 border-violet-500/20 text-violet-500', textCls: 'text-violet-700 dark:text-violet-400' },
+                  { key: 'consent-form'   as const, label: 'Consent Form',    desc: 'Edit patient wording',     Icon: ScrollText, activeBg: 'bg-indigo-500/10 border-indigo-500/20', iconCls: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600', textCls: 'text-indigo-700 dark:text-indigo-400' },
+                ],
+              },
+              {
+                label: 'SETTINGS',
+                items: [
+                  { key: 'configure-slots' as const, label: 'Configure Slots', desc: 'Capacity & cancellation',  Icon: Clock,     activeBg: 'bg-blue-500/10 border-blue-500/20',   iconCls: 'bg-blue-500/10 border-blue-500/20 text-blue-500',     textCls: 'text-blue-600' },
+                  { key: 'export-data'     as const, label: 'Export Data',     desc: 'Download patient records', Icon: Download,  activeBg: 'bg-amber-500/10 border-amber-500/20', iconCls: 'bg-amber-500/10 border-amber-500/20 text-amber-600',  textCls: 'text-amber-700 dark:text-amber-400' },
+                ],
+              },
+            ] as const).map(group => (
+              <div key={group.label} className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 mb-1">{group.label}</p>
+                <div className="space-y-0.5">
+                  {(group.items as readonly { key: typeof activePanel; label: string; desc: string; Icon: React.ComponentType<{ className?: string }>; activeBg: string; iconCls: string; textCls: string }[]).map(({ key, label, desc, Icon, activeBg, iconCls, textCls }) => {
+                    const isActive = activePanel === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => { setActivePanel(key); setMobileNavOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-2 py-2.5 rounded-xl transition-all text-left ${isActive ? `${activeBg} border` : 'border border-transparent hover:bg-muted/50'}`}
+                        data-testid={`drawer-nav-${key}`}
+                      >
+                        <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${isActive ? iconCls : 'bg-muted/50 border-border/50'}`}>
+                          <Icon className={`h-4 w-4 ${isActive ? '' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-semibold leading-tight ${isActive ? textCls : 'text-foreground'}`}>{label}</p>
+                          <p className="text-xs text-muted-foreground truncate">{desc}</p>
+                        </div>
+                        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-current shrink-0 opacity-60" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </ScrollArea>
+
+          {/* Settings and sign out stay fixed below the scrollable navigation. */}
+          <div className="px-3 pt-2 border-t border-border/50">
             <button
-              onClick={() => { setClinicMoreDrawerOpen(false); handleLogout(); }}
+              onClick={() => { setMobileNavOpen(false); setActivePanel('settings'); }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border w-full text-left transition-colors ${activePanel === 'settings' ? 'bg-slate-500/10 border-slate-500/20' : 'border-transparent hover:bg-muted/50'}`}
+              data-testid="drawer-nav-settings"
+            >
+              <Settings className={`h-4 w-4 ${activePanel === 'settings' ? 'text-slate-600' : 'text-muted-foreground'}`} />
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Settings</p><p className="text-xs text-muted-foreground">Storage &amp; file settings</p></div>
+            </button>
+          </div>
+          <div className="px-3 pb-5 pt-2">
+            <button
+              onClick={() => { setMobileNavOpen(false); handleLogout(); }}
               disabled={isLoggingOut}
-              className="flex items-center gap-3 px-3 py-3 rounded-2xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/60 dark:bg-rose-950/20 w-full text-left hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors active:scale-[0.98] disabled:opacity-60"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/60 dark:bg-rose-950/20 w-full text-left hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors active:scale-[0.98] disabled:opacity-60"
               data-testid="drawer-sign-out"
             >
-              <div className="h-8 w-8 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center shrink-0 text-rose-500">
-                {isLoggingOut
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <LogOut className="h-4 w-4" />
-                }
+              <div className="h-8 w-8 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center shrink-0 text-rose-500">
+                {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm leading-tight text-rose-600 dark:text-rose-400">Sign Out</p>
-                <p className="text-xs text-muted-foreground truncate">Exit clinic dashboard</p>
+                <p className="text-xs text-muted-foreground">Exit clinic dashboard</p>
               </div>
             </button>
           </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── MOBILE NOTIFICATIONS SHEET ── */}
+      <Sheet open={mobileNotifOpen} onOpenChange={setMobileNotifOpen}>
+        <SheetContent side="right" className="w-[320px] max-w-[90vw] p-0 flex flex-col lg:hidden">
+          <SheetHeader className="px-4 pt-5 pb-3 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-base">Notifications</SheetTitle>
+              {notifications.some(n => !n.read) && (
+                <button
+                  onClick={() => markAllRead.mutate()}
+                  className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                  data-testid="btn-mobile-mark-all-read"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+          </SheetHeader>
+          <ScrollArea className="flex-1">
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <Bell className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                <p className="text-sm font-semibold text-foreground">No notifications</p>
+                <p className="text-xs text-muted-foreground mt-1">You're all caught up</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {notifications.map(n => (
+                  <div
+                    key={n.id}
+                    className={`px-4 py-3 flex items-start gap-3 transition-colors ${!n.read ? 'bg-primary/[0.03]' : ''}`}
+                    data-testid={`notif-item-${n.id}`}
+                  >
+                    <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5 ${!n.read ? 'bg-primary/10' : 'bg-muted/60'}`}>
+                      <Bell className={`h-3.5 w-3.5 ${!n.read ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs leading-snug ${!n.read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{n.message}</p>
+                      {n.createdAt && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(n.createdAt).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+                    {!n.read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
         </SheetContent>
       </Sheet>
 

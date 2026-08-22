@@ -137,11 +137,11 @@ What breaks if missing: The entire app fails to start. Nothing works.
 ---
 
 ### SESSION_SECRET
-**Required — unsafe fallback exists, must be overridden in production.**
+**Required in production — the server refuses to start without it.**
 
 When a clinic admin or doctor logs in, the app remembers them by storing a session token in the user's browser. The `SESSION_SECRET` is the key used to sign (encrypt) that token.
 
-If this is not set, the app falls back to `"book-my-slot-secret"` — which is publicly visible in the code. Anyone who knows this fallback could potentially forge a login session.
+**Verified in `server/index.ts`:** when `NODE_ENV === "production"`, the server throws `Error("SESSION_SECRET must be set in production")` and crashes on boot if this variable is missing — there is no silent fallback in production. The `"book-my-slot-secret"` fallback only applies in local development (`NODE_ENV !== "production"`), so it never puts a live Render deployment at risk — but you must still set a real value on Render or the deploy will fail to boot.
 
 **How to generate a strong, safe value:**
 ```
@@ -150,7 +150,7 @@ openssl rand -base64 32
 
 > **Important:** Once set, never change this value unless absolutely necessary. Changing it instantly logs out every currently logged-in user (admins, doctors).
 
-What breaks if missing: Sessions are insecure. Admin and doctor logins are vulnerable.
+What breaks if missing: In production, the server does not boot at all (throws on startup). In local dev, sessions fall back to an insecure hardcoded secret.
 
 ---
 
@@ -294,7 +294,7 @@ RAZORPAY_KEY_SECRET=your_razorpay_secret
 ---
 
 ### TWILIO_ACCOUNT_SID
-**Optional — only needed if WhatsApp notifications are enabled.**
+**Optional — needed if WhatsApp or SMS notifications are enabled.**
 
 Your Twilio account identifier for sending WhatsApp messages.
 
@@ -302,12 +302,12 @@ Your Twilio account identifier for sending WhatsApp messages.
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-What breaks if missing: WhatsApp notifications are silently disabled.
+What breaks if missing: WhatsApp and SMS notifications are silently disabled.
 
 ---
 
 ### TWILIO_AUTH_TOKEN
-**Optional — only needed if WhatsApp notifications are enabled.**
+**Optional — needed if WhatsApp or SMS notifications are enabled.**
 
 The secret key for your Twilio account.
 
@@ -317,8 +317,39 @@ TWILIO_AUTH_TOKEN=your_twilio_auth_token
 
 ---
 
+### SMS_NOTIFICATIONS_ENABLED
+**Optional — SMS is disabled unless explicitly enabled.**
+
+Controls outbound SMS for booking-received and appointment-confirmation notifications.
+
+```
+SMS_NOTIFICATIONS_ENABLED=false
+```
+
+| Value | What happens |
+|---|---|
+| Missing, `false`, or any value other than `true` | No SMS request is sent |
+| `true` | SMS is sent when Twilio credentials and a Messaging Service SID are configured |
+
+This is a backend-only variable. Do not add it to the Render Static Site and do not use a `VITE_` prefix.
+
+---
+
+### TWILIO_MESSAGING_SERVICE_SID
+**Optional — required when SMS is enabled.**
+
+The SID of the Twilio Messaging Service used to select the SMS sender. It starts with `MG`.
+
+```
+TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+What breaks if missing: SMS remains disabled while WhatsApp can continue to work.
+
+---
+
 ### TWILIO_WHATSAPP_NUMBER
-**Optional — but has a dangerous default.**
+**Optional — only needed for Twilio WhatsApp notifications.**
 
 The WhatsApp number that messages are sent from. If not set, falls back to `+14155238886` — Twilio's shared sandbox test number.
 
@@ -462,6 +493,7 @@ These are variables where, if forgotten, the app doesn't crash — it silently u
 - [ ] `RESEND` — `PRODUCTION`
 - [ ] `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` — if payments are live
 - [ ] `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` — if WhatsApp is live
+- [ ] `SMS_NOTIFICATIONS_ENABLED`, `TWILIO_MESSAGING_SERVICE_SID` — if SMS is live
 - [ ] `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` — if image uploads are live
 
 **Frontend (Static Site `Book-My-Slot-Client` → Environment):**

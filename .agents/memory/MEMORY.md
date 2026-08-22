@@ -1,7 +1,19 @@
 - [Build Check rule](build-check-rule.md) — after any frontend feature, run "Build Check" workflow before handing back; catches TDZ/chunk errors invisible in dev
+- [label-field utility class](label-field.md) — canonical CSS class for all clinic-facing form field labels; exceptions and audit commands documented.
 - [BillingHistoryPanel design rules](billing-panel-design.md) — min font text-xs, category grouping, pharmacy desc parsing, active bill styling conventions
 - [Visit completion note flow](visit-completion-note.md) — visitCompletionNote stored on booking; saved via complete-visit (note param) and override-complete (reason prefixed "Override:"); displayed as green banner + progress strip tooltip.
 - [Booking status field names](booking-status-fields.md) — verificationStatus (pending/confirmed/cancelled/no_show) and visitStatus (null/checked_in/in_consultation/treatment_completed/completed/patient_left_early). No bare "status" field on bookings. stageBeforeCancel index 4 maps to visitStatus 'completed' (not 'visit_completed').
 - [completeVisitMutation signature](visit-completion-note.md) — ClinicDashboard mutation takes { bookingId, note? }, not bare bookingId; all call sites must use object form.
 - [noBill vs hasUnpaidBill in progress strip](booking-progress-strip.md) — noBill (zero bills) shows green dashed border; hasUnpaidBill (bills exist but unpaid) shows amber. Both derive from totalBillsCount/openBillsCount props; openBillsCount uses paymentStatus !== 'paid' filter.
 - [Notification deep-link pattern](notif-deeplink.md) — 28 triggers need type+bookingId in notifications table; leaves navigate to manage-doctors panel; bookings open card+tab via URL params on dashboard mount.
+- [multer esbuild bundling](multer-esbuild.md) — multer v2.x cannot be bundled by esbuild; must be in the externals list (NOT in the allowlist in script/build.ts).
+- [Notification global overlay pattern](notif-overlay.md) — BookingsPanel is mounted hidden (display:none) when openBookingId != null and activePanel != bookings; Radix Dialog portal escapes display:none to document.body; focus booking fetched via separate query if not in current filter list.
+- [Patient Medical History Tab](medical-history-tab.md) — 6th tab in doctor appointment card; `patient_medical_history` table, 2 doctor-auth routes, MedicalHistoryTab component; edit auto-expands dialog; use `ReactNode` not `React.ReactNode`.
+- [Compact appointment filters](compact-appointment-filters.md) — persistent toolbar toggle and compact responsive grid are the shared clinic/doctor filter pattern.
+- [R2 storage organization](r2-storage.md) — new patient uploads use server-derived private clinic/patient/visit keys; public assets remain separate.
+- [Clinic storage settings](clinic-storage-settings.md) — clinic Settings shows tracked metadata usage and optional exact R2 bucket scan; destructive controls remain future work.
+- [SMS notification policy](sms-notification-policy.md) — received vs confirmed SMS events are defined; SMS stays backend-only and Render-controlled.
+- [Approved booking lifecycle policy](approved-booking-lifecycle-policy.md) — confirmed clinic-timezone, old-booking, completion, early-exit, aggregate, and legacy-status rules.
+- [Booking classifier policy](booking-classifier-policy.md) — pure interpretation layer; terminal conflicts are conservative and authorization remains server-side.
+- [Patient card responsive layout](patient-card-responsive.md) — keep equal-width dashboard cards, but stack/scroll inner modal content and reserve green for assigned doctors.
+- [Chromium visual verification](chromium-visual-verification.md) — authenticated Playwright Chromium may be blocked by missing native libgbm/libudev even when the app preview serves normally.

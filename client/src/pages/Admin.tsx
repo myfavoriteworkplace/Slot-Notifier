@@ -90,6 +90,7 @@ export default function Admin() {
   const [editPhone, setEditPhone] = useState("");
   const [editWebsite, setEditWebsite] = useState("");
   const [editDoctors, setEditDoctors] = useState<{ name: string; specialization: string; degree: string; email?: string }[]>([]);
+  const [editStorageLimitMb, setEditStorageLimitMb] = useState("");
 
   // Credentials dialog state
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
@@ -451,8 +452,9 @@ export default function Admin() {
       phone?: string;
       website?: string;
       doctors?: { name: string; specialization: string; degree: string; email?: string }[];
+       storageLimitBytes?: number | null;
     }) => {
-      const { id, ...updateData } = data;
+       const { id, ...updateData } = data;
       const res = await apiRequest('PATCH', `/api/clinics/${id}`, updateData);
       return res.json();
     },
@@ -1077,6 +1079,7 @@ export default function Admin() {
                             setEditPhone(clinic.phone || "");
                             setEditWebsite(clinic.website || "");
                             setEditDoctors(clinic.doctors || []);
+                            setEditStorageLimitMb((clinic as any).storageLimitBytes ? (Number((clinic as any).storageLimitBytes) / (1024 * 1024)).toString().replace(/\.0$/, "") : "");
                             setEditClinicDialogOpen(true);
                           }}>
                             Edit
@@ -1310,7 +1313,8 @@ export default function Admin() {
                               setEditEmail(clinic.email || "");
                               setEditPhone(clinic.phone || "");
                               setEditWebsite(clinic.website || "");
-                              setEditDoctors(clinic.doctors || []);
+                             setEditDoctors(clinic.doctors || []);
+                             setEditStorageLimitMb((clinic as any).storageLimitBytes ? (Number((clinic as any).storageLimitBytes) / (1024 * 1024)).toString().replace(/\.0$/, "") : "");
                               setEditClinicDialogOpen(true);
                             }}
                           >
@@ -1622,7 +1626,7 @@ export default function Admin() {
                                 <div className="p-4 space-y-3">
                                   <div className="flex gap-2">
                                     <div className="flex-1">
-                                      <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground block mb-1">Plan</label>
+                                      <label className="label-field block mb-1">Plan</label>
                                       <select
                                         value={approvalPlans[clinic.id] ?? (clinic.plan || "starter")}
                                         onChange={e => setApprovalPlans(p => ({ ...p, [clinic.id]: e.target.value }))}
@@ -1635,7 +1639,7 @@ export default function Admin() {
                                       </select>
                                     </div>
                                     <div className="flex-1">
-                                      <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground block mb-1">Billing</label>
+                                      <label className="label-field block mb-1">Billing</label>
                                       <select
                                         value={approvalCycles[clinic.id] ?? "monthly"}
                                         onChange={e => setApprovalCycles(p => ({ ...p, [clinic.id]: e.target.value }))}
@@ -2569,9 +2573,13 @@ export default function Admin() {
               <Label htmlFor="edit-pincode" className="text-right">Pincode</Label>
               <Input id="edit-pincode" value={editPincode} onChange={(e) => setEditPincode(e.target.value)} className="col-span-3" placeholder="e.g. 682001" />
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-storage" className="text-right">Storage (MB)</Label>
+              <Input id="edit-storage" type="number" min="1" value={editStorageLimitMb} onChange={(e) => setEditStorageLimitMb(e.target.value)} className="col-span-3" placeholder="Leave blank to use plan default" />
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => updateClinicMutation.mutate({ id: selectedClinic!.id, name: editName, address: editAddress, city: editCity, pincode: editPincode })} disabled={updateClinicMutation.isPending}>
+             <Button onClick={() => updateClinicMutation.mutate({ id: selectedClinic!.id, name: editName, address: editAddress, city: editCity, pincode: editPincode, storageLimitBytes: editStorageLimitMb.trim() ? Math.round(Number(editStorageLimitMb) * 1024 * 1024) : null })} disabled={updateClinicMutation.isPending}>
               {updateClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>

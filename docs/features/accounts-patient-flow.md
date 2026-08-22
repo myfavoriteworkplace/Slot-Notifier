@@ -178,27 +178,23 @@ When a bill is updated to `paid` via `PATCH /api/auth/clinic/bills/:id`, the ser
 
 ### ❌ I1 — Accounts Ledger Does Not Show PAT Code
 
-The Patient Ledger groups by email/phone/name string and never displays the `patientCode`. This means clinic staff cannot cross-reference between the Accounts and Patients panels using the PAT identifier.
+**✅ Fixed (verified in code, `server/storage.ts` → `getPatientBillGroupsByClinicIdPaged`).** The Patient Ledger now joins the `patients` table and returns `patientCode` alongside each group. The PAT code is displayed as a badge in `AccountsPanel.tsx`, so cross-referencing between the Accounts and Patients panels is now possible.
 
-**Impact:** Medium. Staff must search by name/email to match a patient across panels.
+### ✅ I2 (Fixed) — Accounts Search Now Includes PAT Code
 
-### ❌ I2 — Accounts Search Cannot Search by PAT Code
-
-The search in the Accounts panel checks:
+The search in the Accounts panel now checks:
 ```
-patientName | patientEmail | patientPhone | billNumber
+patientName | patientEmail | patientPhone | billNumber | patientCode
 ```
-It does **not** check `patientCode`. So a clinic that uses PAT codes to look up patients cannot find their bills by code.
+`patientCode` matching is implemented in `getPatientBillGroupsByClinicIdPaged` (`server/storage.ts`, the `g.patientCode` check in the search filter). A clinic using PAT codes can now find bills by code directly.
 
-**Impact:** Medium. A key identification field is invisible in this panel.
+### ✅ I3 (Fixed) — Ledger Now Groups by `patientId` First, Falls Back to Denormalised Strings
 
-### ❌ I3 — Ledger Grouping Uses Denormalised Strings, Not `patientId`
+The Patient Ledger's grouping key now prioritizes the `patientId` FK: `key = bill.patientId ? "pid:" + bill.patientId : (email || phone || name)` (`server/storage.ts`, `getPatientBillGroupsByClinicIdPaged`). This means:
+- Any bill with a linked `patientId` groups correctly regardless of which contact detail (email vs. phone) was used at booking time.
+- The string-based fallback (email → phone → name) is only used for legacy bills with no `patientId` set — this remaining edge case is lower impact than before but not fully eliminated for very old records.
 
-The Patient Ledger groups by text strings, not by the `patientId` FK on `patient_bills`. This means:
-- A patient who books with email `john@acme.com` and another time with phone `9876543210` (different session, no email) would appear as **two separate entries** in the ledger.
-- Phone number formatting differences (`+91 98765 43210` vs `9876543210`) would similarly split a patient into two groups.
-
-**Impact:** High for clinics with many walk-in (phone-only) patients.
+**Remaining impact:** Low — only affects pre-`patientId` legacy bills without a linked patient record.
 
 ### ❌ I4 — `totalBilled` in Patient Directory Is Actually `totalCollected`
 
@@ -293,11 +289,11 @@ patientDirectory loaded from GET /api/auth/clinic/patients
 
 | # | Fix | Effort |
 |---|---|---|
-| 1 | **Show `patientCode` in Accounts Ledger** — add PAT badge to each patient group header | Small |
-| 2 | **Add PAT code to Accounts search** — include `patientCode` in the search filter | Small |
+| 1 | ✅ **Done** — `patientCode` shown in Accounts Ledger as a PAT badge on each patient group header | Small |
+| 2 | ✅ **Done** — PAT code included in Accounts search filter | Small |
 | 3 | **Fix "Billed" label in Patient Directory** — rename to "Collected" or compute true total billed | Small |
 | 4 | **Add UNIQUE constraint on `patientCode` per clinic** — `ALTER TABLE patients ADD UNIQUE (clinic_id, patient_code)` | Small |
-| 5 | **Switch Ledger grouping to use `patientId`** — group bills by `patientId` where available, fall back to text for nulls | Medium |
+| 5 | ✅ **Done** — Ledger grouping now uses `patientId` where available, falls back to text for nulls | Medium |
 | 6 | **Add "View Profile →" link** in Accounts Ledger to jump to Patients panel | Small |
 | 7 | **Fix design guide text sizes** — bump all `text-[9px]` / `text-[10px]` to `text-xs` in Accounts panel | Small |
 | 8 | **Backfill `patientCode` for legacy patients** — run a migration to assign PAT codes to patients where `patientCode IS NULL` | Small |
