@@ -69,7 +69,7 @@ export default function ClinicReminderDigestPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">Preview and send the upcoming appointment digest to doctors associated with this clinic.</p>
-        <Button onClick={openPreview} disabled={isFetching} className="bg-emerald-600 text-white hover:bg-emerald-700">
+        <Button onClick={openPreview} disabled={isFetching} data-testid="button-digest-preview" className="bg-emerald-600 text-white hover:bg-emerald-700">
           {isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Preview digest
         </Button>
         {message && <p className="text-sm text-emerald-700" role="status">{message}</p>}
@@ -90,14 +90,14 @@ export default function ClinicReminderDigestPanel() {
             {bookingGroups(recipient).length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No upcoming appointments in the next seven days.</p> : <div className="mt-3 space-y-2">{bookingGroups(recipient).map(booking => <div key={booking.bookingId} className="rounded-md bg-muted/40 px-3 py-2 text-sm"><p className="font-medium">{booking.customerName}</p><p className="text-xs text-muted-foreground">{formatBooking(booking)}{booking.assignedDoctor ? ` · ${booking.assignedDoctor}` : ""}</p>{(booking.visitType || booking.treatmentCategory) && <p className="text-xs text-muted-foreground">{[booking.visitType, booking.treatmentCategory].filter(Boolean).join(" · ")}</p>}</div>)}</div>}
           </div>)}
         </div>}
-        <DialogFooter><Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button><Button onClick={() => setConfirmOpen(true)} disabled={isFetching || recipients.length === 0 || sendMutation.isPending} className="bg-emerald-600 text-white hover:bg-emerald-700"><Send className="mr-2 h-4 w-4" />Send to doctors</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button><Button onClick={() => setConfirmOpen(true)} disabled={isFetching || recipients.length === 0 || sendMutation.isPending} data-testid="button-digest-send" className="bg-emerald-600 text-white hover:bg-emerald-700"><Send className="mr-2 h-4 w-4" />Send to doctors</Button></DialogFooter>
       </DialogContent>
     </Dialog>
 
     <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
       <AlertDialogContent>
         <AlertDialogHeader><AlertDialogTitle>Send reminder digest now?</AlertDialogTitle><AlertDialogDescription>This will send the previewed digest to {recipients.length} associated doctor{recipients.length === 1 ? "" : "s"}. The server will recalculate the data before sending.</AlertDialogDescription></AlertDialogHeader>
-        <AlertDialogFooter><AlertDialogCancel disabled={sendMutation.isPending}>Cancel</AlertDialogCancel><AlertDialogAction disabled={sendMutation.isPending} onClick={event => { event.preventDefault(); sendMutation.mutate(); }}>{sendMutation.isPending ? "Sending..." : "Confirm send"}</AlertDialogAction></AlertDialogFooter>
+        <AlertDialogFooter><AlertDialogCancel disabled={sendMutation.isPending} data-testid="button-digest-cancel">Cancel</AlertDialogCancel><AlertDialogAction disabled={sendMutation.isPending} data-testid="button-digest-confirm" onClick={event => { event.preventDefault(); sendMutation.mutate(); }}>{sendMutation.isPending ? "Sending..." : "Confirm send"}</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   </>;

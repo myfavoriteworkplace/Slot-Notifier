@@ -53,7 +53,7 @@ function mergeReminderResults(left: ReminderResult, right: ReminderResult): Remi
   };
 }
 
-function filterReminderResultByClinic(reminders: ReminderResult, clinicId: number): ReminderResult {
+export function filterReminderResultByClinic(reminders: ReminderResult, clinicId: number): ReminderResult {
   const nextThreeDays = reminders.nextThreeDays.filter(booking => booking.clinicId === clinicId);
   const comingWeek = reminders.comingWeek.filter(booking => booking.clinicId === clinicId);
   return {

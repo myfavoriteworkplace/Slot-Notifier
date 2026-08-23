@@ -11,6 +11,7 @@ import { InventoryPanel } from "@/components/InventoryPanel";
 import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import ClinicStorageSettingsPanel from "@/components/ClinicStorageSettingsPanel";
+import ClinicReminderDigestPanel from "@/components/ClinicReminderDigestPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import ConsentFormPanel from "@/components/ConsentFormPanel";
@@ -1577,7 +1578,12 @@ export default function ClinicDashboard() {
             <ClinicProfilePanel clinic={clinic} refetchClinic={refetchClinic} />
           )}
 
-          {activePanel === 'settings' && <ClinicStorageSettingsPanel />}
+          {activePanel === 'settings' && (
+            <div className="space-y-4">
+              <ClinicStorageSettingsPanel />
+              <ClinicReminderDigestPanel />
+            </div>
+          )}
 
           {/* BOOK A SLOT PANEL */}
           {activePanel === 'book-a-slot' && (

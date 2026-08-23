@@ -5,9 +5,13 @@ process.env.DATABASE_URL ??= "postgres://localhost/reminder-tests";
 
 const {
   digestContentHash,
+  filterReminderResultByClinic,
   normalizeRecipientEmail,
   renderReminderDigestEmail,
+  runClinicManualDigestJob,
+  selectClinicDoctorDigestRecipients,
 } = await import("./reminder-digest");
+const { storage } = await import("./storage");
 
 const baseRecipient = {
   email: "clinic@example.com",
@@ -70,4 +74,100 @@ test("content hash is stable for the same recipient and digest", () => {
     digestContentHash(baseRecipient, html),
     digestContentHash({ ...baseRecipient, localDigestDate: "2026-08-23" }, html),
   );
+});
+
+test("filters digest bookings to the authenticated clinic", () => {
+  const reminders = {
+    nextThreeDays: [
+      { bookingId: 1, clinicId: 7 },
+      { bookingId: 2, clinicId: 8 },
+    ],
+    comingWeek: [
+      { bookingId: 3, clinicId: 7 },
+    ],
+    totalCount: 3,
+    generatedAt: "2026-08-22T06:00:00.000Z",
+  } as any;
+
+  const filtered = filterReminderResultByClinic(reminders, 7);
+  assert.deepEqual(filtered.nextThreeDays.map(booking => booking.bookingId), [1]);
+  assert.deepEqual(filtered.comingWeek.map(booking => booking.bookingId), [3]);
+  assert.equal(filtered.totalCount, 2);
+});
+
+test("selects each clinic doctor with only their own appointments", async () => {
+  const originalGetClinic = storage.getClinic;
+  const originalGetClinicDoctors = storage.getClinicDoctors;
+  const originalGetDoctorReminders = storage.getDoctorReminders;
+  storage.getClinic = async () => ({ timezone: "UTC" } as any);
+  storage.getClinicDoctors = async () => [
+    { id: 11, email: "one@example.com" },
+    { id: 12, email: "two@example.com" },
+  ] as any;
+  storage.getDoctorReminders = async (email: string) => ({
+    nextThreeDays: email === "one@example.com" ? [{ bookingId: 1, clinicId: 7 }] : [{ bookingId: 2, clinicId: 7 }],
+    comingWeek: [],
+    totalCount: 1,
+    generatedAt: "2026-08-22T06:00:00.000Z",
+  } as any);
+
+  try {
+    const recipients = await selectClinicDoctorDigestRecipients(7, new Date("2026-08-22T06:00:00.000Z"));
+    assert.deepEqual(recipients.map(recipient => recipient.email), ["one@example.com", "two@example.com"]);
+    assert.deepEqual(recipients.map(recipient => recipient.reminders.nextThreeDays[0].bookingId), [1, 2]);
+  } finally {
+    storage.getClinic = originalGetClinic;
+    storage.getClinicDoctors = originalGetClinicDoctors;
+    storage.getDoctorReminders = originalGetDoctorReminders;
+  }
+});
+
+test("includes an empty digest for a clinic doctor with no appointments", async () => {
+  const originalGetClinic = storage.getClinic;
+  const originalGetClinicDoctors = storage.getClinicDoctors;
+  const originalGetDoctorReminders = storage.getDoctorReminders;
+  storage.getClinic = async () => ({ timezone: "UTC" } as any);
+  storage.getClinicDoctors = async () => [{ id: 11, email: "empty@example.com" }] as any;
+  storage.getDoctorReminders = async () => ({ nextThreeDays: [], comingWeek: [], totalCount: 0, generatedAt: "" });
+
+  try {
+    const recipients = await selectClinicDoctorDigestRecipients(7);
+    assert.equal(recipients.length, 1);
+    assert.equal(recipients[0].reminders.totalCount, 0);
+    assert.match(renderReminderDigestEmail(recipients[0], "https://app.example.com"), /no upcoming appointments/i);
+  } finally {
+    storage.getClinic = originalGetClinic;
+    storage.getClinicDoctors = originalGetClinicDoctors;
+    storage.getDoctorReminders = originalGetDoctorReminders;
+  }
+});
+
+test("repeated manual jobs do not create scheduled digest claims", async () => {
+  const originalGetClinic = storage.getClinic;
+  const originalGetClinicDoctors = storage.getClinicDoctors;
+  const originalGetDoctorReminders = storage.getDoctorReminders;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalResendKey = process.env.RESEND_API_KEY;
+  storage.getClinic = async () => ({ timezone: "UTC" } as any);
+  storage.getClinicDoctors = async () => [{ id: 11, email: "empty@example.com" }] as any;
+  storage.getDoctorReminders = async () => ({ nextThreeDays: [], comingWeek: [], totalCount: 0, generatedAt: "" });
+  delete process.env.RESEND_API_KEY;
+  process.env.NODE_ENV = "test";
+
+  try {
+    const first = await runClinicManualDigestJob(7);
+    const second = await runClinicManualDigestJob(7);
+    assert.equal(first.recipients.length, 1);
+    assert.equal(second.recipients.length, 1);
+    assert.equal(first.skipped, 0);
+    assert.equal(second.skipped, 0);
+  } finally {
+    storage.getClinic = originalGetClinic;
+    storage.getClinicDoctors = originalGetClinicDoctors;
+    storage.getDoctorReminders = originalGetDoctorReminders;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalResendKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalResendKey;
+  }
 });
