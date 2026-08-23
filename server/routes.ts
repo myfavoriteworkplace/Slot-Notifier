@@ -18,7 +18,7 @@ import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
-import { runReminderDigestJob } from "./reminder-digest";
+import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDigestRecipients } from "./reminder-digest";
 import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
@@ -997,6 +997,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (error) {
       console.error("[REMINDER DIGEST] Job failed:", error);
       return res.status(500).json({ message: "Reminder digest failed" });
+    }
+  });
+
+  app.get("/api/auth/clinic/reminders/digest-preview", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId || sess.role === "doctor") {
+      return res.status(403).json({ message: "Not a clinic admin session" });
+    }
+    try {
+      return res.json({ recipients: await selectClinicDoctorDigestRecipients(Number(sess.clinicId)) });
+    } catch (error) {
+      console.error("[REMINDER DIGEST] Preview failed:", error);
+      return res.status(500).json({ message: "Failed to load reminder digest preview" });
+    }
+  });
+
+  app.post("/api/auth/clinic/reminders/digest/send", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId || sess.role === "doctor") {
+      return res.status(403).json({ message: "Not a clinic admin session" });
+    }
+    try {
+      return res.json(await runClinicManualDigestJob(Number(sess.clinicId)));
+    } catch (error) {
+      console.error("[REMINDER DIGEST] Manual send failed:", error);
+      return res.status(500).json({ message: "Failed to send reminder digest" });
     }
   });
 

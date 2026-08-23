@@ -25,6 +25,10 @@ export interface DigestJobResult {
   failed: number;
 }
 
+export interface ClinicManualDigestResult extends DigestJobResult {
+  recipients: DigestRecipient[];
+}
+
 export function normalizeRecipientEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -47,6 +51,67 @@ function mergeReminderResults(left: ReminderResult, right: ReminderResult): Remi
     totalCount: all.length,
     generatedAt: right.generatedAt || left.generatedAt,
   };
+}
+
+function filterReminderResultByClinic(reminders: ReminderResult, clinicId: number): ReminderResult {
+  const nextThreeDays = reminders.nextThreeDays.filter(booking => booking.clinicId === clinicId);
+  const comingWeek = reminders.comingWeek.filter(booking => booking.clinicId === clinicId);
+  return {
+    nextThreeDays,
+    comingWeek,
+    totalCount: nextThreeDays.length + comingWeek.length,
+    generatedAt: reminders.generatedAt,
+  };
+}
+
+function getClinicLocalDate(timezone: string, now: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+export async function selectClinicDoctorDigestRecipients(clinicId: number, now = new Date()): Promise<DigestRecipient[]> {
+  const clinic = await storage.getClinic(clinicId);
+  if (!clinic) return [];
+  const localDigestDate = getClinicLocalDate(clinic.timezone, now);
+  const doctorsForClinic = await storage.getClinicDoctors(clinicId);
+
+  return Promise.all(doctorsForClinic.map(async doctor => ({
+    email: normalizeRecipientEmail(doctor.email),
+    role: "doctor" as const,
+    clinicId,
+    doctorId: doctor.id,
+    localDigestDate,
+    reminders: filterReminderResultByClinic(await storage.getDoctorReminders(doctor.email, now), clinicId),
+  })));
+}
+
+export async function runClinicManualDigestJob(clinicId: number, now = new Date()): Promise<ClinicManualDigestResult> {
+  const recipients = await selectClinicDoctorDigestRecipients(clinicId, now);
+  const dryRun = process.env.NODE_ENV !== "production" || !process.env.RESEND_API_KEY;
+  const resend = dryRun ? null : new Resend(process.env.RESEND_API_KEY);
+  const dashboardUrl = process.env.FRONTEND_URL?.split(",")[0]?.trim() || "https://book-my-slot-client.onrender.com";
+  const result: ClinicManualDigestResult = { dryRun, claimed: 0, sent: 0, skipped: 0, failed: 0, recipients };
+  if (dryRun) return result;
+
+  for (const recipient of recipients) {
+    try {
+      const response = await resend!.emails.send({
+        from: process.env.EMAIL_FROM || "BookMySlot <onboarding@resend.dev>",
+        to: recipient.email,
+        subject: "Your upcoming BookMySlot appointments",
+        html: renderReminderDigestEmail(recipient, dashboardUrl),
+      });
+      if (response.error) throw new Error(response.error.message);
+      result.sent++;
+    } catch {
+      result.failed++;
+    }
+  }
+  return result;
 }
 
 export async function selectDigestRecipients(now = new Date()): Promise<DigestRecipient[]> {
