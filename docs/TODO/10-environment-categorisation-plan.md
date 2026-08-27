@@ -41,6 +41,44 @@ Production and Development are intentionally not separate runtime modes. They
 are two labels for the same strict runtime policy. Local is the only
 environment with intentional functional differences.
 
+### 1.1 Deployment parity versus local development tooling
+
+The word **Development** is used here for a deployed Development service. It
+does not mean that the service should run the local Vite development server.
+This distinction is essential:
+
+| Context | Meaning | Build and run path | Technical runtime |
+|---|---|---|---|
+| Production deployment | The live production service | Build the application, then run the compiled server | `NODE_ENV=production` |
+| Development deployment | A separately deployed, production-shaped service used for development or acceptance testing | The same build and start commands as Production | `NODE_ENV=production` |
+| Local development | A developer's interactive local or Replit workflow | Run the Vite development server directly | `NODE_ENV=development` |
+
+Therefore, “Production and Development have the same build and deployment”
+means:
+
+```text
+Production deployment:  npm run build -> npm start
+Development deployment: npm run build -> npm start
+```
+
+The two deployed services have different `APP_ENV` labels so that logs,
+monitoring, URLs, credentials, and operational ownership can distinguish them.
+They still use `NODE_ENV=production` because both are compiled deployments and
+must use the same strict serving, cookie, security, and error-disclosure path.
+
+`npm run dev` is intentionally retained as a different path:
+
+```text
+Local development: npm run dev
+```
+
+It starts Vite middleware and HMR, supports rapid source-code iteration, and
+keeps local debugging behavior. Changing this script to
+`NODE_ENV=production` would make local work behave like a compiled deployment;
+changing a deployed Development service to `NODE_ENV=development` would make
+that service use Vite development middleware instead of the compiled frontend.
+Neither change is compatible with the required deployment parity.
+
 ## 2. Why both variables are retained
 
 The application has two independent dimensions:
@@ -56,6 +94,11 @@ Those dimensions cannot be represented safely by one overloaded value:
 | Production | Compiled production runtime | Production |
 | Development deployment | Compiled production runtime | Development |
 | Local development | Development runtime | Local |
+
+The first dimension is represented primarily by `NODE_ENV` and the command
+being run. The second dimension is represented by `APP_ENV`. In particular,
+`APP_ENV=development` identifies the deployed Development service but does
+**not** imply `NODE_ENV=development`.
 
 If only `NODE_ENV` is used, Production and Development deployment both become
 `NODE_ENV=production` and the application cannot distinguish them in logs or
@@ -337,21 +380,45 @@ Planned changes:
 
 Planned changes:
 
-- Keep `npm run dev` setting `NODE_ENV=development`.
-- Keep `npm start` setting `NODE_ENV=production`.
+The scripts represent different execution contracts and must not be conflated:
+
+| Command | Intended context | `APP_ENV` | `NODE_ENV` | Expected server behavior |
+|---|---|---|---|---|
+| `npm run dev` | Normal local iteration | `local` | `development` | Vite middleware, HMR, local debugging |
+| `npm start` after `npm run build` | Production or Development deployment | Set by deployment | `production` | Compiled frontend, strict deployed runtime |
+| `run-local.sh` | Local compiled-server smoke test | `local` | `production` | Compiled frontend with local policy, if retained |
+
+Specifically:
+
+- Keep `npm run dev` setting `NODE_ENV=development`. This is the local
+  development-server contract and is required for Vite middleware, HMR,
+  development plugins, and detailed local errors.
+- Keep `npm start` setting `NODE_ENV=production`. This is the compiled-server
+  contract used by both deployed environments after the same build step.
 - Add `APP_ENV=local` to the normal local workflow without changing the
-  current technical runtime.
+  technical runtime selected by `npm run dev`.
+- Ensure the Production deployment runs `npm run build` followed by `npm
+  start` with `APP_ENV=production` and `NODE_ENV=production`.
+- Ensure the Development deployment runs the same build and start sequence with
+  `APP_ENV=development` and `NODE_ENV=production`.
 - Review `run-local.sh` separately. It currently builds and starts the
-  compiled server with `NODE_ENV=production`; it may be intentionally serving
-  as a local production-style smoke test.
-- Do not silently change `run-local.sh` to Vite development behavior.
+  compiled server with `NODE_ENV=production`; if it remains a local smoke-test
+  path, it should explicitly set `APP_ENV=local` so the compiled technical
+  runtime does not accidentally select strict Production policy.
+- Do not silently change `run-local.sh` to Vite development behavior. If a
+  relaxed compiled local run is not desired, keep it as a clearly documented
+  smoke-test command or introduce a separately named command.
 
 Recommended compatibility approach:
 
-- Preserve `run-local.sh`'s current compiled-server purpose.
+- Preserve `run-local.sh`'s current compiled-server purpose unless the project
+  explicitly decides to remove that smoke-test workflow.
 - Use `npm run dev` for relaxed local iteration.
-- If a relaxed compiled local run is needed, add a clearly named separate
-  command rather than changing the existing script's meaning.
+- Treat `npm start` as the shared deployed start command, not as the local
+  development command.
+- If a relaxed compiled local run is needed, set `APP_ENV=local` explicitly or
+  add a clearly named separate command rather than changing the meaning of
+  `npm run dev` or `npm start`.
 
 ### 5.11 Environment templates and Replit configuration
 
@@ -423,8 +490,18 @@ npm install --include=dev && npm run db:push && npm run build
 npm start
 ```
 
-The Development deployment must not use `npm run dev` if functional parity with
-Production is required.
+The Production and Development deployments must both use this compiled build
+and start flow. Their only environment-label difference in this plan is:
+
+```text
+Production deployment:  APP_ENV=production  NODE_ENV=production
+Development deployment: APP_ENV=development NODE_ENV=production
+```
+
+The Development deployment must not use `npm run dev`. That command is reserved
+for local iteration because it selects `NODE_ENV=development`, activates the
+Vite development-server path, and would break the required compiled-runtime
+parity with Production.
 
 ## 7. Migration sequence
 
