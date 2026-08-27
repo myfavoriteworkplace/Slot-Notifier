@@ -19,13 +19,13 @@ passes. The application should remain runnable after every step.
 | 0 | Capture the current behavior as a baseline | Existing build/check commands, startup logs, local workflow, deployment templates; no source change | None | Record current `npm run build`, `npm run check`, local startup, authentication, cookies, frontend serving, database connectivity, and reminder safety results | Discard only the baseline notes; no application rollback required | None |
 | 1 | Add a typed `APP_ENV` resolver without changing any existing behavior | New shared server environment module and focused unit tests | No runtime consumer uses it yet; existing `NODE_ENV` behavior remains authoritative | Test accepted values (`production`, `development`, `local`), missing-value fallback, and rejection of unknown values | Remove the new module and tests; existing runtime behavior is unchanged | Step 0 |
 | 2 | Add safe environment identity logging | `server/index.ts`, `server/standalone.ts`, and the shared resolver | Logs show both labels, but security and serving decisions still use their current logic | Start both supported server entry points and confirm logs show only `APP_ENV` and `NODE_ENV`, never secrets | Revert only the logging changes | Step 1 |
-| 3 | Add explicit environment values to configuration | `.replit`, `.env.example`, `.env.render.backend.example`, Render services, and any approved local configuration | Adds labels only: Replit/local becomes `APP_ENV=local`; deployed services receive their respective labels; missing-value fallback remains available during migration | Start each configured target and confirm the expected pair is visible in safe startup logs | Remove the new `APP_ENV` assignments; fallback behavior keeps existing services startable | Step 2 |
+| 3 | Add explicit environment values to configuration | `.replit`, `.env.example`, `.env.render.backend.example`, Render Production/Development services, and approved local configuration methods | Adds labels only: every local host becomes `APP_ENV=local`; Render services receive their respective labels; missing-value fallback remains available during migration | Start each configured target and confirm the expected pair is visible in safe startup logs | Remove the new `APP_ENV` assignments; fallback behavior keeps existing services startable | Step 2 |
 | 4 | Move the main server's strict-versus-local policy to `APP_ENV` | `server/index.ts` and shared environment predicates | `production` and deployed `development` become strict; `local` retains relaxed behavior; technical serving mode remains based on `NODE_ENV` | Test all three matrix rows for session-secret enforcement, cookie security, frontend URL selection, and error-detail disclosure | Revert the policy call-site changes while retaining the resolver and labels | Step 3 |
 | 5 | Apply the same policy to the standalone server entry point | `server/standalone.ts` and shared tests | Standalone startup follows the same strict/local policy as the main server | Start or exercise the standalone path for strict and local cases; confirm no second interpretation of `APP_ENV` exists | Revert standalone call-site changes; main server remains unaffected | Step 4 |
 | 6 | Separate database SSL policy from technical runtime mode | `server/db.ts` and database configuration tests | `APP_ENV=local` preserves relaxed local behavior; deployed `APP_ENV=development` uses strict deployed database behavior; `PGSSLMODE=disable` remains an explicit override | Test local, production, deployed-development, explicit SSL override, and existing internal/local database cases | Revert only database policy migration; resolver and server policy remain available | Step 4 |
 | 7 | Decide and then isolate reminder/email behavior | Email policy decision, `server/reminder-digest.ts`, `server/routes.ts`, and reminder tests | `APP_ENV` must not silently enable real email; `RESEND`, `RESEND_MODE`, and `RESEND_API_KEY` remain independent safeguards | Test local dry-run/test-recipient behavior, production delivery prerequisites, and the approved Development email policy | Revert email-policy changes without affecting authentication, serving, or database behavior | Step 4; policy decision required |
-| 8 | Preserve the build and script contracts while assigning labels | `package.json`, `script/build.ts`, `script/build-standalone.ts`, `run-local.sh` | `npm run dev` remains `NODE_ENV=development`; `npm start` remains `NODE_ENV=production`; deployed Production and Development use the same compiled build/start path; a compiled local smoke test, if retained, uses `APP_ENV=local` | Run local Vite/HMR, compiled local smoke test, and both deployment build/start commands; confirm no script changes technical runtime accidentally | Revert script/config changes independently of server policy code | Steps 3–7 |
-| 9 | Update deployment and frontend label configuration | Render deployment settings, `.env.render.frontend.example`, `client/.env.local`, and frontend build configuration only if a browser label is required | Backend `APP_ENV` remains server-side; optional `VITE_APP_ENV` is a non-secret display label and must not replace `import.meta.env.DEV`/`PROD` | Build each frontend target and verify API origin, technical build mode, and optional visible label | Remove optional frontend label wiring without changing backend behavior | Step 8 |
+| 8 | Preserve the build and script contracts while assigning labels | `package.json`, `script/build.ts`, `script/build-standalone.ts`, `run-local.sh`, and local host launch configuration | `npm run dev` remains `NODE_ENV=development` on Replit, Codespaces, local machines, and other supported hosts; `npm start` remains `NODE_ENV=production`; deployed Production and Development use the same compiled build/start path; a compiled local smoke test, if retained, uses `APP_ENV=local` | Run local Vite/HMR on representative local hosts, compiled local smoke test, and both Render deployment build/start commands; confirm no script changes technical runtime accidentally | Revert script/config changes independently of server policy code | Steps 3–7 |
+| 9 | Update Render deployment and optional frontend label configuration | Render Production/Development service settings, `.env.render.frontend.example`, `client/.env.local`, and frontend build configuration only if a browser label is required | Backend `APP_ENV` remains server-side; optional `VITE_APP_ENV` labels the Render frontend build and must not replace `import.meta.env.DEV`/`PROD`; local frontend configuration remains `APP_ENV=local` only where needed | Build both Render frontend targets and verify API origin, technical build mode, and optional visible label; verify local frontend behavior separately | Remove optional frontend label wiring without changing backend behavior | Step 8 |
 | 10 | Complete the documentation and operational contract | `replit.md`, environment/deployment docs, reminder docs, migration checklist, and this plan | No runtime impact; all written instructions agree with the final matrix | Search for stale claims that `NODE_ENV` is the complete environment identity; review examples against the matrix | Revert documentation independently; no runtime rollback required | Steps 3–9 |
 | 11 | Run the full compatibility matrix and release review | Build Check, type checks, server startup paths, browser checks, deployment smoke test, monitoring/log review | Confirms Production and deployed Development are strict and equivalent while Local remains intentionally relaxed | Pass all acceptance criteria in Section 10, including the three exact environment pairs and email safety policy | Stop rollout or restore the last checkpoint; do not make unrelated fixes inside this verification step | Steps 0–10 |
 
@@ -39,14 +39,16 @@ session:
 |---|---|---|---|---|---|
 | Production deployment | `production` | `production` | Build, then `npm start` | Compiled frontend and compiled server | Strict |
 | Development deployment | `development` | `production` | Same build and start commands as Production | Compiled frontend and compiled server | Strict, with a different deployment label |
-| Local developer workflow | `local` | `development` | `npm run dev` | Vite middleware, HMR, and development tooling | Relaxed and debug-friendly |
+| Local developer workflow on Replit, Codespaces, a local machine, or another supported host | `local` | `development` | `npm run dev` | Vite middleware, HMR, and development tooling | Relaxed and debug-friendly |
 | Local compiled smoke test, if retained | `local` | `production` | `run-local.sh` or an explicitly named equivalent | Compiled frontend and compiled server | Local policy with production-shaped technical runtime |
 
 The table deliberately separates **deployment parity** from **local
 development tooling**. Production and deployed Development must share the
-compiled build/start contract. Local `npm run dev` must remain different
-because it is the interactive Vite/HMR workflow. `APP_ENV=development` must
-never be interpreted as permission to activate `NODE_ENV=development`.
+compiled build/start contract on Render. Local `npm run dev` must remain
+different because it is the interactive Vite/HMR workflow, regardless of
+whether the developer uses Replit, Codespaces, a local machine, or another
+supported host. `APP_ENV=development` must never be interpreted as permission
+to activate `NODE_ENV=development`.
 
 ## 1. Executive decision
 
@@ -93,7 +95,7 @@ This distinction is essential:
 |---|---|---|---|
 | Production deployment | The live production service | Build the application, then run the compiled server | `NODE_ENV=production` |
 | Development deployment | A separately deployed, production-shaped service used for development or acceptance testing | The same build and start commands as Production | `NODE_ENV=production` |
-| Local development | A developer's interactive local or Replit workflow | Run the Vite development server directly | `NODE_ENV=development` |
+| Local development | A developer's interactive workflow on Replit, Codespaces, a local machine, or another supported host | Run the Vite development server directly | `NODE_ENV=development` |
 
 Therefore, “Production and Development have the same build and deployment”
 means:
@@ -250,9 +252,11 @@ This environment is intentionally not `NODE_ENV=development`, because that
 would activate the local Vite/development-server path and would no longer be
 functionally equivalent to Production.
 
-### 4.3 Local
+### 4.3 Local development on any supported host
 
-Configuration for the normal local/Replit development workflow:
+Configuration for the normal interactive development workflow. The host may be
+Replit, Codespaces, a local machine, or another supported third-party
+environment:
 
 ```text
 APP_ENV=local
@@ -262,7 +266,8 @@ NODE_ENV=development
 Expected behavior:
 
 - Vite development middleware and local HMR remain available.
-- Replit development plugins remain available when running on Replit.
+- Replit development plugins remain available only when running on Replit;
+  Codespaces, local machines, and other hosts use their own platform tooling.
 - Local frontend origins continue to work.
 - Detailed errors remain available for debugging.
 - Local database SSL behavior remains compatible with the current setup.
@@ -462,7 +467,7 @@ Recommended compatibility approach:
   add a clearly named separate command rather than changing the meaning of
   `npm run dev` or `npm start`.
 
-### 5.11 Environment templates and Replit configuration
+### 5.11 Environment templates and platform configuration
 
 Planned files:
 
@@ -471,16 +476,20 @@ Planned files:
 - `.env.render.backend.example`
 - `.env.render.frontend.example`, only if a frontend label is required
 - `client/.env.local`
+- Codespaces, local-machine, or third-party host environment configuration,
+  where those platforms manage variables outside repository files
 
 Planned configuration:
 
 | File/service | Planned value |
 |---|---|
-| Replit development environment | `APP_ENV=local`, `NODE_ENV=development` |
-| Render production backend | `APP_ENV=production`, `NODE_ENV=production` |
+| Replit local development | `APP_ENV=local`, `NODE_ENV=development` |
+| Codespaces/local machine/other local host | `APP_ENV=local`, `NODE_ENV=development` |
+| Render Production backend | `APP_ENV=production`, `NODE_ENV=production` |
 | Render Development backend | `APP_ENV=development`, `NODE_ENV=production` |
-| Local frontend, if used | `VITE_APP_ENV=local`, only if browser labelling is required |
-| Render frontend, if used | Matching `VITE_APP_ENV`, only if browser labelling is required |
+| Render Production frontend, if labelled | `VITE_APP_ENV=production`, with a production Vite build |
+| Render Development frontend, if labelled | `VITE_APP_ENV=development`, with a production Vite build |
+| Local frontend, if labelled | `VITE_APP_ENV=local`, only if browser labelling is required |
 
 Existing secret handling must remain unchanged. `APP_ENV` is not a secret and
 must not be used to store, derive, or print credentials.
@@ -517,9 +526,12 @@ explicitly:
 
 | Consumer | Required change |
 |---|---|
-| Replit | Add `APP_ENV=local` to the development environment |
+| Replit | Add `APP_ENV=local` to the local development environment |
+| Codespaces/local machine/other local host | Document the platform-appropriate way to provide `APP_ENV=local` |
 | Render Production backend | Add `APP_ENV=production` |
 | Render Development backend | Add `APP_ENV=development` |
+| Render Production frontend, if labelled | Add `VITE_APP_ENV=production` during the frontend build |
+| Render Development frontend, if labelled | Add `VITE_APP_ENV=development` during the frontend build |
 | CI/CD | Add the appropriate value if jobs use environment labels |
 | Monitoring | Include the resolved `APP_ENV` as a non-secret service/resource label |
 | Frontend static build | Add `VITE_APP_ENV` only if the browser needs the label |
@@ -590,9 +602,9 @@ Implementation should be staged so each step can be verified independently.
 ### Phase 6 — Verify compatibility
 
 - Run the full build and type checks.
-- Start the Replit workflow.
+- Start the Replit workflow and verify the platform-specific preview path.
 - Test local authentication, cookies, API calls, Vite HMR, and database
-  connectivity.
+  connectivity on a representative non-Replit host where supported.
 - Test a compiled strict runtime.
 - Test the Development deployment configuration in an isolated service or
   equivalent environment before production rollout.
@@ -636,9 +648,10 @@ Implementation should be staged so each step can be verified independently.
 - [ ] Logs and monitoring identify the service as Development.
 - [ ] Email side effects follow the explicit Development email policy.
 
-### Local
+### Local development on any supported host
 
-- [ ] `APP_ENV=local`, `NODE_ENV=development`.
+- [ ] `APP_ENV=local`, `NODE_ENV=development` on Replit, Codespaces, local
+  machines, and any other supported local host.
 - [ ] Vite middleware and HMR still work.
 - [ ] Replit development plugins still work where applicable.
 - [ ] Detailed errors remain available locally.
@@ -677,8 +690,8 @@ The categorisation is ready for implementation completion when:
    NODE_ENV=development APP_ENV=local
    ```
 
-7. The final environment contract is documented for developers, Render
-   operators, monitoring, and CI/CD.
+7. The final environment contract is documented for developers on all supported
+   local hosts, Render operators, monitoring, and CI/CD.
 
 ## 11. Open decision before implementation
 
