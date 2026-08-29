@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, History, Save, AlertCircle, Trash2, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, History, Save, AlertCircle, Trash2, Clock, ChevronDown, ChevronUp, Minus, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -95,35 +95,44 @@ const ROOT_DIMS: Record<ToothType, RootDims> = {
 
 // ── SVG path generators ───────────────────────────────────────────────────────
 
-// Single root pointing UP (upper arch) — tapers from neckW at cervicalY to a rounded apex at apexY
+// Single root pointing UP (upper arch) — gently tapers and curves into a rounded apex.
 function rootUp(cx: number, cervY: number, apexY: number, nW: number): string {
   const n = nW / 2, h = cervY - apexY;
-  return `M ${cx-n},${cervY} C ${cx-n},${cervY-h*0.55} ${cx-0.5},${apexY+5} ${cx},${apexY} C ${cx+0.5},${apexY+5} ${cx+n},${cervY-h*0.55} ${cx+n},${cervY} Z`;
+  const lean = nW >= 15 ? 1.2 : nW <= 7 ? 0.8 : 0.4;
+  return `M ${cx-n},${cervY}
+    C ${cx-n*1.05},${cervY-h*0.38} ${cx-lean-1},${apexY+9} ${cx-lean},${apexY+2}
+    Q ${cx},${apexY-1} ${cx+lean},${apexY+2}
+    C ${cx+lean+1},${apexY+9} ${cx+n*1.05},${cervY-h*0.38} ${cx+n},${cervY} Z`;
 }
 
-// Single root pointing DOWN (lower arch)
+// Single root pointing DOWN (lower arch).
 function rootDown(cx: number, cervY: number, apexY: number, nW: number): string {
   const n = nW / 2, h = apexY - cervY;
-  return `M ${cx-n},${cervY} C ${cx-n},${cervY+h*0.55} ${cx-0.5},${apexY-5} ${cx},${apexY} C ${cx+0.5},${apexY-5} ${cx+n},${cervY+h*0.55} ${cx+n},${cervY} Z`;
+  const lean = nW >= 15 ? 1.2 : nW <= 7 ? 0.8 : 0.4;
+  return `M ${cx-n},${cervY}
+    C ${cx-n*1.05},${cervY+h*0.38} ${cx-lean-1},${apexY-9} ${cx-lean},${apexY-2}
+    Q ${cx},${apexY+1} ${cx+lean},${apexY-2}
+    C ${cx+lean+1},${apexY-9} ${cx+n*1.05},${cervY+h*0.38} ${cx+n},${cervY} Z`;
 }
 
-// Two diverging roots pointing UP (upper molars)
+// Two diverging roots pointing UP (upper molars). Each root is closed
+// independently so the furcation remains visible at all fill colours.
 function dualRootsUp(cx: number, cervY: number, apexY: number, nW: number): string {
-  const n = nW / 2, h = cervY - apexY, s = 4.5, g = 2;
+  const n = nW / 2, h = cervY - apexY, s = 4.7, g = 2;
   const lA = cx - s, rA = cx + s;
   return (
-    `M ${cx-n},${cervY} C ${cx-n},${cervY-h*0.5} ${lA-2},${apexY+7} ${lA},${apexY} C ${lA+1.5},${apexY+7} ${cx-g},${cervY-h*0.45} ${cx-g},${cervY} ` +
-    `M ${cx+g},${cervY} C ${cx+g},${cervY-h*0.45} ${rA-1.5},${apexY+7} ${rA},${apexY} C ${rA+2},${apexY+7} ${cx+n},${cervY-h*0.5} ${cx+n},${cervY} Z`
+    `M ${cx-n},${cervY} C ${cx-n},${cervY-h*0.5} ${lA-2},${apexY+9} ${lA},${apexY} Q ${lA+0.5},${apexY-1} ${lA+1},${apexY+1} C ${lA+2.5},${apexY+8} ${cx-g},${cervY-h*0.45} ${cx-g},${cervY} Z ` +
+    `M ${cx+g},${cervY} C ${cx+g},${cervY-h*0.45} ${rA-2.5},${apexY+8} ${rA-0.5},${apexY+1} Q ${rA},${apexY-1} ${rA+0.5},${apexY} C ${rA+2},${apexY+9} ${cx+n},${cervY-h*0.5} ${cx+n},${cervY} Z`
   );
 }
 
-// Two diverging roots pointing DOWN (lower molars)
+// Two diverging roots pointing DOWN (lower molars).
 function dualRootsDown(cx: number, cervY: number, apexY: number, nW: number): string {
-  const n = nW / 2, h = apexY - cervY, s = 4.5, g = 2;
+  const n = nW / 2, h = apexY - cervY, s = 4.7, g = 2;
   const lA = cx - s, rA = cx + s;
   return (
-    `M ${cx-n},${cervY} C ${cx-n},${cervY+h*0.5} ${lA-2},${apexY-7} ${lA},${apexY} C ${lA+1.5},${apexY-7} ${cx-g},${cervY+h*0.45} ${cx-g},${cervY} ` +
-    `M ${cx+g},${cervY} C ${cx+g},${cervY+h*0.45} ${rA-1.5},${apexY-7} ${rA},${apexY} C ${rA+2},${apexY-7} ${cx+n},${cervY+h*0.5} ${cx+n},${cervY} Z`
+    `M ${cx-n},${cervY} C ${cx-n},${cervY+h*0.5} ${lA-2},${apexY-9} ${lA},${apexY} Q ${lA+0.5},${apexY+1} ${lA+1},${apexY-1} C ${lA+2.5},${apexY-8} ${cx-g},${cervY+h*0.45} ${cx-g},${cervY} Z ` +
+    `M ${cx+g},${cervY} C ${cx+g},${cervY+h*0.45} ${rA-2.5},${apexY-8} ${rA-0.5},${apexY-1} Q ${rA},${apexY+1} ${rA+0.5},${apexY} C ${rA+2},${apexY-9} ${cx+n},${cervY+h*0.5} ${cx+n},${cervY} Z`
   );
 }
 
@@ -159,6 +168,68 @@ function crownDown(cx: number, y0: number, { cW, oW, h }: CrownDims, type: Tooth
   }
   // incisor
   return `M ${cx-o+r},${y0} L ${cx+o-r},${y0} Q ${cx+o},${y0} ${cx+o},${y0+r} L ${cx+c},${y1-r} Q ${cx+c},${y1} ${cx+c-r},${y1} L ${cx-c+r},${y1} Q ${cx-c},${y1} ${cx-c},${y1-r} L ${cx-o},${y0+r} Q ${cx-o},${y0} ${cx-o+r},${y0} Z`;
+}
+
+// Fine occlusal/incisal anatomy drawn above the condition fill. These marks
+// intentionally stay presentation-only: they do not represent a diagnosis.
+function crownAnatomy(
+  cx: number,
+  y0: number,
+  dims: CrownDims,
+  type: ToothType,
+  arch: "upper" | "lower",
+  stroke: string,
+) {
+  const y1 = y0 + dims.h;
+  const direction = arch === "upper" ? 1 : -1;
+  const opacity = 0.55;
+  const lineProps = {
+    fill: "none",
+    stroke,
+    strokeWidth: 0.65,
+    strokeLinecap: "round" as const,
+    opacity,
+    pointerEvents: "none" as const,
+  };
+
+  if (type === "molar") {
+    const surfaceY = arch === "upper" ? y1 - 3.5 : y0 + 3.5;
+    return (
+      <g {...lineProps}>
+        <path d={`M ${cx - dims.oW * 0.34},${surfaceY} Q ${cx - 1},${surfaceY - direction * 2.2} ${cx},${surfaceY + direction * 0.4} Q ${cx + 1},${surfaceY - direction * 2.2} ${cx + dims.oW * 0.34},${surfaceY}`} />
+        <path d={`M ${cx - dims.oW * 0.42},${surfaceY - direction * 1.2} Q ${cx - dims.oW * 0.2},${surfaceY + direction * 2.2} ${cx - 1.5},${surfaceY + direction * 1.1}`} />
+        <path d={`M ${cx + dims.oW * 0.42},${surfaceY - direction * 1.2} Q ${cx + dims.oW * 0.2},${surfaceY + direction * 2.2} ${cx + 1.5},${surfaceY + direction * 1.1}`} />
+        <path d={`M ${cx},${y0 + dims.h * 0.34} Q ${cx - 2.2},${y0 + dims.h * 0.52} ${cx - 1.1},${surfaceY - direction * 1.5}`} />
+      </g>
+    );
+  }
+
+  if (type === "premolar") {
+    const surfaceY = arch === "upper" ? y1 - 2.5 : y0 + 2.5;
+    return (
+      <g {...lineProps}>
+        <path d={`M ${cx},${surfaceY - direction * 1.2} Q ${cx - 1.2},${surfaceY + direction * 1.8} ${cx - dims.oW * 0.28},${surfaceY}`} />
+        <path d={`M ${cx},${surfaceY - direction * 1.2} Q ${cx + 1.2},${surfaceY + direction * 1.8} ${cx + dims.oW * 0.28},${surfaceY}`} />
+        <path d={`M ${cx},${y0 + dims.h * 0.34} Q ${cx - 1.2},${y0 + dims.h * 0.55} ${cx},${surfaceY - direction * 0.8}`} />
+      </g>
+    );
+  }
+
+  if (type === "canine") {
+    return (
+      <path
+        d={`M ${cx},${arch === "upper" ? y1 - 1.5 : y0 + 1.5} C ${cx - 1},${y0 + dims.h * 0.5} ${cx - 1},${y0 + dims.h * 0.64} ${cx - 0.4},${y0 + dims.h * 0.78}`}
+        {...lineProps}
+      />
+    );
+  }
+
+  return (
+    <path
+      d={`M ${cx - dims.oW * 0.28},${arch === "upper" ? y1 - 1.5 : y0 + 1.5} Q ${cx},${arch === "upper" ? y1 - 0.3 : y0 + 0.3} ${cx + dims.oW * 0.28},${arch === "upper" ? y1 - 1.5 : y0 + 1.5}`}
+      {...lineProps}
+    />
+  );
 }
 
 // ── Fixed Y anchors ───────────────────────────────────────────────────────────
@@ -199,6 +270,7 @@ interface ToothProps {
 }
 
 function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, onClick }: ToothProps) {
+  const [isFocused, setIsFocused] = useState(false);
   const cx    = toothCx(tooth);
   const cond  = state?.condition ?? null;
   const meta  = cond ? CONDITION_META[cond] : null;
@@ -214,6 +286,7 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   const SEL   = "#0F9B6E";
   const cSW   = isSelected ? 1.8 : 1;
   const cCol  = isSelected ? SEL : crownStroke;
+  const toothLabel = `Tooth ${tooth}, ${TOOTH_NAMES[tooth]}`;
 
   // Y anchors
   const crownY0 = arch === "upper" ? UPPER_CROWN_Y : LOWER_CROWN_Y;
@@ -251,6 +324,26 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
     />
   );
 
+  const anatomyEl = crownAnatomy(cx, crownY0, dims, type, arch, meta?.stroke ?? "#7FAF9D");
+
+  // Keep the detailed silhouette easy to select on touch screens. The target
+  // covers the root and crown but remains visually transparent.
+  const hitTarget = (
+    <rect
+      x={cx - Math.max(dims.cW, rdims.nW) / 2 - 4}
+      y={arch === "upper" ? UPPER_ROOT_Y - 2 : crownY0 - 3}
+      width={Math.max(dims.cW, rdims.nW) + 8}
+      height={arch === "upper"
+        ? crownY0 + dims.h - UPPER_ROOT_Y + 6
+        : apexY - crownY0 + 6}
+      fill="#FFFFFF"
+      fillOpacity={0}
+      stroke="none"
+      pointerEvents="all"
+      aria-hidden="true"
+    />
+  );
+
   // Missing X — crosses through the crown bounding box
   const mxH = dims.cW / 2;
   const missingX = isMissing && (
@@ -270,6 +363,16 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
     />
   );
 
+  const focusRing = isFocused && !isSelected && (
+    <rect
+      x={cx - dims.cW / 2 - 3} y={crownY0 - 3}
+      width={dims.cW + 6} height={dims.h + 6}
+      rx={4} fill="none"
+      stroke={SEL} strokeWidth={1.2} strokeDasharray="2 2" opacity={0.85}
+      pointerEvents="none"
+    />
+  );
+
   // Indicator dots — top-right of crown
   const dotX = cx + dims.cW / 2 - 1;
   const newDot  = isNewThisVisit && <circle cx={dotX} cy={crownY0 + 1} r={3} fill="#0F9B6E" />;
@@ -283,12 +386,26 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   );
 
   return (
-    <g onClick={isEditable ? onClick : undefined}
+    <g
+       onClick={isEditable ? onClick : undefined}
+       onKeyDown={isEditable ? (event) => {
+         if (event.key === "Enter" || event.key === " ") {
+           event.preventDefault();
+           onClick();
+         }
+       } : undefined}
+       onFocus={() => setIsFocused(true)}
+       onBlur={() => setIsFocused(false)}
+       role={isEditable ? "button" : undefined}
+       tabIndex={isEditable ? 0 : undefined}
+       aria-label={toothLabel}
+       aria-pressed={isEditable ? isSelected : undefined}
        style={{ cursor: isEditable ? "pointer" : "default" }}
        opacity={isMissing && !isSelected ? 0.7 : 1}>
+      {hitTarget}
       {arch === "upper"
-        ? <>{rootEl}{crownEl}{missingX}{selRing}{newDot}{histDot}{label}</>
-        : <>{label}{crownEl}{missingX}{selRing}{newDot}{histDot}{rootEl}</>
+        ? <>{rootEl}{crownEl}{anatomyEl}{missingX}{selRing}{focusRing}{newDot}{histDot}{label}</>
+        : <>{label}{crownEl}{anatomyEl}{missingX}{selRing}{focusRing}{newDot}{histDot}{rootEl}</>
       }
     </g>
   );
@@ -309,6 +426,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
   const [localEdits, setLocalEdits] = useState<Record<string, ToothCondition | null>>({});
   const [showHistory, setShowHistory] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [zoom, setZoom] = useState(100);
 
   // ── Load chart ──────────────────────────────────────────────────────────────
   const { data: chartResponse, isLoading, isError } = useQuery<{
@@ -416,7 +534,12 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
     <svg
       viewBox={svgViewBox}
       xmlns="http://www.w3.org/2000/svg"
-      style={{ width: "100%", height: "auto", minWidth: 310, display: "block" }}
+      style={{
+        width: `${zoom}%`,
+        height: "auto",
+        minWidth: 310,
+        display: "block",
+      }}
       aria-label="Dental odontogram chart"
     >
       {/* Quadrant labels */}
@@ -659,10 +782,45 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
             Click a tooth to chart
           </span>
         )}
+        <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-background/60 p-0.5" aria-label="Chart zoom controls">
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
+            onClick={() => setZoom(value => Math.max(80, value - 10))}
+            disabled={zoom <= 80}
+            aria-label="Zoom out"
+            data-testid="button-odontogram-zoom-out"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="min-w-[3.5rem] text-center text-[10px] font-semibold tabular-nums text-muted-foreground" aria-live="polite">
+            {zoom}%
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
+            onClick={() => setZoom(value => Math.min(160, value + 10))}
+            disabled={zoom >= 160}
+            aria-label="Zoom in"
+            data-testid="button-odontogram-zoom-in"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
+            onClick={() => setZoom(100)}
+            disabled={zoom === 100}
+            aria-label="Reset chart zoom"
+            data-testid="button-odontogram-zoom-reset"
+          >
+            <RotateCcw className="h-3 w-3" />
+          </button>
+        </div>
       </div>
 
       {/* Chart area */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-auto min-h-0">
         {/* SVG — scrollable horizontally if modal is very narrow */}
         <div className="overflow-x-auto px-3 pt-3 pb-1">
           {chartSvg}
