@@ -152,3 +152,85 @@ strict runtime and real-recipient email setting. Local development uses
 5. Review Meta and application logs for unauthorized activity.
 6. Confirm that no real secret has been added to this document or git history.
 7. Rotate any other credential that was visible in the original screenshot.
+
+## How Production and Development environments work
+
+The application uses two environment labels for different purposes. Together,
+they help the application understand both **which environment it represents**
+and **how it is currently running**.
+
+### `APP_ENV`: which application environment this is
+
+`APP_ENV` is the application's identity label:
+
+- `production` means the live customer-facing application.
+- `development` means the separate Development deployment or a developer's
+  local copy.
+
+This label does not, by itself, turn development features on or off.
+
+### `NODE_ENV`: how the application is running
+
+`NODE_ENV` describes the technical way the application is running:
+
+- `production` means the compiled, deployed version of the application.
+- `development` means the local development version with live reload and
+  detailed debugging information.
+- `test` is used only while automated tests are running.
+
+### How the two values work together
+
+| Where the application is running | `APP_ENV` | `NODE_ENV` | What this means |
+|---|---|---|---|
+| Live Production deployment | `production` | `production` | Live, secure, compiled application |
+| Separate Development deployment | `development` | `production` | Development-labelled, but secure and compiled like Production |
+| Local developer workflow | `development` | `development` | Local development with live reload and debugging support |
+| Automated tests | `development` | `test` | Safe test mode; real email delivery is disabled |
+
+The Development deployment is not the same as local development. The deployed
+Development service uses `APP_ENV=development`, but it still uses
+`NODE_ENV=production`. This gives it the same compiled and secure runtime
+behavior as Production while keeping its Development identity for deployment
+operations, monitoring, and separate infrastructure.
+
+Local development uses `NODE_ENV=development` because developers need live
+reload and debugging tools. Setting `APP_ENV=development` does not make a
+deployed service use the local development server.
+
+### What this affects
+
+This environment combination helps the application decide:
+
+- whether to serve the compiled site or run the local development server;
+- whether secure cross-site cookies are required;
+- whether a session secret must be present;
+- whether detailed error information is shown;
+- how database SSL is handled; and
+- whether reminder emails are allowed to be sent to real recipients.
+
+Real email delivery has separate safeguards. It requires both
+`RESEND=PRODUCTION` and a configured `RESEND_API_KEY`. Therefore, setting
+`APP_ENV=development` alone does not send real emails.
+
+### Recommended values
+
+```dotenv
+# Local development
+APP_ENV=development
+NODE_ENV=development
+RESEND=dev
+```
+
+```dotenv
+# Development deployment
+APP_ENV=development
+NODE_ENV=production
+RESEND=PRODUCTION
+```
+
+```dotenv
+# Production deployment
+APP_ENV=production
+NODE_ENV=production
+RESEND=PRODUCTION
+```
