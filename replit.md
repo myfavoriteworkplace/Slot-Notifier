@@ -155,7 +155,8 @@ Write code that a senior developer could read, maintain, and trust in production
 
 Local development is platform-independent. Developers may use Replit,
 Codespaces, a local machine, or another supported third-party environment.
-These are all the same application category: **Local**.
+These are all local developer workflows, using the `development` application
+label with the technical runtime selected by `NODE_ENV`.
 
 Production and Development deployments are separate deployed environments on
 Render. They use the same compiled build and start process, but different
@@ -163,8 +164,8 @@ Render. They use the same compiled build and start process, but different
 
 | Environment | Hosting platform | Purpose | Environment values | How it runs |
 |---|---|---|---|---|
-| **Local development** | Replit | AI-assisted development + preview | `APP_ENV=local`, `NODE_ENV=development` | `npm run dev` — Express + Vite, same origin, port 5000 |
-| **Local development** | Codespaces, local machine, or another supported host | Developer testing and iteration | `APP_ENV=local`, `NODE_ENV=development` | `npm run dev`, using the host's own port/preview configuration |
+| **Local development** | Replit | AI-assisted development + preview | `APP_ENV=development`, `NODE_ENV=development` | `npm run dev` — Express + Vite, same origin, port 5000 |
+| **Local development** | Codespaces, local machine, or another supported host | Developer testing and iteration | `APP_ENV=development`, `NODE_ENV=development` | `npm run dev`, using the host's own port/preview configuration |
 | **Development deployment** | Render frontend Static Site + backend Web Service | Deployed development, acceptance, and integration testing | `APP_ENV=development`, `NODE_ENV=production` | Same compiled build and `npm start` flow as Production |
 | **Production deployment** | Render frontend Static Site + backend Web Service | Live production application | `APP_ENV=production`, `NODE_ENV=production` | Compiled build and `npm start` |
 
@@ -179,7 +180,8 @@ The hosting platform identifies where that environment runs.
 Therefore:
 
 - Replit, Codespaces, local machines, and other local hosts all use
-  `APP_ENV=local` for interactive development.
+  `APP_ENV=development` with `NODE_ENV=development` for interactive
+  development.
 - Render Development uses `APP_ENV=development` but still uses
   `NODE_ENV=production`.
 - Render Production uses `APP_ENV=production` and `NODE_ENV=production`.
@@ -194,9 +196,9 @@ Therefore:
 - New backend env vars must be called out explicitly for Render and for each
   supported local configuration method.
 - New frontend domains must be added to the CORS allowlist in `server/index.ts` or via the `FRONTEND_URL` env var.
-- Auth is platform/configuration-specific — Replit uses OIDC, while Local and
-  Render use `ADMIN_EMAIL`/`ADMIN_PASSWORD`. `APP_ENV=local` does not erase
-  those platform-specific authentication requirements.
+- Auth is platform/configuration-specific — Replit uses OIDC, while local and
+  Render use `ADMIN_EMAIL`/`ADMIN_PASSWORD`. `APP_ENV=development` does not
+  erase those platform-specific authentication requirements.
 - Never add `process.env.REPL_ID` checks or Replit-specific middleware — use `NODE_ENV` instead.
 - Session cookies: `sameSite: "none"` + `secure: true` + `trust proxy: 1` — required for cross-origin Render. Do not change these.
 - Node pinned to **20.20.0** via `.node-version`. Do not change — Node 22+ breaks `npm install` on Render.

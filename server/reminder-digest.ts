@@ -5,8 +5,19 @@ import { db } from "./db";
 import { doctors } from "@shared/schema";
 import { isNotNull } from "drizzle-orm";
 import { storage, type ReminderBooking, type ReminderResult } from "./storage";
+import { resolveRuntimeEnvironment } from "./environment";
+import { canSendRealEmail } from "./email-policy";
 
 export const REMINDER_DIGEST_TEMPLATE_VERSION = "v1";
+
+function shouldSendRealDigestEmail(): boolean {
+  const runtimeEnvironment = resolveRuntimeEnvironment();
+  return canSendRealEmail({
+    nodeEnv: runtimeEnvironment.nodeEnv,
+    resendMode: process.env.RESEND || "DEV",
+    hasApiKey: Boolean(process.env.RESEND_API_KEY),
+  });
+}
 
 export interface DigestRecipient {
   email: string;
@@ -91,7 +102,7 @@ export async function selectClinicDoctorDigestRecipients(clinicId: number, now =
 
 export async function runClinicManualDigestJob(clinicId: number, now = new Date()): Promise<ClinicManualDigestResult> {
   const recipients = await selectClinicDoctorDigestRecipients(clinicId, now);
-  const dryRun = process.env.NODE_ENV !== "production" || !process.env.RESEND_API_KEY;
+  const dryRun = !shouldSendRealDigestEmail();
   const resend = dryRun ? null : new Resend(process.env.RESEND_API_KEY);
   const dashboardUrl = process.env.FRONTEND_URL?.split(",")[0]?.trim() || "https://book-my-slot-client.onrender.com";
   const result: ClinicManualDigestResult = { dryRun, claimed: 0, sent: 0, skipped: 0, failed: 0, recipients };
@@ -194,7 +205,7 @@ export function digestContentHash(recipient: DigestRecipient, html: string): str
 
 export async function runReminderDigestJob(now = new Date()): Promise<DigestJobResult> {
   const recipients = await selectDigestRecipients(now);
-  const dryRun = process.env.NODE_ENV !== "production" || !process.env.RESEND_API_KEY;
+  const dryRun = !shouldSendRealDigestEmail();
   const resend = dryRun ? null : new Resend(process.env.RESEND_API_KEY);
   const dashboardUrl = process.env.FRONTEND_URL?.split(",")[0]?.trim() || "https://book-my-slot-client.onrender.com";
   const result: DigestJobResult = { dryRun, claimed: 0, sent: 0, skipped: 0, failed: 0 };

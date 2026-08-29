@@ -290,8 +290,11 @@ The digest template:
 - Records success only after the Resend call completes.
 - Records the failure reason when delivery fails.
 
-Sending is dry-run unless `NODE_ENV=production` and `RESEND_API_KEY` are both
-available. This prevents local execution from sending to real recipients.
+Sending is enabled only when the compiled runtime is active
+(`NODE_ENV=production`), `RESEND=PRODUCTION`, and `RESEND_API_KEY` are all
+available. Both deployed Production and deployed Development use this
+configuration and send to their configured real recipients. Local development
+and automated tests remain dry-run.
 
 ## Deployment configuration
 

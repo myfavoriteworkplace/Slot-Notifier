@@ -14,6 +14,7 @@ Set these in the backend Render Web Service environment. Never expose backend se
 | `ADMIN_PASSWORD` | Super Admin login password | Yes for admin access |
 | `DATABASE_URL` | PostgreSQL/Supabase connection string | Yes; use the Supabase pooler URL in production |
 | `EMAIL_FROM` | Sender name and address for outgoing email | Yes for production email deliverability |
+| `APP_ENV` | Application label: `production` or `development` | Yes; Production and Development deployments use different labels |
 | `EXTRA_CORS_ORIGINS` | Additional comma-separated frontend origins allowed by CORS | Only when additional origins are needed |
 | `FRONTEND_URL` | Primary frontend origin; used for CORS and email dashboard links | Yes |
 | `NODE_ENV` | Runtime mode; use `production` in deployment | Yes |
@@ -102,6 +103,7 @@ Use placeholders only. Never commit real values:
 
 ```dotenv
 # Backend
+APP_ENV=production
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=<strong-password>
 DATABASE_URL=postgresql://postgres.<project-id>:<password>@<supabase-pooler-host>:6543/postgres
@@ -127,6 +129,19 @@ SMS_NOTIFICATIONS_ENABLED=false
 VITE_API_URL=https://api.example.com
 VITE_RAZORPAY_KEY_ID=<razorpay-public-key>
 ```
+
+For the separately deployed Development backend, change only the application
+label:
+
+```dotenv
+APP_ENV=development
+NODE_ENV=production
+RESEND=PRODUCTION
+```
+
+Production and deployed Development intentionally use the same compiled,
+strict runtime and real-recipient email setting. Local development uses
+`APP_ENV=development`, `NODE_ENV=development`, and normally `RESEND=dev`.
 
 ## Secret rotation checklist
 

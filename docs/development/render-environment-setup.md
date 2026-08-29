@@ -25,6 +25,21 @@
 > - WebSocket URLs are derived from `VITE_API_URL` by swapping `https://` → `wss://`. New WebSocket endpoints must follow the same pattern.
 > - Database schema changes require running `npm run db:push` against the production `DATABASE_URL`. The production database is Supabase (connection pooler on port 6543, not 5432).
 >
+> ### Environment identity
+>
+> The two Render services use the same compiled runtime. Only the application
+> label changes:
+>
+> | Service | `APP_ENV` | `NODE_ENV` | Email |
+> |---|---|---|---|
+> | Production backend | `production` | `production` | `RESEND=PRODUCTION` with the configured key |
+> | Development backend | `development` | `production` | `RESEND=PRODUCTION` with the configured key |
+>
+> Local development uses `APP_ENV=development` and `NODE_ENV=development`.
+> `NODE_ENV=test` is reserved for automated tests and is not a deployment
+> environment. Both deployed services intentionally use the same strict
+> session, cookie, database, serving, and email behavior.
+>
 > ### Checklist — Every New Feature or API Endpoint
 >
 > - [ ] New route added to `server/routes.ts` and `shared/routes.ts`; logic kept in `server/storage.ts`
