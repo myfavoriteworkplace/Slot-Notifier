@@ -1,6 +1,6 @@
 # Odontogram Visual Optimization — Implementation Plan
 
-**Status:** Plan only — application code has not been changed
+**Status:** Steps 1–2 implemented — remaining application work pending
 **Audience:** Clinic owners, doctors, product reviewers, and developers
 **Primary area:** Doctor Admin → Charts → Odontogram
 **Reference material:** `attached_assets/Pasted--Based-on-your-requirements-I-ll-create-optimized-tooth_1788024916171.txt`
@@ -509,12 +509,16 @@ The work is ready for approval only when all of the following are true:
 
 ## 7. Current validation status
 
-This document is a plan, not a claim that the work is complete.
+Steps 1 and 2 are implemented. This document is not a claim that the full
+odontogram optimization is complete.
 
-- Odontogram implementation: **not started**
+- Step 1, FDI numbering and screen layout: **complete**
+- Step 2, centralized tooth reference guide: **complete**
+- Odontogram implementation beyond Steps 1–2: **not started**
 - Database migration: **not required for the planned visual work**
-- New dependency: **not planned**
+- New dependency: **not added**
 - Start application workflow: **running**
-- Build Check: **currently blocked by malformed JSX in
-  `BillingHistoryPanel.tsx`**
+- TypeScript check: **passing**
+- Production Build Check: **passing with existing warnings**
+- `git diff --check`: **passing**
 - Authenticated doctor visual review: **pending**

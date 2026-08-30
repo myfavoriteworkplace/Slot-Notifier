@@ -5,6 +5,12 @@ import { Loader2, History, Save, AlertCircle, Trash2, Clock, ChevronDown, Chevro
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import {
+  getOdontogramToothReference,
+  TOOTH_DISPLAY_ORDER,
+  TOOTH_REFERENCE,
+  type OdontogramToothType,
+} from "./odontogram-reference";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,37 +48,18 @@ const CONDITION_META: Record<ToothCondition, { label: string; fill: string; stro
 
 const HEALTHY_STYLE = { fill: "#FFFFFF", stroke: "#A8C4B8" };
 
-const TOOTH_NAMES: Record<number, string> = {
-  11:"UR Central", 12:"UR Lateral", 13:"UR Canine",
-  14:"UR 1st PM",  15:"UR 2nd PM",
-  16:"UR 1st Molar", 17:"UR 2nd Molar", 18:"UR Wisdom",
-  21:"UL Central", 22:"UL Lateral", 23:"UL Canine",
-  24:"UL 1st PM",  25:"UL 2nd PM",
-  26:"UL 1st Molar", 27:"UL 2nd Molar", 28:"UL Wisdom",
-  31:"LL Central", 32:"LL Lateral", 33:"LL Canine",
-  34:"LL 1st PM",  35:"LL 2nd PM",
-  36:"LL 1st Molar", 37:"LL 2nd Molar", 38:"LL Wisdom",
-  41:"LR Central", 42:"LR Lateral", 43:"LR Canine",
-  44:"LR 1st PM",  45:"LR 2nd PM",
-  46:"LR 1st Molar", 47:"LR 2nd Molar", 48:"LR Wisdom",
-};
-
-// Display order (left → right on screen from doctor's perspective)
-const UPPER_RIGHT = [18,17,16,15,14,13,12,11] as const;
-const UPPER_LEFT  = [21,22,23,24,25,26,27,28] as const;
-const LOWER_RIGHT = [48,47,46,45,44,43,42,41] as const;
-const LOWER_LEFT  = [31,32,33,34,35,36,37,38] as const;
+// Display order is centralized in the Step 1 FDI reference guide.
+const UPPER_RIGHT = TOOTH_DISPLAY_ORDER.upperRight;
+const UPPER_LEFT = TOOTH_DISPLAY_ORDER.upperLeft;
+const LOWER_RIGHT = TOOTH_DISPLAY_ORDER.lowerRight;
+const LOWER_LEFT = TOOTH_DISPLAY_ORDER.lowerLeft;
 
 // ── Tooth-type geometry ───────────────────────────────────────────────────────
 
-type ToothType = "incisor" | "canine" | "premolar" | "molar";
+type ToothType = OdontogramToothType;
 
 function getToothType(fdi: number): ToothType {
-  const d = fdi % 10;
-  if (d === 1 || d === 2) return "incisor";
-  if (d === 3) return "canine";
-  if (d === 4 || d === 5) return "premolar";
-  return "molar";
+  return getOdontogramToothReference(fdi).type;
 }
 
 // cW = cervical (gum) width — the wider side; oW = occlusal/incisal — narrower; h = crown height
@@ -286,7 +273,7 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   const SEL   = "#0F9B6E";
   const cSW   = isSelected ? 1.8 : 1;
   const cCol  = isSelected ? SEL : crownStroke;
-  const toothLabel = `Tooth ${tooth}, ${TOOTH_NAMES[tooth]}`;
+   const toothLabel = `Tooth ${tooth}, ${getOdontogramToothReference(tooth).displayName}`;
 
   // Y anchors
   const crownY0 = arch === "upper" ? UPPER_CROWN_Y : LOWER_CROWN_Y;
@@ -622,7 +609,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
       <div className="px-3 py-2 bg-green-50 dark:bg-green-900/30 border-b border-green-800/30 dark:border-green-700/50 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs font-bold text-green-800 dark:text-green-300">Tooth {selectedTooth}</span>
-          <span className="text-xs text-green-700 dark:text-green-400 truncate">— {TOOTH_NAMES[selectedTooth]}</span>
+          <span className="text-xs text-green-700 dark:text-green-400 truncate">— {getOdontogramToothReference(selectedTooth).displayName}</span>
           {isNewThisVisit(selectedTooth) && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-600 text-white">Edited</span>
           )}
