@@ -4,11 +4,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, History, Save, AlertCircle, Trash2, Clock, ChevronDown, ChevronUp, Minus, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import {
   getOdontogramToothReference,
   TOOTH_DISPLAY_ORDER,
-  TOOTH_REFERENCE,
+  type OdontogramToothReference,
   type OdontogramToothType,
 } from "./odontogram-reference";
 
@@ -46,7 +46,15 @@ const CONDITION_META: Record<ToothCondition, { label: string; fill: string; stro
   sealant: { label: "Sealant",  fill: "#A5F3FC", stroke: "#06B6D4", text: "#164E63" },
 };
 
-const HEALTHY_STYLE = { fill: "#FFFFFF", stroke: "#A8C4B8" };
+const SVG_TOKENS = {
+  card: "hsl(var(--card))",
+  muted: "hsl(var(--muted))",
+  border: "hsl(var(--border))",
+  primary: "hsl(var(--primary))",
+  mutedForeground: "hsl(var(--muted-foreground))",
+};
+
+const HEALTHY_STYLE = { fill: SVG_TOKENS.card, stroke: SVG_TOKENS.border };
 
 // Display order is centralized in the Step 1 FDI reference guide.
 const UPPER_RIGHT = TOOTH_DISPLAY_ORDER.upperRight;
@@ -62,51 +70,79 @@ function getToothType(fdi: number): ToothType {
   return getOdontogramToothReference(fdi).type;
 }
 
-// cW = cervical (gum) width — the wider side; oW = occlusal/incisal — narrower; h = crown height
+// cW = cervical (gum) width — the wider side; oW = occlusal/incisal — narrower; h = crown height.
+// These are base illustration units; each tooth's relative guide values scale them below.
 interface CrownDims { cW: number; oW: number; h: number }
-const CROWN_DIMS: Record<ToothType, CrownDims> = {
+const BASE_CROWN_DIMS: Record<ToothType, CrownDims> = {
   incisor:  { cW: 17, oW: 15, h: 21 },
   canine:   { cW: 15, oW:  9, h: 24 },
   premolar: { cW: 15, oW: 13, h: 18 },
   molar:    { cW: 20, oW: 18, h: 14 },
 };
 
-// nW = neck width at cervical margin; h = root length; dual = two roots
-interface RootDims { nW: number; h: number; dual: boolean }
-const ROOT_DIMS: Record<ToothType, RootDims> = {
-  incisor:  { nW:  7, h: 43, dual: false },
-  canine:   { nW:  7, h: 43, dual: false },
-  premolar: { nW:  8, h: 43, dual: false },
-  molar:    { nW: 18, h: 43, dual: true  },
+// nW = neck width at cervical margin; h = relative root length.
+interface RootDims { nW: number; h: number; rootCount: 1 | 2 | 3 }
+const BASE_ROOT_DIMS: Record<ToothType, Omit<RootDims, "rootCount">> = {
+  incisor:  { nW:  7, h: 31 },
+  canine:   { nW:  7, h: 31 },
+  premolar: { nW:  8, h: 31 },
+  molar:    { nW: 18, h: 31 },
 };
+
+function getCrownDims(reference: OdontogramToothReference): CrownDims {
+  const base = BASE_CROWN_DIMS[reference.type];
+  return {
+    cW: base.cW * reference.crownWidth,
+    oW: base.oW * reference.crownWidth,
+    h: base.h * reference.crownHeight,
+  };
+}
+
+function getRootDims(reference: OdontogramToothReference): RootDims {
+  const base = BASE_ROOT_DIMS[reference.type];
+  return {
+    nW: base.nW,
+    h: base.h * reference.rootLength,
+    rootCount: reference.rootCount,
+  };
+}
 
 // ── SVG path generators ───────────────────────────────────────────────────────
 
+function rootLean(reference: OdontogramToothReference, amount: number): number {
+  if (reference.rootCurve === "neutral") return 0;
+  const towardMidline = reference.rootCurve === "toward-midline";
+  const sideDirection = reference.side === "right" ? 1 : -1;
+  return (towardMidline ? -1 : 1) * sideDirection * amount;
+}
+
 // Single root pointing UP (upper arch) — gently tapers and curves into a rounded apex.
-function rootUp(cx: number, cervY: number, apexY: number, nW: number): string {
+function rootUp(cx: number, cervY: number, apexY: number, nW: number, leanDirection = 0): string {
   const n = nW / 2, h = cervY - apexY;
   const lean = nW >= 15 ? 1.2 : nW <= 7 ? 0.8 : 0.4;
+  const apexCx = cx + leanDirection;
   return `M ${cx-n},${cervY}
-    C ${cx-n*1.05},${cervY-h*0.38} ${cx-lean-1},${apexY+9} ${cx-lean},${apexY+2}
-    Q ${cx},${apexY-1} ${cx+lean},${apexY+2}
-    C ${cx+lean+1},${apexY+9} ${cx+n*1.05},${cervY-h*0.38} ${cx+n},${cervY} Z`;
+    C ${cx-n*1.05},${cervY-h*0.38} ${apexCx-lean-1},${apexY+9} ${apexCx-lean},${apexY+2}
+    Q ${apexCx},${apexY-1} ${apexCx+lean},${apexY+2}
+    C ${apexCx+lean+1},${apexY+9} ${cx+n*1.05},${cervY-h*0.38} ${cx+n},${cervY} Z`;
 }
 
 // Single root pointing DOWN (lower arch).
-function rootDown(cx: number, cervY: number, apexY: number, nW: number): string {
+function rootDown(cx: number, cervY: number, apexY: number, nW: number, leanDirection = 0): string {
   const n = nW / 2, h = apexY - cervY;
   const lean = nW >= 15 ? 1.2 : nW <= 7 ? 0.8 : 0.4;
+  const apexCx = cx + leanDirection;
   return `M ${cx-n},${cervY}
-    C ${cx-n*1.05},${cervY+h*0.38} ${cx-lean-1},${apexY-9} ${cx-lean},${apexY-2}
-    Q ${cx},${apexY+1} ${cx+lean},${apexY-2}
-    C ${cx+lean+1},${apexY-9} ${cx+n*1.05},${cervY+h*0.38} ${cx+n},${cervY} Z`;
+    C ${cx-n*1.05},${cervY+h*0.38} ${apexCx-lean-1},${apexY-9} ${apexCx-lean},${apexY-2}
+    Q ${apexCx},${apexY+1} ${apexCx+lean},${apexY-2}
+    C ${apexCx+lean+1},${apexY-9} ${cx+n*1.05},${cervY+h*0.38} ${cx+n},${cervY} Z`;
 }
 
 // Two diverging roots pointing UP (upper molars). Each root is closed
 // independently so the furcation remains visible at all fill colours.
-function dualRootsUp(cx: number, cervY: number, apexY: number, nW: number): string {
+function dualRootsUp(cx: number, cervY: number, apexY: number, nW: number, leanDirection = 0): string {
   const n = nW / 2, h = cervY - apexY, s = 4.7, g = 2;
-  const lA = cx - s, rA = cx + s;
+  const lA = cx - s + leanDirection * 0.45, rA = cx + s + leanDirection;
   return (
     `M ${cx-n},${cervY} C ${cx-n},${cervY-h*0.5} ${lA-2},${apexY+9} ${lA},${apexY} Q ${lA+0.5},${apexY-1} ${lA+1},${apexY+1} C ${lA+2.5},${apexY+8} ${cx-g},${cervY-h*0.45} ${cx-g},${cervY} Z ` +
     `M ${cx+g},${cervY} C ${cx+g},${cervY-h*0.45} ${rA-2.5},${apexY+8} ${rA-0.5},${apexY+1} Q ${rA},${apexY-1} ${rA+0.5},${apexY} C ${rA+2},${apexY+9} ${cx+n},${cervY-h*0.5} ${cx+n},${cervY} Z`
@@ -114,17 +150,56 @@ function dualRootsUp(cx: number, cervY: number, apexY: number, nW: number): stri
 }
 
 // Two diverging roots pointing DOWN (lower molars).
-function dualRootsDown(cx: number, cervY: number, apexY: number, nW: number): string {
+function dualRootsDown(cx: number, cervY: number, apexY: number, nW: number, leanDirection = 0): string {
   const n = nW / 2, h = apexY - cervY, s = 4.7, g = 2;
-  const lA = cx - s, rA = cx + s;
+  const lA = cx - s + leanDirection * 0.45, rA = cx + s + leanDirection;
   return (
     `M ${cx-n},${cervY} C ${cx-n},${cervY+h*0.5} ${lA-2},${apexY-9} ${lA},${apexY} Q ${lA+0.5},${apexY+1} ${lA+1},${apexY-1} C ${lA+2.5},${apexY-8} ${cx-g},${cervY+h*0.45} ${cx-g},${cervY} Z ` +
     `M ${cx+g},${cervY} C ${cx+g},${cervY+h*0.45} ${rA-2.5},${apexY-8} ${rA-0.5},${apexY-1} Q ${rA},${apexY+1} ${rA+0.5},${apexY} C ${rA+2},${apexY-9} ${cx+n},${cervY+h*0.5} ${cx+n},${cervY} Z`
   );
 }
 
+function tripleRootsUp(cx: number, cervY: number, apexY: number, nW: number, leanDirection = 0): string {
+  const h = cervY - apexY;
+  const sideOffset = nW * 0.28;
+  const sideWidth = Math.max(4.5, nW * 0.26);
+  const palatalWidth = Math.max(5.5, nW * 0.34);
+  const leftApex = cx - sideOffset + leanDirection * 0.45;
+  const rightApex = cx + sideOffset + leanDirection;
+  const palatalApex = cx + leanDirection * 0.4;
+  const root = (rootCx: number, width: number, apexCx: number) => {
+    const n = width / 2;
+    return `M ${rootCx-n},${cervY} C ${rootCx-n*1.05},${cervY-h*0.5} ${apexCx-n*0.35},${apexY+9} ${apexCx},${apexY} Q ${apexCx+0.5},${apexY-1} ${apexCx+1},${apexY+1} C ${apexCx+2},${apexY+9} ${rootCx+n*1.05},${cervY-h*0.5} ${rootCx+n},${cervY} Z`;
+  };
+  return [
+    root(cx - nW * 0.28, sideWidth, leftApex),
+    root(cx + nW * 0.28, sideWidth, rightApex),
+    root(cx, palatalWidth, palatalApex),
+  ].join(" ");
+}
+
+function tripleRootsDown(cx: number, cervY: number, apexY: number, nW: number, leanDirection = 0): string {
+  const h = apexY - cervY;
+  const sideOffset = nW * 0.28;
+  const sideWidth = Math.max(4.5, nW * 0.26);
+  const palatalWidth = Math.max(5.5, nW * 0.34);
+  const leftApex = cx - sideOffset + leanDirection * 0.45;
+  const rightApex = cx + sideOffset + leanDirection;
+  const palatalApex = cx + leanDirection * 0.4;
+  const root = (rootCx: number, width: number, apexCx: number) => {
+    const n = width / 2;
+    return `M ${rootCx-n},${cervY} C ${rootCx-n*1.05},${cervY+h*0.5} ${apexCx-n*0.35},${apexY-9} ${apexCx},${apexY} Q ${apexCx+0.5},${apexY+1} ${apexCx+1},${apexY-1} C ${apexCx+2},${apexY-9} ${rootCx+n*1.05},${cervY+h*0.5} ${rootCx+n},${cervY} Z`;
+  };
+  return [
+    root(cx - nW * 0.28, sideWidth, leftApex),
+    root(cx + nW * 0.28, sideWidth, rightApex),
+    root(cx, palatalWidth, palatalApex),
+  ].join(" ");
+}
+
 // Crown for UPPER arch: cervical (wider) at top y0, occlusal (narrower) at bottom y0+h
-function crownUp(cx: number, y0: number, { cW, oW, h }: CrownDims, type: ToothType): string {
+function crownUp(cx: number, y0: number, { cW, oW, h }: CrownDims, reference: OdontogramToothReference): string {
+  const type = reference.type;
   const r = 2, y1 = y0 + h, c = cW / 2, o = oW / 2;
   if (type === "canine")
     return `M ${cx-c+r},${y0} L ${cx+c-r},${y0} Q ${cx+c},${y0} ${cx+c},${y0+r} L ${cx+o},${y1-5} L ${cx},${y1} L ${cx-o},${y1-5} L ${cx-c},${y0+r} Q ${cx-c},${y0} ${cx-c+r},${y0} Z`;
@@ -141,7 +216,8 @@ function crownUp(cx: number, y0: number, { cW, oW, h }: CrownDims, type: ToothTy
 }
 
 // Crown for LOWER arch: occlusal (narrower) at top y0, cervical (wider) at bottom y0+h
-function crownDown(cx: number, y0: number, { cW, oW, h }: CrownDims, type: ToothType): string {
+function crownDown(cx: number, y0: number, { cW, oW, h }: CrownDims, reference: OdontogramToothReference): string {
+  const type = reference.type;
   const r = 2, y1 = y0 + h, c = cW / 2, o = oW / 2;
   if (type === "canine")
     return `M ${cx},${y0} L ${cx+o},${y0+5} L ${cx+c},${y1-r} Q ${cx+c},${y1} ${cx+c-r},${y1} L ${cx-c+r},${y1} Q ${cx-c},${y1} ${cx-c},${y1-r} L ${cx-o},${y0+5} Z`;
@@ -163,10 +239,11 @@ function crownAnatomy(
   cx: number,
   y0: number,
   dims: CrownDims,
-  type: ToothType,
+  reference: OdontogramToothReference,
   arch: "upper" | "lower",
   stroke: string,
 ) {
+  const type = reference.type;
   const y1 = y0 + dims.h;
   const direction = arch === "upper" ? 1 : -1;
   const opacity = 0.55;
@@ -181,22 +258,38 @@ function crownAnatomy(
 
   if (type === "molar") {
     const surfaceY = arch === "upper" ? y1 - 3.5 : y0 + 3.5;
+    const cuspScale = Math.min(1, Math.max(0.75, reference.cuspCount / 5));
+    const cuspSpan = dims.oW * 0.36 * cuspScale;
     return (
       <g {...lineProps}>
-        <path d={`M ${cx - dims.oW * 0.34},${surfaceY} Q ${cx - 1},${surfaceY - direction * 2.2} ${cx},${surfaceY + direction * 0.4} Q ${cx + 1},${surfaceY - direction * 2.2} ${cx + dims.oW * 0.34},${surfaceY}`} />
+        <path d={`M ${cx - cuspSpan},${surfaceY} Q ${cx - 1},${surfaceY - direction * 2.2} ${cx},${surfaceY + direction * 0.4} Q ${cx + 1},${surfaceY - direction * 2.2} ${cx + cuspSpan},${surfaceY}`} />
         <path d={`M ${cx - dims.oW * 0.42},${surfaceY - direction * 1.2} Q ${cx - dims.oW * 0.2},${surfaceY + direction * 2.2} ${cx - 1.5},${surfaceY + direction * 1.1}`} />
         <path d={`M ${cx + dims.oW * 0.42},${surfaceY - direction * 1.2} Q ${cx + dims.oW * 0.2},${surfaceY + direction * 2.2} ${cx + 1.5},${surfaceY + direction * 1.1}`} />
-        <path d={`M ${cx},${y0 + dims.h * 0.34} Q ${cx - 2.2},${y0 + dims.h * 0.52} ${cx - 1.1},${surfaceY - direction * 1.5}`} />
+        {reference.hasMolarRidge && (
+          <path d={`M ${cx - dims.oW * 0.24},${surfaceY - direction * 0.4} Q ${cx - 1},${y0 + dims.h * 0.52} ${cx + dims.oW * 0.28},${y0 + dims.h * 0.3}`} />
+        )}
+        {reference.cuspPattern === "lower-molar" && (
+          <>
+            <path d={`M ${cx},${surfaceY - direction * 0.5} Q ${cx - 1.4},${y0 + dims.h * 0.48} ${cx},${y0 + dims.h * 0.26}`} />
+            <path d={`M ${cx - dims.oW * 0.29},${y0 + dims.h * 0.47} Q ${cx},${surfaceY - direction * 0.1} ${cx + dims.oW * 0.29},${y0 + dims.h * 0.47}`} />
+          </>
+        )}
+        {reference.cuspPattern === "variable" && (
+          <path d={`M ${cx - dims.oW * 0.16},${surfaceY - direction * 0.6} Q ${cx + 1.4},${y0 + dims.h * 0.48} ${cx + dims.oW * 0.18},${surfaceY}`} />
+        )}
       </g>
     );
   }
 
   if (type === "premolar") {
     const surfaceY = arch === "upper" ? y1 - 2.5 : y0 + 2.5;
+    const firstPremolar = reference.number % 10 === 4;
+    const buccalCusp = dims.oW * (firstPremolar ? 0.31 : 0.27);
+    const lingualCusp = dims.oW * (firstPremolar ? 0.2 : 0.24);
     return (
       <g {...lineProps}>
-        <path d={`M ${cx},${surfaceY - direction * 1.2} Q ${cx - 1.2},${surfaceY + direction * 1.8} ${cx - dims.oW * 0.28},${surfaceY}`} />
-        <path d={`M ${cx},${surfaceY - direction * 1.2} Q ${cx + 1.2},${surfaceY + direction * 1.8} ${cx + dims.oW * 0.28},${surfaceY}`} />
+        <path d={`M ${cx - buccalCusp},${surfaceY - direction * 0.8} Q ${cx},${surfaceY + direction * 2} ${cx + lingualCusp},${surfaceY - direction * 0.2}`} />
+        <path d={`M ${cx - buccalCusp * 0.72},${surfaceY - direction * 0.1} Q ${cx},${surfaceY + direction * 2.5} ${cx + lingualCusp},${surfaceY - direction * 0.2}`} />
         <path d={`M ${cx},${y0 + dims.h * 0.34} Q ${cx - 1.2},${y0 + dims.h * 0.55} ${cx},${surfaceY - direction * 0.8}`} />
       </g>
     );
@@ -258,6 +351,7 @@ interface ToothProps {
 
 function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, onClick }: ToothProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const reference = getOdontogramToothReference(tooth);
   const cx    = toothCx(tooth);
   const cond  = state?.condition ?? null;
   const meta  = cond ? CONDITION_META[cond] : null;
@@ -267,10 +361,10 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   const hasHistory  = (state?.history?.length ?? 0) > 0;
 
   const type  = getToothType(tooth);
-  const dims  = CROWN_DIMS[type];
-  const rdims = ROOT_DIMS[type];
+  const dims  = getCrownDims(reference);
+  const rdims = getRootDims(reference);
 
-  const SEL   = "#0F9B6E";
+  const SEL   = SVG_TOKENS.primary;
   const cSW   = isSelected ? 1.8 : 1;
   const cCol  = isSelected ? SEL : crownStroke;
    const toothLabel = `Tooth ${tooth}, ${getOdontogramToothReference(tooth).displayName}`;
@@ -281,22 +375,33 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   // cervical margin (root meets crown)
   const cervY   = arch === "upper" ? UPPER_CROWN_Y : LOWER_CROWN_Y + dims.h;
   // root apex
-  const apexY   = arch === "upper" ? UPPER_ROOT_Y  : LOWER_CROWN_Y + dims.h + rdims.h;
+  const apexY   = arch === "upper"
+    ? Math.max(UPPER_ROOT_Y, UPPER_CROWN_Y - rdims.h)
+    : LOWER_CROWN_Y + dims.h + rdims.h;
 
   // ── Paths ──
   const crownPath = arch === "upper"
-    ? crownUp(cx, crownY0, dims, type)
-    : crownDown(cx, crownY0, dims, type);
+    ? crownUp(cx, crownY0, dims, reference)
+    : crownDown(cx, crownY0, dims, reference);
 
-  const rootPath = rdims.dual
-    ? (arch === "upper" ? dualRootsUp(cx, cervY, apexY, rdims.nW) : dualRootsDown(cx, cervY, apexY, rdims.nW))
-    : (arch === "upper" ? rootUp(cx, cervY, apexY, rdims.nW)      : rootDown(cx, cervY, apexY, rdims.nW));
+  const rootLeanDirection = rootLean(reference, type === "molar" ? 1.2 : 0.7);
+  const rootPath = rdims.rootCount === 3
+    ? (arch === "upper"
+      ? tripleRootsUp(cx, cervY, apexY, rdims.nW, rootLeanDirection)
+      : tripleRootsDown(cx, cervY, apexY, rdims.nW, rootLeanDirection))
+    : rdims.rootCount === 2
+      ? (arch === "upper"
+        ? dualRootsUp(cx, cervY, apexY, rdims.nW, rootLeanDirection)
+        : dualRootsDown(cx, cervY, apexY, rdims.nW, rootLeanDirection))
+      : (arch === "upper"
+        ? rootUp(cx, cervY, apexY, rdims.nW, rootLeanDirection)
+        : rootDown(cx, cervY, apexY, rdims.nW, rootLeanDirection));
 
   // ── Elements ──
   const rootEl = (
     <path d={rootPath}
-      fill={isMissing ? "#F3F4F6" : "#EEF5F1"}
-      stroke={isSelected ? SEL : "#C5D9CE"}
+      fill={isMissing ? SVG_TOKENS.muted : SVG_TOKENS.card}
+      stroke={isSelected ? SEL : SVG_TOKENS.border}
       strokeWidth={isSelected ? 1.5 : 0.6}
       strokeDasharray={isMissing ? "3 2" : undefined}
     />
@@ -311,7 +416,7 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
     />
   );
 
-  const anatomyEl = crownAnatomy(cx, crownY0, dims, type, arch, meta?.stroke ?? "#7FAF9D");
+  const anatomyEl = crownAnatomy(cx, crownY0, dims, reference, arch, meta?.stroke ?? SVG_TOKENS.mutedForeground);
 
   // Keep the detailed silhouette easy to select on touch screens. The target
   // covers the root and crown but remains visually transparent.
@@ -335,8 +440,8 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   const mxH = dims.cW / 2;
   const missingX = isMissing && (
     <g>
-      <line x1={cx - mxH + 4} y1={crownY0 + 3} x2={cx + mxH - 4} y2={crownY0 + dims.h - 3} stroke="#9CA3AF" strokeWidth={1.2} />
-      <line x1={cx + mxH - 4} y1={crownY0 + 3} x2={cx - mxH + 4} y2={crownY0 + dims.h - 3} stroke="#9CA3AF" strokeWidth={1.2} />
+      <line x1={cx - mxH + 4} y1={crownY0 + 3} x2={cx + mxH - 4} y2={crownY0 + dims.h - 3} stroke={SVG_TOKENS.mutedForeground} strokeWidth={1.2} />
+      <line x1={cx + mxH - 4} y1={crownY0 + 3} x2={cx - mxH + 4} y2={crownY0 + dims.h - 3} stroke={SVG_TOKENS.mutedForeground} strokeWidth={1.2} />
     </g>
   );
 
@@ -362,32 +467,33 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
 
   // Indicator dots — top-right of crown
   const dotX = cx + dims.cW / 2 - 1;
-  const newDot  = isNewThisVisit && <circle cx={dotX} cy={crownY0 + 1} r={3} fill="#0F9B6E" />;
-  const histDot = !isNewThisVisit && hasHistory && <circle cx={dotX} cy={crownY0 + 1} r={2.5} fill="#6B7280" opacity={0.7} />;
+  const newDot  = isNewThisVisit && <circle cx={dotX} cy={crownY0 + 1} r={3} fill={SVG_TOKENS.primary} />;
+  const histDot = !isNewThisVisit && hasHistory && <circle cx={dotX} cy={crownY0 + 1} r={2.5} fill={SVG_TOKENS.mutedForeground} opacity={0.7} />;
 
   const label = (
     <text x={cx} y={labelY} textAnchor="middle" fontSize={6.5} fontFamily="monospace"
-      fill={isSelected ? "#0F9B6E" : "#6B8F7E"} fontWeight={isSelected ? "700" : "500"}>
+      fill={isSelected ? SVG_TOKENS.primary : SVG_TOKENS.mutedForeground} fontWeight={isSelected ? "700" : "500"}>
       {tooth}
     </text>
   );
 
   return (
     <g
-       onClick={isEditable ? onClick : undefined}
-       onKeyDown={isEditable ? (event) => {
+       onClick={onClick}
+       onKeyDown={(event) => {
          if (event.key === "Enter" || event.key === " ") {
            event.preventDefault();
            onClick();
          }
-       } : undefined}
+       }}
        onFocus={() => setIsFocused(true)}
        onBlur={() => setIsFocused(false)}
-       role={isEditable ? "button" : undefined}
-       tabIndex={isEditable ? 0 : undefined}
-       aria-label={toothLabel}
-       aria-pressed={isEditable ? isSelected : undefined}
-       style={{ cursor: isEditable ? "pointer" : "default" }}
+       role="button"
+       tabIndex={0}
+       aria-label={`${toothLabel}${meta ? `, ${meta.label}` : ", no condition recorded"}${isNewThisVisit ? ", edited this visit" : hasHistory ? ", has visit history" : ""}${isEditable ? ", editable" : ", read-only"}`}
+       aria-pressed={isSelected}
+       data-testid={`button-tooth-${tooth}`}
+       style={{ cursor: "pointer" }}
        opacity={isMissing && !isSelected ? 0.7 : 1}>
       {hitTarget}
       {arch === "upper"
@@ -457,7 +563,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
   });
 
   const handleSave = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = format(new Date(), "yyyy-MM-dd");
     const updatedData: ChartData = { ...serverData };
     for (const [toothNum, newCondition] of Object.entries(localEdits)) {
       const existing = serverData[toothNum] ?? { condition: null, note: "", history: [] };
@@ -493,7 +599,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
   // ── Loading / error states ──────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex items-center justify-center py-16" role="status" aria-busy="true">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         <span className="ml-2 text-sm text-muted-foreground">Loading chart…</span>
       </div>
@@ -502,7 +608,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
 
   if (isError) {
     return (
-      <div className="flex items-center gap-2 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 m-4">
+      <div className="flex items-center gap-2 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 m-4" role="alert">
         <AlertCircle className="h-4 w-4 shrink-0" />
         <span>Could not load chart — patient record may not be linked to this booking.</span>
       </div>
@@ -511,6 +617,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
 
   // ── Chart SVG ───────────────────────────────────────────────────────────────
   const svgViewBox = "0 0 410 185";
+  const chartMinWidth = 410;
 
   const MidlineY    = MIDLINE_Y;
   const MidlineX1   = 6;
@@ -521,23 +628,24 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
     <svg
       viewBox={svgViewBox}
       xmlns="http://www.w3.org/2000/svg"
+      role="group"
+      aria-label="Dental odontogram chart. Select any tooth to inspect its recorded condition."
       style={{
         width: `${zoom}%`,
         height: "auto",
-        minWidth: 310,
+         minWidth: chartMinWidth,
         display: "block",
       }}
-      aria-label="Dental odontogram chart"
     >
       {/* Quadrant labels */}
-      <text x={100} y={5} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q1 · UPPER RIGHT</text>
-      <text x={308} y={5} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q2 · UPPER LEFT</text>
-      <text x={308} y={183} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q3 · LOWER LEFT</text>
-      <text x={100} y={183} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q4 · LOWER RIGHT</text>
+      <text x={100} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q1 · UPPER RIGHT</text>
+      <text x={308} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q2 · UPPER LEFT</text>
+      <text x={308} y={183} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q3 · LOWER LEFT</text>
+      <text x={100} y={183} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q4 · LOWER RIGHT</text>
 
       {/* Midline cross lines */}
-      <line x1={MidlineX1} y1={MidlineY} x2={MidlineX2} y2={MidlineY} stroke="#D1E8DC" strokeWidth={0.8} />
-      <line x1={VertMidX} y1={UPPER_ROOT_Y} x2={VertMidX} y2={172} stroke="#D1E8DC" strokeWidth={0.8} strokeDasharray="2 2" />
+      <line x1={MidlineX1} y1={MidlineY} x2={MidlineX2} y2={MidlineY} stroke={SVG_TOKENS.border} strokeWidth={0.8} />
+      <line x1={VertMidX} y1={UPPER_ROOT_Y} x2={VertMidX} y2={172} stroke={SVG_TOKENS.border} strokeWidth={0.8} strokeDasharray="2 2" />
 
       {/* Upper right teeth */}
       {UPPER_RIGHT.map(t => (
@@ -615,9 +723,11 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
           )}
         </div>
         <button
+          type="button"
           onClick={() => setSelectedTooth(null)}
-          className="h-5 w-5 rounded flex items-center justify-center text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors shrink-0"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-all shrink-0"
           aria-label="Close tooth detail"
+          data-testid={`button-close-tooth-detail-${selectedTooth}`}
         >
           <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
             <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -636,12 +746,14 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
                 return (
                   <button
                     key={k}
+                    type="button"
                     onClick={() => handleConditionSelect(isActive ? null : k)}
                     data-testid={`button-condition-${k}-${selectedTooth}`}
-                    className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border text-center transition-all active:scale-95 ${
+                    aria-pressed={isActive}
+                    className={`flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-lg border p-1.5 text-center transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                       isActive
                         ? "border-2 shadow-sm"
-                        : "border-border/50 hover:border-border bg-white"
+                        : "border-border/50 bg-card hover:border-border"
                     }`}
                     style={isActive ? { borderColor: v.stroke, background: v.fill + "60" } : {}}
                   >
@@ -654,9 +766,10 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
             </div>
             {selectedCondition && (
               <button
+                type="button"
                 onClick={() => handleConditionSelect(null)}
                 data-testid={`button-clear-condition-${selectedTooth}`}
-                className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-rose-300 text-rose-500 text-xs font-medium hover:bg-rose-50 transition-colors"
+                className="mt-2 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-rose-300 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 transition-all"
               >
                 <Trash2 className="h-3 w-3" />
                 Clear condition (mark healthy)
@@ -676,12 +789,22 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
           </div>
         )}
 
+        {selectedToothState?.note && (
+          <div className="rounded-lg border border-border/40 bg-muted/20 px-2.5 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Current note</p>
+            <p className="mt-1 text-xs text-foreground">{selectedToothState.note}</p>
+          </div>
+        )}
+
         {/* History */}
         {selectedHistory.length > 0 && (
           <div>
             <button
+              type="button"
               onClick={() => setShowHistory(v => !v)}
-              className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors"
+              className="flex min-h-[44px] items-center gap-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-all"
+              aria-expanded={showHistory}
+              data-testid={`button-toggle-tooth-history-${selectedTooth}`}
             >
               <History className="h-3 w-3" />
               Visit History ({selectedHistory.length})
@@ -695,8 +818,13 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
                       <span className="text-[10px] font-bold font-mono text-primary">{entry.bookingRef}</span>
                       <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                         <Clock className="h-2.5 w-2.5" />
-                        {(() => {
-                          try { return format(new Date(entry.date), "dd MMM yyyy"); } catch { return entry.date; }
+                          {(() => {
+                           try {
+                             const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(entry.date) ? parseISO(entry.date) : new Date(entry.date);
+                             return format(dateValue, "dd MMM yyyy");
+                           } catch {
+                             return entry.date;
+                           }
                         })()}
                       </span>
                       {entry.condition && (
@@ -772,7 +900,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
         <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-background/60 p-0.5" aria-label="Chart zoom controls">
           <button
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
+             className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
             onClick={() => setZoom(value => Math.max(80, value - 10))}
             disabled={zoom <= 80}
             aria-label="Zoom out"
@@ -785,7 +913,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
           </span>
           <button
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
+             className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
             onClick={() => setZoom(value => Math.min(160, value + 10))}
             disabled={zoom >= 160}
             aria-label="Zoom in"
@@ -795,7 +923,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
           </button>
           <button
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
+             className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-40"
             onClick={() => setZoom(100)}
             disabled={zoom === 100}
             aria-label="Reset chart zoom"

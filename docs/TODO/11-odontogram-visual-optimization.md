@@ -1,6 +1,6 @@
 # Odontogram Visual Optimization — Implementation Plan
 
-**Status:** Steps 1–2 implemented — remaining application work pending
+**Status:** Implementation complete through Step 14 — authenticated clinical review pending
 **Audience:** Clinic owners, doctors, product reviewers, and developers
 **Primary area:** Doctor Admin → Charts → Odontogram
 **Reference material:** `attached_assets/Pasted--Based-on-your-requirements-I-ll-create-optimized-tooth_1788024916171.txt`
@@ -47,10 +47,8 @@ Before implementation, the following facts must be treated as the baseline:
    as mesial, distal, buccal, lingual, or occlusal findings.
 8. The uploaded proposal contains repeated/generated sections and sample code
    that must be treated as design reference, not copied directly.
-9. The current Build Check is blocked by malformed JSX in
-   `client/src/components/BillingHistoryPanel.tsx`. This is unrelated to the
-   odontogram, but it must be fixed before a production build can validate
-   further UI work.
+9. The current production build and Build Check pass. Existing non-blocking
+   environment warnings remain outside this visual-only change.
 
 ## 3. Decisions that protect existing patient records
 
@@ -509,16 +507,32 @@ The work is ready for approval only when all of the following are true:
 
 ## 7. Current validation status
 
-Steps 1 and 2 are implemented. This document is not a claim that the full
-odontogram optimization is complete.
+The implementation portion of the odontogram optimization is complete. The
+remaining approval item is an authenticated doctor/clinical review of the
+illustration and full account-backed workflow.
 
+- Step 0, baseline and boundary protection: **complete**
 - Step 1, FDI numbering and screen layout: **complete**
 - Step 2, centralized tooth reference guide: **complete**
-- Odontogram implementation beyond Steps 1–2: **not started**
-- Database migration: **not required for the planned visual work**
+- Step 3, visual language: **complete**
+- Step 4, crown shape by tooth family: **complete**
+- Step 5, root geometry and mirroring: **complete**
+- Step 6, position-specific guide-driven variation: **complete**
+- Step 7, condition/history/save preservation: **complete**
+- Step 8, read-only tooth inspection: **complete**
+- Step 9, touch and keyboard use: **complete**
+- Step 10, responsive chart layout: **implemented; authenticated viewport review pending**
+- Step 11, light/dark semantic SVG neutrals: **complete; authenticated theme review pending**
+- Step 12, server/data boundary: **unchanged and verified by diff review**
+- Step 13, focused workflow behavior: **implemented; signed-in workflow review pending**
+- Step 14, quality gates: **complete**
+- Step 15, clinical-safety/product review: **pending doctor or clinic reviewer**
+- Database migration: **not required**
 - New dependency: **not added**
 - Start application workflow: **running**
 - TypeScript check: **passing**
-- Production Build Check: **passing with existing warnings**
+- Production build: **passing with existing non-blocking warnings**
+- Reference-table audit: **32 unique FDI teeth, 8 per quadrant**
+- Duplicate-export, URL, localhost, and debug-code scans: **passing**
 - `git diff --check`: **passing**
-- Authenticated doctor visual review: **pending**
+- Authenticated doctor visual/clinical review: **pending**
