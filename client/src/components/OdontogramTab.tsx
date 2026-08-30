@@ -83,10 +83,12 @@ const BASE_CROWN_DIMS: Record<ToothType, CrownDims> = {
 // nW = neck width at cervical margin; h = relative root length.
 interface RootDims { nW: number; h: number; rootCount: 1 | 2 | 3 }
 const BASE_ROOT_DIMS: Record<ToothType, Omit<RootDims, "rootCount">> = {
-  incisor:  { nW:  7, h: 31 },
-  canine:   { nW:  7, h: 31 },
-  premolar: { nW:  8, h: 31 },
-  molar:    { nW: 18, h: 31 },
+  // Roots remain longer than crowns, but the previous shared 31-unit height
+  // made posterior roots dominate the illustration.
+  incisor:  { nW:  7, h: 22 },
+  canine:   { nW:  7, h: 25 },
+  premolar: { nW:  8, h: 21 },
+  molar:    { nW: 18, h: 17 },
 };
 
 function getCrownDims(reference: OdontogramToothReference): CrownDims {
@@ -318,7 +320,7 @@ const STEP         = 24;
 const MIDLINE_EXTRA = 8;
 const START_CX     = 19;   // cx of first tooth slot
 
-const UPPER_ROOT_Y  = 6;   // tip of upper roots
+const UPPER_ROOT_Y  = 10;  // safe top boundary for upper root tips
 const UPPER_CROWN_Y = 49;  // cervical margin for upper arch (root meets crown)
 const UPPER_LABEL_Y = 82;  // FDI label for upper teeth
 const MIDLINE_Y     = 91;  // horizontal midline between arches
@@ -336,6 +338,10 @@ function toothCx(tooth: number): number {
   if (idx !== -1) return START_CX + 8 * STEP + MIDLINE_EXTRA + idx * STEP;
   return 0;
 }
+
+// Keep the divider in the space between the two central incisors. Deriving it
+// from their slot centers keeps it aligned if the chart spacing changes.
+const VERTICAL_MIDLINE_X = (toothCx(11) + toothCx(21)) / 2;
 
 // ── Tooth SVG Element ────────────────────────────────────────────────────────
 
@@ -355,7 +361,6 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   const cx    = toothCx(tooth);
   const cond  = state?.condition ?? null;
   const meta  = cond ? CONDITION_META[cond] : null;
-  const crownFill   = meta ? meta.fill   : HEALTHY_STYLE.fill;
   const crownStroke = meta ? meta.stroke : HEALTHY_STYLE.stroke;
   const isMissing   = cond === "missing";
   const hasHistory  = (state?.history?.length ?? 0) > 0;
@@ -400,19 +405,21 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   // ── Elements ──
   const rootEl = (
     <path d={rootPath}
-      fill={isMissing ? SVG_TOKENS.muted : SVG_TOKENS.card}
+      fill={isMissing ? "url(#odontogram-root-missing)" : "url(#odontogram-root-healthy)"}
       stroke={isSelected ? SEL : SVG_TOKENS.border}
       strokeWidth={isSelected ? 1.5 : 0.6}
       strokeDasharray={isMissing ? "3 2" : undefined}
+      filter="url(#odontogram-root-shadow)"
     />
   );
 
   const crownEl = (
     <path d={crownPath}
-      fill={crownFill}
+      fill={meta ? `url(#odontogram-crown-${cond})` : "url(#odontogram-crown-healthy)"}
       stroke={cCol}
       strokeWidth={cSW}
       strokeDasharray={isMissing ? "3 2" : undefined}
+      filter="url(#odontogram-tooth-shadow)"
     />
   );
 
@@ -622,7 +629,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
   const MidlineY    = MIDLINE_Y;
   const MidlineX1   = 6;
   const MidlineX2   = 404;
-  const VertMidX    = START_CX + 8 * STEP + MIDLINE_EXTRA / 2 - 1; // ~207
+  const VertMidX    = VERTICAL_MIDLINE_X;
 
   const chartSvg = (
     <svg
@@ -637,6 +644,35 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
         display: "block",
       }}
     >
+      <defs>
+        <linearGradient id="odontogram-crown-healthy" x1="0" y1="0" x2="0.9" y2="1">
+          <stop offset="0%" stopColor={SVG_TOKENS.card} stopOpacity={0.98} />
+          <stop offset="58%" stopColor={SVG_TOKENS.card} stopOpacity={0.9} />
+          <stop offset="100%" stopColor={SVG_TOKENS.card} stopOpacity={0.72} />
+        </linearGradient>
+        {(Object.keys(CONDITION_META) as ToothCondition[]).map((condition) => (
+          <linearGradient key={condition} id={`odontogram-crown-${condition}`} x1="0" y1="0" x2="0.9" y2="1">
+            <stop offset="0%" stopColor={CONDITION_META[condition].fill} stopOpacity={0.98} />
+            <stop offset="58%" stopColor={CONDITION_META[condition].fill} stopOpacity={0.9} />
+            <stop offset="100%" stopColor={CONDITION_META[condition].fill} stopOpacity={0.76} />
+          </linearGradient>
+        ))}
+        <linearGradient id="odontogram-root-healthy" x1="0" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor={SVG_TOKENS.card} stopOpacity={0.86} />
+          <stop offset="100%" stopColor={SVG_TOKENS.card} stopOpacity={0.54} />
+        </linearGradient>
+        <linearGradient id="odontogram-root-missing" x1="0" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor={SVG_TOKENS.muted} stopOpacity={0.72} />
+          <stop offset="100%" stopColor={SVG_TOKENS.muted} stopOpacity={0.38} />
+        </linearGradient>
+        <filter id="odontogram-tooth-shadow" x="-35%" y="-35%" width="170%" height="180%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="0.8" stdDeviation="0.75" floodColor="#0f172a" floodOpacity="0.16" />
+        </filter>
+        <filter id="odontogram-root-shadow" x="-35%" y="-15%" width="170%" height="140%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="0.45" stdDeviation="0.55" floodColor="#0f172a" floodOpacity="0.08" />
+        </filter>
+      </defs>
+
       {/* Quadrant labels */}
       <text x={100} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q1 · UPPER RIGHT</text>
       <text x={308} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q2 · UPPER LEFT</text>
