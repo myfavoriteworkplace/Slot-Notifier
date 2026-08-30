@@ -314,11 +314,10 @@ function crownAnatomy(
   );
 }
 
-// ── Fixed Y anchors ───────────────────────────────────────────────────────────
+// ── Chart geometry ────────────────────────────────────────────────────────────
 
-const STEP         = 24;
-const MIDLINE_EXTRA = 8;
-const START_CX     = 19;   // cx of first tooth slot
+const TOOTH_GAP        = 4;  // consistent visible clearance between tooth cells
+const MIDLINE_GAP      = 10; // intentional separation between right and left arches
 
 const UPPER_ROOT_Y  = 10;  // safe top boundary for upper root tips
 const UPPER_CROWN_Y = 49;  // cervical margin for upper arch (root meets crown)
@@ -327,21 +326,69 @@ const MIDLINE_Y     = 91;  // horizontal midline between arches
 const LOWER_LABEL_Y = 99;  // FDI label for lower teeth
 const LOWER_CROWN_Y = 104; // occlusal surface of lower teeth (top of lower crown)
 
-function toothCx(tooth: number): number {
-  let idx = (UPPER_RIGHT as readonly number[]).indexOf(tooth);
-  if (idx !== -1) return START_CX + idx * STEP;
-  idx = (UPPER_LEFT as readonly number[]).indexOf(tooth);
-  if (idx !== -1) return START_CX + 8 * STEP + MIDLINE_EXTRA + idx * STEP;
-  idx = (LOWER_RIGHT as readonly number[]).indexOf(tooth);
-  if (idx !== -1) return START_CX + idx * STEP;
-  idx = (LOWER_LEFT as readonly number[]).indexOf(tooth);
-  if (idx !== -1) return START_CX + 8 * STEP + MIDLINE_EXTRA + idx * STEP;
-  return 0;
+function getToothFootprint(tooth: number): number {
+  const reference = getOdontogramToothReference(tooth);
+  const crown = getCrownDims(reference);
+  const root = getRootDims(reference);
+  return Math.max(crown.cW, root.nW);
 }
 
-// Keep the divider in the space between the two central incisors. Deriving it
-// from their slot centers keeps it aligned if the chart spacing changes.
-const VERTICAL_MIDLINE_X = (toothCx(11) + toothCx(21)) / 2;
+// One shared column width for all four quadrants keeps upper/lower teeth
+// aligned while allowing the naturally wider posterior teeth enough room.
+const TOOTH_SLOT_WIDTHS = Array.from({ length: 8 }, (_, index) =>
+  Math.max(
+    getToothFootprint(UPPER_RIGHT[index]),
+    getToothFootprint(UPPER_LEFT[index]),
+    getToothFootprint(LOWER_RIGHT[index]),
+    getToothFootprint(LOWER_LEFT[index]),
+  ),
+);
+
+function buildToothCenters(slotWidths: readonly number[], startX: number): number[] {
+  let cursor = startX;
+  return slotWidths.map((width, index) => {
+    const center = cursor + width / 2;
+    cursor += width;
+    if (index < slotWidths.length - 1) cursor += TOOTH_GAP;
+    return center;
+  });
+}
+
+const QUADRANT_WIDTH = TOOTH_SLOT_WIDTHS.reduce((total, width) => total + width, 0)
+  + TOOTH_GAP * (TOOTH_SLOT_WIDTHS.length - 1);
+const CHART_VIEWBOX_WIDTH = Math.max(410, 2 * QUADRANT_WIDTH + MIDLINE_GAP + 20);
+const CHART_SIDE_PAD = (CHART_VIEWBOX_WIDTH - (2 * QUADRANT_WIDTH + MIDLINE_GAP)) / 2;
+const RIGHT_TOOTH_CENTERS = buildToothCenters(TOOTH_SLOT_WIDTHS, CHART_SIDE_PAD);
+const LEFT_TOOTH_CENTERS = buildToothCenters(
+  TOOTH_SLOT_WIDTHS,
+  CHART_SIDE_PAD + QUADRANT_WIDTH + MIDLINE_GAP,
+);
+
+const TOOTH_CENTER_X = Object.fromEntries([
+  ...UPPER_RIGHT.map((tooth, index) => [tooth, RIGHT_TOOTH_CENTERS[index]]),
+  ...LOWER_RIGHT.map((tooth, index) => [tooth, RIGHT_TOOTH_CENTERS[index]]),
+  ...UPPER_LEFT.map((tooth, index) => [tooth, LEFT_TOOTH_CENTERS[index]]),
+  ...LOWER_LEFT.map((tooth, index) => [tooth, LEFT_TOOTH_CENTERS[index]]),
+]) as Record<number, number>;
+
+const TOOTH_CELL_WIDTH = Object.fromEntries([
+  ...UPPER_RIGHT.map((tooth, index) => [tooth, TOOTH_SLOT_WIDTHS[index]]),
+  ...LOWER_RIGHT.map((tooth, index) => [tooth, TOOTH_SLOT_WIDTHS[index]]),
+  ...UPPER_LEFT.map((tooth, index) => [tooth, TOOTH_SLOT_WIDTHS[index]]),
+  ...LOWER_LEFT.map((tooth, index) => [tooth, TOOTH_SLOT_WIDTHS[index]]),
+]) as Record<number, number>;
+
+function toothCx(tooth: number): number {
+  return TOOTH_CENTER_X[tooth] ?? 0;
+}
+
+// Keep the divider centered in the intentional gap between the two central
+// cells rather than deriving it from the variable tooth centers.
+const VERTICAL_MIDLINE_X =
+  CHART_SIDE_PAD + QUADRANT_WIDTH + MIDLINE_GAP / 2;
+const RIGHT_QUADRANT_CENTER_X = CHART_SIDE_PAD + QUADRANT_WIDTH / 2;
+const LEFT_QUADRANT_CENTER_X =
+  CHART_SIDE_PAD + QUADRANT_WIDTH + MIDLINE_GAP + QUADRANT_WIDTH / 2;
 
 // ── Tooth SVG Element ────────────────────────────────────────────────────────
 
@@ -368,6 +415,7 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   const type  = getToothType(tooth);
   const dims  = getCrownDims(reference);
   const rdims = getRootDims(reference);
+  const cellWidth = TOOTH_CELL_WIDTH[tooth] ?? Math.max(dims.cW, rdims.nW);
 
   const SEL   = SVG_TOKENS.primary;
   const cSW   = isSelected ? 1.8 : 1;
@@ -429,9 +477,9 @@ function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, 
   // covers the root and crown but remains visually transparent.
   const hitTarget = (
     <rect
-      x={cx - Math.max(dims.cW, rdims.nW) / 2 - 4}
+      x={cx - cellWidth / 2}
       y={arch === "upper" ? UPPER_ROOT_Y - 2 : crownY0 - 3}
-      width={Math.max(dims.cW, rdims.nW) + 8}
+      width={cellWidth}
       height={arch === "upper"
         ? crownY0 + dims.h - UPPER_ROOT_Y + 6
         : apexY - crownY0 + 6}
@@ -623,12 +671,12 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
   }
 
   // ── Chart SVG ───────────────────────────────────────────────────────────────
-  const svgViewBox = "0 0 410 185";
-  const chartMinWidth = 410;
+  const svgViewBox = `0 0 ${CHART_VIEWBOX_WIDTH} 185`;
+  const chartMinWidth = CHART_VIEWBOX_WIDTH;
 
   const MidlineY    = MIDLINE_Y;
   const MidlineX1   = 6;
-  const MidlineX2   = 404;
+  const MidlineX2   = CHART_VIEWBOX_WIDTH - 6;
   const VertMidX    = VERTICAL_MIDLINE_X;
 
   const chartSvg = (
@@ -674,10 +722,10 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
       </defs>
 
       {/* Quadrant labels */}
-      <text x={100} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q1 · UPPER RIGHT</text>
-      <text x={308} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q2 · UPPER LEFT</text>
-      <text x={308} y={183} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q3 · LOWER LEFT</text>
-      <text x={100} y={183} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q4 · LOWER RIGHT</text>
+      <text x={RIGHT_QUADRANT_CENTER_X} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q1 · UPPER RIGHT</text>
+      <text x={LEFT_QUADRANT_CENTER_X} y={5} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q2 · UPPER LEFT</text>
+      <text x={LEFT_QUADRANT_CENTER_X} y={183} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q3 · LOWER LEFT</text>
+      <text x={RIGHT_QUADRANT_CENTER_X} y={183} textAnchor="middle" fontSize={6} fill={SVG_TOKENS.mutedForeground} fontFamily="monospace" fontWeight="600">Q4 · LOWER RIGHT</text>
 
       {/* Midline cross lines */}
       <line x1={MidlineX1} y1={MidlineY} x2={MidlineX2} y2={MidlineY} stroke={SVG_TOKENS.border} strokeWidth={0.8} />
