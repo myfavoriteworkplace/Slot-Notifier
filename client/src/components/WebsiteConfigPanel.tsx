@@ -16,7 +16,7 @@ import {
   Plus, Trash2, ExternalLink, Save, Eye,
   BarChart2, Sparkles, Instagram, Facebook, Youtube,
   Users, Layout, Lock, X, RefreshCw, HelpCircle, ListChecks,
-  ShieldCheck,
+  ShieldCheck, Info,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
@@ -1238,6 +1238,46 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <span className="hidden sm:inline">Save Website</span>
                 <span className="sm:hidden">Save</span>
               </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Plain-language setup guide ── */}
+      <div
+        className="rounded-2xl border border-amber-200/80 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20 overflow-hidden"
+        data-testid="website-setup-guide"
+      >
+        <div className="flex">
+          <div className="w-1.5 shrink-0 bg-amber-400 dark:bg-amber-500" />
+          <div className="flex-1 px-4 py-3.5 sm:px-5">
+            <div className="flex items-start gap-2.5">
+              <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                  How to set up your clinic website
+                </h3>
+                <ol className="mt-2.5 grid gap-x-6 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    ["Choose a website style", "Start with a theme that matches the look you want for your clinic."],
+                    ["Complete each section", "Add your introduction, services, treatments, facilities, FAQs, photos, and contact details."],
+                    ["Follow the status dots", "Green means ready. Amber means more information is needed. Grey means optional or not added yet."],
+                    ["Preview your website", "Preview shows the last saved version, so save your changes first to review your latest edits."],
+                    ["Save when you are finished", "Click Save Website to publish your updates to the page patients see before booking."],
+                    ["Some details are automatic", "Your clinic name, address, phone number, and other profile details can come from your clinic profile."],
+                  ].map(([title, description], index) => (
+                    <li key={title} className="flex items-start gap-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/75">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-900/70 dark:text-amber-100">
+                        {index + 1}
+                      </span>
+                      <span>
+                        <strong className="font-semibold text-amber-950 dark:text-amber-100">{title}:</strong>{" "}
+                        {description}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
           </div>
         </div>
