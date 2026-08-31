@@ -21,6 +21,7 @@ export type ClinicWebsiteConfig = {
   heroForegroundImageUrl?: string;
   gallery?: { url: string; caption: string }[];
   services?: { name: string; description: string; imageUrl?: string }[];
+  trustPoints?: { title: string; description: string; icon?: string; category?: string }[];
   specialties?: { title: string; description: string; icon?: string }[];
   treatmentGroups?: { name: string; description?: string; items: string[]; imageUrl?: string }[];
   testimonials?: { quote: string; patientName: string; rating: number }[];

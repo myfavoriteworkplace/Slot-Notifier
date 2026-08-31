@@ -2843,6 +2843,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       description: z.string().max(1200),
       imageUrl: z.string().max(1200).optional(),
     })).max(20).optional(),
+    trustPoints: z.array(z.object({
+      title: z.string().max(180),
+      description: z.string().max(600),
+      icon: z.string().max(60).optional(),
+      category: z.string().max(80).optional(),
+    })).max(6).optional(),
     specialties: z.array(z.object({
       title: z.string().max(180),
       description: z.string().max(1200),

@@ -505,4 +505,89 @@ Location details and credentials should be added only after deciding whether the
 
 ### Approval boundary
 
-No application changes should be made from this addendum until the clinic owner approves a specific phase or selects specific improvements. This keeps the current working Red Clinical implementation safe and avoids adding editor fields that the clinic may not need.
+The clinic owner has now approved the most needed Phase 1 improvements. The changes listed in the completion notes below have been implemented. The Phase 2 and Phase 3 ideas remain recommendations only and should not be added until they are separately approved.
+
+## Phase 1 implementation notes — September 1, 2026
+
+The most useful improvements from the reference website have now been added to the Red Clinical theme:
+
+### 1. Trust and facilities information
+
+Clinic owners can now add up to six specific reasons patients should choose their clinic. Each point has:
+
+- A title.
+- A short explanation.
+- An optional category.
+
+Available categories include:
+
+- Accessibility.
+- Emergency care.
+- Technology.
+- Facilities.
+- Payment.
+- Specialist care.
+
+This lets a clinic explain real benefits such as wheelchair access, parking, emergency appointments, modern equipment, or EMI options without making the system claim those benefits for every clinic. The trust section only shows the extra category and description when the clinic owner enters them.
+
+### 2. Complete dentist team display
+
+The Red Clinical public page now includes a full dentist team section when the clinic has more than one doctor. The cards are built from the existing Manage Doctors records and can show:
+
+- Doctor photo.
+- Doctor name.
+- Specialization.
+- Degree.
+- Years of experience.
+- A booking action.
+
+The page still includes the featured doctor biography section. The team section does not create a second doctor database or require clinic staff to enter doctor details again.
+
+### 3. Mobile contact action bar
+
+On small screens, the Red Clinical page now keeps the most important actions available at the bottom:
+
+- Call.
+- WhatsApp.
+- Book.
+
+The Call and WhatsApp actions are only active when a usable clinic phone number exists. The desktop floating WhatsApp button remains available, while the mobile bar prevents the floating button from covering page content.
+
+The page also reserves bottom space on mobile so the fixed action bar does not hide the end of the footer or other important content.
+
+### 4. Easier FAQ discovery
+
+FAQ has been added to the desktop and mobile navigation. The FAQ section now has a stable anchor, so patients can reach it directly from the navigation.
+
+The existing expandable behavior remains keyboard and pointer accessible.
+
+### 5. Safe data handling
+
+The shared website configuration now supports the optional `trustPoints` list. The server validates:
+
+- Maximum of six trust points.
+- Maximum title, description, category, and icon lengths.
+- Existing website configuration fields remain supported.
+
+No database migration was needed because the content continues to use the existing JSON website configuration field.
+
+### Verification after Phase 1
+
+- `npm run check` passed.
+- `npm run build` passed.
+- Existing Classic, Warm, and Modern theme code paths were not changed as part of these improvements.
+- Red Clinical continues to use the existing booking links, phone links, WhatsApp behavior, map, service carousel, doctor records, and image upload system.
+- Changes were checked for whitespace and patch errors.
+
+### Still future work
+
+The following recommendations from the reference review were intentionally not added in this round:
+
+- Credentials and technology badge management.
+- Detailed location, landmarks, parking, and transport fields.
+- Local-area SEO introduction fields.
+- Richer footer link groups.
+- Structured multiple-branch management.
+- Blog or educational content.
+
+These should only be added when there is a real clinic need and the content rules are agreed. In particular, the application should never show an unverified certification, emergency-care promise, parking claim, EMI claim, or “best clinic” claim.

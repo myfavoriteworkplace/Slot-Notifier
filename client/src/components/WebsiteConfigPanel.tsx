@@ -16,6 +16,7 @@ import {
   Plus, Trash2, ExternalLink, Save, Eye, Smartphone,
   BarChart2, Sparkles, Instagram, Facebook, Youtube,
   Users, Layout, Lock, X, RefreshCw, HelpCircle, ListChecks,
+  ShieldCheck,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
@@ -74,7 +75,7 @@ const FEATURE_EMOJI: Record<string, string> = {
 
 type Section =
   | "theme" | "hero" | "about" | "features" | "stats" | "services"
-  | "specialties" | "treatments" | "gallery" | "testimonials"
+  | "trust" | "specialties" | "treatments" | "gallery" | "testimonials"
   | "faq" | "hours" | "social" | "social-posts";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
@@ -111,6 +112,9 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   );
   const [services, setServices] = useState<{ name: string; description: string; imageUrl?: string }[]>(
     existing.services?.length ? existing.services : [{ name: "", description: "" }]
+  );
+  const [trustPoints, setTrustPoints] = useState<{ title: string; description: string; icon?: string; category?: string }[]>(
+    existing.trustPoints ?? []
   );
   const [specialties, setSpecialties] = useState<{ title: string; description: string; icon?: string }[]>(
     existing.specialties ?? []
@@ -159,6 +163,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     setFeaturesImageUrl(e.featuresImageUrl ?? "");
     setStats(e.stats?.length ? e.stats : DEFAULT_STATS_PREFILL);
     setServices(e.services?.length ? e.services : [{ name: "", description: "" }]);
+    setTrustPoints(e.trustPoints ?? []);
     setSpecialties(e.specialties ?? []);
     setTreatmentGroups(e.treatmentGroups ?? []);
     setGallery(e.gallery?.length ? e.gallery : []);
@@ -202,6 +207,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       featuresImageUrl: featuresImageUrl || undefined,
       stats: stats.filter(s => s.value && s.label),
       services: services.filter(s => s.name),
+      trustPoints: trustPoints.filter(point => point.title && point.description),
       specialties: specialties.filter(s => s.title && s.description),
       treatmentGroups: treatmentGroups
         .map(group => ({ ...group, items: group.items.filter(Boolean) }))
@@ -225,6 +231,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const liveTestimonials = testimonials.filter(t => t.quote && t.patientName);
   const liveStats = stats.filter(s => s.value && s.label);
   const liveFeatures = features.filter(f => f.title);
+  const liveTrustPoints = trustPoints.filter(point => point.title && point.description);
   const liveSpecialties = specialties.filter(s => s.title && s.description);
   const liveTreatmentGroups = treatmentGroups.filter(g => g.name && g.items.some(Boolean));
   const liveFaq = faq.filter(item => item.question && item.answer);
@@ -272,6 +279,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       id: "services", icon: Layers, label: "Services",
       status: liveServices.length > 0 ? `${liveServices.length} service${liveServices.length !== 1 ? "s" : ""} listed` : "No services yet",
       dot: liveServices.length > 0 ? "green" : "gray", editable: true, accent: "bg-teal-500",
+    },
+    {
+      id: "trust", icon: ShieldCheck, label: "Trust & Facilities",
+      status: liveTrustPoints.length > 0
+        ? `${liveTrustPoints.length} point${liveTrustPoints.length !== 1 ? "s" : ""} · showing`
+        : "Add patient benefits",
+      dot: liveTrustPoints.length > 0 ? "green" : "gray",
+      editable: true, accent: "bg-red-500",
     },
     {
       id: "specialties", icon: Sparkles, label: "Specialities",
@@ -518,6 +533,36 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                     <div className="p-2">
                       <p className="text-xs font-bold text-[#0A3D2E] dark:text-foreground leading-tight line-clamp-2">{s.name}</p>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "trust":
+        if (liveTrustPoints.length === 0) {
+          return (
+            <div className="h-full flex flex-col">
+              <SectionHeader icon={ShieldCheck} title="Trust & Facilities" status="Hidden — no points added" statusCls="text-muted-foreground" />
+              <div className="flex-1 flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
+                <ShieldCheck className="h-7 w-7 text-red-400" />
+                <p className="text-xs font-semibold text-foreground">Trust section is hidden</p>
+                <p className="text-xs text-muted-foreground">Add real clinic benefits such as accessibility, parking, emergency care, or technology.</p>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={ShieldCheck} title="Trust & Facilities" status={`${liveTrustPoints.length} points · live`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {liveTrustPoints.slice(0, 6).map((point, i) => (
+                  <div key={i} className="p-2 rounded-lg border border-red-200/70 dark:border-red-500/20 bg-red-50/40 dark:bg-red-950/10">
+                    <ShieldCheck className="h-4 w-4 text-red-600 mb-1" />
+                    <p className="text-xs font-bold leading-tight line-clamp-2">{point.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{point.description}</p>
                   </div>
                 ))}
               </div>
@@ -905,6 +950,41 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setServices(prev => [...prev, { name: "", description: "" }])} data-testid="button-add-service">
               <Plus className="h-3.5 w-3.5" />Add Service
             </Button>
+          </div>
+        );
+
+      case "trust":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 6 specific, truthful reasons patients can trust your clinic. Examples include wheelchair access, emergency appointments, parking, technology, specialist care, or EMI options.</p>
+            {trustPoints.map((point, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Trust point {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setTrustPoints(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-trust-point-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid sm:grid-cols-[1fr_180px] gap-3">
+                  <Input value={point.title} onChange={e => setTrustPoints(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="e.g. Wheelchair-friendly ground floor" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-trust-point-title-${i}`} />
+                  <select value={point.category ?? ""} onChange={e => setTrustPoints(prev => prev.map((x, j) => j === i ? { ...x, category: e.target.value || undefined } : x))} className="rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[44px]" data-testid={`select-trust-point-category-${i}`}>
+                    <option value="">Category (optional)</option>
+                    <option value="Accessibility">Accessibility</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Facilities">Facilities</option>
+                    <option value="Payment">Payment</option>
+                    <option value="Specialist care">Specialist care</option>
+                  </select>
+                </div>
+                <Textarea value={point.description} onChange={e => setTrustPoints(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Explain how this helps patients" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-trust-point-description-${i}`} />
+              </div>
+            ))}
+            {trustPoints.length < 6 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setTrustPoints(prev => [...prev, { title: "", description: "" }])} data-testid="button-add-trust-point">
+                <Plus className="h-3.5 w-3.5" />Add Trust Point
+              </Button>
+            )}
           </div>
         );
 

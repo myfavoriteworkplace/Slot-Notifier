@@ -1749,6 +1749,37 @@ function RedDoctorProfile({ clinic, titleColor }: { clinic: ThemeClinic; titleCo
   );
 }
 
+function RedTeamSection({ clinic, bookingHref }: { clinic: ThemeClinic; bookingHref: string }) {
+  const doctors = clinic.doctors?.filter(doctor => doctor.name) ?? [];
+  if (doctors.length <= 1) return null;
+
+  return (
+    <section id="red-doctors" className="px-6 py-20 bg-[#FAFAFA]">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">Our team</p>
+          <h2 className="text-4xl sm:text-5xl font-black text-[#171717]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>Meet your dental specialists</h2>
+          <p className="text-gray-600 mt-3 max-w-2xl mx-auto">A skilled, compassionate team working together to make your care clear and comfortable.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {doctors.map((doctor, index) => (
+            <article key={`${doctor.name}-${index}`} className="bg-white rounded-2xl border border-gray-200 p-6 text-center shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all">
+              <div className="h-28 w-28 mx-auto rounded-full overflow-hidden bg-[#130506] mb-5">
+                {doctor.imageUrl ? <img src={doctor.imageUrl} alt={doctor.name} className="w-full h-full object-cover object-top" /> : <DoctorAvatarPlaceholder />}
+              </div>
+              <h3 className="text-lg font-bold text-[#171717]">{doctor.name}</h3>
+              {doctor.specialization && <p className="text-[#D9090D] text-xs font-bold uppercase tracking-wider mt-2">{doctor.specialization}</p>}
+              {doctor.degree && <p className="text-gray-500 text-xs mt-2">{doctor.degree}</p>}
+              {doctor.yearsOfExperience && <p className="text-gray-500 text-xs mt-1">{doctor.yearsOfExperience}+ years of experience</p>}
+              <Link href={bookingHref}><button className="mt-5 text-[#D9090D] text-sm font-bold hover:underline">Book with our team</button></Link>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function RedSpecialtiesSection({ specialties }: { specialties: { title: string; description: string; icon?: string }[] }) {
   return (
     <section id="red-specialties" className="px-6 py-20 bg-[#FAFAFA]">
@@ -1867,7 +1898,7 @@ function RedFaqSection({ faq }: { faq: { question: string; answer: string }[] })
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   if (!faq.length) return null;
   return (
-    <section className="px-6 py-20 bg-[#FAFAFA]">
+    <section id="red-faq" className="px-6 py-20 bg-[#FAFAFA]">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-10">
           <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">FAQ</p>
@@ -1906,10 +1937,24 @@ function RedWhatsApp({ phone }: { phone?: string | null }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with the clinic on WhatsApp"
-      className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-xl shadow-black/20 hover:scale-105 transition-transform"
+      className="hidden md:flex fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-[#25D366] text-white items-center justify-center shadow-xl shadow-black/20 hover:scale-105 transition-transform"
     >
       <MessageCircle className="h-7 w-7" />
     </a>
+  );
+}
+
+function RedMobileActionBar({ phone, bookingHref }: { phone?: string | null; bookingHref: string }) {
+  const digits = phone?.replace(/\D/g, "");
+  const whatsappHref = digits && digits.length >= 8 ? `https://wa.me/${digits}` : null;
+  return (
+    <div className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-black/95 backdrop-blur border-t border-white/10 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+      <div className="grid grid-cols-3 gap-2 max-w-lg mx-auto">
+        {phone ? <a href={`tel:${phone}`} className="min-h-11 rounded-lg bg-white/10 text-white flex items-center justify-center gap-1.5 text-xs font-bold" aria-label={`Call ${phone}`}><Phone className="h-4 w-4" />Call</a> : <span className="min-h-11 rounded-lg bg-white/5 text-white/40 flex items-center justify-center text-xs font-bold">Call unavailable</span>}
+        {whatsappHref ? <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="min-h-11 rounded-lg bg-[#25D366] text-white flex items-center justify-center gap-1.5 text-xs font-bold" aria-label="Chat with the clinic on WhatsApp"><MessageCircle className="h-4 w-4" />WhatsApp</a> : <span className="min-h-11 rounded-lg bg-white/5 text-white/40 flex items-center justify-center text-xs font-bold">WhatsApp unavailable</span>}
+        <Link href={bookingHref}><span className="min-h-11 rounded-lg bg-[#E11D24] text-white flex items-center justify-center gap-1.5 text-xs font-bold">Book</span></Link>
+      </div>
+    </div>
   );
 }
 
@@ -1918,6 +1963,12 @@ export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
   const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
   const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
   const stats = cfg.stats?.length ? cfg.stats : DEFAULT_STATS;
+  const trustPoints: NonNullable<ClinicWebsiteConfig["trustPoints"]> = cfg.trustPoints?.filter(point => point.title && point.description).length
+    ? cfg.trustPoints!.filter(point => point.title && point.description)
+    : features.slice(0, 4).map((feature, index) => ({
+      title: feature.title,
+      description: index === 0 ? "Care built around your comfort." : "Thoughtful treatment, every visit.",
+    }));
   const specialties = cfg.specialties?.filter(item => item.title && item.description).length ? cfg.specialties!.filter(item => item.title && item.description) : RED_SPECIALTIES;
   const treatmentGroups = cfg.treatmentGroups?.filter(group => group.name && group.items.some(Boolean)).length ? cfg.treatmentGroups!.filter(group => group.name && group.items.some(Boolean)) : RED_TREATMENT_GROUPS;
   const faq = cfg.faq?.filter(item => item.question && item.answer).length ? cfg.faq!.filter(item => item.question && item.answer) : RED_FAQ;
@@ -1929,7 +1980,7 @@ export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
   const foregroundImage = cfg.heroForegroundImageUrl || clinic.doctors?.[0]?.imageUrl;
 
   return (
-    <div className="min-h-screen bg-white text-[#171717]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-white text-[#171717] pb-16 md:pb-0" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div className="bg-[#D9090D] text-white text-xs">
         <div className="max-w-7xl mx-auto px-5 py-2 flex flex-wrap items-center justify-between gap-x-5 gap-y-1">
           <span className="font-semibold">{cfg.announcementText || "Advanced care. Gentle touch. Confident smiles."}</span>
@@ -1953,8 +2004,10 @@ export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
           </a>
           <div className="hidden md:flex items-center gap-7 text-sm text-white/75">
             <a href="#red-about" className="hover:text-white transition-colors">About Us</a>
+            <a href="#red-doctors" className="hover:text-white transition-colors">Our Team</a>
             <a href="#red-specialties" className="hover:text-white transition-colors">Specialities</a>
             <a href="#red-treatments" className="hover:text-white transition-colors">Treatments</a>
+            <a href="#red-faq" className="hover:text-white transition-colors">FAQ</a>
             <a href="#red-contact" className="hover:text-white transition-colors">Contact Us</a>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -1970,8 +2023,10 @@ export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
           <div className="md:hidden border-t border-white/10 px-5 py-2">
             {[
               ["About Us", "#red-about"],
+              ["Our Team", "#red-doctors"],
               ["Specialities", "#red-specialties"],
               ["Treatments", "#red-treatments"],
+              ["FAQ", "#red-faq"],
               ["Contact Us", "#red-contact"],
             ].map(([label, href]) => (
               <a key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="block py-3 text-sm text-white/80 border-b border-white/10 last:border-0">{label}</a>
@@ -2011,11 +2066,11 @@ export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
       </section>
 
       <section className="bg-white py-8 px-5 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {features.slice(0, 4).map((feature, index) => (
-            <div key={`${feature.title}-${index}`} className="flex items-start gap-3 p-4">
+        <div className={`max-w-7xl mx-auto grid grid-cols-2 ${trustPoints.length > 4 ? "lg:grid-cols-6" : "lg:grid-cols-4"} gap-3`}>
+          {trustPoints.slice(0, 6).map((point, index) => (
+            <div key={`${point.title}-${index}`} className="flex items-start gap-3 p-4">
               <div className="h-10 w-10 rounded-full bg-red-50 text-[#D9090D] flex items-center justify-center shrink-0"><CheckCircle2 className="h-5 w-5" /></div>
-              <div><p className="font-bold text-sm leading-snug">{feature.title}</p><p className="text-xs text-gray-500 mt-1">{index === 0 ? "Care built around your comfort." : "Thoughtful treatment, every visit."}</p></div>
+              <div><p className="font-bold text-sm leading-snug">{point.title}</p><p className="text-xs text-gray-500 mt-1">{point.description}</p>{point.category && <span className="text-[10px] text-[#D9090D] font-bold uppercase tracking-wider">{point.category}</span>}</div>
             </div>
           ))}
         </div>
@@ -2041,6 +2096,7 @@ export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
       </section>
 
       <RedDoctorProfile clinic={clinic} titleColor="text-[#171717]" />
+      <RedTeamSection clinic={clinic} bookingHref={bookingHref} />
 
       <section className="px-5 py-14 bg-[#130506] text-white">
         <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-8">
@@ -2121,6 +2177,7 @@ export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
 
       <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#130506]" accentSuffix="-red" />
       <RedWhatsApp phone={clinic.phone} />
+      <RedMobileActionBar phone={clinic.phone} bookingHref={bookingHref} />
     </div>
   );
 }
