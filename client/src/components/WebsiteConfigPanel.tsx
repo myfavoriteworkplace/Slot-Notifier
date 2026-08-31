@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import {
   Globe, Palette, Image, Layers, Star, Clock, Share2,
-  Plus, Trash2, ExternalLink, Save, Eye, Smartphone,
+  Plus, Trash2, ExternalLink, Save, Eye,
   BarChart2, Sparkles, Instagram, Facebook, Youtube,
   Users, Layout, Lock, X, RefreshCw, HelpCircle, ListChecks,
   ShieldCheck,
@@ -1218,26 +1218,15 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {previewUrl && (
-                <>
-                  {/* Mobile: open preview in-app sheet */}
-                  <Button
-                    variant="outline"
-                    className="gap-2 rounded-xl min-h-[44px] sm:hidden"
-                    onClick={() => setPreviewSheetOpen(true)}
-                    data-testid="button-preview-mobile"
-                  >
-                    <Smartphone className="h-3.5 w-3.5" />
-                    Preview
-                  </Button>
-                  {/* Desktop: open in new tab */}
-                  <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
-                    <Button variant="outline" className="gap-2 rounded-xl min-h-[44px]">
-                      <Eye className="h-3.5 w-3.5" />
-                      Preview
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </a>
-                </>
+                <Button
+                  variant="outline"
+                  className="gap-2 rounded-xl min-h-[44px]"
+                  onClick={() => setPreviewSheetOpen(true)}
+                  data-testid="button-preview-website"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                </Button>
               )}
               <Button
                 className="gap-2 rounded-xl min-h-[44px]"
@@ -1414,18 +1403,19 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         </div>
       </div>
 
-      {/* ── Mobile live preview sheet ── */}
+      {/* ── Full-screen saved website preview ── */}
       {previewUrl && (
         <Sheet open={previewSheetOpen} onOpenChange={setPreviewSheetOpen}>
           <SheetContent
             side="bottom"
-            className="h-[92dvh] p-0 flex flex-col rounded-t-2xl overflow-hidden"
+            className="!inset-0 !h-[100dvh] !w-screen !max-w-none !rounded-none !border-0 !p-0 flex flex-col overflow-hidden [&>button]:hidden"
           >
             {/* Header bar */}
-            <SheetHeader className="shrink-0 flex flex-row items-center justify-between px-4 py-3 border-b border-border/50 bg-background space-y-0">
-              <SheetTitle className="text-sm font-semibold flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-primary" />
-                Live Clinic Page
+            <SheetHeader className="shrink-0 flex flex-row items-center justify-between gap-3 px-4 py-3 border-b border-border/50 bg-background space-y-0">
+              <SheetTitle className="text-sm font-semibold flex items-center gap-2 min-w-0">
+                <Eye className="h-4 w-4 text-primary shrink-0" />
+                <span className="truncate">Clinic Website Preview</span>
+                <span className="hidden sm:inline text-[11px] font-normal text-muted-foreground shrink-0">Saved version</span>
               </SheetTitle>
               <div className="flex items-center gap-2">
                 <Button
@@ -1460,15 +1450,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               </div>
             </SheetHeader>
 
-            {/* URL pill */}
-            <div className="shrink-0 px-4 py-2 bg-muted/30 border-b border-border/40">
-              <p className="text-[11px] text-muted-foreground font-mono truncate text-center">
-                {window.location.origin}{previewUrl}
-              </p>
-            </div>
-
             {/* iframe */}
-            <div className="flex-1 overflow-hidden bg-background">
+            <div className="min-h-0 flex-1 overflow-hidden bg-background">
               <iframe
                 key={iframeKey}
                 src={previewUrl}
