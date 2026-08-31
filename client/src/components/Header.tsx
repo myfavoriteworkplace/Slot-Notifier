@@ -77,12 +77,15 @@ function getNotifMeta(message: string): {
 }
 
 /* ── NotificationBellPanel ────────────────────────────────────────────────── */
-interface NotificationBellProps {
+export interface NotificationBellProps {
   notifications: Notification[];
   unreadCount: number;
   onMarkRead: (id: number) => void;
   onMarkAllRead: () => void;
   onNavigate?: (n: Notification) => void;
+  isLoading?: boolean;
+  error?: unknown;
+  onRetry?: () => void;
 }
 
 /* Groups notifications that share the same bookingId (same patient/visit) within a
@@ -120,13 +123,16 @@ function groupByBooking(items: Notification[]): DisplayItem[] {
 }
 
 /* ── Shared panel content (used by both mobile drawer + desktop popover) ── */
-function NotificationPanelContent({
+export function NotificationPanelContent({
   notifications,
   unreadCount,
   onMarkRead,
   onMarkAllRead,
   onNavigate,
   onClose,
+  isLoading = false,
+  error,
+  onRetry,
 }: NotificationBellProps & { onClose: () => void }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
 
@@ -190,7 +196,31 @@ function NotificationPanelContent({
 
       {/* ── Body ── */}
       <ScrollArea className="flex-1 min-h-0 overflow-auto">
-        {notifications.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+            <RefreshCw className="h-7 w-7 animate-spin text-primary/60" />
+            <p className="text-sm font-medium">Loading notifications…</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 px-6 text-center">
+            <div className="h-12 w-12 rounded-2xl bg-rose-500/10 flex items-center justify-center">
+              <Bell className="h-6 w-6 text-rose-500/70" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Couldn’t load notifications</p>
+              <p className="text-xs text-muted-foreground mt-1">Please try again.</p>
+            </div>
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
+                data-testid="button-retry-notifications"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Retry
+              </button>
+            )}
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
               <Bell className="h-8 w-8 text-muted-foreground/25" />
@@ -293,9 +323,12 @@ function NotificationPanelContent({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className={`text-[13px] leading-snug truncate ${
+                            <p
+                              title={latest.message}
+                              className={`text-[13px] leading-snug line-clamp-2 ${
                               groupUnread ? "font-semibold text-foreground" : "font-normal text-muted-foreground"
-                            }`}>
+                              }`}
+                            >
                               {latest.message}
                             </p>
                             <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
@@ -446,7 +479,12 @@ export function Header() {
   const { clinic, isAuthenticated: isClinicAuthenticated, logout: clinicLogout } = useClinicAuth();
   const { doctor, isAuthenticated: isDoctorAuthenticated, logout: doctorLogout } = useDoctorAuth();
   const [location, setLocation] = useLocation();
-  const { data: notifications = [] } = useNotifications();
+  const {
+    data: notifications = [],
+    isLoading: notificationsLoading,
+    error: notificationsError,
+    refetch: refetchNotifications,
+  } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
   const { mutate: markAllRead } = useMarkAllNotificationsRead();
   useNotificationSocket(clinic?.id ?? undefined, doctor?.id ?? undefined);
@@ -592,6 +630,9 @@ export function Header() {
     onMarkRead:    (id: number) => markRead(id),
     onMarkAllRead: ()           => markAllRead(),
     onNavigate:    handleNotifNavigate,
+    isLoading: notificationsLoading,
+    error: notificationsError,
+    onRetry: () => { void refetchNotifications(); },
   };
 
   /* ── Auth block ── */

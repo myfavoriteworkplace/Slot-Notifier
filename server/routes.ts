@@ -2645,8 +2645,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    const userId = sess.doctorId
+      ? doctorUid(sess.doctorId)
+      : sess.clinicId
+        ? clinicUid(sess.clinicId)
+        : String(sess.adminEmail || "superuser");
     try {
-      const notification = await storage.markNotificationRead(Number(req.params.id));
+      const notification = await storage.markNotificationRead(Number(req.params.id), userId);
       if (!notification) {
         return res.status(404).json({ message: "Notification not found" });
       }

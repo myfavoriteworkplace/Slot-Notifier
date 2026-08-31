@@ -96,8 +96,8 @@ async createNotification(insertNotification: InsertNotification): Promise<Notifi
 // Fetch all notifications for a user, newest first
 async getNotifications(userId: string): Promise<Notification[]>
 
-// Mark a single notification as read
-async markNotificationRead(id: number): Promise<Notification | undefined>
+// Mark a single notification as read for its authenticated owner
+async markNotificationRead(id: number, userId: string): Promise<Notification | undefined>
 ```
 
 The `IStorage` interface in `server/storage.ts` declares all three. Always call these via the `storage` instance — never query the `notifications` table directly from a route.
@@ -263,15 +263,19 @@ export function useNotifications() {
 
 ### `useMarkNotificationRead()`
 
-Mutation that sends `PATCH /api/notifications/:id/read` and then invalidates the notification query cache.
+Mutation that sends `PATCH /api/notifications/:id/read` and then invalidates the
+notification query cache. The server scopes the update to the authenticated
+notification owner; an ID belonging to another clinic or doctor is not updated.
 
-### `useNotificationSocket(clinicId?: number)`
+### `useNotificationSocket(clinicId?: number, doctorId?: number)`
 
-Opens a WebSocket connection to `/ws/notifications`, authenticates with the clinic's ID, and handles incoming messages.
+Opens a WebSocket connection to `/ws/notifications`, authenticates with the
+current clinic or doctor identity, and handles incoming messages.
 
 **Full behaviour:**
 1. Opens `ws[s]://<host>/ws/notifications` (protocol auto-detected from `window.location`)
-2. On `open`: sends `{ type: "auth", clinicId }`
+2. On `open`: sends `{ type: "auth", clinicId }` for clinic sessions or
+   `{ type: "auth", doctorId }` for doctor sessions
 3. On `message` of type `new_booking`:
    - Calls `queryClient.invalidateQueries({ queryKey: [api.notifications.list.path] })` — instant bell badge update
    - Shows a `toast()` — "New Booking Request: [message]" — even if the dropdown is closed
@@ -279,8 +283,8 @@ Opens a WebSocket connection to `/ws/notifications`, authenticates with the clin
 5. On component unmount: closes the socket and cancels any pending reconnect timer
 
 ```typescript
-export function useNotificationSocket(clinicId?: number) {
-  // Does nothing if clinicId is undefined — safe to call for all user types
+export function useNotificationSocket(clinicId?: number, doctorId?: number) {
+  // Does nothing when neither authenticated identity is available
 }
 ```
 
@@ -298,19 +302,30 @@ export function Header() {
 
   const { data: notifications = [] } = useNotifications();     // polling + cache
   const { mutate: markRead } = useMarkNotificationRead();
-  useNotificationSocket(clinic?.id ?? undefined);              // WebSocket (only active when clinicId is set)
+  useNotificationSocket(clinic?.id ?? undefined, doctor?.id ?? undefined); // WebSocket for clinic or doctor
   // ...
 }
 ```
 
-`useNotificationSocket` is called with `undefined` when the user is not a clinic admin (e.g. doctor or super admin). In that case the hook returns immediately without opening any socket.
+`useNotificationSocket` returns immediately for unauthenticated or superuser
+sessions. Clinic and doctor admin sessions each authenticate their own socket
+subscription.
 
-### The `NotificationBell` component
+### The notification bell and shared feed
 
-Defined as a constant inside `Header` (not a separate file). It renders:
+The bell trigger and its surrounding popover/drawer live in `Header.tsx`.
+`NotificationPanelContent` is the shared feed renderer used by:
+
+- The desktop notification popover
+- The shared mobile drawer
+- The clinic dashboard mobile notification sheet
+- The doctor dashboard mobile notification sheet
+
+It renders:
 - A bell icon with a red badge showing the count of unread notifications
-- A dropdown list of all notifications (most recent first)
-- Each item has a "mark as read" button
+- Grouped booking notifications with a two-line latest-message preview
+- Date buckets, unread styling, booking deep links, and individual read controls
+- Loading and retry feedback when the notification query is unavailable
 - Rendered in three places: the Superuser block, the Clinic Admin block, and the Doctor block
 
 ---
