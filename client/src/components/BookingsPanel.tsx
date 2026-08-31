@@ -14,6 +14,8 @@ import PatientDocumentsTab from "@/components/PatientDocumentsTab";
 import {
   SlotTiming, BookingWithSlot,
   OVERVIEW_VISIT_TYPE_LABELS, OVERVIEW_CLINICAL_STATUS,
+  PATIENT_VISIT_CLASSIFICATION_LABELS,
+  ADMIN_VISIT_CLASSIFICATION_LABELS,
   DEFAULT_SECTION_CAPACITY, CHIEF_COMPLAINTS,
   getRecommendedSpecialists,
 } from "@/lib/clinic-constants";
@@ -2227,8 +2229,12 @@ export default function BookingsPanel({
                             || rawOverviewDesc.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim()
                             || null;
                           const ovBookedBy: string | null = (booking as any).bookedBy ?? null;
+                          const ovPatientVisitClassification = (booking as any).patientVisitClassification ?? null;
                           const ovFallbackVisitKey = !ovVisitType
                             ? (ovBookedBy === 'patient' ? 'booked_by_patient' : ovBookedBy === 'admin' ? 'admin_booked' : null)
+                            : null;
+                          const ovPatientBookingLabel = (ovBookedBy === 'patient' || ovBookedBy === 'admin') && ovPatientVisitClassification
+                            ? (ovBookedBy === 'patient' ? PATIENT_VISIT_CLASSIFICATION_LABELS : ADMIN_VISIT_CLASSIFICATION_LABELS)[ovPatientVisitClassification]
                             : null;
                           const ovTreatmentCategory = (booking as any).treatmentCategory
                             || rawOverviewDesc.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim()
@@ -2413,7 +2419,11 @@ export default function BookingsPanel({
                                     <Repeat2 className="h-3 w-3 text-muted-foreground" />
                                   </div>
                                   <span className="text-muted-foreground shrink-0">Visit Type:</span>
-                                  {ovVisitType ? (
+                                  {ovPatientBookingLabel ? (
+                                      <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
+                                      {ovPatientBookingLabel}
+                                    </span>
+                                  ) : ovVisitType ? (
                                       <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                                       {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
                                     </span>

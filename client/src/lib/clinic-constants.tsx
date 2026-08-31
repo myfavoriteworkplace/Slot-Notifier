@@ -45,6 +45,16 @@ export const OVERVIEW_VISIT_TYPE_LABELS: Record<string, string> = {
   admin_booked: "Admin booked",
 };
 
+export const PATIENT_VISIT_CLASSIFICATION_LABELS: Record<string, string> = {
+  first_visit:      "Booked by Patient (First Visit)",
+  existing_patient: "Booked by Patient (Existing Patient)",
+};
+
+export const ADMIN_VISIT_CLASSIFICATION_LABELS: Record<string, string> = {
+  first_visit:      "Booked by Clinic Admin (First Visit)",
+  existing_patient: "Booked by Clinic Admin (Existing Patient)",
+};
+
 export const OVERVIEW_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {
   first_visit:        { label: "First Visit",        cls: "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800" },
   revisit:            { label: "Revisit",            cls: "bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-800" },

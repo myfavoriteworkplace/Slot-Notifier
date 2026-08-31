@@ -113,6 +113,14 @@ const VISIT_TYPE_LABELS: Record<string, string> = {
   booked_by_patient: "Booked by Patient",
   admin_booked: "Admin booked",
 };
+const PATIENT_VISIT_CLASSIFICATION_LABELS: Record<string, string> = {
+  first_visit: "Booked by Patient (First Visit)",
+  existing_patient: "Booked by Patient (Existing Patient)",
+};
+const ADMIN_VISIT_CLASSIFICATION_LABELS: Record<string, string> = {
+  first_visit: "Booked by Clinic Admin (First Visit)",
+  existing_patient: "Booked by Clinic Admin (Existing Patient)",
+};
 
 const CLINICAL_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   first_visit:          { label: "First Visit",          cls: "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800" },
@@ -509,13 +517,17 @@ export function AppointmentCard({
   const parsedVisitType = rawDesc.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim() ?? null;
   const visitType = booking.visitType || parsedVisitType;
   const bookedByOrigin: string | null = (booking as any).bookedBy ?? null;
+  const patientVisitClassification = (booking as any).patientVisitClassification ?? null;
   const fallbackVisitKey = !visitType
     ? (bookedByOrigin === 'patient' ? 'booked_by_patient' : bookedByOrigin === 'admin' ? 'admin_booked' : null)
     : null;
-  const visitTypeLabel = visitType
+  const patientBookingLabel = (bookedByOrigin === 'patient' || bookedByOrigin === 'admin') && patientVisitClassification
+    ? (bookedByOrigin === 'patient' ? PATIENT_VISIT_CLASSIFICATION_LABELS : ADMIN_VISIT_CLASSIFICATION_LABELS)[patientVisitClassification]
+    : null;
+  const visitTypeLabel = patientBookingLabel ?? (visitType
     ? (VISIT_TYPE_LABELS[visitType] ?? visitType)
     : fallbackVisitKey ? (VISIT_TYPE_LABELS[fallbackVisitKey] ?? null)
-    : null;
+    : null);
 
   // treatmentCategory: prefer dedicated column, fall back to description parse
   const parsedCategory = rawDesc.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim() ?? null;

@@ -11,10 +11,12 @@ import { registerOgRouteProduction } from "./og-inject";
 import { createServer } from "http";
 import cors from "cors";
 import { pool } from "./db";
+import { resolveRuntimeEnvironment } from "./environment";
 
 const PostgresStore = connectPg(session);
 const app = express();
 const httpServer = createServer(app);
+const runtimeEnvironment = resolveRuntimeEnvironment();
 
 // Trust proxy for deployments behind load balancers (Render, etc.)
 app.set("trust proxy", 1);
@@ -26,7 +28,7 @@ app.use(compression());
 // Determine frontend URL(s)
 // FRONTEND_URL can be a comma-separated list of allowed origins
 const FRONTEND_URL_RAW =
-  process.env.NODE_ENV === "production"
+  runtimeEnvironment.isStrict
     ? process.env.FRONTEND_URL || "https://book-my-slot-client.onrender.com"
     : "http://localhost:5173";
 
@@ -45,7 +47,7 @@ const FRONTEND_ORIGINS = [
 
 // ------------------ SESSION ------------------
 const sessionSecret = (() => {
-  if (process.env.NODE_ENV === "production") {
+  if (runtimeEnvironment.isStrict) {
     if (!process.env.SESSION_SECRET) {
       throw new Error("SESSION_SECRET must be set in production");
     }
@@ -53,7 +55,9 @@ const sessionSecret = (() => {
   }
   return process.env.SESSION_SECRET || "book-my-slot-secret";
 })();
-console.log("[Environment]", process.env.NODE_ENV);
+console.log(
+  `[Environment] APP_ENV=${runtimeEnvironment.appEnv} NODE_ENV=${runtimeEnvironment.nodeEnv}`,
+);
 
 const ALLOWED_FRONTEND_ORIGINS = new Set(FRONTEND_ORIGINS);
 const REPLIT_ORIGIN_REGEX = /^https:\/\/[a-z0-9.-]+\.replit\.dev$/;
@@ -72,9 +76,9 @@ app.use(
     unset: "destroy",
     proxy: true,              // trust X-Forwarded-* headers (important on Render)
     cookie: {
-      secure: process.env.NODE_ENV === "production", // HTTPS only in prod
+      secure: runtimeEnvironment.isStrict, // HTTPS only in compiled deployments
       httpOnly: true,                               // JS cannot access cookie
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: runtimeEnvironment.isStrict ? "none" : "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000,            // 30 days
     },
   })
@@ -367,9 +371,12 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='booked_by') THEN
             ALTER TABLE bookings ADD COLUMN booked_by VARCHAR(20);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_visit_classification') THEN
+            ALTER TABLE bookings ADD COLUMN patient_visit_classification VARCHAR(30);
+          END IF;
         END $$;
       `);
-      log("bookings visit_type/treatment_category/booked_by columns verified", "system");
+      log("bookings visit_type/treatment_category/booked_by/patient_visit_classification columns verified", "system");
 
       // Check if doctor_invites table exists
       const checkTable = await db.execute(
@@ -1170,7 +1177,9 @@ By signing below, I confirm that I have read and understood the above and volunt
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  console.log(`[SYSTEM] Starting server on port ${port} with NODE_ENV=${process.env.NODE_ENV}`);
+  console.log(
+    `[SYSTEM] Starting server on port ${port} with APP_ENV=${runtimeEnvironment.appEnv} NODE_ENV=${runtimeEnvironment.nodeEnv}`,
+  );
 
   // Register API routes
   await registerRoutes(httpServer, app);
@@ -1188,7 +1197,7 @@ By signing below, I confirm that I have read and understood the above and volunt
   });
 
   // Serve frontend static files in production
-  if (process.env.NODE_ENV === "production") {
+  if (runtimeEnvironment.nodeEnv === "production") {
     console.log("[SYSTEM] Production mode: Serving static files");
     // Must be registered before serveStatic so the route fires before the catch-all
     registerOgRouteProduction(app);
@@ -1214,7 +1223,7 @@ By signing below, I confirm that I have read and understood the above and volunt
 
     res.status(status).json({
       message,
-      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+      details: runtimeEnvironment.nodeEnv === "development" ? err.stack : undefined,
     });
   });
 

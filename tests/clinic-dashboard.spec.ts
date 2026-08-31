@@ -31,4 +31,35 @@ test.describe('Clinic dashboard runtime smoke', () => {
 
     expect(errors).toEqual([]);
   });
+
+  test('requires confirmation before sending a reminder digest', async ({ page }) => {
+    await page.route('**/api/auth/clinic/reminders/digest-preview', async route => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          recipients: [{
+            email: 'doctor@example.com',
+            reminders: { nextThreeDays: [], comingWeek: [], totalCount: 0 },
+          }],
+        }),
+      });
+    });
+    await page.route('**/api/auth/clinic/reminders/digest/send', async route => {
+      throw new Error('Manual send must not happen when confirmation is cancelled');
+    });
+
+    await page.goto('/clinic-login');
+    await page.fill('[data-testid="input-clinic-username"]', CLINIC_USERNAME);
+    await page.fill('[data-testid="input-clinic-password"]', CLINIC_PASSWORD);
+    await page.click('[data-testid="button-clinic-login"]');
+    await page.waitForURL('/clinic-dashboard', { timeout: 60000 });
+
+    await page.click('[data-testid="nav-settings"]');
+    await page.click('[data-testid="button-digest-preview"]');
+    await expect(page.getByText('doctor@example.com')).toBeVisible();
+    await page.click('[data-testid="button-digest-send"]');
+    await expect(page.getByText('Send reminder digest now?')).toBeVisible();
+    await page.click('[data-testid="button-digest-cancel"]');
+    await expect(page.getByText('Send reminder digest now?')).not.toBeVisible();
+  });
 });

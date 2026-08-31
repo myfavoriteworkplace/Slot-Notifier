@@ -151,33 +151,82 @@ Write code that a senior developer could read, maintain, and trust in production
 
 ---
 
-## Developer Environments
+## Development Platforms and Deployment Environments
 
-> **Replit is AI development only.** Test on local machine. Deploy on Render. Code must work in all three.
+Local development is platform-independent. Developers may use Replit,
+Codespaces, a local machine, or another supported third-party environment.
+These are all local developer workflows, using the `development` application
+label with the technical runtime selected by `NODE_ENV`.
 
-| Environment | Purpose | How it runs |
-|---|---|---|
-| **Replit** | AI-assisted development + preview | `npm run dev` — Express + Vite, same origin, port 5000 |
-| **Local** | Developer testing before deploy | Vite (`localhost:5173`) + Express (`localhost:PORT`) as two separate processes |
-| **Render** | Production | Frontend (Static Site) + Backend (Web Service) on different domains |
+Production and Development deployments are separate deployed environments on
+Render. They use the same compiled build and start process, but different
+`APP_ENV` labels.
+
+| Environment | Hosting platform | Purpose | Environment values | How it runs |
+|---|---|---|---|---|
+| **Local development** | Replit | AI-assisted development + preview | `APP_ENV=development`, `NODE_ENV=development` | `npm run dev` — Express + Vite, same origin, port 5000 |
+| **Local development** | Codespaces, local machine, or another supported host | Developer testing and iteration | `APP_ENV=development`, `NODE_ENV=development` | `npm run dev`, using the host's own port/preview configuration |
+| **Development deployment** | Render frontend Static Site + backend Web Service | Deployed development, acceptance, and integration testing | `APP_ENV=development`, `NODE_ENV=production` | Same compiled build and `npm start` flow as Production |
+| **Production deployment** | Render frontend Static Site + backend Web Service | Live production application | `APP_ENV=production`, `NODE_ENV=production` | Compiled build and `npm start` |
+
+The important distinction is:
+
+```text
+APP_ENV identifies which application environment is running.
+NODE_ENV identifies the technical runtime/build mode.
+The hosting platform identifies where that environment runs.
+```
+
+Therefore:
+
+- Replit, Codespaces, local machines, and other local hosts all use
+  `APP_ENV=development` with `NODE_ENV=development` for interactive
+  development.
+- Render Development uses `APP_ENV=development` but still uses
+  `NODE_ENV=production`.
+- Render Production uses `APP_ENV=production` and `NODE_ENV=production`.
+- `APP_ENV=development` must not activate the local Vite development server.
+- Replit-specific variables and plugins remain platform-specific and must not
+  be used as alternative `APP_ENV` values.
 
 ### Key rules for agents
 - Never use bare `/api/...` fetch paths — they break across origins. Use `apiRequest()` from `@/lib/queryClient`.
 - Never hardcode `localhost`, `127.0.0.1`, or port numbers. Use env vars.
 - Frontend env vars must be prefixed `VITE_` — non-prefixed vars are stripped at Vite build time.
-- New backend env vars must be called out explicitly — developer adds them to Render manually.
+- New backend env vars must be called out explicitly for Render and for each
+  supported local configuration method.
 - New frontend domains must be added to the CORS allowlist in `server/index.ts` or via the `FRONTEND_URL` env var.
-- Auth is dual-mode — Replit uses OIDC, Local + Render use `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Both must always work.
+- Auth is platform/configuration-specific — Replit uses OIDC, while local and
+  Render use `ADMIN_EMAIL`/`ADMIN_PASSWORD`. `APP_ENV=development` does not
+  erase those platform-specific authentication requirements.
 - Never add `process.env.REPL_ID` checks or Replit-specific middleware — use `NODE_ENV` instead.
 - Session cookies: `sameSite: "none"` + `secure: true` + `trust proxy: 1` — required for cross-origin Render. Do not change these.
 - Node pinned to **20.20.0** via `.node-version`. Do not change — Node 22+ breaks `npm install` on Render.
 
 ### Render Build Commands
 
-| Service | Build Command | Start Command | Publish Dir |
-|---|---|---|---|
-| **Backend** | `npm install --include=dev && npm run db:push && npm run build` | `npm run start` | N/A |
-| **Frontend** | `npm install && npm run build` | N/A | `dist/public` |
+Both Render deployment environments use the same service commands. The
+environment label changes, but the compiled build and deployment process does
+not:
+
+| Render environment | Service | Build Command | Start Command | Publish Dir |
+|---|---|---|---|---|
+| **Production** | Backend | `npm install --include=dev && npm run db:push && npm run build` | `npm run start` | N/A |
+| **Development** | Backend | `npm install --include=dev && npm run db:push && npm run build` | `npm run start` | N/A |
+| **Production** | Frontend | `npm install && npm run build` | N/A | `dist/public` |
+| **Development** | Frontend | `npm install && npm run build` | N/A | `dist/public` |
+
+For the backend services:
+
+```text
+Render Production:  APP_ENV=production  NODE_ENV=production
+Render Development: APP_ENV=development NODE_ENV=production
+```
+
+For the frontend services, `NODE_ENV` is represented by the production Vite
+build mode. Only add `VITE_APP_ENV` if the browser needs to display the
+Production or Development label; do not use it as a replacement for Vite's
+`DEV`/`PROD` flags.
 
 `npm run build` runs `script/build.ts`: (1) Vite → `dist/public`, (2) esbuild → `dist/index.cjs`. `sourcemap: false` prevents OOM. `manualChunks` splits react-core / lucide / ui-vendor / vendor — do not collapse these.
 

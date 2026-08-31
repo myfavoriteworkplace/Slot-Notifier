@@ -23,17 +23,18 @@ checks pass.
 
 | Step | Independent work package | Depends on | Progress | What we have achieved so far | What this step will achieve |
 |---|---|---|---|---|---|
-| 1 | Freeze and test the reminder rules | None | **Ready — not started** | The product rules have been written down, but they are not yet covered by automated tests. | A small set of tests will clearly explain which bookings clinics and doctors can see. |
-| 2 | Build the server reminder query/service | Step 1 | **Ready — not started** | The project already has booking lifecycle helpers and timezone boundary helpers. | The server will calculate the live reminder list and keep clinic and doctor data separate. |
-| 3 | Add secure reminder API routes | Step 2 | **Ready — not started** | Existing routes already use authenticated clinic and doctor sessions. | Logged-in dashboards will receive only the reminders their role is allowed to see. |
-| 4 | Build the shared reminder panel | Step 3 | **Ready — not started** | The existing Header already contains the notification bell, popover, drawer, and responsive patterns. | Both dashboards will show a separate calendar/reminder control with loading, empty, error, and appointment states. |
-| 5 | Connect refresh and live updates | Step 4 | **Ready — not started** | The notification hook already polls and listens for booking WebSocket events. | Reminder counts and rows will refresh after booking changes, polling, reconnects, and long idle periods. |
-| 6 | Choose and build the digest scheduler foundation | Step 1 | **Blocked — deployment choice required** | The current app has no durable recurring scheduler or worker. | A protected, repeatable job will run the digest without relying on an unsafe in-process timer. |
-| 7 | Add the digest log and choose recipients | Steps 1, 2, and 6 | **Ready after Step 6** | Clinics, doctors, archive status, and subscription fields already exist in the database. | The system will know who receives each digest, which appointments were included, and whether delivery was already attempted. |
-| 8 | Build and send the daily digest email | Steps 6 and 7 | **Ready after Steps 6–7** | The project already has an email provider and shared email layout helpers. | Staff will receive one privacy-safe morning digest, including a clear empty state for eligible clinics with no appointments. |
-| 9 | Verify the complete module | Steps 1–8 | **Ready after implementation** | Existing booking tests cover lifecycle, timezone, and status edge cases. | The full feature will be checked for authorization, privacy, duplicate emails, timezone boundaries, lifecycle changes, and responsive layouts. |
+| 1 | Freeze and test the reminder rules | None | **Complete** | Clinic and doctor reminder eligibility is implemented as a pure policy using the shared booking predicates. | A small set of tests will clearly explain which bookings clinics and doctors can see. |
+| 2 | Build the server reminder query/service | Step 1 | **In progress** | Added separate server-side clinic and doctor reminder retrieval methods with ownership joins, lifecycle filters, timezone-aware grouping, counts, and a safe projection. Database-backed acceptance tests remain pending because this workspace has no `DATABASE_URL`. | The server will calculate the live reminder list and keep clinic and doctor data separate. |
+| 3 | Add secure reminder API routes | Step 2 | **In progress** | Added authenticated clinic and doctor reminder endpoints with strict role checks and session-derived scope. Route-level integration tests remain pending because no test HTTP harness or database is configured. | Logged-in dashboards will receive only the reminders their role is allowed to see. |
+| 4 | Build the shared reminder panel | Step 3 | **In progress** | Added a shared responsive reminder control to the authenticated header and both dashboard mobile top bars, with loading, empty, error, retry, grouped appointment, and count states. Live API/browser verification remains pending in the Render environment. | Both dashboards will show a separate calendar/reminder control with loading, empty, error, and appointment states. |
+| 5 | Connect refresh and live updates | Step 4 | **In progress** | Reminder polling, panel-open refresh, online/visibility recovery, and booking-event WebSocket invalidation are connected. Browser and reconnect verification remains pending in the Render environment. | Reminder counts and rows will refresh after booking changes, polling, reconnects, and long idle periods. |
+| 6 | Choose and build the digest scheduler foundation | Step 1 | **Decision proposed — platform verification pending** | The current app has no durable recurring scheduler or worker. The preferred design is Supabase `pg_cron` triggering a protected Render backend endpoint. | A protected, repeatable job will run the digest without relying on an unsafe in-process timer. |
+| 6 | Choose and build the digest scheduler foundation | Step 1 | **In progress** | Added a protected scheduler-only endpoint, constant-time secret validation, production-only sending guard, and durable database claim path. Supabase/Render cron activation remains pending. | A protected, repeatable job will run the digest without relying on an unsafe in-process timer. |
+| 7 | Add the digest log and choose recipients | Steps 1, 2, and 6 | **In progress** | Added the digest log schema/migration, recipient normalization and deduplication, clinic zero-appointment eligibility, doctor appointment selection, and appointment ID persistence. Database-backed claim verification remains pending. | The system will know who receives each digest, which appointments were included, and whether delivery was already attempted. |
+| 8 | Build and send the daily digest email | Steps 6 and 7 | **In progress** | Added a privacy-safe grouped digest template, dashboard CTA, production Resend delivery, dry-run behavior, and success/failure recording. Provider/domain configuration remains pending. | Staff will receive one privacy-safe morning digest, including a clear empty state for eligible clinics with no appointments. |
+| 9 | Verify the complete module | Steps 1–8 | **In progress** | Added automated build/type checks and recorded environment-dependent verification gaps for database claims, scheduler invocation, email delivery, and responsive browser behavior. | The full feature will be checked for authorization, privacy, duplicate emails, timezone boundaries, lifecycle changes, and responsive layouts. |
 
-**Overall progress:** Planning complete; **0 of 9 implementation steps
+**Overall progress:** Planning complete; **1 of 9 implementation steps
 complete**.
 
 **Plain-language rule:** The reminder list is calculated from current bookings.
@@ -347,12 +348,54 @@ The digest job must be safe to run more than once.
 - A failed delivery must be recorded and retryable.
 - A successful delivery must be recorded before the job reports completion.
 
-### 6.3 Scheduler
+### 6.3 Scheduler decision
 
-The current application has event-triggered emails but no confirmed durable
-recurring scheduler/worker suitable for production digest delivery.
+The current application has event-triggered emails but no durable recurring
+scheduler or worker suitable for production digest delivery. The preferred
+design is:
 
-Before implementing Phase 2, choose one:
+```text
+Supabase pg_cron -> protected Render backend endpoint -> digest service
+                  -> PostgreSQL digest log -> Resend
+```
+
+Supabase should provide the alarm only. The Node/Express backend must remain
+responsible for booking eligibility, clinic-local timezone calculations,
+recipient selection, email rendering, delivery, retries, and idempotency. Do
+not move application logic or provider credentials into PostgreSQL.
+
+The preferred scheduler is Supabase `pg_cron`, invoked frequently enough for
+clinic-local morning delivery, such as every 15 minutes or hourly. The backend
+must decide whether a clinic is currently inside its configured morning window;
+the cron schedule must not assume that all clinics share one timezone.
+
+Before Step 6 can be marked complete, verify in the active Supabase project:
+
+- `pg_cron` is enabled and supported on the current plan.
+- `pg_net` or an approved equivalent is available for the protected HTTP call.
+- The schedule frequency and outbound request limits are suitable.
+- The Supabase project will execute jobs reliably under its current plan.
+
+The cron invocation must use a dedicated job credential, such as
+`REMINDER_JOB_SECRET`, or an HMAC signature with timestamp/replay protection.
+It must not reuse `SESSION_SECRET`, and the endpoint must not be an
+unauthenticated public send-email route. The endpoint should accept only the
+minimum validated job input, apply rate limiting, and return a summary without
+patient-sensitive data.
+
+The digest service must claim work transactionally using the PostgreSQL digest
+log before sending. A unique constraint on normalized recipient and local
+digest date must prevent duplicate sends when cron retries or concurrent
+invocations occur. Failed deliveries remain retryable; successful deliveries
+must not be sent again for the same recipient and local date.
+
+If Supabase cannot provide the required `pg_cron` and HTTP capabilities, use a
+Render Cron Job invoking a one-shot worker as the fallback. A separate Render
+background worker is a later option if the application grows to need a general
+job queue. Do not rely on an in-process `setInterval`, ephemeral local files,
+or direct database calls to Resend/Twilio for production delivery.
+
+For the fallback approach, choose one:
 
 1. An authenticated endpoint invoked by a managed scheduled job.
 2. A single controlled worker process for a one-instance deployment.
@@ -361,8 +404,6 @@ Before implementing Phase 2, choose one:
 Do not rely on an unprotected in-process `setInterval` for production email
 delivery.
 
-The execution endpoint/job must authenticate the caller and must not be
-available as an unauthenticated public send-email endpoint.
 
 ---
 
@@ -394,6 +435,9 @@ after completing a step.
 **Expected result:** Later API and UI work has one clear definition to follow.
 
 **Depends on:** None.
+
+**Verification:** `npx tsx --test server/reminder-policy.test.ts` (6 passing
+tests) and `npm run check`.
 
 **Acceptance criteria:**
 

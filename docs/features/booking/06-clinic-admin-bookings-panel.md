@@ -45,6 +45,28 @@ The panel supports:
 - Date ranges
 - Patient search
 
+
+### Book a Slot patient matching
+
+The clinic **Book a Slot** workflow performs an exact email-or-phone lookup
+when **Review Booking** is opened. The lookup is clinic-scoped and returns the
+complete union of matching profiles, including duplicate profiles that match
+different identifiers. The review dialog shows each patient's name, patient
+code, email, phone, and visit count. When one or more matches are found, the
+admin must select either an existing profile or **Create New Patient Profile**
+before **Confirm & Book** becomes available. The new-profile choice deliberately
+allows a separate patient record to use the same email or phone.
+
+The endpoint is:
+
+```text
+GET /api/auth/clinic/patients/match?email=...&phone=...
+```
+
+Phone matching ignores non-numeric formatting characters, and email matching
+is trimmed and case-insensitive. The booking route still validates the
+selected patient against the authenticated clinic.
+
 Lists can be grouped into Future/Today and Past sections. Patient-filtered
 lists collapse multiple bookings initially so staff can scan a patient's
 history quickly.

@@ -138,6 +138,7 @@ Shared environment variables defined here (non-secret, safe to duplicate on Rend
 | Variable | Example value | Notes |
 |---|---|---|
 | `PORT` | `5000` | Set to Render's `PORT` or leave unset (Render injects it) |
+| `APP_ENV` | `development` | Local Replit uses `development`; Render Production uses `production`; Render Development uses `development` |
 | `NODE_ENV` | `development` | Set to `production` on Render |
 | `FRONTEND_URL` | `http://localhost:5000` | Update to your Render frontend URL |
 | `ADMIN_EMAIL` | `you@example.com` | Super-admin email |
@@ -182,6 +183,7 @@ Use this checklist when setting up Render environment variables.
 
 | Variable | Type | Notes |
 |---|---|---|
+| `APP_ENV` | env var | `production` on Render Production; `development` on Render Development |
 | `NODE_ENV` | env var | Set to `production` |
 | `PORT` | env var | Render injects this automatically |
 | `DATABASE_URL` | secret | PostgreSQL connection string (Render managed DB or external) |
@@ -189,6 +191,7 @@ Use this checklist when setting up Render environment variables.
 | `ADMIN_EMAIL` | env var | Super-admin login email |
 | `ADMIN_PASSWORD` | secret | Super-admin login password |
 | `FRONTEND_URL` | env var | Comma-separated list of allowed frontend origins |
+| `RESEND` | env var | Set to `PRODUCTION` on both Render Production and Development when real recipients should receive email |
 | `RESEND_API_KEY` | secret | From resend.com — required for booking emails |
 | `RAZORPAY_KEY_ID` | env var | Public Razorpay key |
 | `RAZORPAY_KEY_SECRET` | secret | Private Razorpay key |

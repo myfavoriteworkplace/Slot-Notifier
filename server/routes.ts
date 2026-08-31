@@ -18,6 +18,7 @@ import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
+import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDigestRecipients } from "./reminder-digest";
 import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
@@ -33,6 +34,17 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
 const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmail.com';
+const REMINDER_JOB_SECRET = process.env.REMINDER_JOB_SECRET;
+
+function hasReminderJobSecret(req: Request): boolean {
+  if (!REMINDER_JOB_SECRET) return false;
+  const headerSecret = req.header("x-reminder-job-secret") ||
+    req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!headerSecret) return false;
+  const expected = Buffer.from(REMINDER_JOB_SECRET);
+  const received = Buffer.from(headerSecret);
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
 
 function sendTransitionError(res: Response, err: unknown): void {
   if (err instanceof BookingTransitionError) {
@@ -972,6 +984,48 @@ let adminOtpStore: { otp: string; expiresAt: number } | null = null;
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
+  // POST /api/internal/reminders/digest — scheduler-only, never session-authenticated
+  app.post("/api/internal/reminders/digest", async (req, res) => {
+    if (!REMINDER_JOB_SECRET) {
+      return res.status(503).json({ message: "Reminder scheduler is not configured" });
+    }
+    if (!hasReminderJobSecret(req)) {
+      return res.status(401).json({ message: "Invalid reminder scheduler credentials" });
+    }
+    try {
+      return res.json(await runReminderDigestJob());
+    } catch (error) {
+      console.error("[REMINDER DIGEST] Job failed:", error);
+      return res.status(500).json({ message: "Reminder digest failed" });
+    }
+  });
+
+  app.get("/api/auth/clinic/reminders/digest-preview", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId || sess.role === "doctor") {
+      return res.status(403).json({ message: "Not a clinic admin session" });
+    }
+    try {
+      return res.json({ recipients: await selectClinicDoctorDigestRecipients(Number(sess.clinicId)) });
+    } catch (error) {
+      console.error("[REMINDER DIGEST] Preview failed:", error);
+      return res.status(500).json({ message: "Failed to load reminder digest preview" });
+    }
+  });
+
+  app.post("/api/auth/clinic/reminders/digest/send", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId || sess.role === "doctor") {
+      return res.status(403).json({ message: "Not a clinic admin session" });
+    }
+    try {
+      return res.json(await runClinicManualDigestJob(Number(sess.clinicId)));
+    } catch (error) {
+      console.error("[REMINDER DIGEST] Manual send failed:", error);
+      return res.status(500).json({ message: "Failed to send reminder digest" });
+    }
+  });
+
   // ── WebSocket server for real-time clinic + doctor notifications ─────────
   const wss = new WebSocketServer({ server: httpServer, path: "/ws/notifications" });
   const clinicSockets = new Map<string, Set<WebSocket>>();
@@ -1858,6 +1912,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             paymentStatus: 'paid',
             razorpayOrderId: razorpay_order_id,
             razorpayPaymentId: razorpay_payment_id,
+            bookedBy: 'patient',
           } as any).returning();
           booking = newBooking;
         });
@@ -1886,6 +1941,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        if (booking.bookedBy === 'patient') {
+          await storage.classifyPatientBooking(booking.id, clinic.id, patient.id);
+        }
       } catch (e: any) {
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
@@ -1971,6 +2029,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(results);
     } catch (err: any) {
       res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  app.get("/api/auth/clinic/patients/match", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const email = typeof req.query.email === 'string' ? req.query.email : undefined;
+      const phone = typeof req.query.phone === 'string' ? req.query.phone : undefined;
+      const results = await storage.findPatientsByEmailOrPhone(sess.clinicId, email, phone);
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ message: "Patient match lookup failed" });
     }
   });
 
@@ -2110,6 +2181,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone, pubAge, pubGender);
         }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        if (booking.bookedBy === 'patient') {
+          await storage.classifyPatientBooking(booking.id, clinic.id, patient.id);
+        }
       } catch (e: any) {
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
@@ -2571,8 +2645,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    const userId = sess.doctorId
+      ? doctorUid(sess.doctorId)
+      : sess.clinicId
+        ? clinicUid(sess.clinicId)
+        : String(sess.adminEmail || "superuser");
     try {
-      const notification = await storage.markNotificationRead(Number(req.params.id));
+      const notification = await storage.markNotificationRead(Number(req.params.id), userId);
       if (!notification) {
         return res.status(404).json({ message: "Notification not found" });
       }
@@ -3075,6 +3155,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // GET /api/auth/clinic/reminders — live, clinic-scoped upcoming reminders
+  app.get("/api/auth/clinic/reminders", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.adminLoggedIn || sess.role !== 'owner' || !sess.clinicId) {
+      return res.status(403).json({ message: "Clinic session required" });
+    }
+    try {
+      return res.json(await storage.getClinicReminders(Number(sess.clinicId)));
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to fetch reminders" });
+    }
+  });
+
   // Static route must precede /:id routes so "no-show-candidates" is not parsed as a booking id.
   app.get("/api/auth/clinic/bookings/no-show-candidates", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
@@ -3251,7 +3344,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Link booking to the correct patient profile
       try {
         const bodyPatientId = req.body.patientId;
-        const selectedId = bodyPatientId ? parseInt(bodyPatientId) : NaN;
+        const isNewProfile = bodyPatientId === 'new';
+        const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
         const customerAge = rawCustomerAge ? parseInt(rawCustomerAge) : null;
         const patientGender = customerGender || null;
         let patient;
@@ -3262,6 +3356,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           patient = existing
             ? await storage.incrementPatientVisit(existing.id, customerAge, patientGender)
             : await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName, customerAge, patientGender);
+        } else if (isNewProfile) {
+          patient = await storage.createNewPatient(clinic.id, customerEmail || '', customerName, customerPhone, customerAge, patientGender);
         } else if (customerEmail && customerEmail.trim()) {
           patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone, customerAge, patientGender);
         } else {
@@ -3269,6 +3365,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
 
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        await storage.classifyPatientBooking(booking.id, clinic.id, patient.id);
       } catch (e: any) {
         console.error('[ADMIN BOOKING] Patient link failed:', e.message);
       }
@@ -4522,6 +4619,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(results.map(r => r.clinic));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/doctor/reminders — live, doctor-scoped upcoming reminders
+  app.get("/api/doctor/reminders", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== 'doctor' || !sess.doctorEmail) {
+      return res.status(403).json({ message: "Doctor session required" });
+    }
+    try {
+      return res.json(await storage.getDoctorReminders(sess.doctorEmail));
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to fetch reminders" });
     }
   });
 

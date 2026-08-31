@@ -14,5 +14,6 @@ echo "Building frontend and backend..."
 npm run build
 
 echo "Starting production server..."
+export APP_ENV=development
 export NODE_ENV=production
 node dist/index.cjs

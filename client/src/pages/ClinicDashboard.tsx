@@ -11,18 +11,25 @@ import { InventoryPanel } from "@/components/InventoryPanel";
 import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import ClinicStorageSettingsPanel from "@/components/ClinicStorageSettingsPanel";
+import ClinicReminderDigestPanel from "@/components/ClinicReminderDigestPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import ConsentFormPanel from "@/components/ConsentFormPanel";
 import ConfigureSlotsPanel from "@/components/ConfigureSlotsPanel";
 import BookASlotPanel from "@/components/BookASlotPanel";
 import BookingsPanel from "@/components/BookingsPanel";
+import { ReminderControl } from "@/components/ReminderPanel";
 import {
   type BillingService, type BillingDetails, type ClinicInfo,
   generateReceiptPDF, printBillFromRecord, generateConsentPdf,
 } from "@/lib/clinic-pdf";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
-import { useNotifications, useMarkAllNotificationsRead } from "@/hooks/use-notifications";
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from "@/hooks/use-notifications";
+import { NotificationPanelContent } from "@/components/Header";
 import { useTheme } from "next-themes";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -44,6 +51,7 @@ import {
   DEFAULT_SLOT_TIMINGS, DEFAULT_SECTION_CAPACITY, PROCEDURE_SLOT_COST,
   DENTAL_CATEGORIES, CHIEF_COMPLAINTS, getRecommendedSpecialists,
 } from "@/lib/clinic-constants";
+import type { Notification } from "@shared/schema";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger
@@ -182,7 +190,13 @@ function ClinicDashboardSkeleton() {
 
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
-  const { data: notifications = [] } = useNotifications();
+  const {
+    data: notifications = [],
+    isLoading: notificationsLoading,
+    error: notificationsError,
+    refetch: refetchNotifications,
+  } = useNotifications();
+  const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const { theme, setTheme } = useTheme();
   const [_, setLocation] = useLocation();
@@ -912,6 +926,11 @@ export default function ClinicDashboard() {
           data-testid="btn-mobile-notifications"
         >
           <Bell className="h-5 w-5" />
+
+        <ReminderControl
+          role="clinic"
+          onSelectBooking={(bookingId) => applyClinicNotifNav({ bookingId })}
+        />
           {unreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -1571,7 +1590,12 @@ export default function ClinicDashboard() {
             <ClinicProfilePanel clinic={clinic} refetchClinic={refetchClinic} />
           )}
 
-          {activePanel === 'settings' && <ClinicStorageSettingsPanel />}
+          {activePanel === 'settings' && (
+            <div className="space-y-4">
+              <ClinicStorageSettingsPanel />
+              <ClinicReminderDigestPanel />
+            </div>
+          )}
 
           {/* BOOK A SLOT PANEL */}
           {activePanel === 'book-a-slot' && (
@@ -2095,53 +2119,25 @@ export default function ClinicDashboard() {
 
       {/* ── MOBILE NOTIFICATIONS SHEET ── */}
       <Sheet open={mobileNotifOpen} onOpenChange={setMobileNotifOpen}>
-        <SheetContent side="right" className="w-[320px] max-w-[90vw] p-0 flex flex-col lg:hidden">
-          <SheetHeader className="px-4 pt-5 pb-3 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="text-base">Notifications</SheetTitle>
-              {notifications.some(n => !n.read) && (
-                <button
-                  onClick={() => markAllRead.mutate()}
-                  className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-                  data-testid="btn-mobile-mark-all-read"
-                >
-                  Mark all read
-                </button>
-              )}
-            </div>
-          </SheetHeader>
-          <ScrollArea className="flex-1">
-            {notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                <Bell className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                <p className="text-sm font-semibold text-foreground">No notifications</p>
-                <p className="text-xs text-muted-foreground mt-1">You're all caught up</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border/50">
-                {notifications.map(n => (
-                  <div
-                    key={n.id}
-                    className={`px-4 py-3 flex items-start gap-3 transition-colors ${!n.read ? 'bg-primary/[0.03]' : ''}`}
-                    data-testid={`notif-item-${n.id}`}
-                  >
-                    <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-0.5 ${!n.read ? 'bg-primary/10' : 'bg-muted/60'}`}>
-                      <Bell className={`h-3.5 w-3.5 ${!n.read ? 'text-primary' : 'text-muted-foreground'}`} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs leading-snug ${!n.read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{n.message}</p>
-                      {n.createdAt && (
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          {new Date(n.createdAt).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      )}
-                    </div>
-                    {!n.read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5" />}
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
+        <SheetContent side="right" className="w-[400px] max-w-[90vw] p-0 flex flex-col lg:hidden">
+          <NotificationPanelContent
+            notifications={notifications}
+            unreadCount={notifications.filter(n => !n.read).length}
+            onMarkRead={(id) => markRead.mutate(id)}
+            onMarkAllRead={() => markAllRead.mutate()}
+            onNavigate={(n: Notification) => {
+              setMobileNotifOpen(false);
+              if (n.type === "doctor_on_leave" || n.type === "doctor_leave_cancelled") {
+                applyClinicNotifNav({ panel: "manage-doctors" });
+              } else if (n.bookingId != null) {
+                applyClinicNotifNav({ bookingId: n.bookingId, notifType: n.type ?? undefined });
+              }
+            }}
+            onClose={() => setMobileNotifOpen(false)}
+            isLoading={notificationsLoading}
+            error={notificationsError}
+            onRetry={() => { void refetchNotifications(); }}
+          />
         </SheetContent>
       </Sheet>
 

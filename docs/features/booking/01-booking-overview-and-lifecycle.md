@@ -35,11 +35,34 @@ The primary endpoints are:
 
 The server is the final authority for slot capacity and booking validity.
 
+### Patient booking visit classification
+
+New public patient bookings and clinic-admin bookings are classified after
+being linked to the clinic-scoped patient profile. The server persists
+`patientVisitClassification` as either `first_visit` or `existing_patient`.
+The first value means no earlier non-cancelled, non-no-show booking exists for
+that patient at the clinic; the second means an earlier qualifying booking
+exists. A clinic-admin booking that reuses a patient profile through email,
+phone, or explicit patient selection follows the same rule.
+
+The value is a booking-time snapshot and is shown in clinic and doctor admin as
+`Booked by Patient (First Visit)`, `Booked by Patient (Existing Patient)`,
+`Booked by Clinic Admin (First Visit)`, or `Booked by Clinic Admin (Existing
+Patient)`. It is populated only for new patient-origin or clinic-admin
+bookings. Existing bookings remain `NULL`; legacy or unlinked records continue
+to use the generic booking-origin fallback.
+
 ### Clinic-created booking
 
 Clinic staff can create a booking from the authenticated clinic workflow.
 This is separate from a patient-submitted public request and may use
 `bookedBy=admin` and an administrator confirmation path.
+
+Before the clinic admin confirms a booking from the Review Booking dialog, the
+system checks the entered email and normalized phone number against all patient
+profiles belonging to the clinic. If matches exist, the admin must select the
+profile to associate with the booking. If no match exists, the booking can
+continue and the server creates or reuses a profile using its normal rules.
 
 ### Doctor workflow
 

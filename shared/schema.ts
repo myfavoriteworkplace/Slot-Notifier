@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, varchar, integer, jsonb, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, varchar, integer, jsonb, real, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./models/auth";
@@ -122,6 +122,7 @@ export const bookings = pgTable("bookings", {
   visitType: varchar("visit_type", { length: 50 }),
   treatmentCategory: varchar("treatment_category", { length: 255 }),
   bookedBy: varchar("booked_by", { length: 20 }),
+  patientVisitClassification: varchar("patient_visit_classification", { length: 30 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -134,6 +135,28 @@ export const notifications = pgTable("notifications", {
   bookingId: integer("booking_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const reminderDigestLogs = pgTable("reminder_digest_logs", {
+  id: serial("id").primaryKey(),
+  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+  role: varchar("role", { length: 20 }).notNull(),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  doctorId: integer("doctor_id").references(() => doctors.id),
+  localDigestDate: varchar("local_digest_date", { length: 10 }).notNull(),
+  appointmentIds: jsonb("appointment_ids").$type<number[]>().notNull().default([]),
+  templateVersion: varchar("template_version", { length: 30 }).notNull(),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("claimed"),
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+  sentAt: timestamp("sent_at"),
+  failureReason: text("failure_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  recipientDateUnique: uniqueIndex("reminder_digest_recipient_date_idx").on(
+    table.recipientEmail,
+    table.localDigestDate,
+  ),
+}));
 
 // Session table for express-session (PostgreSQL backend)
 // This definition prevents Drizzle from trying to delete the table created by connect-pg-simple
@@ -359,6 +382,7 @@ export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type PublicBooking = z.infer<typeof publicBookingSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type ReminderDigestLog = typeof reminderDigestLogs.$inferSelect;
 export type Clinic = typeof clinics.$inferSelect;
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
 

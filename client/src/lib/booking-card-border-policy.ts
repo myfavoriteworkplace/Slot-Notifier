@@ -16,19 +16,17 @@ export interface BookingCardBorderPolicyInput {
 
 export function shouldGreyHistoricalBorder({
   isPast,
-  isPastDue,
-  isTerminal,
   isCancelled,
   isDoctorDeclined,
   isNoShowState,
   isLeftEarlyState,
   isVisitCompleted,
-  isConfirmed,
-  isCheckedIn,
-  isInConsultation,
-  isTreatmentCompleted,
-  isAutoNoShow,
 }: BookingCardBorderPolicyInput): boolean {
+  // Every booking from a previous date is historical, regardless of its
+  // unresolved or terminal lifecycle state. Keep status colours in badges and
+  // internal indicators; only the card-level treatment becomes neutral.
+  if (isPast) return true;
+
   if (
     isCancelled ||
     isDoctorDeclined ||
@@ -39,12 +37,5 @@ export function shouldGreyHistoricalBorder({
     return true;
   }
 
-  return isPast &&
-    !isPastDue &&
-    !isConfirmed &&
-    !isCheckedIn &&
-    !isInConsultation &&
-    !isTreatmentCompleted &&
-    !isAutoNoShow &&
-    !isTerminal;
+  return false;
 }

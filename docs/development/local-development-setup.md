@@ -68,7 +68,8 @@ Then open `.env` in any text editor and fill in the real values. The table below
 
 | Variable | Example value | Notes |
 |---|---|---|
-| `NODE_ENV` | `production` | Set to `production` to run the compiled build locally |
+| `APP_ENV` | `development` | Local development label; deployed Production uses `production` |
+| `NODE_ENV` | `development` | Enables the normal Vite/HMR development workflow |
 | `PORT` | `5001` | The port your local server listens on |
 | `FRONTEND_URL` | `http://localhost:5173` | Used for CORS. Set to `http://localhost:5001` if running in simple mode (one URL) |
 | `VITE_API_URL` | `http://localhost:5001` | Tells the frontend where the backend API is |
@@ -92,6 +93,7 @@ Then open `.env` in any text editor and fill in the real values. The table below
 | `RESEND_API_KEY` | `re_xxxxxxxxxxxxxxxxxxxx` | From [resend.com](https://resend.com) → API Keys |
 | `EMAIL_FROM` | `onboarding@resend.dev` | Sender address. Use `onboarding@resend.dev` for local testing |
 | `RESEND` | `dev` | Keep as `dev` locally — emails go to test inbox, not real patients |
+| `REMINDER_JOB_SECRET` | *(optional)* | Required only to invoke the internal digest job; local execution remains dry-run |
 
 ---
 
@@ -181,7 +183,9 @@ chmod +x run-local.sh
 ```
 
 - App available at: `http://localhost:5001` (or the `PORT` set in your `.env`)
-- Set `NODE_ENV=production` in your `.env`
+- Set `APP_ENV=development` and `NODE_ENV=production` for this compiled
+  Render-style smoke test. The normal `npm run dev` workflow uses
+  `APP_ENV=development` and `NODE_ENV=development`.
 - Set `FRONTEND_URL=http://localhost:5001` in your `.env`
 - Set `VITE_API_URL=http://localhost:5001` in your `.env`
 

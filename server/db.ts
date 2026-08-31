@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
 import * as dotenv from "dotenv";
+import { resolveRuntimeEnvironment } from "./environment";
 
 dotenv.config();
 
@@ -29,8 +30,13 @@ const isLocalDb =
   connectionString.includes("/var/run") ||
   !connectionString.includes(".");          // no dots = internal/socket host
 
-// Also honour the standard PGSSLMODE=disable env var
-const sslDisabled = process.env.PGSSLMODE === "disable" || process.env.NODE_ENV === "development";
+const runtimeEnvironment = resolveRuntimeEnvironment();
+
+// Keep local development compatible with existing local database setups.
+// Production and deployed Development both use the same strict preference
+// because both run with NODE_ENV=production.
+const sslDisabled =
+  process.env.PGSSLMODE === "disable" || !runtimeEnvironment.isStrict;
 
 export const pool = new Pool({
   connectionString,

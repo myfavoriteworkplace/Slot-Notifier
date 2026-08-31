@@ -49,6 +49,13 @@ import { getAppointmentFooterModel } from "@/lib/appointment-footer-model";
 import { AppointmentFilters } from "@/components/AppointmentFilters";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
+import { ReminderControl } from "@/components/ReminderPanel";
+import { NotificationPanelContent } from "@/components/Header";
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from "@/hooks/use-notifications";
 
 type QuickFilter = "all" | "owned" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
@@ -101,6 +108,14 @@ const DR_CHIEF_COMPLAINTS = [
 
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
+  const {
+    data: notifications = [],
+    isLoading: notificationsLoading,
+    error: notificationsError,
+    refetch: refetchNotifications,
+  } = useNotifications();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
   const [_, setLocation] = useLocation();
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
@@ -838,9 +853,17 @@ export default function DoctorDashboard() {
           data-testid="btn-mobile-notifications"
         >
           <Bell className="h-5 w-5" />
-          {awaitingApprovalCount > 0 && (
+
+        <ReminderControl
+          role="doctor"
+          onSelectBooking={(bookingId) => {
+            setPatientModalId(bookingId);
+            setPatientModalTab('overview');
+          }}
+        />
+          {notifications.some(n => !n.read) && (
             <span className="absolute top-1.5 right-1.5 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
-              {awaitingApprovalCount > 99 ? '99+' : awaitingApprovalCount}
+              {notifications.filter(n => !n.read).length > 99 ? '99+' : notifications.filter(n => !n.read).length}
             </span>
           )}
         </button>
@@ -3070,48 +3093,22 @@ export default function DoctorDashboard() {
       {/* ═══ MOBILE NOTIFICATIONS BOTTOM SHEET ═══ */}
       <Sheet open={mobileNotifOpen} onOpenChange={setMobileNotifOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl h-[70vh] p-0 flex flex-col">
-          <SheetHeader className="px-5 py-4 border-b border-border/40 shrink-0">
-            <SheetTitle className="text-left text-base">Notifications</SheetTitle>
-            <SheetDescription className="text-left">
-              {awaitingApprovalCount > 0 ? `${awaitingApprovalCount} booking${awaitingApprovalCount === 1 ? "" : "s"} awaiting your approval` : "No pending notifications"}
-            </SheetDescription>
-          </SheetHeader>
-          <ScrollArea className="flex-1">
-            <div className="p-3 space-y-2">
-              {awaitingApprovalCount > 0 ? (
-                displayBookings
-                  .filter((b: any) => b.status === "awaitingApproval")
-                  .slice(0, 20)
-                  .map((b: any) => (
-                    <button
-                      key={b.id}
-                      onClick={() => { setPatientModalId(b.id); setMobileNotifOpen(false); }}
-                      className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/20 text-left transition-colors hover:bg-amber-100 dark:hover:bg-amber-950/30"
-                    >
-                      <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{b.patientName || "Patient"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {b.appointmentDate ? new Date(b.appointmentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
-                          {b.slotTime ? ` \u2022 ${b.slotTime}` : ""}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-                    </button>
-                  ))
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                    <Bell className="h-5 w-5 opacity-40" />
-                  </div>
-                  <p className="text-sm font-medium">All caught up!</p>
-                  <p className="text-xs mt-1">No notifications right now</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+          <NotificationPanelContent
+            notifications={notifications}
+            unreadCount={notifications.filter(n => !n.read).length}
+            onMarkRead={(id) => markRead.mutate(id)}
+            onMarkAllRead={() => markAllRead.mutate()}
+            onNavigate={(n) => {
+              setMobileNotifOpen(false);
+              if (n.bookingId != null) {
+                applyDoctorNotifNav({ bookingId: n.bookingId, notifType: n.type ?? undefined });
+              }
+            }}
+            onClose={() => setMobileNotifOpen(false)}
+            isLoading={notificationsLoading}
+            error={notificationsError}
+            onRetry={() => { void refetchNotifications(); }}
+          />
         </SheetContent>
       </Sheet>
 
@@ -3244,8 +3241,12 @@ export default function DoctorDashboard() {
                     const drVisitType = (b as any).visitType || null;
                     const drTreatment = (b as any).treatmentCategory || null;
                     const drBookedBy: string | null = (b as any).bookedBy ?? null;
+                    const drPatientVisitClassification = (b as any).patientVisitClassification ?? null;
                     const drFallbackVisitKey = !drVisitType
                       ? (drBookedBy === 'patient' ? 'booked_by_patient' : drBookedBy === 'admin' ? 'admin_booked' : null)
+                      : null;
+                    const drPatientBookingLabel = (drBookedBy === 'patient' || drBookedBy === 'admin') && drPatientVisitClassification
+                      ? `Booked by ${drBookedBy === 'patient' ? 'Patient' : 'Clinic Admin'} (${drPatientVisitClassification === 'first_visit' ? 'First Visit' : 'Existing Patient'})`
                       : null;
                     const drComplaints = b.description
                       ? DR_CHIEF_COMPLAINTS.filter(c => b.description!.toLowerCase().includes(c.toLowerCase()))
@@ -3284,7 +3285,11 @@ export default function DoctorDashboard() {
                               <Repeat2 className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Visit Type:</span>
-                            {drVisitType ? (
+                            {drPatientBookingLabel ? (
+                               <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
+                                {drPatientBookingLabel}
+                              </span>
+                            ) : drVisitType ? (
                                <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                                 {DR_VISIT_TYPE_LABELS[drVisitType] ?? drVisitType}
                               </span>
