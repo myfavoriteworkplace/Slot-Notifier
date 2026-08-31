@@ -103,7 +103,9 @@ export default function ClinicAbout(props: { params?: { slug?: string } }) {
   }
 
   const bookingHref = clinic.id ? `/book/${clinic.id}` : "/book";
-  const cfg = clinic.websiteConfig;
+  // Red Clinical is the unsaved first-run experience. An explicitly saved
+  // theme always wins and is never replaced by this fallback.
+  const cfg: ClinicWebsiteConfig = clinic.websiteConfig ?? { theme: "red-clinical" };
 
   /* ── Themed experience ── */
   if (cfg?.theme) {

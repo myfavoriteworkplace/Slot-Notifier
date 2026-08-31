@@ -181,6 +181,24 @@
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
 
+/* Website configuration editor controls stay readable and consistent without
+   changing the public clinic themes or compact checkbox controls. */
+.editor-form-fields input:not([type="checkbox"]):not([type="file"]) {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.editor-form-fields textarea,
+.editor-form-fields select {
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.editor-form-fields select {
+  min-height: 2.75rem;
+}
+
 @keyframes toast-progress {
   from { transform: scaleX(1); }
   to   { transform: scaleX(0); }

@@ -51,6 +51,8 @@ const THEME_OPTIONS: { id: ClinicWebsiteConfig["theme"]; label: string; descript
   },
 ];
 
+const DEFAULT_THEME: ClinicWebsiteConfig["theme"] = "red-clinical";
+
 const DEFAULT_HOURS = [
   { day: "Mon – Fri", open: "9:00 AM", close: "7:00 PM", closed: false },
   { day: "Saturday", open: "9:00 AM", close: "4:00 PM", closed: false },
@@ -79,9 +81,9 @@ type Section =
   | "faq" | "hours" | "social" | "social-posts";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
-  const existing: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
+  const existing: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: DEFAULT_THEME };
 
-  const [theme, setTheme] = useState<ClinicWebsiteConfig["theme"]>(existing.theme ?? "classic");
+  const [theme, setTheme] = useState<ClinicWebsiteConfig["theme"]>(existing.theme ?? DEFAULT_THEME);
   const [taglineL1, setTaglineL1] = useState(existing.taglineL1 ?? "");
   const [taglineL2, setTaglineL2] = useState(existing.taglineL2 ?? "");
   const [heroDescription, setHeroDescription] = useState(existing.heroDescription ?? "");
@@ -137,13 +139,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     existing.socialLinks ?? {}
   );
   const [showMap, setShowMap] = useState(existing.showMap !== false);
-  const [openSection, setOpenSection] = useState<Section>("hero");
+  const [openSection, setOpenSection] = useState<Section>("theme");
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
 
   useEffect(() => {
-    const e: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
-    setTheme(e.theme ?? "classic");
+    const e: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: DEFAULT_THEME };
+    setTheme(e.theme ?? DEFAULT_THEME);
     setTaglineL1(e.taglineL1 ?? "");
     setTaglineL2(e.taglineL2 ?? "");
     setHeroDescription(e.heroDescription ?? "");
@@ -237,7 +239,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const liveFaq = faq.filter(item => item.question && item.answer);
   const liveSocialPosts = socialPosts.filter(post => post.imageUrl);
   const socialCount = [socialLinks.instagram, socialLinks.facebook, socialLinks.youtube].filter(Boolean).length;
-  const themeLabel = THEME_OPTIONS.find(t => t.id === theme)?.label ?? "Classic";
+  const themeLabel = THEME_OPTIONS.find(t => t.id === theme)?.label ?? "Red Clinical";
 
   /* ── Sidebar row config ──────────────────────────── */
   const MAP_ROWS: {
@@ -385,7 +387,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <button
                   key={t.id}
                   onClick={() => setTheme(t.id)}
-                  className={`flex-1 rounded-xl overflow-hidden border-2 transition-all text-left ${theme === t.id ? "border-primary shadow-md" : "border-border/40 hover:border-primary/40"}`}
+                    className={`flex-1 rounded-xl overflow-hidden border-2 transition-colors text-left ${theme === t.id ? "border-primary bg-primary/[0.03]" : "border-border/40 hover:border-primary/40"}`}
                   data-testid={`theme-preview-${t.id}`}
                 >
                   <div className={`h-12 w-full ${t.preview} flex items-end p-1.5`}>
@@ -777,8 +779,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <button
                   key={t.id}
                   onClick={() => setTheme(t.id)}
-                  className={`group relative rounded-xl border-2 overflow-hidden text-left transition-all ${
-                    theme === t.id ? "border-primary shadow-md shadow-primary/20" : "border-border/60 hover:border-primary/40"
+                    className={`group relative rounded-xl border-2 overflow-hidden text-left transition-colors ${
+                     theme === t.id ? "border-primary bg-primary/[0.03]" : "border-border/60 hover:border-primary/40"
                   }`}
                   data-testid={`theme-option-${t.id}`}
                 >
@@ -942,7 +944,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   <Input value={s.description} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-service-desc-${i}`} />
                 </div>
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Service Photo (optional)</Label>
+                  <Label className="label-field mb-1.5 block">Service Photo (optional)</Label>
                   <ImageUpload currentImage={s.imageUrl || undefined} onImageUploaded={(url) => setServices(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Svc" />
                 </div>
               </div>
@@ -1028,7 +1030,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <Textarea value={group.description ?? ""} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Optional group description" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-treatment-group-description-${i}`} />
                 <Textarea value={group.items.join("\n")} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, items: e.target.value.split("\n").map(v => v.trim()).filter(Boolean) } : x))} placeholder={"One treatment per line\nComposite bonding\nCeramic veneers"} rows={4} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-treatment-group-items-${i}`} />
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Group Image (optional)</Label>
+                  <Label className="label-field mb-1.5 block">Group Image (optional)</Label>
                   <ImageUpload currentImage={group.imageUrl || undefined} onImageUploaded={(url) => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Treat" />
                 </div>
               </div>
@@ -1199,7 +1201,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     <div className="space-y-5">
 
       {/* ── Top header ── */}
-      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
         <div className="flex">
           <div className="w-1.5 bg-sky-500/60 shrink-0" />
           <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1255,7 +1257,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       {/* ══════════════════════════════════════════════
           WEBSITE STRUCTURE  (2-pane unified editor)
       ══════════════════════════════════════════════ */}
-      <div className="rounded-2xl border border-border/60 overflow-hidden shadow-sm">
+      <div className="rounded-2xl border border-border/60 overflow-hidden">
 
         {/* E — Panel header with completion counter */}
         <div className="flex items-center justify-between px-5 py-3.5 bg-muted/40 border-b border-border/50">
@@ -1279,39 +1281,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           )}
         </div>
 
-        {/* A — Page-order section map: shows sections as a horizontal ordered strip */}
-        <div className="hide-scrollbar border-b border-border/40 bg-gradient-to-r from-muted/40 to-transparent overflow-x-auto shrink-0">
-          <div className="flex items-center gap-1 px-4 py-2 min-w-max">
-            <span className="text-xs font-semibold text-muted-foreground/60 mr-2 shrink-0 uppercase tracking-wide">Page top → bottom</span>
-            {MAP_ROWS.map((row, idx) => {
-              const Icon = row.icon;
-              const isMapActive = openSection === row.id;
-              const mapDotCls = row.dot === "green" ? "bg-emerald-500" : row.dot === "amber" ? "bg-amber-400" : "bg-muted-foreground/25";
-              return (
-                <button
-                  key={row.id}
-                  onClick={() => row.editable ? setOpenSection(row.id as Section) : undefined}
-                  disabled={!row.editable}
-                  title={`${row.label} — ${row.status}`}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all shrink-0 min-h-[44px] ${
-                    isMapActive
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : row.editable
-                        ? "border-border/40 text-muted-foreground hover:bg-muted/50 hover:border-border active:scale-[0.97]"
-                        : "border-border/20 text-muted-foreground/40 cursor-default"
-                  }`}
-                  data-testid={`section-map-${row.id}`}
-                >
-                  <span className="text-xs font-mono opacity-50">{idx + 1}</span>
-                  <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${mapDotCls}`} />
-                  <Icon className="h-3 w-3" />
-                  <span className="hidden sm:inline">{row.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* 2-pane body */}
         <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(400px, 60vh, 600px)" }}>
 
@@ -1328,7 +1297,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   disabled={!row.editable}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border whitespace-nowrap shrink-0 transition-all min-h-[44px] text-xs font-semibold ${
                     isActive
-                      ? "bg-primary/10 border-primary/30 text-primary"
+                    ? "bg-primary/12 border-primary/40 text-primary"
                       : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97]"
                   } ${!row.editable ? "opacity-40 cursor-default" : ""}`}
                   data-testid={`mobile-tab-${row.id}`}
@@ -1381,13 +1350,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   onClick={() => setOpenSection(row.id as Section)}
                   className={`w-full flex items-start gap-3 px-3 py-3 text-left transition-all group min-h-[52px] border-b border-border/20 ${
                     isActive
-                      ? "bg-primary/8 border-l-[3px] border-l-primary"
+                       ? "bg-primary/12 border-l-[3px] border-l-primary"
                       : "hover:bg-muted/50 active:bg-muted/70 border-l-[3px] border-l-transparent"
                   }`}
                   data-testid={`map-row-${row.id}`}
                 >
                   <span className={`text-xs font-mono mt-1.5 w-4 text-right shrink-0 ${isActive ? "text-primary/50" : "text-muted-foreground/30"}`}>{idx + 1}</span>
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? "bg-primary/10" : "bg-muted group-hover:bg-muted/70"}`}>
+                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? "bg-primary/15" : "bg-muted group-hover:bg-muted/70"}`}>
                     <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
@@ -1411,7 +1380,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             {/* Edit form area */}
             {activeRow?.editable ? (
               <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-5">
+                <div className="editor-form-fields flex-1 overflow-y-auto p-5">
                   {EditorPane()}
                 </div>
                 {/* Sticky save bar */}
