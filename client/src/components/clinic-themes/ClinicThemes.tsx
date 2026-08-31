@@ -10,6 +10,7 @@ import {
   Instagram, Facebook, Youtube, ExternalLink,
   ChevronLeft, ChevronRight, Menu, X,
   Users2, ShieldCheck, Heart, Award, Activity, Zap, Stethoscope, CheckCircle2,
+  HelpCircle, MessageCircle, Quote,
 } from "lucide-react";
 
 const PIN_ICON = L.divIcon({
@@ -30,7 +31,7 @@ export type ThemeClinic = {
   logoUrl?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  doctors?: { name: string; specialization: string; degree: string; imageUrl?: string | null }[] | null;
+  doctors?: { name: string; specialization: string; degree: string; imageUrl?: string | null; bio?: string | null; yearsOfExperience?: number | null }[] | null;
   doctorName?: string | null;
   doctorSpecialization?: string | null;
   doctorDegree?: string | null;
@@ -1683,6 +1684,443 @@ export function ThemeModern({ clinic, cfg, bookingHref, isOwner = false }: Theme
       </section>
 
       <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#080D14]" accentSuffix="-m" />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   THEME 4 — RED CLINICAL
+   Charcoal surfaces · vivid red accents · specialist-clinic energy
+══════════════════════════════════════════════════════════ */
+
+const RED_SPECIALTIES = [
+  { title: "Microscope-Assisted Dentistry", description: "Precise, gentle treatment supported by advanced magnification." },
+  { title: "Advanced Endodontics", description: "Specialist root canal care designed around comfort and long-term results." },
+  { title: "Conservative Dentistry", description: "Preserving natural tooth structure with minimally invasive techniques." },
+];
+
+const RED_TREATMENT_GROUPS = [
+  { name: "Pediatric Dentistry", description: "Gentle care for growing smiles.", items: ["Pulpotomy and crowns", "Fluoride therapy", "Child-friendly environment"] },
+  { name: "Aesthetic & Conservative Dentistry", description: "Natural-looking results with thoughtful planning.", items: ["Composite bonding", "Ceramic veneers", "Smile designing"] },
+  { name: "General Dentistry", description: "Reliable care for everyday oral health.", items: ["Tooth-coloured fillings", "Scaling and polishing", "Preventive check-ups"] },
+];
+
+const RED_FAQ = [
+  { question: "How often should I visit the dentist?", answer: "A dental check-up every six months helps maintain healthy teeth and gums." },
+  { question: "What should I do in a dental emergency?", answer: "Call the clinic as soon as possible so the team can guide you to quick relief and expert care." },
+  { question: "Is root canal treatment painful?", answer: "Treatment is performed under local anaesthesia and is designed to keep you comfortable." },
+  { question: "Do you offer customised smile makeovers?", answer: "Yes. Smile plans can be tailored to your goals, facial features, and oral health." },
+  { question: "How long does teeth whitening last?", answer: "Results vary, but good oral hygiene and proper care help maintain the improvement for longer." },
+  { question: "How can I book an appointment?", answer: "Use the booking button to choose an available appointment time or contact the clinic directly." },
+];
+
+function RedDoctorProfile({ clinic, titleColor }: { clinic: ThemeClinic; titleColor: string }) {
+  const doctor = clinic.doctors?.[0];
+  if (!doctor) return null;
+
+  return (
+    <section className="px-6 py-20 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <div className="grid lg:grid-cols-[300px_1fr] gap-10 items-center">
+          <div className="rounded-3xl overflow-hidden bg-[#130506] aspect-[4/3]">
+            {doctor.imageUrl ? (
+              <img src={doctor.imageUrl} alt={doctor.name} className="w-full h-full object-cover object-top" />
+            ) : (
+              <DoctorAvatarPlaceholder />
+            )}
+          </div>
+          <div>
+            <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">About the specialist</p>
+            <h2 className={`text-3xl sm:text-4xl font-black ${titleColor} mb-4`} style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.03em" }}>
+              About {doctor.name}
+            </h2>
+            <p className="text-gray-600 leading-relaxed max-w-3xl">
+              {doctor.bio || `${doctor.name} combines specialist knowledge, careful treatment planning, and a patient-first approach to make every visit feel clear and comfortable.`}
+            </p>
+            <div className="flex flex-wrap gap-3 mt-6">
+              {doctor.degree && <span className="px-3 py-1.5 rounded-full bg-red-50 text-[#B91C1C] text-xs font-bold">{doctor.degree}</span>}
+              {doctor.specialization && <span className="px-3 py-1.5 rounded-full border border-red-200 text-[#B91C1C] text-xs font-bold">{doctor.specialization}</span>}
+              {doctor.yearsOfExperience && <span className="px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 text-xs font-bold">{doctor.yearsOfExperience}+ years of experience</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RedSpecialtiesSection({ specialties }: { specialties: { title: string; description: string; icon?: string }[] }) {
+  return (
+    <section id="red-specialties" className="px-6 py-20 bg-[#FAFAFA]">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">Specialities</p>
+          <h2 className="text-4xl sm:text-5xl font-black text-[#171717]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>Focused expertise for confident care</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-5">
+          {specialties.map((item, index) => (
+            <article key={`${item.title}-${index}`} className="bg-white border border-gray-200 p-7 shadow-sm hover:-translate-y-1 hover:shadow-xl transition-all">
+              <div className="h-11 w-11 rounded-xl bg-[#E11D24] text-white flex items-center justify-center mb-5">
+                <Stethoscope className="h-5 w-5" />
+              </div>
+              <h3 className="font-bold text-lg text-[#171717] mb-3">{item.title}</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RedTreatmentGroups({ groups }: { groups: { name: string; description?: string; items: string[]; imageUrl?: string }[] }) {
+  return (
+    <section id="red-treatments" className="px-6 py-20 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">Our Treatments</p>
+          <h2 className="text-4xl sm:text-5xl font-black text-[#171717]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>Care designed around you</h2>
+          <p className="text-gray-600 mt-3">Explore specialist and everyday treatments delivered with precision.</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-5">
+          {groups.map((group, index) => (
+            <article key={`${group.name}-${index}`} className="relative overflow-hidden rounded-2xl bg-[#D9090D] text-white min-h-[265px] p-7 shadow-lg shadow-red-900/10">
+              {group.imageUrl && <img src={group.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />}
+              <div className="relative">
+                <h3 className="text-xl font-bold mb-2">{group.name}</h3>
+                {group.description && <p className="text-white/75 text-sm leading-relaxed mb-5">{group.description}</p>}
+                <ul className="space-y-2.5">
+                  {group.items.filter(Boolean).map((item, itemIndex) => (
+                    <li key={`${item}-${itemIndex}`} className="flex items-start gap-2 text-sm text-white/95">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RedSocialGallery({ posts }: { posts: { imageUrl: string; caption?: string; link?: string }[] }) {
+  if (!posts.length) return null;
+  return (
+    <section className="px-6 py-20 bg-[#260708]">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-end justify-between gap-4 mb-10">
+          <div>
+            <p className="text-red-300 text-sm font-bold uppercase tracking-[0.22em] mb-3">Follow our work</p>
+            <h2 className="text-4xl font-black text-white" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>Inside the clinic</h2>
+          </div>
+          <Instagram className="h-8 w-8 text-red-300 shrink-0" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {posts.map((post, index) => {
+            const content = (
+              <div className="group relative aspect-square overflow-hidden rounded-2xl bg-white/10">
+                <img src={post.imageUrl} alt={post.caption || `Clinic social post ${index + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                {post.caption && <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent pt-10"><p className="text-white text-xs line-clamp-2">{post.caption}</p></div>}
+              </div>
+            );
+            return post.link ? (
+              <a key={index} href={post.link} target="_blank" rel="noopener noreferrer">{content}</a>
+            ) : <div key={index}>{content}</div>;
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RedReviews({ testimonials }: { testimonials: { quote: string; patientName: string; rating: number }[] }) {
+  if (!testimonials.length) return null;
+  return (
+    <section className="px-6 py-20 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">Testimonials</p>
+          <h2 className="text-4xl font-black text-[#171717]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>What people say</h2>
+        </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {testimonials.map((item, index) => (
+            <article key={`${item.patientName}-${index}`} className="rounded-2xl bg-[#F7F7F7] border border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div className="h-10 w-10 rounded-full bg-[#E11D24] text-white flex items-center justify-center font-bold">{item.patientName.trim().charAt(0).toUpperCase()}</div>
+                <StarRating rating={item.rating} />
+              </div>
+              <Quote className="h-5 w-5 text-red-300 mb-2" />
+              <p className="text-gray-700 leading-relaxed text-sm">“{item.quote}”</p>
+              <p className="mt-5 text-sm font-bold text-[#171717]">{item.patientName}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RedFaqSection({ faq }: { faq: { question: string; answer: string }[] }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  if (!faq.length) return null;
+  return (
+    <section className="px-6 py-20 bg-[#FAFAFA]">
+      <div className="max-w-5xl mx-auto">
+        <div className="text-center mb-10">
+          <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">FAQ</p>
+          <h2 className="text-4xl font-black text-[#171717]" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>Frequently asked questions</h2>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          {faq.map((item, index) => {
+            const isOpen = openIndex === index;
+            return (
+              <div key={`${item.question}-${index}`} className="border border-gray-200 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(isOpen ? null : index)}
+                  aria-expanded={isOpen}
+                  className="w-full flex items-center justify-between gap-4 text-left px-5 py-4 font-semibold text-sm text-white bg-[#D9090D]"
+                >
+                  <span>{item.question}</span>
+                  <HelpCircle className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </button>
+                {isOpen && <p className="px-5 py-5 text-sm leading-relaxed text-gray-600">{item.answer}</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RedWhatsApp({ phone }: { phone?: string | null }) {
+  const digits = phone?.replace(/\D/g, "");
+  if (!digits || digits.length < 8) return null;
+  return (
+    <a
+      href={`https://wa.me/${digits}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chat with the clinic on WhatsApp"
+      className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-xl shadow-black/20 hover:scale-105 transition-transform"
+    >
+      <MessageCircle className="h-7 w-7" />
+    </a>
+  );
+}
+
+export function ThemeRedClinical({ clinic, cfg, bookingHref }: ThemeProps) {
+  const services = cfg.services?.length ? cfg.services : DEFAULT_SERVICES;
+  const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
+  const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
+  const stats = cfg.stats?.length ? cfg.stats : DEFAULT_STATS;
+  const specialties = cfg.specialties?.filter(item => item.title && item.description).length ? cfg.specialties!.filter(item => item.title && item.description) : RED_SPECIALTIES;
+  const treatmentGroups = cfg.treatmentGroups?.filter(group => group.name && group.items.some(Boolean)).length ? cfg.treatmentGroups!.filter(group => group.name && group.items.some(Boolean)) : RED_TREATMENT_GROUPS;
+  const faq = cfg.faq?.filter(item => item.question && item.answer).length ? cfg.faq!.filter(item => item.question && item.answer) : RED_FAQ;
+  const testimonials = cfg.testimonials?.filter(item => item.quote && item.patientName) ?? [];
+  const gallery = cfg.gallery?.filter(item => item.url) ?? [];
+  const socialPosts = cfg.socialPosts?.filter(post => post.imageUrl) ?? [];
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const heroImage = cfg.heroImageUrl || defaultHeroImg;
+  const foregroundImage = cfg.heroForegroundImageUrl || clinic.doctors?.[0]?.imageUrl;
+
+  return (
+    <div className="min-h-screen bg-white text-[#171717]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <div className="bg-[#D9090D] text-white text-xs">
+        <div className="max-w-7xl mx-auto px-5 py-2 flex flex-wrap items-center justify-between gap-x-5 gap-y-1">
+          <span className="font-semibold">{cfg.announcementText || "Advanced care. Gentle touch. Confident smiles."}</span>
+          <div className="flex items-center gap-4">
+            {clinic.email && <a href={`mailto:${clinic.email}`} className="hover:text-white/80">{clinic.email}</a>}
+            {clinic.phone && <a href={`tel:${clinic.phone}`} className="hover:text-white/80">{clinic.phone}</a>}
+            <SocialLinks links={cfg.socialLinks} light />
+          </div>
+        </div>
+      </div>
+
+      <nav className="sticky top-0 z-40 bg-black text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between gap-5">
+          <a href="#" className="flex items-center gap-3 min-w-0">
+            {clinic.logoUrl ? (
+              <img src={clinic.logoUrl} alt={clinic.name} className="h-11 w-14 rounded-xl bg-white object-contain p-1 shrink-0" />
+            ) : (
+              <div className="h-11 w-14 rounded-xl bg-white text-[#D9090D] flex items-center justify-center font-black text-lg shrink-0">{clinic.name.charAt(0)}</div>
+            )}
+            <span className="font-bold truncate">{clinic.name}</span>
+          </a>
+          <div className="hidden md:flex items-center gap-7 text-sm text-white/75">
+            <a href="#red-about" className="hover:text-white transition-colors">About Us</a>
+            <a href="#red-specialties" className="hover:text-white transition-colors">Specialities</a>
+            <a href="#red-treatments" className="hover:text-white transition-colors">Treatments</a>
+            <a href="#red-contact" className="hover:text-white transition-colors">Contact Us</a>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href={bookingHref}>
+              <button className="bg-[#E11D24] hover:bg-[#B91C1C] text-white px-5 py-2.5 rounded-full text-sm font-bold transition-colors">Book Now</button>
+            </Link>
+            <button type="button" onClick={() => setMobileMenuOpen(open => !open)} className="md:hidden p-2 rounded-lg hover:bg-white/10" aria-label="Toggle navigation menu">
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-white/10 px-5 py-2">
+            {[
+              ["About Us", "#red-about"],
+              ["Specialities", "#red-specialties"],
+              ["Treatments", "#red-treatments"],
+              ["Contact Us", "#red-contact"],
+            ].map(([label, href]) => (
+              <a key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="block py-3 text-sm text-white/80 border-b border-white/10 last:border-0">{label}</a>
+            ))}
+          </div>
+        )}
+      </nav>
+
+      <section className="relative min-h-[620px] overflow-hidden bg-[#130506] text-white">
+        <img src={heroImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-35" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/30" />
+        <div className="absolute -right-40 top-1/2 -translate-y-1/2 h-[680px] w-[680px] rounded-full bg-[#D9090D]/80" />
+        <div className="absolute right-0 bottom-0 h-[520px] w-[520px] rounded-full border-[70px] border-red-300/10" />
+        <div className="max-w-7xl mx-auto px-5 py-24 relative grid lg:grid-cols-2 gap-12 items-center min-h-[620px]">
+          <div className="max-w-xl">
+            <p className="text-red-300 text-sm font-bold uppercase tracking-[0.24em] mb-5">{clinic.city || "Specialist dental care"}</p>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[0.95] mb-6" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.05em" }}>
+              {cfg.taglineL1 || "Precision care"}<br />
+              <span className="text-red-300">{cfg.taglineL2 || "for confident smiles"}</span>
+            </h1>
+            <p className="text-white/75 text-lg leading-relaxed max-w-lg mb-8">
+              {cfg.heroDescription || `Trusted dental care from ${clinic.name}, combining specialist expertise, modern technology, and a calm patient experience.`}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link href={bookingHref}>
+                <button className="bg-[#E11D24] hover:bg-[#B91C1C] text-white px-7 py-3.5 rounded-full font-bold transition-all hover:-translate-y-0.5">Book an Appointment</button>
+              </Link>
+              <a href="#red-about" className="border border-white/40 hover:bg-white/10 text-white px-7 py-3.5 rounded-full font-semibold transition-colors">Meet the clinic</a>
+            </div>
+          </div>
+          <div className="relative hidden lg:flex justify-center items-center min-h-[420px]">
+            <div className="relative h-[410px] w-[350px] rounded-[48%] overflow-hidden border-8 border-white/15 shadow-2xl">
+              <img src={foregroundImage || heroImage} alt={foregroundImage ? "Dental specialist" : "Clinic"} className="w-full h-full object-cover object-top" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white py-8 px-5 border-b border-gray-100">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {features.slice(0, 4).map((feature, index) => (
+            <div key={`${feature.title}-${index}`} className="flex items-start gap-3 p-4">
+              <div className="h-10 w-10 rounded-full bg-red-50 text-[#D9090D] flex items-center justify-center shrink-0"><CheckCircle2 className="h-5 w-5" /></div>
+              <div><p className="font-bold text-sm leading-snug">{feature.title}</p><p className="text-xs text-gray-500 mt-1">{index === 0 ? "Care built around your comfort." : "Thoughtful treatment, every visit."}</p></div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="red-about" className="px-5 py-20 bg-[#FAFAFA]">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-14 items-center">
+          <div className="rounded-3xl overflow-hidden aspect-[4/3] bg-[#130506]">
+            <img src={cfg.aboutImageUrl || cfg.heroImageUrl || heroImage} alt={`Inside ${clinic.name}`} className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">About us</p>
+            <h2 className="text-4xl sm:text-5xl font-black text-[#171717] mb-6" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>Redefining dental care in {clinic.city || "your community"}</h2>
+            <p className="text-gray-600 leading-relaxed text-lg mb-6">{cfg.aboutDescription || `${clinic.name} is committed to precise, compassionate dental care in a comfortable environment. We take time to understand your goals and explain every step clearly.`}</p>
+            <div className="space-y-3">
+              {[cfg.vision || "Compassionate and personalised treatment", cfg.values || "Modern technology with conservative, thoughtful care", "Clear guidance, strict safety protocols, and long-term support"].map((item, index) => (
+                <div key={index} className="flex gap-3 items-start"><CheckCircle2 className="h-5 w-5 text-[#E11D24] shrink-0 mt-0.5" /><span className="text-gray-700">{item}</span></div>
+              ))}
+            </div>
+            <Link href={bookingHref}><button className="mt-8 bg-[#E11D24] text-white px-6 py-3 rounded-full font-bold hover:bg-[#B91C1C] transition-colors">Talk to our team</button></Link>
+          </div>
+        </div>
+      </section>
+
+      <RedDoctorProfile clinic={clinic} titleColor="text-[#171717]" />
+
+      <section className="px-5 py-14 bg-[#130506] text-white">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-8">
+          {stats.map((stat, index) => (
+            <div key={`${stat.label}-${index}`} className="text-center"><p className="text-4xl font-black text-red-300">{stat.value}</p><p className="text-white/60 text-sm mt-2">{stat.label}</p></div>
+          ))}
+        </div>
+      </section>
+
+      <RedSpecialtiesSection specialties={specialties} />
+      <RedTreatmentGroups groups={treatmentGroups} />
+
+      <ServicesCarousel
+        services={services}
+        sectionId="red-service-cards"
+        titleLabel="Treatments"
+        title="Choose the right care for you"
+        bg="bg-white"
+        cardBg="bg-white"
+        border="border-gray-200"
+        titleColor="text-[#171717]"
+        accentColor="text-[#E11D24]"
+        textColor="text-gray-600"
+        numStyle
+      />
+
+      {gallery.length > 0 && <GallerySection gallery={gallery} bg="bg-[#130506]" titleColor="text-white" />}
+      <RedSocialGallery posts={socialPosts} />
+
+      <section className="px-5 py-20 bg-[#FAFAFA]">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">Connect with us</p>
+            <h2 className="text-4xl sm:text-5xl font-black text-[#171717] mb-5" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.04em" }}>Make your dental journey smooth and stress-free</h2>
+            <p className="text-gray-600 leading-relaxed max-w-xl">Whether you need expert advice, want to schedule a visit, or have a question about treatment, our team is ready to help.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-5 items-stretch">
+            <div className="rounded-3xl bg-[#D9090D] text-white p-6">
+              <h3 className="text-xl font-bold mb-5">Opening hours</h3>
+              <div className="space-y-3">
+                {hours.map((hour, index) => <div key={index} className="flex justify-between gap-3 text-sm border-b border-white/20 pb-2 last:border-0"><span>{hour.day}</span><span className="font-semibold">{hour.closed ? "Closed" : `${hour.open} – ${hour.close}`}</span></div>)}
+              </div>
+            </div>
+            <div className="rounded-3xl overflow-hidden min-h-[240px] bg-[#130506]">
+              <img src={cfg.featuresImageUrl || cfg.aboutImageUrl || heroImage} alt="Clinic interior" className="w-full h-full object-cover opacity-90" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <RedReviews testimonials={testimonials} />
+      <RedFaqSection faq={faq} />
+
+      <section id="red-contact" className="px-5 py-8 bg-white">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 rounded-3xl overflow-hidden border border-gray-200">
+          <div className="bg-[#D9090D] text-white p-9 sm:p-12">
+            <p className="text-white/70 text-sm font-bold uppercase tracking-[0.22em] mb-3">Schedule a visit</p>
+            <h2 className="text-3xl font-black mb-4">Ready for a healthier, more confident smile?</h2>
+            <p className="text-white/80 leading-relaxed mb-7">Choose a convenient time and let our team take care of the rest.</p>
+            <Link href={bookingHref}><button className="bg-white text-[#D9090D] px-6 py-3 rounded-full font-bold hover:bg-red-50 transition-colors">Schedule now</button></Link>
+          </div>
+          <div className="bg-[#F5F5F5] p-9 sm:p-12">
+            <p className="text-[#E11D24] text-sm font-bold uppercase tracking-[0.22em] mb-3">Talk to us</p>
+            <h2 className="text-3xl font-black mb-4">Questions before you book?</h2>
+            <p className="text-gray-600 leading-relaxed mb-7">Reach out to {clinic.name} for clear guidance on your treatment options.</p>
+            {clinic.phone ? <a href={`tel:${clinic.phone}`} className="inline-flex bg-[#E11D24] text-white px-6 py-3 rounded-full font-bold hover:bg-[#B91C1C] transition-colors">{clinic.phone}</a> : <Link href={bookingHref}><button className="bg-[#E11D24] text-white px-6 py-3 rounded-full font-bold">Contact us</button></Link>}
+          </div>
+        </div>
+      </section>
+
+      {cfg.showMap !== false && clinic.latitude && clinic.longitude && (
+        <section className="px-5 pb-20 bg-white">
+          <div className="max-w-7xl mx-auto">
+            <MapSection clinic={clinic} cfg={cfg} />
+          </div>
+        </section>
+      )}
+
+      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#130506]" accentSuffix="-red" />
+      <RedWhatsApp phone={clinic.phone} />
     </div>
   );
 }

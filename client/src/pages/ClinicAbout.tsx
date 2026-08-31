@@ -14,7 +14,7 @@ import { API_BASE_URL } from "@/lib/queryClient";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ThemeClassic, ThemeWarm, ThemeModern } from "@/components/clinic-themes/ClinicThemes";
+import { ThemeClassic, ThemeWarm, ThemeModern, ThemeRedClinical } from "@/components/clinic-themes/ClinicThemes";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
 const PIN_ICON = L.divIcon({
@@ -125,6 +125,7 @@ export default function ClinicAbout(props: { params?: { slug?: string } }) {
     };
     if (cfg.theme === "warm") return <ThemeWarm clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} isOwner={isOwner} />;
     if (cfg.theme === "modern") return <ThemeModern clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} isOwner={isOwner} />;
+    if (cfg.theme === "red-clinical") return <ThemeRedClinical clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} isOwner={isOwner} />;
     return <ThemeClassic clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} isOwner={isOwner} />;
   }
 

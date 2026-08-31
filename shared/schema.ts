@@ -8,17 +8,24 @@ import { relations, sql } from "drizzle-orm";
 export * from "./models/auth";
 
 export type ClinicWebsiteConfig = {
-  theme: "classic" | "warm" | "modern";
+  theme: "classic" | "warm" | "modern" | "red-clinical";
   taglineL1?: string;
   taglineL2?: string;
   heroDescription?: string;
+  announcementText?: string;
   aboutDescription?: string;
+  aboutImageUrl?: string;
   vision?: string;
   values?: string;
   heroImageUrl?: string;
+  heroForegroundImageUrl?: string;
   gallery?: { url: string; caption: string }[];
   services?: { name: string; description: string; imageUrl?: string }[];
+  specialties?: { title: string; description: string; icon?: string }[];
+  treatmentGroups?: { name: string; description?: string; items: string[]; imageUrl?: string }[];
   testimonials?: { quote: string; patientName: string; rating: number }[];
+  faq?: { question: string; answer: string }[];
+  socialPosts?: { imageUrl: string; caption?: string; link?: string }[];
   hours?: { day: string; open: string; close: string; closed: boolean }[];
   socialLinks?: { instagram?: string; facebook?: string; youtube?: string };
   showMap?: boolean;

@@ -2821,11 +2821,90 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  const websiteConfigSchema = z.object({
+    theme: z.enum(["classic", "warm", "modern", "red-clinical"]),
+    taglineL1: z.string().max(180).optional(),
+    taglineL2: z.string().max(180).optional(),
+    heroDescription: z.string().max(1200).optional(),
+    announcementText: z.string().max(240).optional(),
+    aboutDescription: z.string().max(2400).optional(),
+    aboutImageUrl: z.string().max(1200).optional(),
+    vision: z.string().max(1200).optional(),
+    values: z.string().max(1200).optional(),
+    heroImageUrl: z.string().max(1200).optional(),
+    heroForegroundImageUrl: z.string().max(1200).optional(),
+    featuresImageUrl: z.string().max(1200).optional(),
+    gallery: z.array(z.object({
+      url: z.string().max(1200),
+      caption: z.string().max(240),
+    })).max(6).optional(),
+    services: z.array(z.object({
+      name: z.string().max(180),
+      description: z.string().max(1200),
+      imageUrl: z.string().max(1200).optional(),
+    })).max(20).optional(),
+    specialties: z.array(z.object({
+      title: z.string().max(180),
+      description: z.string().max(1200),
+      icon: z.string().max(60).optional(),
+    })).max(6).optional(),
+    treatmentGroups: z.array(z.object({
+      name: z.string().max(180),
+      description: z.string().max(1200).optional(),
+      items: z.array(z.string().max(240)).max(10),
+      imageUrl: z.string().max(1200).optional(),
+    })).max(8).optional(),
+    testimonials: z.array(z.object({
+      quote: z.string().max(1200),
+      patientName: z.string().max(180),
+      rating: z.number().int().min(1).max(5),
+    })).max(5).optional(),
+    faq: z.array(z.object({
+      question: z.string().max(240),
+      answer: z.string().max(1200),
+    })).max(12).optional(),
+    socialPosts: z.array(z.object({
+      imageUrl: z.string().max(1200),
+      caption: z.string().max(240).optional(),
+      link: z.string().max(1200).optional(),
+    })).max(6).optional(),
+    hours: z.array(z.object({
+      day: z.string().max(80),
+      open: z.string().max(40),
+      close: z.string().max(40),
+      closed: z.boolean(),
+    })).max(14).optional(),
+    socialLinks: z.object({
+      instagram: z.string().max(1200).optional(),
+      facebook: z.string().max(1200).optional(),
+      youtube: z.string().max(1200).optional(),
+    }).optional(),
+    showMap: z.boolean().optional(),
+    stats: z.array(z.object({
+      value: z.string().max(80),
+      label: z.string().max(180),
+    })).max(4).optional(),
+    features: z.array(z.object({
+      icon: z.string().max(60),
+      title: z.string().max(180),
+    })).max(4).optional(),
+  });
+
   app.patch("/api/auth/clinic/website-config", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
     try {
-      const clinic = await storage.updateClinic(sess.clinicId, { websiteConfig: req.body } as any);
+      const parsed = websiteConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Website configuration contains invalid or oversized content",
+          issues: parsed.error.issues.map(issue => ({
+            path: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+      }
+      const clinic = await storage.updateClinic(sess.clinicId, { websiteConfig: parsed.data } as any);
       res.json(clinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

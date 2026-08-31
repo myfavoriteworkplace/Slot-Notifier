@@ -15,7 +15,7 @@ import {
   Globe, Palette, Image, Layers, Star, Clock, Share2,
   Plus, Trash2, ExternalLink, Save, Eye, Smartphone,
   BarChart2, Sparkles, Instagram, Facebook, Youtube,
-  Users, Layout, Lock, X, RefreshCw,
+  Users, Layout, Lock, X, RefreshCw, HelpCircle, ListChecks,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
@@ -42,6 +42,12 @@ const THEME_OPTIONS: { id: ClinicWebsiteConfig["theme"]; label: string; descript
     description: "Bold typography, dark hero, clean grid. Perfect for cosmetic or premium clinics.",
     preview: "bg-[#0F172A]",
   },
+  {
+    id: "red-clinical",
+    label: "Red Clinical",
+    description: "High-contrast red and charcoal presentation with bold treatment cards. Inspired by premium specialist clinics.",
+    preview: "bg-gradient-to-br from-[#130506] via-[#8f1717] to-[#e11d24]",
+  },
 ];
 
 const DEFAULT_HOURS = [
@@ -66,7 +72,10 @@ const FEATURE_EMOJI: Record<string, string> = {
   award: "🏆", zap: "⚡", activity: "📈", check: "✅",
 };
 
-type Section = "theme" | "hero" | "about" | "features" | "stats" | "services" | "gallery" | "testimonials" | "hours" | "social";
+type Section =
+  | "theme" | "hero" | "about" | "features" | "stats" | "services"
+  | "specialties" | "treatments" | "gallery" | "testimonials"
+  | "faq" | "hours" | "social" | "social-posts";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
   const existing: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
@@ -75,8 +84,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const [taglineL1, setTaglineL1] = useState(existing.taglineL1 ?? "");
   const [taglineL2, setTaglineL2] = useState(existing.taglineL2 ?? "");
   const [heroDescription, setHeroDescription] = useState(existing.heroDescription ?? "");
+  const [announcementText, setAnnouncementText] = useState(existing.announcementText ?? "");
   const [heroImageUrl, setHeroImageUrl] = useState(existing.heroImageUrl ?? "");
+  const [heroForegroundImageUrl, setHeroForegroundImageUrl] = useState(existing.heroForegroundImageUrl ?? "");
   const [aboutDescription, setAboutDescription] = useState(existing.aboutDescription ?? "");
+  const [aboutImageUrl, setAboutImageUrl] = useState(existing.aboutImageUrl ?? "");
   const [vision, setVision] = useState(existing.vision ?? "");
   const [values, setValues] = useState(existing.values ?? "");
   const [features, setFeatures] = useState<{ icon: string; title: string }[]>(
@@ -100,12 +112,20 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const [services, setServices] = useState<{ name: string; description: string; imageUrl?: string }[]>(
     existing.services?.length ? existing.services : [{ name: "", description: "" }]
   );
+  const [specialties, setSpecialties] = useState<{ title: string; description: string; icon?: string }[]>(
+    existing.specialties ?? []
+  );
+  const [treatmentGroups, setTreatmentGroups] = useState<{ name: string; description?: string; items: string[]; imageUrl?: string }[]>(
+    existing.treatmentGroups ?? []
+  );
   const [gallery, setGallery] = useState<{ url: string; caption: string }[]>(
     existing.gallery?.length ? existing.gallery : []
   );
   const [testimonials, setTestimonials] = useState<{ quote: string; patientName: string; rating: number }[]>(
     existing.testimonials?.length ? existing.testimonials : []
   );
+  const [faq, setFaq] = useState<{ question: string; answer: string }[]>(existing.faq ?? []);
+  const [socialPosts, setSocialPosts] = useState<{ imageUrl: string; caption?: string; link?: string }[]>(existing.socialPosts ?? []);
   const [hours, setHours] = useState<{ day: string; open: string; close: string; closed: boolean }[]>(
     existing.hours?.length ? existing.hours : DEFAULT_HOURS
   );
@@ -123,8 +143,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     setTaglineL1(e.taglineL1 ?? "");
     setTaglineL2(e.taglineL2 ?? "");
     setHeroDescription(e.heroDescription ?? "");
+    setAnnouncementText(e.announcementText ?? "");
     setHeroImageUrl(e.heroImageUrl ?? "");
+    setHeroForegroundImageUrl(e.heroForegroundImageUrl ?? "");
     setAboutDescription(e.aboutDescription ?? "");
+    setAboutImageUrl(e.aboutImageUrl ?? "");
     setVision(e.vision ?? "");
     setValues(e.values ?? "");
     setFeatures(e.features?.length ? e.features : [
@@ -136,8 +159,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     setFeaturesImageUrl(e.featuresImageUrl ?? "");
     setStats(e.stats?.length ? e.stats : DEFAULT_STATS_PREFILL);
     setServices(e.services?.length ? e.services : [{ name: "", description: "" }]);
+    setSpecialties(e.specialties ?? []);
+    setTreatmentGroups(e.treatmentGroups ?? []);
     setGallery(e.gallery?.length ? e.gallery : []);
     setTestimonials(e.testimonials?.length ? e.testimonials : []);
+    setFaq(e.faq ?? []);
+    setSocialPosts(e.socialPosts ?? []);
     setHours(e.hours?.length ? e.hours : DEFAULT_HOURS);
     setSocialLinks(e.socialLinks ?? {});
     setShowMap(e.showMap !== false);
@@ -164,16 +191,25 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       taglineL1: taglineL1 || undefined,
       taglineL2: taglineL2 || undefined,
       heroDescription: heroDescription || undefined,
+      announcementText: announcementText || undefined,
       heroImageUrl: heroImageUrl || undefined,
+      heroForegroundImageUrl: heroForegroundImageUrl || undefined,
       aboutDescription: aboutDescription || undefined,
+      aboutImageUrl: aboutImageUrl || undefined,
       vision: vision || undefined,
       values: values || undefined,
       features: features.filter(f => f.title),
       featuresImageUrl: featuresImageUrl || undefined,
       stats: stats.filter(s => s.value && s.label),
       services: services.filter(s => s.name),
+      specialties: specialties.filter(s => s.title && s.description),
+      treatmentGroups: treatmentGroups
+        .map(group => ({ ...group, items: group.items.filter(Boolean) }))
+        .filter(group => group.name && group.items.length > 0),
       gallery: gallery.filter(g => g.url),
       testimonials: testimonials.filter(t => t.quote && t.patientName),
+      faq: faq.filter(item => item.question && item.answer),
+      socialPosts: socialPosts.filter(post => post.imageUrl),
       hours,
       socialLinks: Object.values(socialLinks).some(Boolean) ? socialLinks : undefined,
       showMap,
@@ -189,6 +225,10 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const liveTestimonials = testimonials.filter(t => t.quote && t.patientName);
   const liveStats = stats.filter(s => s.value && s.label);
   const liveFeatures = features.filter(f => f.title);
+  const liveSpecialties = specialties.filter(s => s.title && s.description);
+  const liveTreatmentGroups = treatmentGroups.filter(g => g.name && g.items.some(Boolean));
+  const liveFaq = faq.filter(item => item.question && item.answer);
+  const liveSocialPosts = socialPosts.filter(post => post.imageUrl);
   const socialCount = [socialLinks.instagram, socialLinks.facebook, socialLinks.youtube].filter(Boolean).length;
   const themeLabel = THEME_OPTIONS.find(t => t.id === theme)?.label ?? "Classic";
 
@@ -234,6 +274,22 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       dot: liveServices.length > 0 ? "green" : "gray", editable: true, accent: "bg-teal-500",
     },
     {
+      id: "specialties", icon: Sparkles, label: "Specialities",
+      status: specialties.filter(s => s.title && s.description).length > 0
+        ? `${specialties.filter(s => s.title && s.description).length} cards · showing`
+        : "Add speciality cards",
+      dot: specialties.some(s => s.title && s.description) ? "green" : "gray",
+      editable: true, accent: "bg-red-500",
+    },
+    {
+      id: "treatments", icon: ListChecks, label: "Treatment Groups",
+      status: treatmentGroups.filter(g => g.name && g.items.some(Boolean)).length > 0
+        ? `${treatmentGroups.filter(g => g.name && g.items.some(Boolean)).length} groups · showing`
+        : "Add treatment groups",
+      dot: treatmentGroups.some(g => g.name && g.items.some(Boolean)) ? "green" : "gray",
+      editable: true, accent: "bg-red-600",
+    },
+    {
       id: "doctors", icon: Users, label: "Doctors",
       status: "Auto from Manage Doctors",
       dot: "green", editable: false, accent: "bg-sky-400",
@@ -250,6 +306,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       dot: liveTestimonials.length > 0 ? "green" : "amber", editable: true, accent: "bg-amber-400",
     },
     {
+      id: "faq", icon: HelpCircle, label: "FAQ",
+      status: faq.filter(item => item.question && item.answer).length > 0
+        ? `${faq.filter(item => item.question && item.answer).length} answers · showing`
+        : "Add answers to activate",
+      dot: faq.some(item => item.question && item.answer) ? "green" : "amber",
+      editable: true, accent: "bg-red-400",
+    },
+    {
       id: "hours", icon: Clock, label: "Clinic Hours",
       status: `${hours.length} time slot${hours.length !== 1 ? "s" : ""} · visible`,
       dot: "green", editable: true, accent: "bg-slate-400",
@@ -258,6 +322,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       id: "social", icon: Share2, label: "Social Links",
       status: socialCount > 0 ? `${socialCount} link${socialCount !== 1 ? "s" : ""} connected` : "No links added yet",
       dot: socialCount > 0 ? "green" : "gray", editable: true, accent: "bg-pink-400",
+    },
+    {
+      id: "social-posts", icon: Instagram, label: "Social Gallery",
+      status: socialPosts.filter(post => post.imageUrl).length > 0
+        ? `${socialPosts.filter(post => post.imageUrl).length} posts · showing`
+        : "Add social cards",
+      dot: socialPosts.some(post => post.imageUrl) ? "green" : "gray",
+      editable: true, accent: "bg-fuchsia-400",
     },
     {
       id: "footer", icon: Globe, label: "Footer",
@@ -453,6 +525,43 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "specialties":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Sparkles} title="Specialities" status={`${liveSpecialties.length} cards · preview`} statusCls={liveSpecialties.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(liveSpecialties.length ? liveSpecialties : specialties).slice(0, 3).map((item, i) => (
+                  <div key={i} className="p-3 rounded-lg border border-red-200/70 dark:border-red-500/20 bg-red-50/40 dark:bg-red-950/10">
+                    <div className="h-6 w-6 rounded-md bg-red-600 text-white flex items-center justify-center mb-2">
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </div>
+                    <p className="text-xs font-bold leading-tight line-clamp-2">{item.title || "Speciality title…"}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description || "Add a short description…"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "treatments":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={ListChecks} title="Treatment Groups" status={`${liveTreatmentGroups.length} groups · preview`} statusCls={liveTreatmentGroups.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(liveTreatmentGroups.length ? liveTreatmentGroups : treatmentGroups).slice(0, 3).map((group, i) => (
+                  <div key={i} className="p-3 rounded-lg bg-red-600 text-white min-h-[92px]">
+                    <p className="text-xs font-bold leading-tight line-clamp-2">{group.name || "Treatment group…"}</p>
+                    <p className="text-[10px] text-white/70 mt-2 line-clamp-3">{group.items.filter(Boolean).join(" · ") || "Add treatment items…"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
       case "gallery":
         if (liveGallery.length === 0) {
           return (
@@ -507,6 +616,21 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   </div>
                   <p className="text-xs text-gray-600 dark:text-muted-foreground italic leading-relaxed line-clamp-2">"{t.quote}"</p>
                   <p className="text-xs font-bold text-[#0A3D2E] dark:text-foreground mt-1">— {t.patientName}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case "faq":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={HelpCircle} title="Frequently Asked Questions" status={`${liveFaq.length} answers · preview`} statusCls={liveFaq.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden space-y-1.5">
+              {(liveFaq.length ? liveFaq : faq).slice(0, 3).map((item, i) => (
+                <div key={i} className="rounded-lg border border-red-200/70 dark:border-red-500/20 overflow-hidden">
+                  <p className="px-2.5 py-1.5 bg-red-600 text-white text-xs font-semibold line-clamp-1">{item.question || "Question…"}</p>
+                  <p className="px-2.5 py-1.5 text-xs text-muted-foreground line-clamp-1">{item.answer || "Answer…"}</p>
                 </div>
               ))}
             </div>
@@ -568,6 +692,22 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "social-posts":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Instagram} title="Social Gallery" status={`${liveSocialPosts.length} posts · preview`} statusCls={liveSocialPosts.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-[#8f1717] dark:bg-red-950/50 overflow-hidden">
+              <div className="grid grid-cols-3 gap-2">
+                {(liveSocialPosts.length ? liveSocialPosts : socialPosts).slice(0, 3).map((post, i) => (
+                  <div key={i} className="aspect-square rounded-lg overflow-hidden bg-white/10">
+                    {post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover" /> : <Instagram className="w-full h-full p-8 text-white/40" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className="h-full flex items-center justify-center bg-muted/10">
@@ -587,7 +727,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">Choose the visual style for your public clinic page. You can change this anytime.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
               {THEME_OPTIONS.map((t) => (
                 <button
                   key={t.id}
@@ -619,6 +759,10 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "hero":
         return (
           <div className="space-y-4">
+            <div>
+              <Label className="label-field mb-1.5 block">Top Strip Message (optional)</Label>
+              <Input value={announcementText} onChange={e => setAnnouncementText(e.target.value)} placeholder="e.g. Advanced dental care in your city" className="rounded-xl" onFocus={scrollFocus} data-testid="input-announcement-text" />
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <Label className="label-field mb-1.5 block">Tagline Line 1</Label>
@@ -635,8 +779,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             </div>
             <div>
               <Label className="label-field mb-1.5 block">Hero / Clinic Photo</Label>
-              <p className="text-xs text-muted-foreground mb-2">Used as the background (Warm theme) or side image (Classic & Modern themes).</p>
+              <p className="text-xs text-muted-foreground mb-2">Used as the main image across themes. The Red Clinical theme uses it as the hero background.</p>
               <ImageUpload currentImage={heroImageUrl || undefined} onImageUploaded={(url) => setHeroImageUrl(url)} folder="clinics" fallbackText="Hero" />
+            </div>
+            <div>
+              <Label className="label-field mb-1.5 block">Hero Foreground / Doctor Photo (optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">Used by the Red Clinical theme for a separate doctor or portrait image.</p>
+              <ImageUpload currentImage={heroForegroundImageUrl || undefined} onImageUploaded={(url) => setHeroForegroundImageUrl(url)} folder="clinics" fallbackText="Doctor" />
             </div>
           </div>
         );
@@ -644,6 +793,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "about":
         return (
           <div className="space-y-4">
+            <div>
+              <Label className="label-field mb-1.5 block">About Photo (optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">Shown beside the clinic story in the Red Clinical theme.</p>
+              <ImageUpload currentImage={aboutImageUrl || undefined} onImageUploaded={(url) => setAboutImageUrl(url)} folder="clinics" fallbackText="About" />
+            </div>
             <div>
               <Label className="label-field mb-1.5 block">About / Our Story</Label>
               <Textarea value={aboutDescription} onChange={e => setAboutDescription(e.target.value)} placeholder="Tell patients about your clinic, your background, and what makes you different..." rows={4} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-about-description" />
@@ -754,6 +908,59 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "specialties":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 6 speciality cards. These are shown in the Red Clinical theme as focused areas of expertise.</p>
+            {specialties.map((item, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Speciality {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setSpecialties(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-specialty-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Input value={item.title} onChange={e => setSpecialties(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Speciality title" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-specialty-title-${i}`} />
+                <Textarea value={item.description} onChange={e => setSpecialties(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description of this speciality" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-specialty-description-${i}`} />
+              </div>
+            ))}
+            {specialties.length < 6 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setSpecialties(prev => [...prev, { title: "", description: "" }])} data-testid="button-add-specialty">
+                <Plus className="h-3.5 w-3.5" />Add Speciality
+              </Button>
+            )}
+          </div>
+        );
+
+      case "treatments":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 8 treatment groups. Enter one treatment per line to create the reference-style red treatment cards.</p>
+            {treatmentGroups.map((group, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Treatment Group {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setTreatmentGroups(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-treatment-group-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Input value={group.name} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="e.g. Aesthetic & Conservative Dentistry" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-treatment-group-name-${i}`} />
+                <Textarea value={group.description ?? ""} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Optional group description" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-treatment-group-description-${i}`} />
+                <Textarea value={group.items.join("\n")} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, items: e.target.value.split("\n").map(v => v.trim()).filter(Boolean) } : x))} placeholder={"One treatment per line\nComposite bonding\nCeramic veneers"} rows={4} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-treatment-group-items-${i}`} />
+                <div>
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Group Image (optional)</Label>
+                  <ImageUpload currentImage={group.imageUrl || undefined} onImageUploaded={(url) => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Treat" />
+                </div>
+              </div>
+            ))}
+            {treatmentGroups.length < 8 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setTreatmentGroups(prev => [...prev, { name: "", description: "", items: [] }])} data-testid="button-add-treatment-group">
+                <Plus className="h-3.5 w-3.5" />Add Treatment Group
+              </Button>
+            )}
+          </div>
+        );
+
       case "gallery":
         return (
           <div className="space-y-4">
@@ -808,6 +1015,30 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "faq":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 12 frequently asked questions. The FAQ section is hidden until at least one complete answer is saved.</p>
+            {faq.map((item, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Question {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setFaq(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-faq-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Input value={item.question} onChange={e => setFaq(prev => prev.map((x, j) => j === i ? { ...x, question: e.target.value } : x))} placeholder="Frequently asked question" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-faq-question-${i}`} />
+                <Textarea value={item.answer} onChange={e => setFaq(prev => prev.map((x, j) => j === i ? { ...x, answer: e.target.value } : x))} placeholder="Answer for patients" rows={3} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-faq-answer-${i}`} />
+              </div>
+            ))}
+            {faq.length < 12 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setFaq(prev => [...prev, { question: "", answer: "" }])} data-testid="button-add-faq">
+                <Plus className="h-3.5 w-3.5" />Add Question
+              </Button>
+            )}
+          </div>
+        );
+
       case "hours":
         return (
           <div className="space-y-3">
@@ -848,6 +1079,31 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               <Label className="label-field mb-1.5 block">YouTube URL</Label>
               <Input value={socialLinks.youtube ?? ""} onChange={e => setSocialLinks(p => ({ ...p, youtube: e.target.value }))} placeholder="https://youtube.com/@yourclinic" className="rounded-xl" onFocus={scrollFocus} data-testid="input-social-youtube" />
             </div>
+          </div>
+        );
+
+      case "social-posts":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 6 image cards for the social gallery. These are manually managed; the page does not connect to a live social-media feed.</p>
+            {socialPosts.map((post, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Social Post {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setSocialPosts(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-social-post-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <ImageUpload currentImage={post.imageUrl || undefined} onImageUploaded={(url) => setSocialPosts(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Post" />
+                <Input value={post.caption ?? ""} onChange={e => setSocialPosts(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-social-post-caption-${i}`} />
+                <Input value={post.link ?? ""} onChange={e => setSocialPosts(prev => prev.map((x, j) => j === i ? { ...x, link: e.target.value } : x))} placeholder="Post link (optional)" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-social-post-link-${i}`} />
+              </div>
+            ))}
+            {socialPosts.length < 6 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setSocialPosts(prev => [...prev, { imageUrl: "" }])} data-testid="button-add-social-post">
+                <Plus className="h-3.5 w-3.5" />Add Social Post
+              </Button>
+            )}
           </div>
         );
 
