@@ -635,3 +635,672 @@ approved. At completion, update this document with:
 - Any theme-specific behavior that differs from the initial plan.
 - Desktop and mobile verification results.
 - Any intentionally deferred improvements.
+
+## 20. SEO, search visibility, and content safety roadmap
+
+This section records the related SEO and security work requested for the
+clinic websites. It is intentionally written in plain language so a clinic
+owner or non-technical reviewer can understand what will happen.
+
+This work is related to the website editor, but it is not the same feature as
+the Live section preview. The Live section preview helps a clinic owner see
+draft changes. The phases below help search engines find, understand, and
+safely display the saved public clinic website.
+
+### 20.1 Important expectation about Google rankings
+
+The application can give every clinic a strong SEO foundation, but it cannot
+promise that every clinic will appear first on Google.
+
+Google decides local results using several factors, including:
+
+- How closely the page matches what the person searched for.
+- How close the clinic is to the person searching.
+- How well-known and trusted the clinic is online.
+- The quality and usefulness of the clinic’s content.
+- The clinic’s real reviews, links, and business information.
+
+Two clinics may target the same city and treatment. Both can be technically
+well-built, but Google still has to decide which result best matches each
+search. No application can guarantee the first position.
+
+The correct promise is:
+
+> BookMySlot will provide a safe, fast, locally focused, search-friendly
+> website for each eligible clinic, and will give clinic owners the tools and
+> guidance needed to improve their real local visibility.
+
+### 20.2 Priority overview
+
+The priorities below are ordered by risk and dependency, not only by how
+visible the feature is.
+
+| Priority | Work | Why it comes at this priority |
+|---|---|---|
+| **P0 — Must fix first** | Protect public data and block unsafe content | A privacy or script-injection problem is more serious than a ranking problem |
+| **P1 — Search foundation** | Canonical URLs, robots rules, sitemap, page eligibility, and correct 404 behavior | Search engines must be allowed to find the right pages and ignore incomplete ones |
+| **P2 — Page SEO** | Unique titles, descriptions, headings, local content, links, and image text | This tells Google and patients what each clinic page is about |
+| **P3 — Technical quality** | Server-rendered public content, structured data, image performance, and mobile speed | A page must be understandable and pleasant to use, not merely present |
+| **P4 — Local growth** | Google Business Profile, genuine reviews, local links, and clinic guidance | These signals are largely created by the clinic in the real world |
+| **P5 — Measurement and improvement** | Search Console, reporting, audits, and ongoing content review | SEO is measured over time; it is not a one-time switch |
+
+P0 and P1 should be completed before intentionally submitting clinic pages for
+indexing. P2 and P3 form the first useful SEO release. P4 and P5 continue after
+launch.
+
+## 21. Detailed phase plan
+
+### Phase 0 — Confirm the baseline and protect existing behavior
+
+**Priority:** P0
+**Purpose:** Understand what exists before changing the public website.
+
+#### In common language
+
+Before adding SEO or security controls, we will make a list of the current
+public pages, the information each page shows, and the ways clinic owners can
+edit that information.
+
+This prevents a well-intended SEO improvement from accidentally hiding a
+clinic, changing a public theme, breaking booking, or exposing information
+that should remain private.
+
+#### Planned work
+
+1. Review the public clinic URL:
+
+   ```text
+   /clinic/:slug
+   ```
+
+2. Review the legacy and booking URLs and decide which one should be the main
+   public page.
+3. Record the current behavior of Classic, Warm, Modern, and Red Clinical.
+4. List every field that a clinic owner can edit.
+5. List every place that field is displayed:
+   - Visible text
+   - Headings
+   - Links
+   - Images
+   - Social cards
+   - Structured data
+   - Metadata
+6. Check the current public API response and remove fields that are not
+   needed by a public visitor.
+7. Check the current image upload path and file restrictions.
+8. Check whether any clinic-controlled value reaches an HTML, script, style,
+   URL, redirect, or JSON-LD context.
+9. Save a clean desktop and mobile baseline for all four themes.
+
+#### Why this must happen first
+
+Search optimization increases the number of people who can discover a page.
+It should not be done before confirming that the page exposes only intended
+information and safely handles clinic-provided content.
+
+#### Completion condition
+
+We should be able to answer:
+
+- Which URL is the official clinic page?
+- Which fields are public?
+- Which fields are private?
+- Which fields are optional?
+- Which pages are ready for indexing?
+- Which fields can contain links or uploaded images?
+
+No public behavior should intentionally change during this phase.
+
+### Phase 1 — Secure the public data and content boundary
+
+**Priority:** P0 — Must fix first
+**Purpose:** Prevent malicious scripts, dangerous links, unsafe uploads, and
+unintended data exposure.
+
+#### In common language
+
+Clinic owners need to customize their websites, but they should not be able
+to place a program inside the page or accidentally publish a dangerous link.
+The editor should provide safe choices instead of allowing arbitrary website
+code.
+
+#### Planned work
+
+1. **Use an explicit public data list**
+
+   The public clinic endpoint should return only information that a patient
+   needs to see, such as:
+
+   - Clinic name
+   - Public address and city
+   - Public phone and email
+   - Logo and approved website images
+   - Public hours
+   - Public doctors
+   - Public services and website content
+   - Verified map coordinates when intended for display
+
+   It must not return billing, subscription, storage, verification document,
+   internal trust, or other operational fields.
+
+2. **Allow plain text, not custom code**
+
+   Website content should remain plain text. The editor should not accept:
+
+   - Script tags
+   - Inline JavaScript
+   - Custom CSS
+   - Arbitrary HTML
+   - Event handlers such as `onclick`
+   - Unapproved iframes
+   - Template expressions
+
+   React currently escapes ordinary text content, which is helpful. The
+   server must still validate the content so a future component cannot turn a
+   saved text value into executable HTML.
+
+3. **Validate links by their purpose**
+
+   A website link, social link, image URL, phone link, and email link should
+   not all use the same loose rule.
+
+   The server should reject dangerous schemes such as:
+
+   ```text
+   javascript:
+   data:
+   vbscript:
+   ```
+
+   Social links should normally use HTTPS. Image URLs should use approved
+   storage paths or HTTPS sources. Phone and email links should be generated
+   from validated values rather than accepted as arbitrary URLs.
+
+4. **Keep uploads image-only**
+
+   Website image uploads should be checked for:
+
+   - Allowed extension
+   - Real file type, not only the filename
+   - Maximum size
+   - Maximum dimensions
+   - Safe generated object name
+   - Safe content type
+
+   JPEG, PNG, and WebP are the safest first supported set. SVG should not be
+   accepted unless it is deliberately sanitized because SVG can contain
+   active content.
+
+5. **Protect the website update action**
+
+   The website save route already has authentication, clinic-session checks,
+   and Zod validation. It should also receive:
+
+   - A request rate limit
+   - CSRF protection or strict request-origin checks
+   - Explicit field allowlisting
+   - Audit logging for important changes
+   - Clear validation errors for the clinic owner
+
+6. **Add browser safety headers**
+
+   Add and test production headers for:
+
+   - Content Security Policy
+   - Content type sniffing protection
+   - Referrer policy
+   - Permissions policy
+   - HTTPS transport security
+   - Frame/embed restrictions
+
+   CSP should first run in report-only mode so legitimate fonts, map tiles,
+   images, and API requests can be identified before enforcement begins.
+
+#### What must not be done
+
+- Do not rely only on a blacklist of suspicious words.
+- Do not assume CORS alone prevents CSRF.
+- Do not accept arbitrary clinic HTML because it is “only a clinic page.”
+- Do not allow uploaded files to be served as executable content.
+- Do not expose the entire database clinic object to the browser.
+
+#### Completion condition
+
+Test values such as the following must be displayed or rejected safely, never
+executed:
+
+```text
+<script>alert(1)</script>
+javascript:alert(1)
+data:text/html,<script>alert(1)</script>
+```
+
+The public API must return only reviewed public fields, and approved image
+uploads must still display normally.
+
+### Phase 2 — Make the correct clinic pages discoverable
+
+**Priority:** P1 — Search foundation
+**Purpose:** Help search engines find the right page and avoid indexing the
+wrong or unfinished page.
+
+#### In common language
+
+Google needs clear directions. We must tell it:
+
+- Which clinic pages exist.
+- Which page is the official version.
+- Which pages are unfinished.
+- Which pages should not be indexed.
+- Where the list of eligible clinic pages can be found.
+
+#### Planned work
+
+1. **Choose one canonical clinic URL**
+
+   The recommended public URL is:
+
+   ```text
+   /clinic/:slug
+   ```
+
+   Numeric, legacy, and duplicate versions should redirect to it or be marked
+   as not for indexing.
+
+2. **Add a real robots file**
+
+   Add:
+
+   ```text
+   /robots.txt
+   ```
+
+   It should permit eligible public clinic pages, protect authenticated
+   dashboard routes, and point to the sitemap.
+
+3. **Add a dynamic sitemap**
+
+   Add:
+
+   ```text
+   /sitemap.xml
+   ```
+
+   The sitemap should automatically list approved, non-archived, index-ready
+   clinic pages. It should not list:
+
+   - Pending clinics
+   - Rejected clinics
+   - Archived clinics
+   - Invalid slugs
+   - Private dashboard pages
+   - Incomplete placeholder pages
+
+4. **Use real 404 responses**
+
+   A missing clinic should not return a successful page that merely says
+   “Clinic not found.” Search engines should receive a real 404 or another
+   deliberate removal status.
+
+5. **Use a no-index state for unfinished pages**
+
+   A clinic should be excluded from search until it has the minimum useful
+   information. This is safer than publishing dozens of empty pages.
+
+6. **Set readiness rules**
+
+   A practical starting rule is that a page needs:
+
+   - Approved clinic status
+   - Valid slug
+   - Clinic name
+   - Location
+   - Contact information
+   - Meaningful description or real service content
+   - A working public page
+
+   The exact threshold should be agreed before implementation.
+
+#### Completion condition
+
+Opening `/robots.txt` returns plain text beginning with `User-agent:`.
+
+Opening `/sitemap.xml` returns valid XML and contains only eligible clinic
+URLs. A missing clinic returns a real not-found response.
+
+### Phase 3 — Add unique page-level SEO information
+
+**Priority:** P2 — Page SEO
+**Purpose:** Make each clinic page clearly relevant to real searches.
+
+#### In common language
+
+The title and description seen by Google should tell a person exactly what the
+clinic does and where it is located. Each clinic should have its own
+information rather than receiving the same generic text as every other clinic.
+
+#### Planned work
+
+1. Add a unique title for each clinic page.
+2. Add a useful meta description.
+3. Keep one clear H1 on the page.
+4. Use logical H2 and H3 headings.
+5. Include city and area information naturally.
+6. Include real services and specialties.
+7. Include accurate hours and contact details.
+8. Add descriptive image alt text.
+9. Use meaningful internal links to:
+   - Booking
+   - Services
+   - Doctors
+   - Contact and location sections
+10. Add optional editor fields for:
+
+    ```text
+    seoTitle
+    seoDescription
+    ```
+
+    Safe fallbacks should be generated when these fields are empty.
+
+#### Important content rule
+
+Do not copy one generic description to every clinic. A clinic should provide
+real differences such as:
+
+- Its actual city and neighborhood
+- Its actual treatments
+- Its actual doctors
+- Its actual hours
+- Its actual facilities
+- Its actual patient-facing policies
+
+Do not insert hidden keywords or repeat a city name unnaturally.
+
+#### Completion condition
+
+Two different clinics with different names, cities, and services should
+produce different titles, descriptions, headings, and visible content.
+
+### Phase 4 — Make public clinic content available to crawlers reliably
+
+**Priority:** P3 — Technical quality
+**Purpose:** Ensure the important content is available in the initial page
+response, not only after a browser runs JavaScript.
+
+#### In common language
+
+The current public page is a React application that fetches clinic data in
+the browser. Google can run JavaScript, but not every search engine,
+directory, or social-preview service does this reliably.
+
+The public clinic page should send its important information in a way that
+both people and crawlers can understand quickly.
+
+#### Planned work
+
+1. Keep authenticated dashboards client-rendered.
+2. Add server-rendered or carefully pre-rendered output for public clinic
+   pages.
+3. Ensure the initial HTML contains:
+   - Clinic name
+   - Main heading
+   - Location
+   - Description
+   - Important services
+   - Public links
+   - Metadata
+4. Hydrate the page with React afterward for booking, maps, menus, and other
+   interactions.
+5. Avoid maintaining a completely separate public design that can drift away
+   from the four existing themes.
+
+The safest technical choice should be determined after a small prototype:
+
+- Reuse the existing Express response and inject public page data, or
+- Introduce a focused server-rendered public route, or
+- Pre-render only the public clinic pages while keeping the dashboard as-is.
+
+#### Completion condition
+
+A request made without a browser running JavaScript contains the clinic’s
+important title, description, main heading, and canonical URL.
+
+The browser version must still provide the existing booking and theme
+behavior.
+
+### Phase 5 — Add accurate structured data
+
+**Priority:** P3 — Technical quality
+**Purpose:** Help search engines understand that the page represents a real
+local healthcare clinic.
+
+#### In common language
+
+Structured data is a machine-readable summary of information already shown on
+the page. It is not a way to hide extra claims from patients or force a
+ranking.
+
+#### Planned work
+
+Add safe JSON-LD for eligible pages using real visible information such as:
+
+- Clinic name
+- Address
+- City and postal code
+- Phone
+- Public URL
+- Logo or clinic image
+- Opening hours
+- Verified location coordinates
+- Real services
+- Verified social links
+
+Use the most appropriate local healthcare business type supported by the
+public data model, such as `MedicalClinic` or a suitable `LocalBusiness`
+subtype.
+
+#### Rules
+
+- Structured data must match visible page content.
+- Do not invent ratings or reviews.
+- Do not mark up hidden content.
+- Do not claim a service the clinic does not provide.
+- Do not expose private data through JSON-LD.
+- Escape clinic text safely before placing it inside a JSON script block.
+- Validate structured data using Google’s testing tools.
+
+#### Completion condition
+
+Each eligible clinic page has valid structured data that describes that
+clinic only, and structured-data errors do not appear in verification.
+
+### Phase 6 — Improve speed, mobile use, and image quality
+
+**Priority:** P3 — Technical quality
+**Purpose:** Make the pages pleasant for patients and stronger on mobile
+search.
+
+#### In common language
+
+A page that takes too long to load loses patients even if it ranks well.
+Most clinic searches happen on phones, so the public site must be fast,
+readable, and easy to use with a finger.
+
+#### Planned work
+
+1. Serve appropriately sized images.
+2. Prefer WebP or another efficient format where practical.
+3. Load the main hero image promptly.
+4. Lazy-load images lower on the page.
+5. Reserve image space to reduce content movement.
+6. Reduce unnecessary JavaScript on public pages.
+7. Keep buttons and phone links easy to tap.
+8. Prevent horizontal scrolling.
+9. Check the page on slow mobile connections.
+10. Measure Core Web Vitals rather than assuming the page is fast.
+
+#### Completion condition
+
+The four themes work without horizontal overflow at mobile widths, the main
+content appears quickly, and important images do not cause large layout
+shifts.
+
+### Phase 7 — Give clinics a local SEO checklist
+
+**Priority:** P4 — Local growth
+**Purpose:** Help clinic owners create the real-world signals that software
+alone cannot create.
+
+#### In common language
+
+BookMySlot can build the website, but it cannot honestly create a clinic’s
+reputation. The clinic must keep its information accurate in the places
+where patients search.
+
+#### Planned clinic guidance
+
+Each clinic should be encouraged to:
+
+1. Claim and verify its Google Business Profile.
+2. Keep its name, address, and phone number consistent.
+3. Keep hours updated.
+4. Add real clinic photographs.
+5. Link the clinic page from its Business Profile.
+6. Ask genuine patients for honest reviews without incentives or pressure.
+7. Respond to reviews professionally.
+8. Use accurate business categories.
+9. Seek legitimate local directory and professional-association listings.
+10. Share the clinic page through real social and community channels.
+
+#### What BookMySlot must not automate
+
+- Fake reviews
+- Fake patient identities
+- Paid or spam backlinks
+- Keyword-stuffed pages
+- Hundreds of nearly identical doorway pages
+- Misleading medical claims
+- Hidden text intended only for search engines
+
+These practices can cause ranking penalties and damage the reputation of both
+the clinic and the BookMySlot domain.
+
+### Phase 8 — Measure results and improve safely
+
+**Priority:** P5 — Ongoing improvement
+**Purpose:** Replace guesswork with real evidence.
+
+#### Planned work
+
+Track:
+
+- Search impressions
+- Search clicks
+- Click-through rate
+- Average position by query
+- Indexed and excluded pages
+- Sitemap errors
+- Crawl errors
+- Structured-data errors
+- Core Web Vitals
+- Organic booking conversions
+- Google Business Profile actions where available
+
+The first version should focus on giving clinic owners a clear setup checklist
+and reporting reliable measurements. Automatic ranking promises should not be
+made.
+
+#### Completion condition
+
+The team can see which clinic pages are indexed, which queries show them,
+which pages need better content, and whether organic visitors complete a
+booking.
+
+## 22. How the SEO and preview work fit together
+
+The two workstreams should share data but remain separate in responsibility.
+
+### The Live section preview will
+
+- Show the current unsaved editor values.
+- Use the selected public theme.
+- Help the owner judge visual layout.
+- Show hidden, empty, automatic, and unsupported states.
+- Never publish or save changes by itself.
+
+### The SEO system will
+
+- Use saved and approved clinic data.
+- Decide whether a page is ready for indexing.
+- Generate titles, descriptions, canonical URLs, sitemap entries, and
+  structured data.
+- Keep private or incomplete clinics out of search.
+- Protect content and public data from unsafe input.
+
+The live preview should not pretend that unsaved content is already visible to
+Google. The saved public page and the search metadata must remain the source
+of truth for indexing.
+
+## 23. Suggested release order
+
+The combined work should be released in these controlled groups:
+
+### Release group A — Safety gate
+
+- Public API allowlist
+- Safe URL validation
+- Upload restrictions
+- Website update protection
+- XSS and dangerous-scheme tests
+- Security-header report-only review
+
+### Release group B — Search foundation
+
+- Canonical clinic URL
+- Real robots file
+- Dynamic sitemap
+- Index-readiness rule
+- Correct 404 and noindex behavior
+
+### Release group C — Useful clinic SEO
+
+- Unique title and description
+- Server-generated social metadata
+- Visible local content guidance
+- Heading and alt-text review
+- Safe LocalBusiness/MedicalClinic structured data
+
+### Release group D — Reliable public experience
+
+- Server-rendered or pre-rendered public clinic content
+- Responsive image improvements
+- Mobile performance improvements
+- Core Web Vitals review
+
+### Release group E — Growth and reporting
+
+- Clinic local SEO checklist
+- Search Console setup guidance
+- Indexing and query reporting
+- Ongoing content and security reviews
+
+Each release group should pass the existing production build and Build Check
+before the next group begins.
+
+## 24. Final decision requested before implementation
+
+The recommended direction is:
+
+1. Keep the four fixed public themes.
+2. Keep clinic editing limited to safe, approved fields.
+3. Use `/clinic/:slug` as the canonical public page.
+4. Index only approved and sufficiently complete clinic pages.
+5. Generate metadata and structured data from real clinic information.
+6. Start security work with an explicit allowlist, not a dangerous-content
+   blacklist.
+7. Treat Google ranking as an ongoing outcome to measure, not a guaranteed
+   feature.
+
+No application, database, or configuration changes should begin from this
+section until this order and the index-readiness rule have been reviewed.
