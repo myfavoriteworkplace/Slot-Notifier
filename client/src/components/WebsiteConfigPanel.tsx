@@ -291,7 +291,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       editable: true, accent: "bg-red-500",
     },
     {
-      id: "specialties", icon: Sparkles, label: "Specialities",
+      id: "specialties", icon: Sparkles, label: "Specialties",
       status: specialties.filter(s => s.title && s.description).length > 0
         ? `${specialties.filter(s => s.title && s.description).length} cards · showing`
         : "Add speciality cards",
@@ -381,13 +381,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "theme":
         return (
           <div className="h-full flex flex-col">
-            <SectionHeader icon={Palette} title="Visual Style" status={`${themeLabel} active`} statusCls="text-primary" />
+            <SectionHeader icon={Palette} title="Visual Style" status={themeLabel} statusCls="text-primary" />
             <div className="flex-1 p-3 flex gap-2 items-center bg-muted/10 overflow-hidden">
               {THEME_OPTIONS.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setTheme(t.id)}
-                    className={`flex-1 rounded-xl overflow-hidden border-2 transition-colors text-left ${theme === t.id ? "border-primary bg-primary/[0.03]" : "border-border/40 hover:border-primary/40"}`}
+                    className={`flex-1 rounded-xl overflow-hidden border-2 transition-colors text-left ${theme === t.id ? "border-primary bg-primary/[0.03] ring-1 ring-primary/20" : "border-border/40 hover:border-primary/40"}`}
                   data-testid={`theme-preview-${t.id}`}
                 >
                   <div className={`h-12 w-full ${t.preview} flex items-end p-1.5`}>
@@ -575,7 +575,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "specialties":
         return (
           <div className="h-full flex flex-col">
-            <SectionHeader icon={Sparkles} title="Specialities" status={`${liveSpecialties.length} cards · preview`} statusCls={liveSpecialties.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <SectionHeader icon={Sparkles} title="Specialties" status={`${liveSpecialties.length} cards · preview`} statusCls={liveSpecialties.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
             <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {(liveSpecialties.length ? liveSpecialties : specialties).slice(0, 3).map((item, i) => (
@@ -583,7 +583,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                     <div className="h-6 w-6 rounded-md bg-red-600 text-white flex items-center justify-center mb-2">
                       <Sparkles className="h-3.5 w-3.5" />
                     </div>
-                    <p className="text-xs font-bold leading-tight line-clamp-2">{item.title || "Speciality title…"}</p>
+                    <p className="text-xs font-bold leading-tight line-clamp-2">{item.title || "Specialty title…"}</p>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description || "Add a short description…"}</p>
                   </div>
                 ))}
@@ -997,18 +997,18 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             {specialties.map((item, i) => (
               <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-muted-foreground">Speciality {i + 1}</span>
+                  <span className="text-sm font-semibold text-muted-foreground">Specialty {i + 1}</span>
                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setSpecialties(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-specialty-${i}`}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <Input value={item.title} onChange={e => setSpecialties(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Speciality title" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-specialty-title-${i}`} />
+                <Input value={item.title} onChange={e => setSpecialties(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Specialty title" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-specialty-title-${i}`} />
                 <Textarea value={item.description} onChange={e => setSpecialties(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description of this speciality" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-specialty-description-${i}`} />
               </div>
             ))}
             {specialties.length < 6 && (
               <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setSpecialties(prev => [...prev, { title: "", description: "" }])} data-testid="button-add-specialty">
-                <Plus className="h-3.5 w-3.5" />Add Speciality
+                <Plus className="h-3.5 w-3.5" />Add Specialty
               </Button>
             )}
           </div>
@@ -1204,7 +1204,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
         <div className="flex">
           <div className="w-1.5 bg-sky-500/60 shrink-0" />
-          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
                 <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
@@ -1215,29 +1215,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   Configure your public clinic page. Patients can browse it before booking.
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {previewUrl && (
-                <Button
-                  variant="outline"
-                  className="gap-2 rounded-xl min-h-[44px]"
-                  onClick={() => setPreviewSheetOpen(true)}
-                  data-testid="button-preview-website"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  Preview
-                </Button>
-              )}
-              <Button
-                className="gap-2 rounded-xl min-h-[44px]"
-                onClick={handleSave}
-                disabled={saveMutation.isPending}
-                data-testid="button-save-website"
-              >
-                <Save className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Save Website</span>
-                <span className="sm:hidden">Save</span>
-              </Button>
             </div>
           </div>
         </div>
@@ -1286,35 +1263,60 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       {/* ══════════════════════════════════════════════
           WEBSITE STRUCTURE  (2-pane unified editor)
       ══════════════════════════════════════════════ */}
-      <div className="rounded-2xl border border-border/60 overflow-hidden">
+      <div className="rounded-2xl border border-primary/20 bg-card overflow-hidden">
 
         {/* E — Panel header with completion counter */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-muted/40 border-b border-border/50">
+        <div className="flex flex-col gap-3 px-5 py-4 bg-primary/[0.04] border-b border-primary/20 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <Layout className="h-4 w-4 text-primary shrink-0" />
-            <span className="font-semibold text-sm text-foreground">Website Structure</span>
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Layout className="h-4 w-4 text-primary" />
+            </div>
+            <span className="font-semibold text-base text-foreground">Website Structure</span>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {configuredCount} of {MAP_ROWS.length} sections set up
               {needsAttentionCount > 0 && ` · ${needsAttentionCount} need content`}
             </span>
           </div>
-          {previewUrl && (
-            <a
-              href={previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline active:underline active:opacity-70 shrink-0"
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {previewUrl && (
+              <Button
+                variant="outline"
+                className="gap-2 rounded-xl min-h-[40px]"
+                onClick={() => setPreviewSheetOpen(true)}
+                data-testid="button-preview-website"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Preview
+              </Button>
+            )}
+            <Button
+              className="gap-2 rounded-xl min-h-[40px]"
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              data-testid="button-save-website"
             >
-              Open live page <ExternalLink className="h-2.5 w-2.5" />
-            </a>
-          )}
+              <Save className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Save Website</span>
+              <span className="sm:hidden">Save</span>
+            </Button>
+            {previewUrl && (
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary font-semibold flex items-center gap-1 px-1 hover:underline active:underline active:opacity-70 shrink-0"
+              >
+                Open public page <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            )}
+          </div>
         </div>
 
         {/* 2-pane body */}
         <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(400px, 60vh, 600px)" }}>
 
           {/* ── Mobile: horizontal tab strip with status dots (hidden on desktop) ── */}
-          <div className="hide-scrollbar lg:hidden flex overflow-x-auto gap-1 p-2 border-b border-border/40">
+          <div className="hide-scrollbar lg:hidden flex overflow-x-auto gap-1 p-2 bg-muted/[0.18] border-b border-border/50">
             {MAP_ROWS.map((row, idx) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
@@ -1326,7 +1328,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   disabled={!row.editable}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border whitespace-nowrap shrink-0 transition-all min-h-[44px] text-xs font-semibold ${
                     isActive
-                    ? "bg-primary/12 border-primary/40 text-primary"
+                    ? "bg-primary/12 border-primary/40 text-primary ring-1 ring-primary/15"
                       : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97]"
                   } ${!row.editable ? "opacity-40 cursor-default" : ""}`}
                   data-testid={`mobile-tab-${row.id}`}
@@ -1341,7 +1343,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
 
           {/* B — Left: redesigned section navigator (desktop only) */}
-          <div className="hidden lg:flex lg:flex-col w-60 shrink-0 border-r border-border/40 overflow-y-auto">
+          <div className="hidden lg:flex lg:flex-col w-60 shrink-0 bg-muted/[0.22] border-r border-border/60 overflow-y-auto">
             {MAP_ROWS.map((row, idx) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
@@ -1358,7 +1360,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 return (
                   <div
                     key={row.id}
-                    className="flex items-start gap-3 px-3 py-3 border-b border-border/20 bg-muted/10"
+                    className="mx-2 flex items-start gap-3 px-3 py-3 border-b border-border/30 bg-muted/20 rounded-lg"
                   >
                     <span className="text-xs font-mono text-muted-foreground/30 mt-1.5 w-4 text-right shrink-0">{idx + 1}</span>
                     <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -1377,11 +1379,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <button
                   key={row.id}
                   onClick={() => setOpenSection(row.id as Section)}
-                  className={`w-full flex items-start gap-3 px-3 py-3 text-left transition-all group min-h-[52px] border-b border-border/20 ${
+                   className={`mx-2 w-[calc(100%-1rem)] flex items-start gap-3 px-3 py-3 text-left transition-all group min-h-[52px] ${
                     isActive
-                       ? "bg-primary/12 border-l-[3px] border-l-primary"
-                      : "hover:bg-muted/50 active:bg-muted/70 border-l-[3px] border-l-transparent"
+                        ? "bg-primary/10 border border-primary/25 border-l-[3px] border-l-primary rounded-xl"
+                       : "hover:bg-background/70 active:bg-muted/70 border-b border-border/30 border-l-[3px] border-l-transparent"
                   }`}
+                   aria-current={isActive ? "page" : undefined}
                   data-testid={`map-row-${row.id}`}
                 >
                   <span className={`text-xs font-mono mt-1.5 w-4 text-right shrink-0 ${isActive ? "text-primary/50" : "text-muted-foreground/30"}`}>{idx + 1}</span>
