@@ -19,6 +19,7 @@ This folder contains an evidence-based review of the application and a prioritiz
 | [08-ui-optimisation.md](./08-ui-optimisation.md) | Patient-card spacing, pill sizing, warning-banner alignment, and responsive header decisions |
 | [09-reminder-module-plan.md](./09-reminder-module-plan.md) | Independent implementation plan for in-app appointment reminders and daily staff email digests |
 | [10-environment-categorisation-plan.md](./10-environment-categorisation-plan.md) | Compatibility-first plan for separating `APP_ENV` labels from `NODE_ENV` runtime behavior |
+| [13-dynamic-theme-aware-website-section-preview.md](./13-dynamic-theme-aware-website-section-preview.md) | Plan for a prominent, draft-aware section preview that matches the selected public website theme |
 
 ## Executive summary
 
