@@ -40,7 +40,7 @@ import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave, Patient } from "@shared/schema";
 import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
-import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
+import { getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
 import { BookingProgressStrip } from "@/components/BookingProgressStrip";
@@ -1889,7 +1889,7 @@ export default function DoctorDashboard() {
                         ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
                         : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
                       // Determine which time group this card belongs to and whether to show a divider
-                      const drGroup = isGrouped ? (isApptPast ? 1 : 0) : -1;
+                      const drGroup = isGrouped ? getTimeGroup(booking, new Date()) : -1;
                       const drShowDivider = isGrouped && drGroup !== drLastGroup;
                       // Monotonic guard: once in Past group never step back to Future/Today
                       if (isGrouped) drLastGroup = Math.max(drLastGroup, drGroup);
@@ -1900,11 +1900,7 @@ export default function DoctorDashboard() {
                             <div className="h-px flex-1 bg-border/50" />
                             <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${drGroupCfg.textColor} ${drGroupCfg.bg} ${drGroupCfg.border}`}>
                               {drGroupCfg.label}
-                              <span className="font-black opacity-70">— {displayBookings.filter((b: any) => {
-                                const bt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-                                const bClassification = classifyClientBooking(b, "doctor", bookingDateContext);
-                                return (bClassification.isOld ? 1 : 0) === drGroup;
-                              }).length}</span>
+                              <span className="font-black opacity-70">— {displayBookings.filter((b: any) => getTimeGroup(b, new Date()) === drGroup).length}</span>
                             </span>
                             <div className="h-px flex-1 bg-border/50" />
                           </div>
