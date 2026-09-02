@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -19,6 +19,7 @@ import {
   ShieldCheck, Info,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
+import LiveSectionPreview from "@/components/website-preview/LiveSectionPreview";
 
 interface WebsiteConfigPanelProps {
   clinic: any;
@@ -78,7 +79,7 @@ const FEATURE_EMOJI: Record<string, string> = {
 type Section =
   | "theme" | "hero" | "about" | "features" | "stats" | "services"
   | "trust" | "specialties" | "treatments" | "gallery" | "testimonials"
-  | "faq" | "hours" | "social" | "social-posts";
+  | "faq" | "hours" | "social" | "social-posts" | "doctors" | "footer";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
   const existing: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: DEFAULT_THEME };
@@ -360,6 +361,61 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const needsAttentionCount = MAP_ROWS.filter(r => r.dot === "amber").length;
 
   const activeRow = MAP_ROWS.find(r => r.id === openSection);
+
+  const draftConfig = useMemo<ClinicWebsiteConfig>(() => ({
+    theme,
+    taglineL1: taglineL1 || undefined,
+    taglineL2: taglineL2 || undefined,
+    heroDescription: heroDescription || undefined,
+    announcementText: announcementText || undefined,
+    heroImageUrl: heroImageUrl || undefined,
+    heroForegroundImageUrl: heroForegroundImageUrl || undefined,
+    aboutDescription: aboutDescription || undefined,
+    aboutImageUrl: aboutImageUrl || undefined,
+    vision: vision || undefined,
+    values: values || undefined,
+    features: liveFeatures.length ? liveFeatures : undefined,
+    featuresImageUrl: featuresImageUrl || undefined,
+    stats: liveStats.length ? liveStats : undefined,
+    services: liveServices.length ? liveServices : undefined,
+    trustPoints: liveTrustPoints.length ? liveTrustPoints : undefined,
+    specialties: liveSpecialties.length ? liveSpecialties : undefined,
+    treatmentGroups: liveTreatmentGroups.length
+      ? liveTreatmentGroups.map(group => ({ ...group, items: group.items.filter(Boolean) }))
+      : undefined,
+    gallery: liveGallery.length ? liveGallery : undefined,
+    testimonials: liveTestimonials.length ? liveTestimonials : undefined,
+    faq: liveFaq.length ? liveFaq : undefined,
+    socialPosts: liveSocialPosts.length ? liveSocialPosts : undefined,
+    hours,
+    socialLinks: socialCount > 0 ? socialLinks : undefined,
+    showMap,
+  }), [
+    theme, taglineL1, taglineL2, heroDescription, announcementText,
+    heroImageUrl, heroForegroundImageUrl, aboutDescription, aboutImageUrl,
+    vision, values, liveFeatures, featuresImageUrl, liveStats, liveServices,
+    liveTrustPoints, liveSpecialties, liveTreatmentGroups, liveGallery,
+    liveTestimonials, liveFaq, liveSocialPosts, hours, socialCount,
+    socialLinks, showMap,
+  ]);
+
+  const previewClinic = useMemo(() => ({
+    id: clinic?.id ?? 0,
+    name: clinic?.name ?? "Your clinic",
+    address: clinic?.address ?? null,
+    city: clinic?.city ?? null,
+    phone: clinic?.phone ?? null,
+    email: clinic?.email ?? null,
+    website: clinic?.website ?? null,
+    logoUrl: clinic?.logoUrl ?? null,
+    latitude: clinic?.latitude ?? null,
+    longitude: clinic?.longitude ?? null,
+    doctors: Array.isArray(clinic?.doctors) ? clinic.doctors : null,
+    doctorName: clinic?.doctorName ?? null,
+    doctorSpecialization: clinic?.doctorSpecialization ?? null,
+    doctorDegree: clinic?.doctorDegree ?? null,
+  }), [clinic]);
+  const bookingHref = clinic?.id ? `/book/${clinic.id}` : "/book";
 
   /* ── Content preview pane (top of right panel) ──────── */
   const PreviewPane = () => {
@@ -1324,13 +1380,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               return (
                 <button
                   key={row.id}
-                  onClick={() => row.editable ? setOpenSection(row.id as Section) : undefined}
-                  disabled={!row.editable}
+                  onClick={() => setOpenSection(row.id as Section)}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border whitespace-nowrap shrink-0 transition-all min-h-[44px] text-xs font-semibold ${
                     isActive
                     ? "bg-primary/12 border-primary/40 text-primary ring-1 ring-primary/15"
                       : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97]"
-                  } ${!row.editable ? "opacity-40 cursor-default" : ""}`}
+                  }`}
                   data-testid={`mobile-tab-${row.id}`}
                 >
                   <span className="text-xs font-mono opacity-40">{idx + 1}</span>
@@ -1356,11 +1411,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 row.dot === "green" ? "text-emerald-600 dark:text-emerald-400" :
                 "text-muted-foreground";
 
-              if (!row.editable) {
+               if (!row.editable) {
                 return (
-                  <div
+                   <button
+                     type="button"
+                     onClick={() => setOpenSection(row.id as Section)}
                     key={row.id}
-                    className="mx-2 flex items-start gap-3 px-3 py-3 border-b border-border/30 bg-muted/20 rounded-lg"
+                     className={`mx-2 flex w-[calc(100%-1rem)] items-start gap-3 px-3 py-3 border-b border-border/30 bg-muted/20 rounded-lg text-left transition-colors hover:bg-muted/40 ${openSection === row.id ? "ring-1 ring-primary/25" : ""}`}
+                     aria-current={openSection === row.id ? "page" : undefined}
                   >
                     <span className="text-xs font-mono text-muted-foreground/30 mt-1.5 w-4 text-right shrink-0">{idx + 1}</span>
                     <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -1371,7 +1429,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                       <p className="text-xs text-muted-foreground/50 mt-1 leading-tight line-clamp-2">{row.autoNote || row.status}</p>
                     </div>
                     <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${dotCls}`} />
-                  </div>
+                   </button>
                 );
               }
 
@@ -1404,9 +1462,16 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           {/* ── Right: preview + editor ── */}
           <div className="flex-1 flex flex-col overflow-hidden">
 
-            {/* C — Content preview strip (SectionHeader rendered inside each PreviewPane case) */}
-            <div className="h-52 shrink-0 border-b border-border/40 overflow-hidden">
-              {PreviewPane()}
+             {/* C — Theme-aware live preview of the selected public section */}
+             <div className="h-[clamp(280px,42vh,440px)] shrink-0 overflow-hidden border-b border-border/40">
+               <LiveSectionPreview
+                 section={openSection}
+                 config={draftConfig}
+                 clinic={previewClinic}
+                 bookingHref={bookingHref}
+                 sectionIndex={MAP_ROWS.findIndex(row => row.id === openSection)}
+                 sectionCount={MAP_ROWS.length}
+               />
             </div>
 
             {/* Edit form area */}

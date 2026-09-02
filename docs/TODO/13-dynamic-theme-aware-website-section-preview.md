@@ -1,6 +1,6 @@
 # Dynamic Theme-Aware Clinic Website Section Preview — Implementation Plan
 
-**Status:** Plan documented; application implementation not started  
+**Status:** Sections 1–19 implemented; SEO roadmap in sections 20–24 remains separate
 **Audience:** Clinic owners, clinic staff, product reviewers, and developers  
 **Primary area:** Clinic Admin → Clinic Website  
 **Related files:** `client/src/components/WebsiteConfigPanel.tsx`, `client/src/components/clinic-themes/ClinicThemes.tsx`, `client/src/pages/ClinicAbout.tsx`  
@@ -627,14 +627,54 @@ the public theme availability map.
 
 ## 19. Completion notes
 
-Implementation should begin only after this plan has been reviewed and
-approved. At completion, update this document with:
+Sections 1–19 are implemented. The editor now has a bounded, keyboard-focusable
+Live section preview that uses the current unsaved draft configuration and
+selected theme without changing the explicit Save Website flow.
 
-- The final component structure.
-- Any sections that needed a deliberate approximation.
-- Any theme-specific behavior that differs from the initial plan.
-- Desktop and mobile verification results.
-- Any intentionally deferred improvements.
+### Final component structure
+
+- `client/src/components/website-preview/LiveSectionPreview.tsx` owns the
+  preview header, status states, draft rendering, theme tokens, and responsive
+  preview-only compositions.
+- Shared public sections such as services, doctors, galleries, testimonials,
+  and the footer are reused from `ClinicThemes.tsx`.
+- Public theme constants and reusable Red Clinical sections are exported from
+  `ClinicThemes.tsx` without changing the full-page theme entry points.
+- `WebsiteConfigPanel.tsx` derives a filtered, render-only draft configuration
+  from local form state and continues to save only through the existing
+  explicit mutation.
+
+### Deliberate preview behavior
+
+- The preview uses public fallback content for features, statistics, and
+  services when the draft has no complete entries.
+- Gallery, testimonials, and Red Clinical social-gallery sections show an
+  intentional hidden state until usable content exists.
+- Trust & Facilities, Specialties, Treatment Groups, FAQ, and Social Gallery
+  explicitly show a not-used state for themes that do not render them.
+- Doctors and Footer are selectable automatic previews. They do not become
+  editable form sections.
+- Full public-page interactions are intentionally not embedded in the editor;
+  controls are visual or limited to local preview presentation.
+
+### Verification
+
+- `git diff --check` passes.
+- `npm run build` passes.
+- The configured Build Check workflow passes.
+- The application workflow starts successfully and serves the app.
+- The public landing page was visually checked at desktop width. Authenticated
+  clinic-editor visual review requires an authenticated clinic session and was
+  not available in the preview browser.
+
+### Deferred improvements
+
+- The SEO, public-data allowlist, indexing, metadata, structured-data, and
+  server-rendering roadmap beginning at section 20 remains intentionally
+  deferred.
+- Authenticated desktop/mobile screenshots and browser-level draft-edit
+  interaction tests should be added when an authenticated review session is
+  available.
 
 ## 20. SEO, search visibility, and content safety roadmap
 

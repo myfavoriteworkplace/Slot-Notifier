@@ -44,7 +44,7 @@ interface ThemeProps {
   isOwner?: boolean;
 }
 
-const DEFAULT_SERVICES = [
+export const DEFAULT_SERVICES = [
   { name: "Dental Check-ups & Cleaning", description: "Comprehensive oral examination and professional cleaning." },
   { name: "Root Canal Treatment", description: "Pain-free root canal therapy using modern techniques." },
   { name: "Dental Implants", description: "Permanent tooth replacement with titanium implants." },
@@ -53,20 +53,20 @@ const DEFAULT_SERVICES = [
   { name: "Pediatric Dentistry", description: "Gentle, child-friendly care from an early age." },
 ];
 
-const DEFAULT_HOURS = [
+export const DEFAULT_HOURS = [
   { day: "Mon – Fri", open: "9:00 AM", close: "7:00 PM", closed: false },
   { day: "Saturday", open: "9:00 AM", close: "4:00 PM", closed: false },
   { day: "Sunday", open: "", close: "", closed: true },
 ];
 
-const DEFAULT_FEATURES = [
+export const DEFAULT_FEATURES = [
   { icon: "users", title: "Expert and Passionate Team" },
   { icon: "stethoscope", title: "Comprehensive Dental Care Services" },
   { icon: "heart", title: "Focus on Patient Comfort and Confidence" },
   { icon: "zap", title: "Advanced Technology and Continuous Learning" },
 ];
 
-const DEFAULT_STATS = [
+export const DEFAULT_STATS = [
   { value: "2800+", label: "Dental Fillings" },
   { value: "1200+", label: "Tooth Extraction" },
   { value: "3K+",   label: "Root Canal" },
@@ -278,7 +278,7 @@ function SocialLinks({ links, light }: { links?: ClinicWebsiteConfig["socialLink
 
 /* ─── NEW: Stats bar ───────────────────────────────────── */
 
-function StatsBar({ stats, bg, numColor, labelColor }: {
+export function StatsBar({ stats, bg, numColor, labelColor }: {
   stats: { value: string; label: string }[];
   bg: string;
   numColor: string;
@@ -308,7 +308,7 @@ function StatsBar({ stats, bg, numColor, labelColor }: {
 
 /* ─── NEW: Why Choose Us ───────────────────────────────── */
 
-function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accentColor, serif, isOwner }: {
+export function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accentColor, serif, isOwner }: {
   features: { icon: string; title: string }[];
   imageUrl?: string;
   bg: string;
@@ -362,7 +362,7 @@ function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accen
 
 /* ─── NEW: Services carousel ───────────────────────────── */
 
-function ServicesCarousel({ services, sectionId, titleLabel, title, bg, cardBg, border, titleColor, accentColor, textColor, serif, numStyle }: {
+export function ServicesCarousel({ services, sectionId, titleLabel, title, bg, cardBg, border, titleColor, accentColor, textColor, serif, numStyle }: {
   services: { name: string; description: string; imageUrl?: string }[];
   sectionId: string;
   titleLabel?: string;
@@ -463,7 +463,7 @@ function ServicesCarousel({ services, sectionId, titleLabel, title, bg, cardBg, 
 
 /* ─── NEW: Doctors carousel ────────────────────────────── */
 
-function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, border, titleColor, accentColor, serif }: {
+export function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, border, titleColor, accentColor, serif }: {
   clinic: ThemeClinic;
   sectionId: string;
   titleLabel?: string;
@@ -625,7 +625,7 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
 
 /* ─── NEW: Gallery carousel ────────────────────────────── */
 
-function GallerySection({ gallery, bg, titleColor, serif }: {
+export function GallerySection({ gallery, bg, titleColor, serif }: {
   gallery: { url: string; caption?: string }[];
   bg: string;
   titleColor: string;
@@ -694,7 +694,7 @@ function GallerySection({ gallery, bg, titleColor, serif }: {
 
 /* ─── NEW: Rich multi-column footer ───────────────────── */
 
-function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix, serif }: {
+export function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix, serif }: {
   clinic: ThemeClinic;
   cfg: ClinicWebsiteConfig;
   bookingHref: string;
@@ -805,7 +805,7 @@ function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix, serif }: {
 
 /* ─── TestimonialsCarousel ─────────────────────────────── */
 
-function TestimonialsCarousel({
+export function TestimonialsCarousel({
   testimonials, bg, heading, eyebrow, headingColor, quoteColor,
   textColor, nameColor, dividerColor, avatarBg, dotActive, dotInactive, serif,
 }: {
@@ -1714,7 +1714,7 @@ const RED_FAQ = [
   { question: "How can I book an appointment?", answer: "Use the booking button to choose an available appointment time or contact the clinic directly." },
 ];
 
-function RedDoctorProfile({ clinic, titleColor }: { clinic: ThemeClinic; titleColor: string }) {
+export function RedDoctorProfile({ clinic, titleColor }: { clinic: ThemeClinic; titleColor: string }) {
   const doctor = clinic.doctors?.[0];
   if (!doctor) return null;
 
@@ -1749,7 +1749,7 @@ function RedDoctorProfile({ clinic, titleColor }: { clinic: ThemeClinic; titleCo
   );
 }
 
-function RedTeamSection({ clinic, bookingHref }: { clinic: ThemeClinic; bookingHref: string }) {
+export function RedTeamSection({ clinic, bookingHref }: { clinic: ThemeClinic; bookingHref: string }) {
   const doctors = clinic.doctors?.filter(doctor => doctor.name) ?? [];
   if (doctors.length <= 1) return null;
 
@@ -1780,7 +1780,7 @@ function RedTeamSection({ clinic, bookingHref }: { clinic: ThemeClinic; bookingH
   );
 }
 
-function RedSpecialtiesSection({ specialties }: { specialties: { title: string; description: string; icon?: string }[] }) {
+export function RedSpecialtiesSection({ specialties }: { specialties: { title: string; description: string; icon?: string }[] }) {
   return (
     <section id="red-specialties" className="px-6 py-20 bg-[#FAFAFA]">
       <div className="max-w-6xl mx-auto">
@@ -1804,7 +1804,7 @@ function RedSpecialtiesSection({ specialties }: { specialties: { title: string; 
   );
 }
 
-function RedTreatmentGroups({ groups }: { groups: { name: string; description?: string; items: string[]; imageUrl?: string }[] }) {
+export function RedTreatmentGroups({ groups }: { groups: { name: string; description?: string; items: string[]; imageUrl?: string }[] }) {
   return (
     <section id="red-treatments" className="px-6 py-20 bg-white">
       <div className="max-w-6xl mx-auto">
@@ -1837,7 +1837,7 @@ function RedTreatmentGroups({ groups }: { groups: { name: string; description?: 
   );
 }
 
-function RedSocialGallery({ posts }: { posts: { imageUrl: string; caption?: string; link?: string }[] }) {
+export function RedSocialGallery({ posts }: { posts: { imageUrl: string; caption?: string; link?: string }[] }) {
   if (!posts.length) return null;
   return (
     <section className="px-6 py-20 bg-[#260708]">
@@ -1867,7 +1867,7 @@ function RedSocialGallery({ posts }: { posts: { imageUrl: string; caption?: stri
   );
 }
 
-function RedReviews({ testimonials }: { testimonials: { quote: string; patientName: string; rating: number }[] }) {
+export function RedReviews({ testimonials }: { testimonials: { quote: string; patientName: string; rating: number }[] }) {
   if (!testimonials.length) return null;
   return (
     <section className="px-6 py-20 bg-white">
@@ -1894,7 +1894,7 @@ function RedReviews({ testimonials }: { testimonials: { quote: string; patientNa
   );
 }
 
-function RedFaqSection({ faq }: { faq: { question: string; answer: string }[] }) {
+export function RedFaqSection({ faq }: { faq: { question: string; answer: string }[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   if (!faq.length) return null;
   return (
