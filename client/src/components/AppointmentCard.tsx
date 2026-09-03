@@ -600,7 +600,7 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} transition-colors`}>
+        <div className={`relative z-[1] px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_3px_10px_-6px_rgba(15,23,42,0.35)] transition-colors`}>
           <div className="flex min-w-0 items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
@@ -611,7 +611,7 @@ export function AppointmentCard({
                 </span>
               </div>
               <div className="min-w-0 space-y-0.5">
-                {/* Row 1: patient identity, visit history, and stable appointment reference */}
+                {/* Row 1: patient identity and visit history */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
                   {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
@@ -620,9 +620,6 @@ export function AppointmentCard({
                       Visit {visitNumber}/{totalVisits}
                     </span>
                   )}
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
-                    Ref #{bookingNumber}
-                  </span>
                 </div>
                 {/* Row 2: PAT code */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
@@ -635,7 +632,7 @@ export function AppointmentCard({
                   )}
                 </div>
                 {/* Row 3: Phone · Age · Gender */}
-              <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                 {role !== "doctor" && (
                   <>
                     <Phone className="h-2.5 w-2.5 shrink-0" />
