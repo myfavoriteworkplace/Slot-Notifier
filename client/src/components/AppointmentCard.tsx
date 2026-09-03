@@ -593,7 +593,7 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`relative z-[1] px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_2px_0_rgba(15,23,42,0.08)] transition-colors`}>
+        <div className={`relative z-[1] min-h-[96px] sm:min-h-[104px] px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
           <div className="flex min-w-0 items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
@@ -603,17 +603,12 @@ export function AppointmentCard({
                   {booking.customerName.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="min-w-0 flex-1 space-y-1">
+              <div className="min-w-0 space-y-0.5">
                 {/* Row 1: patient identity and visit history */}
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span
-                    className="min-w-0 max-w-full truncate text-sm font-bold leading-tight"
-                    title={booking.customerName}
-                  >
-                    {booking.customerName}
-                  </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
                   {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
-                    <span className="inline-flex items-center gap-0.5 shrink-0 text-xs leading-none font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-1 rounded-md">
+                    <span className="inline-flex items-center gap-0.5 text-xs leading-none font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-1 rounded-md shrink-0">
                       <Repeat2 className="h-2.5 w-2.5" />
                       Visit {visitNumber}/{totalVisits}
                     </span>
