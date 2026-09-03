@@ -667,7 +667,7 @@ export function AppointmentCard({
               </div>
             </div>
             {/* Status + ⋮ menu */}
-            <div className="flex flex-col items-end gap-1 shrink-0">
+            <div className="flex flex-col items-end gap-1 shrink-0 self-center">
               {/* Doctor visit badge */}
               {role === "doctor" && isCheckedIn && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
@@ -687,10 +687,10 @@ export function AppointmentCard({
                   <PopoverTrigger asChild>
                     <button
                       onClick={(e) => e.stopPropagation()}
-                      className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground bg-muted/50 border border-border/50 hover:bg-muted hover:border-border/80 active:scale-[0.95] transition-all"
+                      className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground bg-muted/30 border border-border/40 hover:bg-muted/60 hover:border-border/60 active:scale-[0.95] transition-all"
                       data-testid={`button-more-${booking.id}`}
                     >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
+                      <MoreHorizontal className="h-3 w-3" />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-52 p-1.5 rounded-xl shadow-xl border border-border/60" side="bottom" align="end" onClick={(e) => e.stopPropagation()}>
