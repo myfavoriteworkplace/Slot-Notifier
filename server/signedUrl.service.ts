@@ -20,6 +20,13 @@ const FOLDER_MAX_BYTES: Record<string, number> = {
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
 
 const URL_EXPIRY_SECONDS = 60;
+const MIME_EXTENSIONS: Record<string, string[]> = {
+  "image/jpeg": ["jpg", "jpeg"],
+  "image/jpg": ["jpg", "jpeg"],
+  "image/png": ["png"],
+  "image/webp": ["webp"],
+  "application/pdf": ["pdf"],
+};
 
 interface SignedUrlRequest {
   fileName: string;
@@ -56,6 +63,10 @@ export async function generateSignedUploadUrl(
     );
   }
 
+  if (!Number.isSafeInteger(fileSize) || fileSize <= 0) {
+    throw new Error("File size must be a positive whole number");
+  }
+
   const maxBytes = FOLDER_MAX_BYTES[folder] ?? DEFAULT_MAX_BYTES;
   const maxMB = (maxBytes / (1024 * 1024)).toFixed(0);
   if (fileSize > maxBytes) {
@@ -64,17 +75,23 @@ export async function generateSignedUploadUrl(
     );
   }
 
-  const extension = fileName.split(".").pop()?.toLowerCase() || "jpg";
+  const extension = MIME_EXTENSIONS[normalizedType]?.[0] || "bin";
+  const submittedExtension = fileName.split(".").pop()?.toLowerCase() || "";
+  if (submittedExtension && !MIME_EXTENSIONS[normalizedType]?.includes(submittedExtension)) {
+    throw new Error("File extension does not match the declared content type");
+  }
   const uniqueFileName = `${uuidv4()}.${extension}`;
-  const safePrefix = keyPrefix
-    ? keyPrefix.split("/").filter(part => /^[a-zA-Z0-9_-]+$/.test(part)).join("/")
-    : folder;
+  const keyParts = keyPrefix ? keyPrefix.split("/") : [folder];
+  if (keyParts.some(part => !/^[a-zA-Z0-9_-]+$/.test(part))) {
+    throw new Error("Upload path contains invalid characters");
+  }
+  const safePrefix = keyParts.join("/");
   const key = `${safePrefix}/${uniqueFileName}`;
 
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET_NAME,
     Key: key,
-    ContentType: fileType,
+    ContentType: normalizedType,
     ContentLength: fileSize,
   });
 

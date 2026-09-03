@@ -3,7 +3,7 @@ import { db } from "./db";
 import { auditLogs } from "@shared/schema";
 
 export type AuditAction   = "view" | "create" | "update" | "delete" | "export" | "sign";
-export type AuditResource = "booking" | "patient" | "clinical_record" | "booking_note" | "consent" | "bill" | "export" | "doctor" | "xray";
+export type AuditResource = "booking" | "patient" | "clinical_record" | "booking_note" | "consent" | "bill" | "export" | "doctor" | "xray" | "website_config" | "clinic_profile";
 
 function inferAction(method: string, path: string): AuditAction {
   if (path.includes("/export"))  return "export";

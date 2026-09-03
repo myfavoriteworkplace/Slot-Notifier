@@ -16,6 +16,8 @@ import { getClinicStorageQuota, assertClinicStorageAvailable, registerIssuedUplo
 import { ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
+import { clinicPublicProfileSchema, isSafePublicUrl, normalizeExternalUrl, websiteConfigSchema } from "./website-security";
+import { toPublicClinic, toPublicClinicListItem } from "./public-clinic";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDigestRecipients } from "./reminder-digest";
@@ -540,6 +542,16 @@ const consentSignRateLimiter = rateLimit({
   message: { message: "Too many consent submissions. Please try again later." },
 });
 
+// Website edits are authenticated but still need abuse protection because they
+// can publish clinic-controlled content and URLs.
+const websiteConfigRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many website changes. Please wait before trying again." },
+});
+
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   const sess = req.session as any;
   if (req.session && (sess.adminLoggedIn || sess.doctorLoggedIn)) {
@@ -554,6 +566,43 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   return res.status(401).json({ message: "Authentication required" });
+}
+
+function requireClinicOwner(req: Request, res: Response, next: NextFunction) {
+  const sess = req.session as any;
+  if (!sess.adminLoggedIn || sess.role !== "owner" || !Number.isInteger(Number(sess.clinicId))) {
+    return res.status(403).json({ message: "Clinic owner access required" });
+  }
+  return next();
+}
+
+function requireTrustedMutationOrigin(req: Request, res: Response, next: NextFunction) {
+  const origin = req.get("origin");
+  const referer = req.get("referer");
+  const requestOrigin = `${req.protocol}://${req.get("host")}`;
+  const configuredOrigins = (process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean);
+  const allowedOrigins = new Set([
+    requestOrigin,
+    "https://www.bookmyslot.dental.mossaic.in",
+    ...configuredOrigins,
+  ]);
+  let submittedOrigin = origin;
+
+  if (!submittedOrigin && referer) {
+    try {
+      submittedOrigin = new URL(referer).origin;
+    } catch {
+      submittedOrigin = undefined;
+    }
+  }
+
+  if (!submittedOrigin || !allowedOrigins.has(submittedOrigin)) {
+    return res.status(403).json({ message: "Untrusted request origin" });
+  }
+  return next();
 }
 
 async function sendDoctorAssignmentEmail(
@@ -1466,7 +1515,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/public/clinics", async (req, res) => {
     try {
       const clinicsList = await storage.getClinics();
-      res.json(clinicsList.filter(c => !c.isArchived).map(({ id, name, address, username, city, pincode }) => ({ id, name, address, username, city, pincode })));
+      res.json(clinicsList
+        .filter(c => c.status === "approved")
+        .map(toPublicClinicListItem));
     } catch (err: any) {
       res.status(500).json({ message: "Failed to fetch clinics" });
     }
@@ -2821,84 +2872,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  const websiteConfigSchema = z.object({
-    theme: z.enum(["classic", "warm", "modern", "red-clinical"]),
-    taglineL1: z.string().max(180).optional(),
-    taglineL2: z.string().max(180).optional(),
-    heroDescription: z.string().max(1200).optional(),
-    announcementText: z.string().max(240).optional(),
-    aboutDescription: z.string().max(2400).optional(),
-    aboutImageUrl: z.string().max(1200).optional(),
-    vision: z.string().max(1200).optional(),
-    values: z.string().max(1200).optional(),
-    heroImageUrl: z.string().max(1200).optional(),
-    heroForegroundImageUrl: z.string().max(1200).optional(),
-    featuresImageUrl: z.string().max(1200).optional(),
-    gallery: z.array(z.object({
-      url: z.string().max(1200),
-      caption: z.string().max(240),
-    })).max(6).optional(),
-    services: z.array(z.object({
-      name: z.string().max(180),
-      description: z.string().max(1200),
-      imageUrl: z.string().max(1200).optional(),
-    })).max(20).optional(),
-    trustPoints: z.array(z.object({
-      title: z.string().max(180),
-      description: z.string().max(600),
-      icon: z.string().max(60).optional(),
-      category: z.string().max(80).optional(),
-    })).max(6).optional(),
-    specialties: z.array(z.object({
-      title: z.string().max(180),
-      description: z.string().max(1200),
-      icon: z.string().max(60).optional(),
-    })).max(6).optional(),
-    treatmentGroups: z.array(z.object({
-      name: z.string().max(180),
-      description: z.string().max(1200).optional(),
-      items: z.array(z.string().max(240)).max(10),
-      imageUrl: z.string().max(1200).optional(),
-    })).max(8).optional(),
-    testimonials: z.array(z.object({
-      quote: z.string().max(1200),
-      patientName: z.string().max(180),
-      rating: z.number().int().min(1).max(5),
-    })).max(5).optional(),
-    faq: z.array(z.object({
-      question: z.string().max(240),
-      answer: z.string().max(1200),
-    })).max(12).optional(),
-    socialPosts: z.array(z.object({
-      imageUrl: z.string().max(1200),
-      caption: z.string().max(240).optional(),
-      link: z.string().max(1200).optional(),
-    })).max(6).optional(),
-    hours: z.array(z.object({
-      day: z.string().max(80),
-      open: z.string().max(40),
-      close: z.string().max(40),
-      closed: z.boolean(),
-    })).max(14).optional(),
-    socialLinks: z.object({
-      instagram: z.string().max(1200).optional(),
-      facebook: z.string().max(1200).optional(),
-      youtube: z.string().max(1200).optional(),
-    }).optional(),
-    showMap: z.boolean().optional(),
-    stats: z.array(z.object({
-      value: z.string().max(80),
-      label: z.string().max(180),
-    })).max(4).optional(),
-    features: z.array(z.object({
-      icon: z.string().max(60),
-      title: z.string().max(180),
-    })).max(4).optional(),
-  });
-
-  app.patch("/api/auth/clinic/website-config", isAuthenticated, async (req, res) => {
+  app.patch(
+    "/api/auth/clinic/website-config",
+    websiteConfigRateLimiter,
+    isAuthenticated,
+    requireClinicOwner,
+    requireTrustedMutationOrigin,
+    auditLog({ action: "update", resource: "website_config" }),
+    async (req, res) => {
     const sess = req.session as any;
-    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
     try {
       const parsed = websiteConfigSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -2911,30 +2893,51 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         });
       }
       const clinic = await storage.updateClinic(sess.clinicId, { websiteConfig: parsed.data } as any);
-      res.json(clinic);
+      res.json(toPublicClinic(clinic));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
-  });
+    },
+  );
 
-  app.patch("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
+  app.patch(
+    "/api/auth/clinic/me",
+    websiteConfigRateLimiter,
+    isAuthenticated,
+    requireClinicOwner,
+    requireTrustedMutationOrigin,
+    auditLog({ action: "update", resource: "clinic_profile" }),
+    async (req, res) => {
     const sess = req.session as any;
-    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
     const ALLOWED_FIELDS = ["phone", "email", "website", "address", "city", "pincode", "doctorName", "logoUrl", "latitude", "longitude"];
-    const updates: Record<string, any> = {};
-    for (const field of ALLOWED_FIELDS) {
-      if (field in req.body) updates[field] = req.body[field];
-    }
-    if (Object.keys(updates).length === 0) {
+    const requestedFields = Object.fromEntries(
+      ALLOWED_FIELDS
+        .filter(field => field in req.body)
+        .map(field => [field, req.body[field]]),
+    );
+    if (Object.keys(requestedFields).length === 0) {
       return res.status(400).json({ message: "No valid fields provided" });
     }
     try {
+      const parsed = clinicPublicProfileSchema.safeParse(requestedFields);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Clinic profile contains invalid or unsafe values",
+          issues: parsed.error.issues.map(issue => ({
+            path: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+      }
+      const updates = { ...parsed.data };
+      if (updates.website) updates.website = normalizeExternalUrl(updates.website);
       const clinic = await storage.updateClinic(sess.clinicId, updates);
-      res.json(clinic);
+      res.json(toPublicClinic(clinic));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
-  });
+    },
+  );
 
   app.post("/api/auth/clinic/doctors", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
@@ -4580,13 +4583,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/clinics/:id/public", async (req, res) => {
     try {
       const raw = req.params.id;
-      const numericId = parseInt(raw);
+      const numericId = /^\d+$/.test(raw) ? Number(raw) : NaN;
       const clinic = isNaN(numericId)
         ? await storage.getClinicByUsername(raw)
         : await storage.getClinic(numericId);
-      if (!clinic || clinic.isArchived) return res.status(404).json({ message: "Clinic not found" });
-      const { passwordHash, registeredBy, ...publicFields } = clinic;
-      res.json(publicFields);
+      if (!clinic || clinic.isArchived || clinic.status !== "approved") {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+      res.json(toPublicClinic(clinic));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

@@ -2,6 +2,17 @@ import fs from "fs";
 import path from "path";
 import type { Express, Request } from "express";
 import { storage } from "./storage";
+import { isSafePublicUrl, normalizeExternalUrl } from "./website-security";
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[character] ?? character));
+}
 
 function buildClinicOgTags(
   clinic: { name: string; logoUrl?: string | null; city?: string | null; address?: string | null },
@@ -14,22 +25,24 @@ function buildClinicOgTags(
   const description = location
     ? `Secure your slot at ${clinic.name}, ${location}. Pick a time that works and get confirmed instantly — no account needed.`
     : `Secure your slot at ${clinic.name}. Pick a time that works and get confirmed instantly — no account needed.`;
-  const imageUrl = clinic.logoUrl || `${host}/icons/og-image.png`;
+  const imageUrl = clinic.logoUrl && isSafePublicUrl(clinic.logoUrl, false)
+    ? normalizeExternalUrl(clinic.logoUrl)
+    : `${host}/icons/og-image.png`;
   const pageUrl = `${host}/book/${clinicId}`;
 
   return [
-    `  <title>${title}</title>`,
+    `  <title>${escapeHtml(title)}</title>`,
     `  <meta property="og:type" content="website" />`,
-    `  <meta property="og:url" content="${pageUrl}" />`,
-    `  <meta property="og:title" content="${title}" />`,
-    `  <meta property="og:description" content="${description}" />`,
-    `  <meta property="og:image" content="${imageUrl}" />`,
+    `  <meta property="og:url" content="${escapeHtml(pageUrl)}" />`,
+    `  <meta property="og:title" content="${escapeHtml(title)}" />`,
+    `  <meta property="og:description" content="${escapeHtml(description)}" />`,
+    `  <meta property="og:image" content="${escapeHtml(imageUrl)}" />`,
     `  <meta property="og:image:width" content="1200" />`,
     `  <meta property="og:image:height" content="630" />`,
     `  <meta name="twitter:card" content="summary_large_image" />`,
-    `  <meta name="twitter:title" content="${title}" />`,
-    `  <meta name="twitter:description" content="${description}" />`,
-    `  <meta name="twitter:image" content="${imageUrl}" />`,
+    `  <meta name="twitter:title" content="${escapeHtml(title)}" />`,
+    `  <meta name="twitter:description" content="${escapeHtml(description)}" />`,
+    `  <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />`,
   ].join("\n");
 }
 
