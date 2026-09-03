@@ -497,14 +497,7 @@ export function AppointmentCard({
     slate: "border-slate-600 bg-slate-700 text-white dark:border-slate-400 dark:bg-slate-600",
   }[latestPillStatus.tone];
 
-  // Header tint follows WHEN; terminal states are muted regardless of date.
-  const headerBg = (isNoShowState || isCancelled || isLeftEarlyState)
-    ? "bg-muted/30"
-    : isToday
-    ? "bg-gradient-to-r from-sky-500/10 to-cyan-500/5"
-    : isPast
-    ? "bg-muted/20"
-    : "bg-gradient-to-r from-primary/5 to-accent/5";
+  const headerBg = "bg-gradient-to-r from-sky-500/10 to-cyan-500/5";
 
 
   // ── Derived display values ──
@@ -600,7 +593,7 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`relative z-[1] px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_3px_10px_-6px_rgba(15,23,42,0.35)] transition-colors`}>
+        <div className={`relative z-[1] min-h-[116px] sm:min-h-[120px] px-3 sm:px-4 ${latestLabel ? "pt-5 min-h-[128px] sm:min-h-[132px]" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
           <div className="flex min-w-0 items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
