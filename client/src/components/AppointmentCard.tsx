@@ -603,16 +603,39 @@ export function AppointmentCard({
                   {booking.customerName.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="min-w-0 space-y-0.5">
+              <div className="min-w-0 flex-1 space-y-1">
                 {/* Row 1: patient identity and visit history */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
+                <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="min-w-0 flex-1 truncate text-left font-bold text-sm leading-tight cursor-help">
+                          {booking.customerName}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="start" className="text-xs font-medium">
+                        {booking.customerName}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
                     <span className="inline-flex items-center gap-0.5 text-xs leading-none font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-1 rounded-md shrink-0">
                       <Repeat2 className="h-2.5 w-2.5" />
                       Visit {visitNumber}/{totalVisits}
                     </span>
                   )}
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="shrink-0 cursor-help">
+                          <StatusBadge />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
+                        {statusTooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 {/* Row 2: PAT code */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
@@ -645,19 +668,6 @@ export function AppointmentCard({
             </div>
             {/* Status + ⋮ menu */}
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="cursor-help">
-                      <StatusBadge />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
-                    {statusTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
               {/* Doctor visit badge */}
               {role === "doctor" && isCheckedIn && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
