@@ -636,9 +636,13 @@ export function AppointmentCard({
                 </div>
                 {/* Row 3: Phone · Age · Gender */}
               <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                  <Phone className="h-2.5 w-2.5 shrink-0" />
-                <span className="min-w-0 max-w-full truncate">{booking.customerPhone || "--"}</span>
-                  <span className="opacity-30 shrink-0 px-0.5">·</span>
+                {role !== "doctor" && (
+                  <>
+                    <Phone className="h-2.5 w-2.5 shrink-0" />
+                    <span className="min-w-0 max-w-full truncate">{booking.customerPhone || "--"}</span>
+                    <span className="opacity-30 shrink-0 px-0.5">·</span>
+                  </>
+                )}
                   <span className="shrink-0">{booking.customerAge ? `${booking.customerAge}y` : "--"}</span>
                   <span className="opacity-30 shrink-0 px-0.5">·</span>
                 <span className="min-w-0 truncate">

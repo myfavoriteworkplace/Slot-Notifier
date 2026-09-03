@@ -3252,29 +3252,6 @@ export default function DoctorDashboard() {
                         <section className="rounded-xl border border-border/60 bg-white dark:bg-card shadow-sm p-3 space-y-2.5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
 
-                          {/* Phone */}
-                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
-                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                              <Phone className="h-3 w-3 text-muted-foreground" />
-                            </div>
-                            <span className="text-muted-foreground shrink-0">Phone:</span>
-                            {b.customerPhone ? (
-                              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
-                                <a href={`tel:${b.customerPhone}`} className="min-w-0 max-w-full truncate font-semibold text-foreground hover:text-primary transition-colors">
-                                  {b.customerPhone}
-                                </a>
-                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
-                                  <Copy className="h-2.5 w-2.5 text-muted-foreground" />
-                                </button>
-                                <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
-                                  <Phone className="h-2.5 w-2.5 text-primary" />
-                                </a>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground/50">–</span>
-                            )}
-                          </div>
-
                           {/* Visit Type */}
                           <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
