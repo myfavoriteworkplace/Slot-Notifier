@@ -4,7 +4,7 @@ import {
   Phone, Hash, CalendarDays, CheckCircle2, X, UserPlus,
   Building2, Loader2, IndianRupee, ClipboardList, FileText,
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
-  Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
+  Stethoscope, MoreVertical, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
   LogOut, AlertTriangle, ChevronDown, Download,
   Receipt,
@@ -683,16 +683,18 @@ export function AppointmentCard({
 
               {/* ⋮ Three-dot menu — clinic only */}
               {canShowMoreMenu && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground bg-muted/30 border border-border/40 hover:bg-muted/60 hover:border-border/60 active:scale-[0.95] transition-all"
-                      data-testid={`button-more-${booking.id}`}
-                    >
-                      <MoreHorizontal className="h-3 w-3" />
-                    </button>
-                  </PopoverTrigger>
+                <div className="absolute right-2.5 top-2.5 z-10">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground active:scale-[0.95] transition-all"
+                        aria-label="Open booking actions"
+                        data-testid={`button-more-${booking.id}`}
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
                   <PopoverContent className="w-52 p-1.5 rounded-xl shadow-xl border border-border/60" side="bottom" align="end" onClick={(e) => e.stopPropagation()}>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Actions</p>
 
@@ -989,7 +991,8 @@ export function AppointmentCard({
                       <p className="text-xs text-center text-muted-foreground/50 py-2 px-2">No actions available</p>
                     )}
                   </PopoverContent>
-                </Popover>
+                  </Popover>
+                </div>
               )}
             </div>
           </div>
