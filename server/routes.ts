@@ -11,13 +11,28 @@ import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { format } from 'date-fns';
 import crypto from "crypto";
-import { generateSignedUploadUrl } from "./signedUrl.service";
+import {
+  ALLOWED_IMAGE_TYPES,
+  generateSignedUploadUrl,
+  getUploadMaxBytes,
+  IMAGE_UPLOAD_FOLDERS,
+  validateImageBytes,
+} from "./signedUrl.service";
 import { getClinicStorageQuota, assertClinicStorageAvailable, registerIssuedUpload, consumeIssuedUpload, PLAN_STORAGE_LIMITS, DEFAULT_STORAGE_LIMIT_BYTES } from "./storageQuota";
-import { ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
-import { clinicPublicProfileSchema, isSafePublicUrl, normalizeExternalUrl, websiteConfigSchema } from "./website-security";
+import {
+  authenticatedImageUploadSchema,
+  clinicPublicProfileSchema,
+  isSafePublicUrl,
+  isValidClinicSlug,
+  normalizeExternalUrl,
+  publicClinicDocumentUploadSchema,
+  websiteConfigSchema,
+} from "./website-security";
 import { toPublicClinic, toPublicClinicListItem } from "./public-clinic";
+import { canRequestImageFolder, type UploadSession } from "./upload-policy";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDigestRecipients } from "./reminder-digest";
@@ -550,6 +565,22 @@ const websiteConfigRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: "Too many website changes. Please wait before trying again." },
+});
+
+const publicUploadRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many upload requests. Please try again later." },
+});
+
+const imageVerifyRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many image verification requests. Please try again later." },
 });
 
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
@@ -1446,22 +1477,78 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
+    const parsed = authenticatedImageUploadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Invalid image upload request",
+        issues: parsed.error.issues.map(issue => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const sess = req.session as UploadSession;
+    const { fileName, contentType, fileType, fileSize, folder } = parsed.data;
+    if (!IMAGE_UPLOAD_FOLDERS.includes(folder) || !canRequestImageFolder(sess, folder)) {
+      return res.status(403).json({ message: "You are not allowed to upload to this folder" });
+    }
+
     try {
-      const { fileName, contentType, fileType, fileSize, folder } = req.body;
-      // Patient documents must use the dedicated booking-based endpoint. That
-      // route derives clinic/patient ownership and enforces the clinic quota.
-      if (folder === "patient-docs") {
-        return res.status(400).json({ message: "Patient documents must be uploaded through the visit document endpoint" });
-      }
       const result = await generateSignedUploadUrl({
-        fileName: fileName || `upload-${Date.now()}`,
-        fileType: fileType || contentType,
-        fileSize: fileSize || 1024 * 1024, // Default 1MB if not provided
-        folder
+        fileName,
+        fileType: fileType || contentType || "",
+        fileSize,
+        folder,
       });
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/uploads/verify-image", imageVerifyRateLimiter, isAuthenticated, async (req, res) => {
+    const parsed = z.object({
+      key: z.string().regex(/^(clinics|doctors|users|case-media)\/[a-zA-Z0-9-]+\.(?:jpg|png|webp)$/),
+      fileType: z.enum(ALLOWED_IMAGE_TYPES),
+      fileSize: z.number().int().positive().max(10 * 1024 * 1024),
+    }).strict().safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid image verification request" });
+    }
+
+    const sess = req.session as UploadSession;
+    const folder = parsed.data.key.split("/", 1)[0];
+    if (!canRequestImageFolder(sess, folder)) {
+      return res.status(403).json({ message: "You are not allowed to verify this image" });
+    }
+    if (!R2_CONFIGURED) {
+      return res.status(503).json({ message: "Image storage is not configured" });
+    }
+
+    try {
+      const object = await r2Client.send(new GetObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: parsed.data.key,
+      }));
+      const objectSize = Number(object.ContentLength);
+      const maxBytes = getUploadMaxBytes(folder);
+      if (!Number.isSafeInteger(objectSize) || objectSize !== parsed.data.fileSize || objectSize > maxBytes) {
+        return res.status(422).json({ message: "Uploaded image size could not be verified" });
+      }
+
+      const body = object.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+      if (!body?.transformToByteArray) {
+        return res.status(422).json({ message: "Uploaded image could not be inspected" });
+      }
+      const bytes = await body.transformToByteArray();
+      if (bytes.byteLength !== objectSize) {
+        return res.status(422).json({ message: "Uploaded image size could not be verified" });
+      }
+      const dimensions = validateImageBytes(bytes, parsed.data.fileType);
+      res.json({ valid: true, dimensions });
+    } catch (err: any) {
+      res.status(422).json({ message: err.message || "Uploaded image failed validation" });
     }
   });
 
@@ -1790,17 +1877,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── PUBLIC UPLOAD: signed URL for clinic registration docs ─────────────────
-  app.post("/api/public/uploads/signed-url", async (req, res) => {
+  app.post("/api/public/uploads/signed-url", publicUploadRateLimiter, async (req, res) => {
+    const parsed = publicClinicDocumentUploadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Only clinic registration documents may be uploaded here",
+        issues: parsed.error.issues.map(issue => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
     try {
-      const { fileName, contentType, fileSize, folder } = req.body;
-      if (!fileName || !contentType) {
-        return res.status(400).json({ message: "fileName and contentType are required" });
-      }
       const result = await generateSignedUploadUrl({
-        fileName,
-        fileType: contentType,
-        fileSize: fileSize || 5 * 1024 * 1024,
-        folder: folder || "clinic-docs",
+        fileName: parsed.data.fileName,
+        fileType: parsed.data.contentType,
+        fileSize: parsed.data.fileSize ?? 5 * 1024 * 1024,
+        folder: "clinic-docs",
       });
       res.json(result);
     } catch (err: any) {
@@ -2909,26 +3002,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     auditLog({ action: "update", resource: "clinic_profile" }),
     async (req, res) => {
     const sess = req.session as any;
-    const ALLOWED_FIELDS = ["phone", "email", "website", "address", "city", "pincode", "doctorName", "logoUrl", "latitude", "longitude"];
-    const requestedFields = Object.fromEntries(
-      ALLOWED_FIELDS
-        .filter(field => field in req.body)
-        .map(field => [field, req.body[field]]),
-    );
-    if (Object.keys(requestedFields).length === 0) {
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({ message: "Clinic profile must be a JSON object" });
+    }
+    const parsed = clinicPublicProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Clinic profile contains invalid, unsafe, or unsupported values",
+        issues: parsed.error.issues.map(issue => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+    if (Object.keys(parsed.data).length === 0) {
       return res.status(400).json({ message: "No valid fields provided" });
     }
     try {
-      const parsed = clinicPublicProfileSchema.safeParse(requestedFields);
-      if (!parsed.success) {
-        return res.status(400).json({
-          message: "Clinic profile contains invalid or unsafe values",
-          issues: parsed.error.issues.map(issue => ({
-            path: issue.path.join("."),
-            message: issue.message,
-          })),
-        });
-      }
       const updates = { ...parsed.data };
       if (updates.website) updates.website = normalizeExternalUrl(updates.website);
       const clinic = await storage.updateClinic(sess.clinicId, updates);
@@ -4584,6 +4674,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const raw = req.params.id;
       const numericId = /^\d+$/.test(raw) ? Number(raw) : NaN;
+      if (Number.isNaN(numericId) && !isValidClinicSlug(raw)) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
       const clinic = isNaN(numericId)
         ? await storage.getClinicByUsername(raw)
         : await storage.getClinic(numericId);

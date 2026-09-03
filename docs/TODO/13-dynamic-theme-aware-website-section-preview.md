@@ -1,6 +1,7 @@
 # Dynamic Theme-Aware Clinic Website Section Preview — Implementation Plan
 
-**Status:** Sections 1–19 implemented; SEO roadmap in sections 20–24 remains separate
+**Status:** Sections 1–19 implemented; Release Group A safety gate implemented;
+Release Groups B–E remain separate planned work
 **Audience:** Clinic owners, clinic staff, product reviewers, and developers  
 **Primary area:** Clinic Admin → Clinic Website  
 **Related files:** `client/src/components/WebsiteConfigPanel.tsx`, `client/src/components/clinic-themes/ClinicThemes.tsx`, `client/src/pages/ClinicAbout.tsx`  
@@ -739,14 +740,14 @@ claim that the feature is implemented.
 
 | ID | Priority / phase | Independent executable step | Concrete deliverable | Dependencies | Primary files / surfaces | Definition of done and verification | Progress |
 |---|---|---|---|---|---|---|---|
-| SEO-01 | P0 / Phase 0 | Record the public URL and identifier rules. Confirm `/clinic/:slug`, legacy `/about`, `?clinicId=`, numeric IDs, username slugs, and booking URLs. Decide that `/clinic/:slug` is canonical and document redirect/noindex treatment for every duplicate. | A short URL decision record plus a route matrix covering success, duplicate, invalid, archived, and missing clinics. | None; decision required before indexing work. | `client/src/App.tsx`, `client/src/pages/ClinicAbout.tsx`, `server/routes.ts`, this document. | Every public-looking URL has one deliberate outcome: canonical, redirect, noindex, or 404. Reviewer approves the matrix. | **In progress — current routes found; canonical decision not yet approved.** |
-| SEO-02 | P0 / Phase 0 | Inventory all clinic fields returned by the public endpoint and all fields consumed by the four public themes. Classify each field as public, private, optional, derived, or forbidden. | Reviewed public-field matrix with an explicit allowlist and a list of fields that must never cross the public boundary. | SEO-01 can run in parallel, but the final allowlist must agree with the canonical public page. | `shared/schema.ts`, `server/routes.ts`, `client/src/pages/ClinicAbout.tsx`, `client/src/components/clinic-themes/ClinicThemes.tsx`. | Matrix accounts for response fields, nested doctor objects, website configuration, images, map data, and social links. No unclassified field remains. | **In progress — current endpoint was found to omit only `passwordHash` and `registeredBy`; full allowlist is not implemented.** |
-| SEO-03 | P0 / Phase 1 | Replace the broad public response with an explicit, tested public DTO/allowlist. Include only patient-facing clinic profile data, approved website content, public doctors, hours, approved images, and intended map data. | A server-side public response mapper and tests proving operational fields are excluded. | SEO-02 approved field matrix. | `server/routes.ts`, `shared/schema.ts`, storage/types, public API tests. | Public API snapshots contain only approved fields; billing, subscription, storage, verification, credentials, archive state, and internal trust data are absent. | **Not started — no application change.** |
-| SEO-04 | P0 / Phase 1 | Define and enforce a plain-text content contract for every editable website field. Reject or safely normalize HTML, script tags, event handlers, template expressions, and arbitrary CSS/iframes at the server boundary. | Shared validation rules with field-specific length and content limits plus rejection tests. | SEO-02; should be agreed before editor changes. | Website save schema in `server/routes.ts`, `shared/schema.ts`, editor inputs, validation tests. | The documented XSS payloads are rejected or rendered only as inert text; valid existing website content still saves. | **Not started — current save validation needs this review.** |
-| SEO-05 | P0 / Phase 1 | Define URL validation by purpose and apply it to website, social, image, phone, email, map, and booking links. Reject `javascript:`, `data:`, `vbscript:`, unsafe redirects, and unapproved image sources. | Reusable purpose-specific URL validators and negative/positive test cases. | SEO-02 and SEO-04. | Website save validation, public URL builders, `ClinicAbout.tsx`, image/link components. | Dangerous schemes never reach rendered `href`, `src`, redirect, or JSON-LD contexts; valid HTTPS, phone, and email values continue working. | **Not started — current public link construction is not yet governed by a shared policy.** |
-| SEO-06 | P0 / Phase 1 | Audit and harden website image uploads. Check actual file type, extension, size, dimensions, generated object names, content type, and private/public storage boundaries. Explicitly decide whether SVG is rejected or sanitized. | Upload policy, server-side checks, representative file fixtures, and storage-path review. | SEO-02; coordinate with existing R2 storage rules. | Upload routes, storage helpers, `client/src/components/WebsiteConfigPanel.tsx`, R2 configuration. | JPEG/PNG/WebP policy is enforced using file content, oversized or disguised files fail, and approved public images still render. | **Not started — existing storage organization is documented, but SEO upload enforcement is not complete.** |
-| SEO-07 | P0 / Phase 1 | Protect the website update action with explicit field allowlisting, request rate limiting, CSRF or strict origin checks, audit logging, and clear owner-facing validation errors. | Threat-reviewed save endpoint with abuse/error tests and an audit event for important website changes. | SEO-03 through SEO-05; existing authentication remains in place. | Website save route in `server/routes.ts`, auth/session middleware, audit logging, editor error handling. | Unauthenticated, cross-origin, over-rate, unknown-field, and invalid-content requests fail safely; valid clinic-owner saves remain functional. | **Not started — authentication and Zod validation exist, but the complete protection set is not verified.** |
-| SEO-08 | P0 / Phase 1 | Add browser safety headers in report-only mode, then review legitimate dependencies before enforcement. Cover CSP, content-type sniffing, referrer policy, permissions policy, HSTS, and frame/embed behavior. | Environment-appropriate header policy, report-only findings log, and an enforcement decision. | SEO-03 through SEO-06; must account for fonts, maps, image storage, and API origins. | Express/server middleware, deployment configuration, public theme dependencies. | Headers appear on public and authenticated responses as intended; report-only violations are understood; no required booking or map flow is silently blocked. | **Not started — no policy change.** |
+| SEO-01 | P0 / Phase 0 | Record the public URL and identifier rules. Confirm `/clinic/:slug`, legacy `/about`, `?clinicId=`, numeric IDs, username slugs, and booking URLs. Decide that `/clinic/:slug` is canonical and document redirect/noindex treatment for every duplicate. | A short URL decision record plus a route matrix covering success, duplicate, invalid, archived, and missing clinics. | None; decision required before indexing work. | `client/src/App.tsx`, `client/src/pages/ClinicAbout.tsx`, `server/routes.ts`, this document. | Every public-looking URL has one deliberate outcome: canonical, redirect, noindex, or 404. Reviewer approves the matrix. | **Implemented 2026-09-03 — canonical decision and route matrix recorded in section 20.4.** |
+| SEO-02 | P0 / Phase 0 | Inventory all clinic fields returned by the public endpoint and all fields consumed by the four public themes. Classify each field as public, private, optional, derived, or forbidden. | Reviewed public-field matrix with an explicit allowlist and a list of fields that must never cross the public boundary. | SEO-01 can run in parallel, but the final allowlist must agree with the canonical public page. | `shared/schema.ts`, `server/routes.ts`, `client/src/pages/ClinicAbout.tsx`, `client/src/components/clinic-themes/ClinicThemes.tsx`. | Matrix accounts for response fields, nested doctor objects, website configuration, images, map data, and social links. No unclassified field remains. | **Implemented 2026-09-03 — reviewed matrix recorded in section 20.4.** |
+| SEO-03 | P0 / Phase 1 | Replace the broad public response with an explicit, tested public DTO/allowlist. Include only patient-facing clinic profile data, approved website content, public doctors, hours, approved images, and intended map data. | A server-side public response mapper and tests proving operational fields are excluded. | SEO-02 approved field matrix. | `server/routes.ts`, `shared/schema.ts`, storage/types, public API tests. | Public API snapshots contain only approved fields; billing, subscription, storage, verification, credentials, archive state, and internal trust data are absent. | **Implemented 2026-09-03 — `toPublicClinic()`/`toPublicClinicListItem()` and `server/public-clinic.test.ts`.** |
+| SEO-04 | P0 / Phase 1 | Define and enforce a plain-text content contract for every editable website field. Reject or safely normalize HTML, script tags, event handlers, template expressions, and arbitrary CSS/iframes at the server boundary. | Shared validation rules with field-specific length and content limits plus rejection tests. | SEO-02; should be agreed before editor changes. | Website save schema in `server/routes.ts`, `shared/schema.ts`, editor inputs, validation tests. | The documented XSS payloads are rejected or rendered only as inert text; valid existing website content still saves. | **Implemented 2026-09-03 — strict bounded schemas, control-character rejection, and XSS tests.** |
+| SEO-05 | P0 / Phase 1 | Define URL validation by purpose and apply it to website, social, image, phone, email, map, and booking links. Reject `javascript:`, `data:`, `vbscript:`, unsafe redirects, and unapproved image sources. | Reusable purpose-specific URL validators and negative/positive test cases. | SEO-02 and SEO-04. | Website save validation, public URL builders, `ClinicAbout.tsx`, image/link components. | Dangerous schemes never reach rendered `href`, `src`, redirect, or JSON-LD contexts; valid HTTPS, phone, and email values continue working. | **Implemented 2026-09-03 — shared HTTPS/relative URL policy with positive/negative tests.** |
+| SEO-06 | P0 / Phase 1 | Audit and harden website image uploads. Check actual file type, extension, size, dimensions, generated object names, content type, and private/public storage boundaries. Explicitly decide whether SVG is rejected or sanitized. | Upload policy, server-side checks, representative file fixtures, and storage-path review. | SEO-02; coordinate with existing R2 storage rules. | Upload routes, storage helpers, `client/src/components/WebsiteConfigPanel.tsx`, R2 configuration. | JPEG/PNG/WebP policy is enforced using file content, oversized or disguised files fail, and approved public images still render. | **Implemented 2026-09-03 — SVG rejected; R2 images verified for signature, size, and dimensions; upload tests added.** |
+| SEO-07 | P0 / Phase 1 | Protect the website update action with explicit field allowlisting, request rate limiting, CSRF or strict origin checks, audit logging, and clear owner-facing validation errors. | Threat-reviewed save endpoint with abuse/error tests and an audit event for important website changes. | SEO-03 through SEO-05; existing authentication remains in place. | Website save route in `server/routes.ts`, auth/session middleware, audit logging, editor error handling. | Unauthenticated, cross-origin, over-rate, unknown-field, and invalid-content requests fail safely; valid clinic-owner saves remain functional. | **Implemented 2026-09-03 — owner guard, strict origin, rate limit, strict schemas, audit events, and unknown-field tests.** |
+| SEO-08 | P0 / Phase 1 | Add browser safety headers in report-only mode, then review legitimate dependencies before enforcement. Cover CSP, content-type sniffing, referrer policy, permissions policy, HSTS, and frame/embed behavior. | Environment-appropriate header policy, report-only findings log, and an enforcement decision. | SEO-03 through SEO-06; must account for fonts, maps, image storage, and API origins. | Express/server middleware, deployment configuration, public theme dependencies. | Headers appear on public and authenticated responses as intended; report-only violations are understood; no required booking or map flow is silently blocked. | **Implemented 2026-09-03 — report-only CSP and baseline headers added; build and application workflows pass. Enforcement remains a later review.** |
 | SEO-09 | P1 / Phase 2 | Implement one shared index-readiness predicate using the approved rule: approved status, valid slug, name, location, contact information, meaningful description or real service content, and a working public page. Decide how missing optional values affect readiness. | Pure readiness function with documented reasons for eligible/ineligible results. | SEO-01 and SEO-02; decision required before sitemap/noindex work. | Server eligibility helper, clinic storage model, public route tests. | The same predicate is used by public metadata, sitemap, and noindex behavior; boundary cases have tests. | **Not started — readiness threshold is documented but not implemented or approved.** |
 | SEO-10 | P1 / Phase 2 | Make missing and ineligible clinic pages return deliberate status behavior. Return a real 404 for missing/invalid clinics and a noindex response/page for known but unfinished clinics when appropriate. | Status/response matrix and route behavior for missing, archived, rejected, pending, and incomplete clinics. | SEO-09 and SEO-01. | `server/routes.ts`, `client/src/pages/ClinicAbout.tsx`, router/not-found handling. | `curl` or equivalent checks receive the intended HTTP status and metadata; no missing clinic is presented as a successful indexable page. | **Not started — API currently returns 404 for missing/archived records, but page-level status and ineligible behavior are not complete.** |
 | SEO-11 | P1 / Phase 2 | Add a real `/robots.txt` route. Permit eligible public clinic pages, disallow dashboards/authenticated routes and irrelevant query paths, and include the authoritative sitemap URL. | Plain-text robots response with production-safe host handling. | SEO-01 and SEO-09. | Express routes, deployment/public-host configuration. | `GET /robots.txt` returns 200 text beginning with `User-agent:` and contains no accidental private route exposure. | **Not started — route was not found in the current code audit.** |
@@ -763,12 +764,70 @@ claim that the feature is implemented.
 
 #### Current tracking rule
 
-Until SEO-01 and SEO-09 are reviewed and approved, rows SEO-03 onward may be
-researched or prototyped in isolation, but no indexing, sitemap, metadata,
-structured-data, or public data-boundary change should be treated as ready for
-release. When a row is implemented, update only its **Progress** cell with the
-date, evidence link or command, and reviewer note; do not mark a row complete
-based only on a successful build.
+Release Group A is complete, but Release Group B must not begin indexing work
+until SEO-09 (the shared readiness predicate) is reviewed and approved. No
+indexing, sitemap, metadata, noindex, or structured-data change should be
+treated as release-ready based only on a successful build. When a row is
+implemented, update only its **Progress** cell with the date, evidence link or
+command, and reviewer note.
+
+### 20.4 Release Group A decision record
+
+Release Group A is approved and implemented on **September 3, 2026**. The
+decisions below are the boundary for the later indexing work.
+
+#### Canonical URL and route matrix
+
+| Surface | Decision |
+|---|---|
+| `/clinic/:slug` | Canonical public clinic page. The slug is the clinic username and must be a valid bounded slug. |
+| `/about` | Legacy compatibility route. It is not canonical and must be redirected or marked `noindex` when Release Group B adds page-level metadata. |
+| `/about?clinicId=<id>` | Legacy compatibility lookup. It must resolve to `/clinic/:slug` or become a deliberate not-found/noindex response; it is never canonical. |
+| `/api/clinics/:identifier/public` | Non-indexable data API. It may resolve a username or numeric ID for application compatibility, but it is not a public page URL. |
+| `/book/:clinicId` and `/book` | Booking transaction surfaces. They are not clinic landing pages and must not be included in the clinic sitemap. |
+| Invalid, missing, archived, rejected, or pending clinic | Not eligible for indexing. The API currently returns 404 for missing/archived/non-approved records; page-level 404/noindex behavior is Release Group B work. |
+
+#### Public-field matrix
+
+The public mapper in `server/public-clinic.ts` is the only response boundary for
+the public clinic API.
+
+| Category | Allowed fields |
+|---|---|
+| Clinic identity | `id`, `username`, `name` |
+| Contact and location | `address`, `city`, `pincode`, `email`, `phone`, `website`, `latitude`, `longitude` |
+| Public doctor summary | `doctorName`, `doctorSpecialization`, `doctorDegree` |
+| Public doctors | `name`, `specialization`, `degree`, `imageUrl`, `bio`, `yearsOfExperience` |
+| Public website content | Validated `websiteConfig` only: theme, plain-text sections, approved links/images, hours, services, features, FAQs, testimonials, and display settings |
+| Public list response | `id`, `name`, `address`, `username`, `city`, `pincode` only |
+
+The following remain forbidden at the public boundary: passwords and
+credentials, registration and verification documents, archive/status flags,
+subscription and billing fields, storage quotas, trust scores, internal audit
+data, patient/booking data, staff session data, and unreviewed nested object
+properties.
+
+#### Release Group A implementation and evidence
+
+- `server/public-clinic.ts` provides explicit public DTO mappers.
+- `server/website-security.ts` provides strict schemas, bounded plain-text
+  validation, purpose-specific URL validation, upload request validation, and
+  valid clinic-slug validation.
+- Website/profile saves require a clinic-owner session, trusted request origin,
+  rate limiting, strict request bodies, and audit events.
+- Authenticated image uploads are folder-scoped and verified after the R2 PUT
+  using file signature, byte length, and dimensions. JPEG, PNG, and WebP are
+  supported; SVG is rejected.
+- Public signed uploads are limited to clinic registration documents and are
+  rate limited.
+- `server/website-security.test.ts`, `server/public-clinic.test.ts`, and
+  `server/signedUrl.service.test.ts` provide focused regression coverage.
+- Verification commands: `npm run check`, `npm run test:security`, `git diff
+  --check`, `npm run build`, and the configured Build Check workflow.
+
+The CSP is intentionally report-only for this release group. Enforcement
+requires reviewing legitimate fonts, maps, image hosts, booking requests, and
+other dependencies before it is enabled.
 
 ## 21. Detailed phase plan
 
@@ -1330,6 +1389,7 @@ The combined work should be released in these controlled groups:
 
 ### Release group A — Safety gate
 
+- **Implemented 2026-09-03**
 - Public API allowlist
 - Safe URL validation
 - Upload restrictions
@@ -1370,19 +1430,20 @@ The combined work should be released in these controlled groups:
 Each release group should pass the existing production build and Build Check
 before the next group begins.
 
-## 24. Final decision requested before implementation
+## 24. Recorded implementation decisions
 
-The recommended direction is:
+The following decisions were approved for the work covered by this document:
 
 1. Keep the four fixed public themes.
 2. Keep clinic editing limited to safe, approved fields.
 3. Use `/clinic/:slug` as the canonical public page.
 4. Index only approved and sufficiently complete clinic pages.
 5. Generate metadata and structured data from real clinic information.
-6. Start security work with an explicit allowlist, not a dangerous-content
-   blacklist.
+6. Start security work with an explicit allowlist and strict schemas, with
+   dangerous-content rejection as a secondary defense.
 7. Treat Google ranking as an ongoing outcome to measure, not a guaranteed
    feature.
 
-No application, database, or configuration changes should begin from this
-section until this order and the index-readiness rule have been reviewed.
+Release Group A has now been implemented and verified. Release Group B remains
+blocked until the index-readiness predicate and page eligibility behavior are
+reviewed; see SEO-09 and SEO-10.

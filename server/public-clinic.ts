@@ -7,8 +7,12 @@ function safeExternalUrl(value: string | null | undefined): string | null {
 }
 
 function safeImageUrl(value: string | null | undefined): string | null {
-  if (!value || !isSafePublicUrl(value, true)) return null;
-  return value.trim();
+  if (!value) return null;
+  const trimmed = value.trim();
+  const isRelativeImagePath = trimmed.startsWith("/") && !trimmed.startsWith("//");
+  const isHttpsImageUrl = /^https:\/\//i.test(trimmed);
+  if ((!isRelativeImagePath && !isHttpsImageUrl) || !isSafePublicUrl(trimmed, true)) return null;
+  return trimmed;
 }
 
 function toPublicWebsiteConfig(config: Clinic["websiteConfig"]) {

@@ -17,7 +17,8 @@
     "fix-lockfile": "sed -i 's|http://package-firewall.replit.local/npm/|https://registry.npmjs.org/|g' package-lock.json",
     "test:e2e": "npx playwright test",
     "test:e2e:headed": "npx playwright test --headed",
-    "test:e2e:ui": "npx playwright test --ui"
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:security": "node --import tsx --test server/website-security.test.ts server/public-clinic.test.ts server/signedUrl.service.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1054.0",

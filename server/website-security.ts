@@ -1,10 +1,12 @@
 import { z } from "zod";
 
 const UNSAFE_WEBSITE_VALUE = /(?:<\s*\/?\s*[a-z][^>]*>|(?:^|[\s"'`])on[a-z]+\s*=|javascript\s*:|vbscript\s*:|data\s*:\s*(?:text\/html|application\/javascript)|\{\{|\}\}|<%|%>)/i;
+const DISALLOWED_TEXT_CONTROLS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 const SAFE_ICON_NAME = /^[a-z0-9_-]+$/i;
+const CLINIC_SLUG = /^[a-z0-9](?:[a-z0-9_-]{0,98}[a-z0-9])?$/i;
 
 export function isSafePlainText(value: string): boolean {
-  return !UNSAFE_WEBSITE_VALUE.test(value);
+  return !DISALLOWED_TEXT_CONTROLS.test(value) && !UNSAFE_WEBSITE_VALUE.test(value);
 }
 
 export function isSafePublicUrl(value: string, allowRelative = true): boolean {
@@ -24,6 +26,10 @@ export function isSafePublicUrl(value: string, allowRelative = true): boolean {
   } catch {
     return false;
   }
+}
+
+export function isValidClinicSlug(value: string): boolean {
+  return CLINIC_SLUG.test(value);
 }
 
 const textField = (max: number) =>
@@ -130,6 +136,23 @@ export const clinicPublicProfileSchema = z.object({
   logoUrl: publicUrlField(1000).optional(),
   latitude: z.number().finite().min(-90).max(90).nullable().optional(),
   longitude: z.number().finite().min(-180).max(180).nullable().optional(),
+}).strict();
+
+export const authenticatedImageUploadSchema = z.object({
+  fileName: z.string().min(1).max(255),
+  contentType: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]).optional(),
+  fileType: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]).optional(),
+  fileSize: z.number().int().positive().max(10 * 1024 * 1024),
+  folder: z.enum(["clinics", "doctors", "users", "case-media"]),
+}).strict().refine(value => Boolean(value.fileType || value.contentType), {
+  message: "contentType or fileType is required",
+});
+
+export const publicClinicDocumentUploadSchema = z.object({
+  fileName: z.string().min(1).max(255),
+  contentType: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"]),
+  fileSize: z.number().int().positive().max(5 * 1024 * 1024).optional(),
+  folder: z.literal("clinic-docs").optional(),
 }).strict();
 
 export function normalizeExternalUrl(value: string): string {
