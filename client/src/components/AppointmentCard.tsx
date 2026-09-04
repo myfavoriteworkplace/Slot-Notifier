@@ -1023,40 +1023,35 @@ export function AppointmentCard({
         {/* ── Info Rows ── */}
         <div className="px-3 sm:px-4 py-2.5 space-y-2.5">
 
-          {/* Date + time — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
+          {/* Date + time — two rows so the date, time range, and relative chip do not compete for one line */}
           <div
-            className={`grid min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 text-xs ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
+            className={`grid min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-x-2 gap-y-0.5 text-xs ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
             onClick={(role === "clinic" || (role === "doctor" && !displayClinicName)) ? (e) => { e.stopPropagation(); isCollapsed ? onToggleCollapse?.() : setMobileExpanded(v => !v); } : undefined}
           >
-            <div className="row-span-2 h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 sm:row-span-1">
+            <div className="row-span-2 h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
-            <div className="col-start-2 flex min-w-0 items-center gap-x-2 sm:col-span-2">
+            <div className="col-start-2 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="text-muted-foreground font-medium shrink-0">Scheduled:</span>
-              <span className="font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
-              <span className="hidden text-muted-foreground font-medium shrink-0 sm:inline">
-                {format(startTime, "h:mm a")}
-                <span className="mx-1 opacity-40">→</span>
-                {format(endTime, "h:mm a")}
-              </span>
-              <span className={`hidden shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full sm:inline ${relativeTimeBadge.cls}`}>
-                {relativeTimeBadge.label}
-              </span>
+              <span className="font-semibold text-foreground whitespace-nowrap">{format(startTime, "EEE, d MMM")}</span>
             </div>
-            <div className="col-start-2 flex min-w-0 items-center gap-2 sm:hidden">
+            <div className="col-start-2 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-muted-foreground font-medium whitespace-nowrap">
                 {format(startTime, "h:mm a")}
                 <span className="mx-1 opacity-40">→</span>
                 {format(endTime, "h:mm a")}
               </span>
-              <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${relativeTimeBadge.cls}`}>
+              <span
+                title={relativeTimeBadge.label}
+                className={`shrink-0 whitespace-nowrap text-xs font-semibold border px-1.5 py-px rounded-full ${relativeTimeBadge.cls}`}
+              >
                 {relativeTimeBadge.label}
               </span>
             </div>
             {/* Collapse chevron — visible on mobile only, shown when clinic role or doctor has no clinic name */}
             {(role === "clinic" || (role === "doctor" && !displayClinicName)) && (
               <ChevronDown
-                className={`col-start-3 row-start-1 h-3.5 w-3.5 text-muted-foreground shrink-0 sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
+                className={`col-start-3 row-span-2 h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0 sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
               />
             )}
           </div>
