@@ -1005,14 +1005,20 @@ export function AppointmentCard({
 
           {/* Date + time — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
           <div
-            className={`flex items-center gap-2 text-xs min-w-0 overflow-hidden ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
+            className={`flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
             onClick={(role === "clinic" || (role === "doctor" && !displayClinicName)) ? (e) => { e.stopPropagation(); isCollapsed ? onToggleCollapse?.() : setMobileExpanded(v => !v); } : undefined}
           >
             <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
+            <span className="text-muted-foreground font-medium shrink-0">Scheduled:</span>
             <span className="font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
-            {/* Relative time badge — timing colour is independent from booking status */}
+            <span className="text-muted-foreground font-medium shrink-0">
+              {format(startTime, "h:mm a")}
+              <span className="mx-1 opacity-40">→</span>
+              {format(endTime, "h:mm a")}
+            </span>
+            {/* Relative time badge — timing colour is independent from booking status and stays at the end. */}
             {(() => {
               const d = differenceInCalendarDays(startTime, new Date());
               const timeBadge = isToday
@@ -1027,15 +1033,10 @@ export function AppointmentCard({
                   }
                 : {
                     label: d === 1 ? "Tomorrow" : `in ${d}d`,
-                    cls: "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30",
+                    cls: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30",
                   };
               return <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${timeBadge.cls}`}>{timeBadge.label}</span>;
             })()}
-            <span className="text-muted-foreground font-medium shrink-0">
-              {format(startTime, "h:mm a")}
-              <span className="mx-1 opacity-40">→</span>
-              {format(endTime, "h:mm a")}
-            </span>
             {/* Collapse chevron — visible on mobile only, shown when clinic role or doctor has no clinic name */}
             {(role === "clinic" || (role === "doctor" && !displayClinicName)) && (
               <ChevronDown
@@ -1277,6 +1278,19 @@ export function AppointmentCard({
               <span className="text-muted-foreground/50 pt-0.5">–</span>
             )}
           </div>
+
+          {/* Booking received — clinic-only audit metadata */}
+          {role === "clinic" && booking.createdAt && (
+            <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+              </div>
+              <span className="text-muted-foreground shrink-0">Booking received:</span>
+              <span className="min-w-0 font-medium text-foreground">
+                {format(new Date(booking.createdAt), "d MMM yyyy · h:mm a")}
+              </span>
+            </div>
+          )}
 
           </div>{/* end collapsible detail rows */}
         </div>
