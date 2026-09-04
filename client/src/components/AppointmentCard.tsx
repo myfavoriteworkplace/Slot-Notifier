@@ -570,6 +570,26 @@ export function AppointmentCard({
 
   const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState && !isVisitCompleted;
 
+  const relativeTimeBadge = (() => {
+    const d = differenceInCalendarDays(startTime, new Date());
+    if (isToday) {
+      return {
+        label: "Today",
+        cls: "text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-500/15 border-sky-200 dark:border-sky-500/30",
+      };
+    }
+    if (isPast) {
+      return {
+        label: "Past",
+        cls: "text-slate-600 bg-slate-50 dark:text-slate-300 dark:bg-slate-500/15 border-slate-200 dark:border-slate-500/30",
+      };
+    }
+    return {
+      label: d === 1 ? "Tomorrow" : `in ${d}d`,
+      cls: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30",
+    };
+  })();
+
   return (
     <Card
       className={`relative min-w-0 overflow-visible mt-3 mb-3 h-full rounded-xl border border-border/70 bg-card shadow-sm transition-colors duration-200 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
@@ -1005,42 +1025,38 @@ export function AppointmentCard({
 
           {/* Date + time — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
           <div
-            className={`flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
+            className={`grid min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 text-xs ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
             onClick={(role === "clinic" || (role === "doctor" && !displayClinicName)) ? (e) => { e.stopPropagation(); isCollapsed ? onToggleCollapse?.() : setMobileExpanded(v => !v); } : undefined}
           >
-            <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="row-span-2 h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 sm:row-span-1">
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
-            <span className="text-muted-foreground font-medium shrink-0">Scheduled:</span>
-            <span className="font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
-            <span className="text-muted-foreground font-medium shrink-0">
-              {format(startTime, "h:mm a")}
-              <span className="mx-1 opacity-40">→</span>
-              {format(endTime, "h:mm a")}
-            </span>
-            {/* Relative time badge — timing colour is independent from booking status and stays at the end. */}
-            {(() => {
-              const d = differenceInCalendarDays(startTime, new Date());
-              const timeBadge = isToday
-                ? {
-                    label: "Today",
-                    cls: "text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-500/15 border-sky-200 dark:border-sky-500/30",
-                  }
-                : isPast
-                ? {
-                    label: "Past",
-                    cls: "text-slate-600 bg-slate-50 dark:text-slate-300 dark:bg-slate-500/15 border-slate-200 dark:border-slate-500/30",
-                  }
-                : {
-                    label: d === 1 ? "Tomorrow" : `in ${d}d`,
-                    cls: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30",
-                  };
-              return <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${timeBadge.cls}`}>{timeBadge.label}</span>;
-            })()}
+            <div className="col-start-2 flex min-w-0 items-center gap-x-2 sm:col-span-2">
+              <span className="text-muted-foreground font-medium shrink-0">Scheduled:</span>
+              <span className="font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
+              <span className="hidden text-muted-foreground font-medium shrink-0 sm:inline">
+                {format(startTime, "h:mm a")}
+                <span className="mx-1 opacity-40">→</span>
+                {format(endTime, "h:mm a")}
+              </span>
+              <span className={`hidden shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full sm:inline ${relativeTimeBadge.cls}`}>
+                {relativeTimeBadge.label}
+              </span>
+            </div>
+            <div className="col-start-2 flex min-w-0 items-center gap-2 sm:hidden">
+              <span className="text-muted-foreground font-medium whitespace-nowrap">
+                {format(startTime, "h:mm a")}
+                <span className="mx-1 opacity-40">→</span>
+                {format(endTime, "h:mm a")}
+              </span>
+              <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${relativeTimeBadge.cls}`}>
+                {relativeTimeBadge.label}
+              </span>
+            </div>
             {/* Collapse chevron — visible on mobile only, shown when clinic role or doctor has no clinic name */}
             {(role === "clinic" || (role === "doctor" && !displayClinicName)) && (
               <ChevronDown
-                className={`h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
+                className={`col-start-3 row-start-1 h-3.5 w-3.5 text-muted-foreground shrink-0 sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
               />
             )}
           </div>
