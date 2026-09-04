@@ -204,7 +204,7 @@ function clinicFooter(
 
     return {
       role: "clinic",
-      primary: action("resolve_booking", "Resolve Booking", "actions"),
+      primary: action("resolve_booking", "Review Booking", "actions"),
       secondary,
       readOnly: false,
       policyState:

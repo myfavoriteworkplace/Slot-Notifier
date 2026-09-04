@@ -3606,11 +3606,17 @@ export default function DoctorDashboard() {
                              <Button
                                variant="outline"
                                 className="w-full h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
-                               onClick={() => setPatientModalTab("overview")}
-                               data-testid={`modal-button-${modalReviewAction.id}-${b.id}`}
+                                onClick={() => {
+                                  if (patientModalTab === "overview") {
+                                    setPatientModalId(null);
+                                  } else {
+                                    setPatientModalTab("overview");
+                                  }
+                                }}
+                                data-testid={`modal-button-${patientModalTab === "overview" ? "close" : modalReviewAction.id}-${b.id}`}
                              >
                                <ClipboardList className="h-3.5 w-3.5" />
-                               {modalReviewAction.label}
+                                {patientModalTab === "overview" ? "Close" : modalReviewAction.label}
                              </Button>
                            </>
                          )}
