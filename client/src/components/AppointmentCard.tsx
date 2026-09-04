@@ -593,7 +593,7 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`relative z-[1] min-h-[96px] sm:min-h-[104px] px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
+        <div className={`relative z-[1] min-h-[96px] sm:min-h-[104px] px-3 pr-11 sm:px-4 sm:pr-12 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
           <div className="flex min-w-0 items-start justify-between gap-2 relative">
 
             {/* Avatar + name */}
@@ -666,7 +666,7 @@ export function AppointmentCard({
                 </div>
               </div>
             </div>
-            {/* Status + ⋮ menu */}
+            {/* Status-side metadata */}
             <div className="flex flex-col items-end gap-1 shrink-0 self-center">
               {/* Doctor visit badge */}
               {role === "doctor" && isCheckedIn && (
@@ -681,9 +681,11 @@ export function AppointmentCard({
                 </span>
               )}
 
-              {/* ⋮ Three-dot menu — clinic only */}
-              {canShowMoreMenu && (
-                <div className="absolute right-2.5 top-2.5 z-10">
+            </div>
+
+            {/* ⋮ Three-dot menu — clinic only; anchored to the header/name row */}
+            {canShowMoreMenu && (
+              <div className="absolute right-0 top-0 z-10">
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
@@ -992,9 +994,8 @@ export function AppointmentCard({
                     )}
                   </PopoverContent>
                   </Popover>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
