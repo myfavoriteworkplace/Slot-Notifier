@@ -593,8 +593,8 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`relative z-[1] min-h-[96px] sm:min-h-[104px] px-3 pr-11 sm:px-4 sm:pr-12 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
-          <div className="flex min-w-0 items-start justify-between gap-2 relative">
+        <div className={`relative z-[1] min-h-[88px] sm:min-h-[96px] px-3 pr-2 sm:px-4 sm:pr-2 ${latestLabel ? "pt-5" : "pt-2.5"} pb-1.5 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
+          <div className="relative flex min-w-0 items-start gap-2 pr-28 sm:pr-32">
 
             {/* Avatar + name */}
             <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -624,18 +624,6 @@ export function AppointmentCard({
                       Visit {visitNumber}/{totalVisits}
                     </span>
                   )}
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="shrink-0 cursor-help">
-                          <StatusBadge />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
-                        {statusTooltip}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 {/* Row 2: PAT code */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
@@ -683,9 +671,23 @@ export function AppointmentCard({
 
             </div>
 
-            {/* ⋮ Three-dot menu — clinic only; anchored to the header/name row */}
-            {canShowMoreMenu && (
-              <div className="absolute right-0 top-0 z-10">
+            {/* Status + ⋮ actions stay anchored at the extreme right of the header. */}
+            <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="shrink-0 cursor-help">
+                      <StatusBadge />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
+                    {statusTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* ⋮ Three-dot menu — clinic only */}
+              {canShowMoreMenu && (
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
@@ -994,8 +996,8 @@ export function AppointmentCard({
                     )}
                   </PopoverContent>
                   </Popover>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
