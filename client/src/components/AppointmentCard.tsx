@@ -593,17 +593,17 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`relative z-[1] min-h-[88px] sm:min-h-[96px] px-3 pr-2 sm:px-4 sm:pr-2 ${latestLabel ? "pt-5" : "pt-2.5"} pb-1.5 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
-          <div className="relative flex min-w-0 items-start gap-2 pr-28 sm:pr-32">
+        <div className={`relative z-[1] min-h-[92px] sm:min-h-[100px] px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
+          <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1">
 
             {/* Avatar + name */}
-            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+            <div className="contents">
               <div className="shrink-0 h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
                 <span className="text-sm font-bold text-primary dark:text-primary/80 leading-none">
                   {booking.customerName.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="min-w-0 flex-1 space-y-1">
+              <div className="min-w-0 space-y-1">
                 {/* Row 1: patient identity and visit history */}
                 <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                   <TooltipProvider delayDuration={100}>
@@ -628,25 +628,25 @@ export function AppointmentCard({
                 {/* Row 2: PAT code */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                   {booking.patientCode ? (
-                    <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
+                    <span className="min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground/60">Patient ID not assigned</span>
                   )}
                 </div>
-                {/* Row 3: Phone · Age · Gender */}
-                <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                {/* Clinic phone gets its own line so the complete number remains visible. */}
                 {role !== "doctor" && (
-                  <>
+                  <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                     <Phone className="h-2.5 w-2.5 shrink-0" />
-                    <span className="min-w-0 max-w-full truncate">{booking.customerPhone || "--"}</span>
-                    <span className="opacity-30 shrink-0 px-0.5">·</span>
-                  </>
+                    <span className="whitespace-nowrap">{booking.customerPhone || "--"}</span>
+                  </div>
                 )}
+                {/* Age · Gender */}
+                <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                   <span className="shrink-0">{booking.customerAge ? `${booking.customerAge}y` : "--"}</span>
                   <span className="opacity-30 shrink-0 px-0.5">·</span>
-                <span className="min-w-0 truncate">
+                  <span className="min-w-0 truncate">
                     {booking.customerGender
                       ? booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)
                       : "--"}
@@ -654,40 +654,25 @@ export function AppointmentCard({
                 </div>
               </div>
             </div>
-            {/* Status-side metadata */}
-            <div className="flex flex-col items-end gap-1 shrink-0 self-center">
-              {/* Doctor visit badge */}
-              {role === "doctor" && isCheckedIn && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-                  Arrived{booking.checkedInAt ? ` · ${format(new Date(booking.checkedInAt), "h:mm a")}` : ""}
-                </span>
-              )}
-              {role === "doctor" && isVisitCompleted && booking.completedAt && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Done · {format(new Date(booking.completedAt), "d MMM h:mm a")}
-                </span>
-              )}
 
-            </div>
+            {/* Status + actions share the name row and doctor metadata stays below them. */}
+            <div className="flex min-w-0 flex-col items-end gap-1">
+              <div className="flex items-center gap-2">
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="shrink-0 cursor-help">
+                        <StatusBadge />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
+                      {statusTooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-            {/* Status + ⋮ actions stay anchored at the extreme right of the header. */}
-            <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="shrink-0 cursor-help">
-                      <StatusBadge />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
-                    {statusTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              {/* ⋮ Three-dot menu — clinic only */}
-              {canShowMoreMenu && (
+                {/* ⋮ Three-dot menu — clinic only */}
+                {canShowMoreMenu && (
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
@@ -996,6 +981,20 @@ export function AppointmentCard({
                     )}
                   </PopoverContent>
                   </Popover>
+                )}
+              </div>
+
+              {/* Doctor visit metadata is kept below the status instead of beside patient details. */}
+              {role === "doctor" && isCheckedIn && (
+                <span className="inline-flex max-w-[110px] items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                  Arrived{booking.checkedInAt ? ` · ${format(new Date(booking.checkedInAt), "h:mm a")}` : ""}
+                </span>
+              )}
+              {role === "doctor" && isVisitCompleted && booking.completedAt && (
+                <span className="max-w-[110px] overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                  Done · {format(new Date(booking.completedAt), "d MMM h:mm a")}
+                </span>
               )}
             </div>
           </div>
