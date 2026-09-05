@@ -1,4 +1,5 @@
 import twilio from "twilio";
+import type { CommunicationSendResult } from "./communication-usage";
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
 const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -28,10 +29,10 @@ function toE164(phone: string): string {
   return `+${cleaned}`;
 }
 
-async function sendWhatsApp(toPhone: string, message: string, label: string): Promise<void> {
+async function sendWhatsApp(toPhone: string, message: string, label: string): Promise<CommunicationSendResult> {
   if (!client) {
     console.log(`[WHATSAPP MOCK] Twilio not configured — ${label} skipped.`);
-    return;
+    return { status: "skipped", provider: "twilio" };
   }
 
   const formattedPhone = toE164(toPhone);
@@ -44,14 +45,16 @@ async function sendWhatsApp(toPhone: string, message: string, label: string): Pr
       body: message,
     });
     console.log(`[WHATSAPP] (${label}) Sent. SID: ${result.sid} → ${formattedPhone}`);
+    return { status: "accepted", provider: "twilio", providerMessageId: result.sid };
   } catch (err: any) {
     console.error(`[WHATSAPP ERROR] (${label}) Failed to send to ${formattedPhone}: ${err.message}`);
     if (err.code) console.error(`[WHATSAPP ERROR] Twilio error code: ${err.code}`);
+    return { status: "failed", provider: "twilio", error: err.message };
   }
 }
 
-export async function sendWhatsAppMessage(toPhone: string, message: string, label = 'generic'): Promise<void> {
-  await sendWhatsApp(toPhone, message, label);
+export async function sendWhatsAppMessage(toPhone: string, message: string, label = 'generic'): Promise<CommunicationSendResult> {
+  return sendWhatsApp(toPhone, message, label);
 }
 
 function formatDate(d: Date) {
@@ -67,7 +70,7 @@ export async function sendWhatsAppBookingNotification(
   patientName: string,
   clinicName: string,
   appointmentTime: Date
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const message =
     `Hello ${patientName}! 👋\n\n` +
     `Your appointment request at *${clinicName}* has been received.\n\n` +
@@ -77,7 +80,7 @@ export async function sendWhatsAppBookingNotification(
     `Please wait for the confirmation before visiting.\n\n` +
     `— BookMySlot 🦷`;
 
-  await sendWhatsApp(toPhone, message, "booking-received");
+  return sendWhatsApp(toPhone, message, "booking-received");
 }
 
 export async function sendWhatsAppConsentLink(
@@ -85,7 +88,7 @@ export async function sendWhatsAppConsentLink(
   patientName: string,
   clinicName: string,
   consentUrl: string,
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const message =
     `Hello ${patientName}! 📋\n\n` +
     `*${clinicName}* has sent you a digital consent form for your upcoming dental appointment.\n\n` +
@@ -94,7 +97,7 @@ export async function sendWhatsAppConsentLink(
     `This link is valid for 72 hours. Please do not share it with others.\n\n` +
     `— BookMySlot 🦷`;
 
-  await sendWhatsApp(toPhone, message, "consent-request");
+  return sendWhatsApp(toPhone, message, "consent-request");
 }
 
 export async function sendWhatsAppConfirmationNotification(
@@ -107,7 +110,7 @@ export async function sendWhatsAppConfirmationNotification(
   clinicPhone?: string | null,
   mapsLink?: string | null,
   bookingRef?: string | null,
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const doctorLine = doctorName ? `👨‍⚕️ Doctor: ${doctorName}\n` : "";
   const addressLine = clinicAddress ? `📍 Address: ${clinicAddress}\n` : "";
   const mapsLine = mapsLink ? `🗺 Directions: ${mapsLink}\n` : "";
@@ -127,5 +130,5 @@ export async function sendWhatsAppConfirmationNotification(
     `Please arrive 10 minutes early. Reply to this message if you need to reschedule.\n\n` +
     `— BookMySlot 🦷`;
 
-  await sendWhatsApp(toPhone, message, "booking-confirmed");
+  return sendWhatsApp(toPhone, message, "booking-confirmed");
 }

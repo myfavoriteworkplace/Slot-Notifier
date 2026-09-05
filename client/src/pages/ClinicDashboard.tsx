@@ -11,6 +11,7 @@ import { InventoryPanel } from "@/components/InventoryPanel";
 import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import ClinicStorageSettingsPanel from "@/components/ClinicStorageSettingsPanel";
+import ClinicMessagingUsagePanel from "@/components/ClinicMessagingUsagePanel";
 import ClinicReminderDigestPanel from "@/components/ClinicReminderDigestPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
@@ -1593,6 +1594,7 @@ export default function ClinicDashboard() {
           {activePanel === 'settings' && (
             <div className="space-y-4">
               <ClinicStorageSettingsPanel />
+              <ClinicMessagingUsagePanel />
               <ClinicReminderDigestPanel />
             </div>
           )}

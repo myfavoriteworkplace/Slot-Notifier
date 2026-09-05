@@ -1,4 +1,5 @@
 import twilio from "twilio";
+import type { CommunicationSendResult } from "./communication-usage";
 
 const SMS_ENABLED = process.env.SMS_NOTIFICATIONS_ENABLED?.trim().toLowerCase() === "true";
 const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
@@ -37,13 +38,15 @@ function maskPhone(phone: string): string {
   return phone.length > 4 ? `${phone.slice(0, 3)}••••${phone.slice(-2)}` : "redacted";
 }
 
-async function sendSms(toPhone: string, body: string, label: string): Promise<void> {
-  if (!SMS_ENABLED || !client || !messagingServiceSid) return;
+async function sendSms(toPhone: string, body: string, label: string): Promise<CommunicationSendResult> {
+  if (!SMS_ENABLED || !client || !messagingServiceSid) {
+    return { status: "skipped", provider: "twilio" };
+  }
 
   const formattedPhone = toE164(toPhone);
   if (!formattedPhone) {
     console.warn(`[SMS] (${label}) Skipped invalid phone number.`);
-    return;
+    return { status: "skipped", provider: "twilio" };
   }
 
   try {
@@ -53,9 +56,11 @@ async function sendSms(toPhone: string, body: string, label: string): Promise<vo
       to: formattedPhone,
     });
     console.log(`[SMS] (${label}) Sent. SID: ${result.sid} → ${maskPhone(formattedPhone)}`);
+    return { status: "accepted", provider: "twilio", providerMessageId: result.sid };
   } catch (err: any) {
     console.error(`[SMS ERROR] (${label}) Failed for ${maskPhone(formattedPhone)}: ${err.message}`);
     if (err.code) console.error(`[SMS ERROR] (${label}) Twilio error code: ${err.code}`);
+    return { status: "failed", provider: "twilio", error: err.message };
   }
 }
 
@@ -81,13 +86,13 @@ export async function sendBookingReceivedSms(
   patientName: string,
   clinicName: string,
   appointmentTime: Date,
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const message =
     `Hello ${patientName}, your appointment request at ${clinicName} has been received. ` +
     `Date: ${formatDate(appointmentTime)}. Time: ${formatTime(appointmentTime)}. ` +
     `We will send another SMS once the clinic confirms your appointment. - BookMySlot`;
 
-  await sendSms(toPhone, message, "booking-received");
+  return sendSms(toPhone, message, "booking-received");
 }
 
 export async function sendBookingConfirmationSms(
@@ -98,7 +103,7 @@ export async function sendBookingConfirmationSms(
   doctorName?: string | null,
   clinicPhone?: string | null,
   bookingRef?: string | null,
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const doctorLine = doctorName ? ` Doctor: ${doctorName}.` : "";
   const phoneLine = clinicPhone ? ` Clinic: ${clinicPhone}.` : "";
   const refLine = bookingRef ? ` Ref: ${bookingRef}.` : "";
@@ -107,5 +112,5 @@ export async function sendBookingConfirmationSms(
     `Date: ${formatDate(appointmentTime)}. Time: ${formatTime(appointmentTime)}.` +
     `${doctorLine}${phoneLine}${refLine} Please arrive 10 minutes early. - BookMySlot`;
 
-  await sendSms(toPhone, message, "booking-confirmed");
+  return sendSms(toPhone, message, "booking-confirmed");
 }

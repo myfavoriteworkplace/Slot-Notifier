@@ -480,6 +480,32 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error ensuring booking_state_log table:", err.message);
   }
 
+  // communication_usage — append-only clinic messaging ledger used by billing/reporting
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS communication_usage (
+        id                    SERIAL PRIMARY KEY,
+        clinic_id             integer NOT NULL REFERENCES clinics(id),
+        booking_id            integer REFERENCES bookings(id),
+        channel               varchar(20) NOT NULL,
+        event_type            varchar(80) NOT NULL,
+        recipient_type        varchar(30) NOT NULL,
+        status                varchar(20) NOT NULL,
+        provider              varchar(40),
+        provider_message_id   varchar(255),
+        units                 integer NOT NULL DEFAULT 1,
+        billable              boolean NOT NULL DEFAULT true,
+        is_test               boolean NOT NULL DEFAULT false,
+        sent_at               timestamp NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS communication_usage_clinic_sent_at_idx ON communication_usage (clinic_id, sent_at);
+      CREATE INDEX IF NOT EXISTS communication_usage_clinic_channel_idx ON communication_usage (clinic_id, channel);
+    `);
+    console.log("[DATABASE] communication_usage table ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring communication_usage table:", err.message);
+  }
+
   // Core query performance indexes
   try {
     await pool.query(`

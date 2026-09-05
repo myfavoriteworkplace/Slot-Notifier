@@ -1,4 +1,5 @@
 import Zavudev from "@zavudev/sdk";
+import type { CommunicationSendResult } from "./communication-usage";
 
 const apiKey = process.env.ZAVUDEV_API_KEY?.trim();
 
@@ -28,7 +29,7 @@ function formatTime(d: Date) {
   return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
-async function sendZavuMessage(toPhone: string, text: string, label: string): Promise<void> {
+async function sendZavuMessage(toPhone: string, text: string, label: string): Promise<CommunicationSendResult> {
   if (!zavu) {
     throw new Error("Zavu client not initialized");
   }
@@ -43,6 +44,7 @@ async function sendZavuMessage(toPhone: string, text: string, label: string): Pr
   });
 
   console.log(`[WHATSAPP-ZAVU] (${label}) Sent → ${formattedPhone}`);
+  return { status: "accepted", provider: "zavu" };
 }
 
 export async function sendZavuWhatsAppBookingNotification(
@@ -50,7 +52,7 @@ export async function sendZavuWhatsAppBookingNotification(
   patientName: string,
   clinicName: string,
   appointmentTime: Date
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const message =
     `Hello ${patientName}! 👋\n\n` +
     `Your appointment request at *${clinicName}* has been received.\n\n` +
@@ -60,7 +62,7 @@ export async function sendZavuWhatsAppBookingNotification(
     `Please wait for the confirmation before visiting.\n\n` +
     `— BookMySlot 🦷`;
 
-  await sendZavuMessage(toPhone, message, "booking-received");
+  return sendZavuMessage(toPhone, message, "booking-received");
 }
 
 export async function sendZavuWhatsAppConfirmationNotification(
@@ -73,7 +75,7 @@ export async function sendZavuWhatsAppConfirmationNotification(
   clinicPhone?: string | null,
   mapsLink?: string | null,
   bookingRef?: string | null
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const doctorLine = doctorName ? `👨‍⚕️ Doctor: ${doctorName}\n` : "";
   const addressLine = clinicAddress ? `📍 Address: ${clinicAddress}\n` : "";
   const mapsLine = mapsLink ? `🗺 Directions: ${mapsLink}\n` : "";
@@ -93,7 +95,7 @@ export async function sendZavuWhatsAppConfirmationNotification(
     `Please arrive 10 minutes early. Reply to this message if you need to reschedule.\n\n` +
     `— BookMySlot 🦷`;
 
-  await sendZavuMessage(toPhone, message, "booking-confirmed");
+  return sendZavuMessage(toPhone, message, "booking-confirmed");
 }
 
 export async function sendZavuWhatsAppConsentLink(
@@ -101,7 +103,7 @@ export async function sendZavuWhatsAppConsentLink(
   patientName: string,
   clinicName: string,
   consentUrl: string
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const message =
     `Hello ${patientName}! 📋\n\n` +
     `*${clinicName}* has sent you a digital consent form for your upcoming dental appointment.\n\n` +
@@ -110,5 +112,5 @@ export async function sendZavuWhatsAppConsentLink(
     `This link is valid for 72 hours. Please do not share it with others.\n\n` +
     `— BookMySlot 🦷`;
 
-  await sendZavuMessage(toPhone, message, "consent-request");
+  return sendZavuMessage(toPhone, message, "consent-request");
 }

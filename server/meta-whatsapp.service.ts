@@ -1,3 +1,5 @@
+import type { CommunicationSendResult } from "./communication-usage";
+
 const GRAPH_API_VERSION = "v19.0";
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
@@ -42,7 +44,7 @@ async function sendTemplateMessage(
   templateName: string,
   params: TemplateParam[],
   label: string
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   if (!isMetaConfigured) {
     throw new Error("Meta credentials not configured");
   }
@@ -84,6 +86,7 @@ async function sendTemplateMessage(
 
   const msgId = data?.messages?.[0]?.id ?? "unknown";
   console.log(`[WHATSAPP-META] (${label}) Sent. Message ID: ${msgId} → ${formattedPhone}`);
+  return { status: "accepted", provider: "meta", providerMessageId: msgId };
 }
 
 export async function sendMetaWhatsAppBookingNotification(
@@ -91,8 +94,8 @@ export async function sendMetaWhatsAppBookingNotification(
   patientName: string,
   clinicName: string,
   appointmentTime: Date
-): Promise<void> {
-  await sendTemplateMessage(
+): Promise<CommunicationSendResult> {
+  return sendTemplateMessage(
     toPhone,
     BOOKING_TEMPLATE,
     [
@@ -115,7 +118,7 @@ export async function sendMetaWhatsAppConfirmationNotification(
   _clinicPhone?: string | null,
   _mapsLink?: string | null,
   bookingRef?: string | null
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   const params: TemplateParam[] = [
     { type: "text", text: patientName },
     { type: "text", text: clinicName },
@@ -127,7 +130,7 @@ export async function sendMetaWhatsAppConfirmationNotification(
   if (clinicAddress) params.push({ type: "text", text: clinicAddress });
   if (bookingRef) params.push({ type: "text", text: bookingRef });
 
-  await sendTemplateMessage(toPhone, CONFIRM_TEMPLATE, params, "booking-confirmed");
+  return sendTemplateMessage(toPhone, CONFIRM_TEMPLATE, params, "booking-confirmed");
 }
 
 export async function sendMetaWhatsAppConsentLink(
@@ -135,8 +138,8 @@ export async function sendMetaWhatsAppConsentLink(
   patientName: string,
   clinicName: string,
   consentUrl: string
-): Promise<void> {
-  await sendTemplateMessage(
+): Promise<CommunicationSendResult> {
+  return sendTemplateMessage(
     toPhone,
     CONSENT_TEMPLATE,
     [

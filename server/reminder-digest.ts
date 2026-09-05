@@ -7,6 +7,7 @@ import { isNotNull } from "drizzle-orm";
 import { storage, type ReminderBooking, type ReminderResult } from "./storage";
 import { resolveRuntimeEnvironment } from "./environment";
 import { canSendRealEmail } from "./email-policy";
+import { trackCommunication } from "./communication-usage";
 
 export const REMINDER_DIGEST_TEMPLATE_VERSION = "v1";
 
@@ -110,14 +111,24 @@ export async function runClinicManualDigestJob(clinicId: number, now = new Date(
 
   for (const recipient of recipients) {
     try {
-      const response = await resend!.emails.send({
-        from: process.env.EMAIL_FROM || "BookMySlot <onboarding@resend.dev>",
-        to: recipient.email,
-        subject: "Your upcoming BookMySlot appointments",
-        html: renderReminderDigestEmail(recipient, dashboardUrl),
+      const sendResult = await trackCommunication({
+        clinicId,
+        eventType: "reminder_digest",
+        recipientType: "doctor",
+        channel: "email",
+        billable: true,
+      }, async () => {
+        const response = await resend!.emails.send({
+          from: process.env.EMAIL_FROM || "BookMySlot <onboarding@resend.dev>",
+          to: recipient.email,
+          subject: "Your upcoming BookMySlot appointments",
+          html: renderReminderDigestEmail(recipient, dashboardUrl),
+        });
+        if (response.error) throw new Error(response.error.message);
+        return { status: "accepted" as const, provider: "resend" };
       });
-      if (response.error) throw new Error(response.error.message);
-      result.sent++;
+      if (sendResult.status === "accepted") result.sent++;
+      else result.failed++;
     } catch {
       result.failed++;
     }
@@ -229,13 +240,26 @@ export async function runReminderDigestJob(now = new Date()): Promise<DigestJobR
     }
     result.claimed++;
     try {
-      const response = await resend!.emails.send({
-        from: process.env.EMAIL_FROM || "BookMySlot <onboarding@resend.dev>",
-        to: recipient.email,
-        subject: "Your upcoming BookMySlot appointments",
-        html,
-      });
-      if (response.error) throw new Error(response.error.message);
+      const sendDigestEmail = async () => {
+        const response = await resend!.emails.send({
+          from: process.env.EMAIL_FROM || "BookMySlot <onboarding@resend.dev>",
+          to: recipient.email,
+          subject: "Your upcoming BookMySlot appointments",
+          html,
+        });
+        if (response.error) throw new Error(response.error.message);
+        return { status: "accepted" as const, provider: "resend" };
+      };
+      const sendResult = recipient.clinicId
+        ? await trackCommunication({
+          clinicId: recipient.clinicId,
+          eventType: "reminder_digest",
+          recipientType: recipient.role === "clinic" ? "clinic" : "doctor",
+          channel: "email",
+          billable: true,
+        }, sendDigestEmail)
+        : await sendDigestEmail();
+      if (sendResult.status !== "accepted") throw new Error("Reminder email was not accepted by the provider");
       await storage.markReminderDigestSent(claim.id);
       result.sent++;
     } catch (error) {
