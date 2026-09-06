@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
+import { getSubscriptionStatusInfo } from "@shared/subscription-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +73,8 @@ type ClinicStorageUsage = {
 };
 
 type AdminStorageUsageSummary = {
+  measuredAt?: string;
+  timezone?: string;
   totals: {
     usedBytes: number;
     limitBytes: number;
@@ -101,27 +104,17 @@ const formatBytes = (bytes: number) => {
 const formatPercent = (value: number) => `${Math.round(value * 10) / 10}%`;
 
 const subscriptionLabel = (status: string | null | undefined) => {
-  switch (status) {
-    case "active":
-      return "Active";
-    case "pending_payment":
-      return "Payment pending";
-    case "expired":
-      return "Expired";
-    case "past_due":
-      return "Past due";
-    default:
-      return status ? status.replace(/_/g, " ") : "Not activated";
-  }
+  return getSubscriptionStatusInfo(status).label;
 };
 
 const subscriptionClass = (status: string | null | undefined) => {
-  if (status === "active") return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300";
-  if (status === "expired" || status === "past_due") return "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300";
+  const state = getSubscriptionStatusInfo(status).state;
+  if (state === "active") return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300";
+  if (state === "expired" || state === "past_due" || state === "provider_error") return "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300";
   return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300";
 };
 
-const isSubscriptionAttention = (status: string | null | undefined) => status !== "active";
+const isSubscriptionAttention = (status: string | null | undefined) => getSubscriptionStatusInfo(status).needsAttention;
 
 const storageTone = (percent: number) => {
   if (percent >= 95) return "bg-red-500";
@@ -169,7 +162,17 @@ function MetricCard({
   );
 }
 
-export default function AdminOperationsOverview({ clinics }: { clinics: Clinic[] }) {
+export default function AdminOperationsOverview({
+  clinics,
+  clinicsLoading = false,
+  clinicsError = false,
+  onRetryClinics,
+}: {
+  clinics: Clinic[];
+  clinicsLoading?: boolean;
+  clinicsError?: boolean;
+  onRetryClinics?: () => void;
+}) {
   const [month] = useState(currentMonth);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<TenantFilter>("all");
@@ -179,12 +182,14 @@ export default function AdminOperationsOverview({ clinics }: { clinics: Clinic[]
     queryKey: ["/api/admin/messaging-usage", month],
     queryFn: async () => (await apiRequest("GET", `/api/admin/messaging-usage?month=${encodeURIComponent(month)}`)).json(),
     staleTime: 60_000,
+    retry: 1,
   });
 
   const storageQuery = useQuery<AdminStorageUsageSummary>({
     queryKey: ["/api/admin/storage-usage"],
     queryFn: async () => (await apiRequest("GET", "/api/admin/storage-usage")).json(),
     staleTime: 60_000,
+    retry: 1,
   });
 
   const messagingByClinic = useMemo(
@@ -226,8 +231,9 @@ export default function AdminOperationsOverview({ clinics }: { clinics: Clinic[]
   const failedMessages = messagingQuery.data?.totals.failed ?? 0;
   const storageTotals = storageQuery.data?.totals;
   const storagePercent = storageTotals?.usagePercent ?? 0;
-  const activeSubscriptions = activeClinics.filter(clinic => clinic.subscriptionStatus === "active").length;
-  const platformSignalsHealthy = failedMessages === 0 && attentionClinics.length === 0;
+  const activeSubscriptions = activeClinics.filter(clinic => getSubscriptionStatusInfo(clinic.subscriptionStatus).isActive).length;
+  const hasOperationsError = clinicsError || messagingQuery.isError || storageQuery.isError;
+  const platformSignalsHealthy = !hasOperationsError && failedMessages === 0 && attentionClinics.length === 0;
   const selectedMessaging = selectedClinic ? messagingByClinic.get(selectedClinic.id) : undefined;
   const selectedStorage = selectedClinic ? storageByClinic.get(selectedClinic.id) : undefined;
 
@@ -250,12 +256,39 @@ export default function AdminOperationsOverview({ clinics }: { clinics: Clinic[]
         </div>
       </div>
 
+      {(clinicsLoading || messagingQuery.isLoading || storageQuery.isLoading) && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-700 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-300" role="status">
+          Loading the latest platform operations data…
+        </div>
+      )}
+
+      {hasOperationsError && (
+        <Card className="border-red-200 bg-red-50/60 dark:border-red-900/60 dark:bg-red-950/15">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+            <div className="flex min-w-0 items-start gap-2">
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+              <div>
+                <p className="font-semibold text-red-800 dark:text-red-200">Some operations data could not be verified.</p>
+                <p className="mt-0.5 text-xs text-red-700 dark:text-red-300">
+                  Unavailable metrics are shown as unavailable, not zero.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {clinicsError && onRetryClinics && <Button size="sm" variant="outline" onClick={onRetryClinics}>Retry tenants</Button>}
+              {messagingQuery.isError && <Button size="sm" variant="outline" onClick={() => messagingQuery.refetch()}>Retry messaging</Button>}
+              {storageQuery.isError && <Button size="sm" variant="outline" onClick={() => storageQuery.refetch()}>Retry storage</Button>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <MetricCard label="Active tenants" value={formatNumber(activeClinics.length)} detail={`${formatNumber(pendingClinics.length)} pending registration${pendingClinics.length === 1 ? "" : "s"}`} icon={Building2} />
-        <MetricCard label="Subscriptions" value={`${formatNumber(activeSubscriptions)} / ${formatNumber(activeClinics.length)}`} detail="Active subscription coverage" icon={CreditCard} tone={activeSubscriptions === activeClinics.length ? "good" : "warning"} />
+        <MetricCard label="Subscriptions" value={`${formatNumber(activeSubscriptions)} / ${formatNumber(activeClinics.length)}`} detail="Active subscription coverage · legacy states normalized" icon={CreditCard} tone={activeSubscriptions === activeClinics.length ? "good" : "warning"} />
         <MetricCard label="Needs attention" value={formatNumber(attentionClinics.length)} detail="Subscription, storage, or message signals" icon={ShieldAlert} tone={attentionClinics.length ? "warning" : "good"} />
-        <MetricCard label="Messages this month" value={formatNumber(totalMessages)} detail={`${formatNumber(messagingQuery.data?.totals.accepted ?? 0)} accepted · ${formatNumber(failedMessages)} failed`} icon={MessageSquare} tone={failedMessages ? "danger" : "good"} />
-        <MetricCard label="Tracked storage" value={storageTotals ? `${formatPercent(storagePercent)}` : "—"} detail={storageTotals ? `${formatBytes(storageTotals.usedBytes)} of ${formatBytes(storageTotals.limitBytes)}` : "Loading usage summary"} icon={Database} tone={storagePercent >= 95 ? "danger" : storagePercent >= 80 ? "warning" : "primary"} />
+        <MetricCard label="Messages this month" value={messagingQuery.data ? formatNumber(totalMessages) : "—"} detail={messagingQuery.data ? `${formatNumber(messagingQuery.data.totals.accepted)} accepted · ${formatNumber(failedMessages)} failed` : messagingQuery.isError ? "Messaging summary unavailable" : "Loading usage summary"} icon={MessageSquare} tone={messagingQuery.isError ? "danger" : failedMessages ? "danger" : "good"} />
+        <MetricCard label="Tracked storage" value={storageTotals ? `${formatPercent(storagePercent)}` : "—"} detail={storageTotals ? `${formatBytes(storageTotals.usedBytes)} of ${formatBytes(storageTotals.limitBytes)} · measured ${storageQuery.data?.measuredAt ? new Date(storageQuery.data.measuredAt).toISOString() : "time unavailable"}` : storageQuery.isError ? "Storage summary unavailable" : "Loading usage summary"} icon={Database} tone={storageQuery.isError ? "danger" : storagePercent >= 95 ? "danger" : storagePercent >= 80 ? "warning" : "primary"} />
         <MetricCard label="Reporting period" value={month} detail={`Messaging timezone: ${messagingQuery.data?.period.timezone ?? "UTC"}`} icon={Server} />
       </div>
 

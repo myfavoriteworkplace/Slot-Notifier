@@ -1,6 +1,6 @@
 # Super Admin Platform Operations Blueprint
 
-**Status:** Release A implemented — Releases B–D remain planned
+**Status:** Release A implemented and hardened — Release B in progress — Releases C–D remain planned
 **Audience:** Product, design, frontend, backend, database, QA, and operations teams  
 **Application:** BookMySlot dental clinic platform  
 **Primary goal:** Make the Super Admin screen useful for operating the platform services provided to clinics without exposing clinic-private business revenue.
@@ -46,6 +46,14 @@ Release A from this blueprint has been implemented.
 - Kept patient bills, treatment revenue, doctor earnings, clinical records, and patient payment history out of the operations DTO and UI.
 - Preserved existing Active, Messaging Usage, Pending, Archived, Smile Deals, and Login Activity tabs.
 - Expanded the Admin page container so the operations table can use the available screen width.
+- Added a shared subscription-state policy for Super Admin operations views:
+  - Maps legacy `unpaid` values to `pending_payment`
+  - Preserves supported states such as `active`, `past_due`, `expired`, and `cancelled`
+  - Keeps unknown provider values visible as an actionable `Unknown state`
+- Added explicit overview loading, error, retry, and empty states.
+- Prevented failed messaging or storage requests from appearing as zero usage.
+- Added storage measurement timestamp and timezone metadata to the storage summary.
+- Added deterministic tests for subscription-state normalization and legacy compatibility.
 
 ### Verification completed
 
@@ -157,12 +165,12 @@ The current data is sufficient for a first operational dashboard, but not for ev
 |---|---|---|
 | Active/pending/archived tenant list | Ready | Existing clinic data and Admin queries |
 | Plan and billing cycle | Ready | Already stored on clinics |
-| Subscription state | Ready with refinement | Existing statuses need a documented state machine |
+| Subscription state | Shared interpretation implemented | Legacy values are mapped in one policy; provider event history and persistent migration remain |
 | Renewal date | Partial | Provider data or subscription dates need to be stored reliably |
 | Subscription invoice history | Partial | Provider event/invoice records need normalization |
 | SMS/WhatsApp/email usage | Ready | Existing admin messaging usage endpoint |
 | Messaging quota and caps | Partial | Usage exists; policy/allowance model does not |
-| Storage usage | Partial/ready for summary | Quota logic exists; exact object scan is optional and expensive |
+| Storage usage | Summary hardened | Tracked summary now includes measurement freshness; exact object scan is optional and expensive |
 | Feature provisioning | Partial | Feature flags need a dedicated model rather than ad-hoc UI toggles |
 | Tenant health score | New | Requires explicit, explainable scoring inputs |
 | API and webhook health | Partial | Basic application health exists; historical per-provider metrics need instrumentation |
@@ -1625,10 +1633,10 @@ The current implementation delivers the Overview tab, tenant operations table, t
 
 ### Release B — Controlled operations
 
-1. Subscription state normalization.
+1. Subscription state normalization — **started: shared interpretation and legacy compatibility implemented; provider event history and persistent migration remain.**
 2. Provider event history.
 3. Messaging quota policies.
-4. Storage warning thresholds.
+4. Storage warning thresholds — **started: storage freshness metadata and explicit unavailable states implemented; threshold policy remains.**
 5. Feature provisioning with audit.
 
 ### Release C — Secure support and observability

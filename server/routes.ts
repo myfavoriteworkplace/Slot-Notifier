@@ -2918,6 +2918,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }), { usedBytes: 0, limitBytes: 0, remainingBytes: 0, fileCount: 0 });
 
       res.json({
+        measuredAt: new Date().toISOString(),
+        timezone: "UTC",
         totals: {
           ...totals,
           usagePercent: totals.limitBytes ? Math.min(100, (totals.usedBytes / totals.limitBytes) * 100) : 100,

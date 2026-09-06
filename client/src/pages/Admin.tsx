@@ -360,7 +360,7 @@ export default function Admin() {
     setEditSheetOpen(true);
   };
 
-  const { data: clinics = [], isLoading: clinicsLoading } = useQuery<Clinic[]>({
+  const { data: clinics = [], isLoading: clinicsLoading, isError: clinicsError, refetch: refetchClinics } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
   });
 
@@ -991,7 +991,12 @@ export default function Admin() {
         </TabsList>
 
         <TabsContent value="overview">
-          <AdminOperationsOverview clinics={clinics} />
+          <AdminOperationsOverview
+            clinics={clinics}
+            clinicsLoading={clinicsLoading}
+            clinicsError={clinicsError}
+            onRetryClinics={() => refetchClinics()}
+          />
         </TabsContent>
 
         <TabsContent value="active">
