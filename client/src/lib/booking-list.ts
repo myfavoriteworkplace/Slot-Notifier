@@ -34,6 +34,7 @@ export type BookingListFilters = {
   bookings: BookingWithSlot[];
   quickFilter: string;
   activePatientFilter?: { id: number; name: string } | null;
+  now?: Date;
   filterDate?: Date;
   filterEndDate?: Date;
   todayStart: Date;
@@ -262,6 +263,7 @@ export function filterAndSortBookings({
   bookings,
   quickFilter,
   activePatientFilter,
+  now,
   filterDate,
   filterEndDate,
   todayStart,
@@ -320,7 +322,7 @@ export function filterAndSortBookings({
     return true;
   });
 
-  const sortNow = new Date();
+  const sortNow = now ?? new Date();
   const sorted = [...filtered].sort((a, b) => {
     const aTime = new Date(a.slot.startTime).getTime();
     const bTime = new Date(b.slot.startTime).getTime();

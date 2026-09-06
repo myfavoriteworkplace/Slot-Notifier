@@ -3640,7 +3640,7 @@ export default function DoctorDashboard() {
                           </div>
                         )}
 
-                        {bIsCheckedIn && (
+                        {bIsCheckedIn && !bIsPast && (
                            <>
                               <div className="grid grid-cols-1 sm:grid-cols-3 items-stretch gap-2">
                              <Button
@@ -3668,7 +3668,7 @@ export default function DoctorDashboard() {
                           </>
                         )}
 
-                        {bIsInConsultation && (
+                        {bIsInConsultation && !bIsPast && (
                            <>
                               <div className="grid grid-cols-1 sm:grid-cols-4 items-stretch gap-2">
                              <Button

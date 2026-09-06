@@ -24,6 +24,7 @@ test("filterAndSortBookings keeps pending bookings ahead of confirmed ones and r
     bookings,
     quickFilter: "all",
     activePatientFilter: { id: 1, name: "Test Patient" },
+    now: new Date("2024-01-01T00:00:00.000Z"),
     todayStart: new Date("2024-01-01T00:00:00.000Z"),
     todayStr: "2024-01-01",
     thisWeekStart: new Date("2023-12-31T00:00:00.000Z"),
