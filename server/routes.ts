@@ -2860,6 +2860,76 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/admin/storage-usage", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+
+    try {
+      const clinicRows = await db.select({
+        id: clinics.id,
+        name: clinics.name,
+        plan: clinics.plan,
+        subscriptionStatus: clinics.subscriptionStatus,
+        status: clinics.status,
+        isArchived: clinics.isArchived,
+        overrideBytes: clinics.storageLimitBytes,
+      }).from(clinics);
+
+      const usageRows = await db.select({
+        clinicId: patientDocuments.clinicId,
+        usedBytes: sql<number>`coalesce(sum(${patientDocuments.fileSize}), 0)`,
+        fileCount: sql<number>`count(*)`,
+      })
+        .from(patientDocuments)
+        .where(sql`${patientDocuments.deletedAt} IS NULL`)
+        .groupBy(patientDocuments.clinicId);
+
+      const usageByClinic = new Map(usageRows.map(row => [
+        row.clinicId,
+        { usedBytes: Number(row.usedBytes ?? 0), fileCount: Number(row.fileCount ?? 0) },
+      ]));
+
+      const planLimits: Record<string, number> = PLAN_STORAGE_LIMITS;
+      const rows = clinicRows.map(clinic => {
+        const usage = usageByClinic.get(clinic.id) ?? { usedBytes: 0, fileCount: 0 };
+        const planLimit = planLimits[clinic.plan || "starter"] || DEFAULT_STORAGE_LIMIT_BYTES;
+        const limitBytes = Number(clinic.overrideBytes || planLimit);
+        const usagePercent = limitBytes ? Math.min(100, (usage.usedBytes / limitBytes) * 100) : 100;
+        return {
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          plan: clinic.plan,
+          subscriptionStatus: clinic.subscriptionStatus,
+          status: clinic.status,
+          isArchived: clinic.isArchived,
+          usedBytes: usage.usedBytes,
+          limitBytes,
+          remainingBytes: Math.max(0, limitBytes - usage.usedBytes),
+          usagePercent,
+          fileCount: usage.fileCount,
+          source: clinic.overrideBytes ? "clinic_override" : planLimits[clinic.plan || "starter"] ? "plan" : "default",
+        };
+      });
+
+      const totals = rows.reduce((result, row) => ({
+        usedBytes: result.usedBytes + row.usedBytes,
+        limitBytes: result.limitBytes + row.limitBytes,
+        remainingBytes: result.remainingBytes + row.remainingBytes,
+        fileCount: result.fileCount + row.fileCount,
+      }), { usedBytes: 0, limitBytes: 0, remainingBytes: 0, fileCount: 0 });
+
+      res.json({
+        totals: {
+          ...totals,
+          usagePercent: totals.limitBytes ? Math.min(100, (totals.usedBytes / totals.limitBytes) * 100) : 100,
+        },
+        clinics: rows.sort((a, b) => b.usagePercent - a.usagePercent || a.clinicName.localeCompare(b.clinicName)),
+      });
+    } catch (err: any) {
+      console.error("[ADMIN STORAGE USAGE]", err.message);
+      res.status(500).json({ message: "Unable to calculate application storage usage" });
+    }
+  });
+
   app.get("/api/auth/clinic/settings/storage", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });

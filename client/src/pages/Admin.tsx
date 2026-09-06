@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, MessageSquare, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, MessageSquare, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import AdminMessagingUsagePanel from "@/components/AdminMessagingUsagePanel";
+import AdminOperationsOverview from "@/components/AdminOperationsOverview";
 function SiFacebook({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.268h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>;
 }
@@ -776,11 +777,11 @@ export default function Admin() {
   const archivedClinics = clinics.filter(c => c.isArchived);
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-4xl">
+    <div className="container mx-auto py-6 px-4 max-w-[1440px]">
       <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Admin Panel</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage clinics, subscriptions, and platform services</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Dialog>
@@ -957,8 +958,12 @@ export default function Admin() {
         </div>
       </div>
 
-      <Tabs defaultValue="active" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
+          <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-operations-overview">
+            <Server className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
           <TabsTrigger value="active" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Active ({activeClinics.length})
@@ -984,6 +989,10 @@ export default function Admin() {
             Login Activity
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview">
+          <AdminOperationsOverview clinics={clinics} />
+        </TabsContent>
 
         <TabsContent value="active">
           <Card>

@@ -1,9 +1,72 @@
 # Super Admin Platform Operations Blueprint
 
-**Status:** Planning document — no implementation approved by this document  
+**Status:** Release A implemented — Releases B–D remain planned
 **Audience:** Product, design, frontend, backend, database, QA, and operations teams  
 **Application:** BookMySlot dental clinic platform  
 **Primary goal:** Make the Super Admin screen useful for operating the platform services provided to clinics without exposing clinic-private business revenue.
+
+---
+
+## Implementation status
+
+Release A from this blueprint has been implemented.
+
+### Delivered
+
+- Added a new default **Overview** tab to the Super Admin page.
+- Added platform KPI cards for:
+  - Active tenants
+  - Active subscription coverage
+  - Tenants needing attention
+  - Current-month messaging volume
+  - Tracked storage usage
+  - Messaging reporting period
+- Added operational attention cards for:
+  - Non-active subscriptions
+  - Storage above 80%
+  - Failed messages
+- Added a searchable and filterable tenant operations table.
+- Added tenant filters for:
+  - All
+  - Needs attention
+  - Active
+  - Pending
+- Added a tenant detail drawer containing:
+  - Subscription plan, cycle, state, and provider-link presence
+  - SMS, WhatsApp, and email usage
+  - Messaging delivery failures
+  - Tracked storage usage and file count
+  - Clinic status and configured doctor count
+- Added a Super Admin-only storage aggregation endpoint:
+  - `GET /api/admin/storage-usage`
+- Reused the existing:
+  - `GET /api/admin/messaging-usage`
+  - `GET /api/clinics`
+  - Existing subscription and storage fields
+- Kept patient bills, treatment revenue, doctor earnings, clinical records, and patient payment history out of the operations DTO and UI.
+- Preserved existing Active, Messaging Usage, Pending, Archived, Smile Deals, and Login Activity tabs.
+- Expanded the Admin page container so the operations table can use the available screen width.
+
+### Verification completed
+
+- `npm run check` passes.
+- `npm run build` passes.
+- Build Check workflow passes.
+- `git diff --check` passes.
+- The admin route remains protected by the existing login flow. An unauthenticated preview correctly shows the System Admin Login screen.
+
+### Not included in Release A
+
+- Subscription provider event history
+- Messaging hard/soft quota policies
+- Feature flag provisioning
+- Unified audit viewer
+- Read-only support sessions
+- Historical API/provider health instrumentation
+- Multi-branch organization support
+- Any clinic-private revenue reporting
+
+These remain as planned Releases B–D below.
 
 ---
 
@@ -1369,6 +1432,14 @@ GET /api/admin/operations/tenants/:clinicId
 
 The response must contain subscription and platform-service data only. Patient billing and clinical data must not be joined into this response.
 
+### Implemented storage summary
+
+```http
+GET /api/admin/storage-usage
+```
+
+The current implementation returns aggregate tracked document storage by clinic, using active `patient_documents` rows and the existing plan or clinic storage limit. It returns usage bytes, limit bytes, remaining bytes, percentage, file count, and the limit source. It does not return patient, document, or clinical-record details.
+
 ### Audit
 
 ```http
@@ -1539,7 +1610,7 @@ The following must not be included in this Super Admin redesign:
 
 ## 19. Recommended delivery sequence
 
-### Release A — Read-only platform operations
+### Release A — Read-only platform operations — implemented
 
 1. Confirm SA-01 policy.
 2. Define SA-02 DTOs.
@@ -1549,6 +1620,8 @@ The following must not be included in this Super Admin redesign:
 6. Add tenant detail drawer.
 7. Reuse messaging and storage summaries.
 8. Add unified read-only audit entry point.
+
+The current implementation delivers the Overview tab, tenant operations table, tenant detail drawer, messaging summary reuse, storage summary endpoint, operational warnings, and privacy boundary. The unified audit entry point remains deferred because the existing audit sources still need a dedicated normalized read model.
 
 ### Release B — Controlled operations
 
