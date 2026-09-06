@@ -2661,6 +2661,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         byEvent.set(row.eventType, eventRow);
       }
 
+      const trendMonths = Array.from({ length: 6 }, (_, index) => {
+        const date = new Date(Date.UTC(year, monthNumber - 1 - (5 - index), 1));
+        const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+        const label = date.toISOString().slice(0, 7);
+        return {
+          label,
+          from: getUtcInstantForCalendarDate(`${label}-01`, clinic.timezone),
+          to: getUtcInstantForCalendarDate(next.toISOString().slice(0, 10), clinic.timezone),
+        };
+      });
+      const trend = await Promise.all(trendMonths.map(async trendMonth => {
+        const trendRows = await db.select({
+          channel: communicationUsage.channel,
+          status: communicationUsage.status,
+          billable: communicationUsage.billable,
+          units: sql<number>`coalesce(sum(${communicationUsage.units}), 0)`,
+        })
+          .from(communicationUsage)
+          .where(and(
+            eq(communicationUsage.clinicId, clinicId),
+            gte(communicationUsage.sentAt, trendMonth.from),
+            lt(communicationUsage.sentAt, trendMonth.to),
+          ))
+          .groupBy(communicationUsage.channel, communicationUsage.status, communicationUsage.billable);
+        const values = { sms: 0, whatsapp: 0, email: 0, total: 0, billable: 0 };
+        for (const row of trendRows) {
+          if (row.status !== "accepted" || !(row.channel in values)) continue;
+          const units = Number(row.units ?? 0);
+          values[row.channel as "sms" | "whatsapp" | "email"] += units;
+          values.total += units;
+          if (row.billable) values.billable += units;
+        }
+        return { month: trendMonth.label, ...values };
+      }));
+
       res.json({
         period: { month, timezone: clinic.timezone, from: from.toISOString(), to: to.toISOString() },
         totals: {
@@ -2669,11 +2704,159 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           billable,
           ...statusTotals,
         },
+        trend,
         byEvent: [...byEvent.values()].sort((a, b) => b.total - a.total || a.eventType.localeCompare(b.eventType)),
       });
     } catch (err: any) {
       console.error("[CLINIC MESSAGING USAGE]", err.message);
       res.status(500).json({ message: "Unable to calculate messaging usage" });
+    }
+  });
+
+  app.get("/api/admin/messaging-usage", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+
+    try {
+      const month = typeof req.query.month === "string" ? req.query.month : new Date().toISOString().slice(0, 7);
+      const clinicIdParam = typeof req.query.clinicId === "string" && req.query.clinicId.trim()
+        ? Number(req.query.clinicId)
+        : null;
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+        return res.status(400).json({ message: "Month must use YYYY-MM format" });
+      }
+      if (clinicIdParam !== null && !Number.isInteger(clinicIdParam)) {
+        return res.status(400).json({ message: "Invalid clinic ID" });
+      }
+
+      const [year, monthNumber] = month.split("-").map(Number);
+      const selectedMonthStart = new Date(Date.UTC(year, monthNumber - 1, 1));
+      const rangeStart = new Date(Date.UTC(year, monthNumber - 6, 1));
+      const rangeEnd = new Date(Date.UTC(year, monthNumber, 1));
+      const usageMonth = sql<string>`to_char(date_trunc('month', ${communicationUsage.sentAt}), 'YYYY-MM')`;
+      const clinicRows = await db.select({
+        id: clinics.id,
+        name: clinics.name,
+        plan: clinics.plan,
+        subscriptionStatus: clinics.subscriptionStatus,
+        status: clinics.status,
+        isArchived: clinics.isArchived,
+      }).from(clinics);
+      const clinicInfo = new Map(clinicRows.map(clinic => [clinic.id, clinic]));
+      if (clinicIdParam !== null && !clinicInfo.has(clinicIdParam)) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const usageRows = await db.select({
+        clinicId: communicationUsage.clinicId,
+        month: usageMonth,
+        channel: communicationUsage.channel,
+        eventType: communicationUsage.eventType,
+        status: communicationUsage.status,
+        billable: communicationUsage.billable,
+        units: sql<number>`coalesce(sum(${communicationUsage.units}), 0)`,
+        lastSentAt: sql<Date | null>`max(${communicationUsage.sentAt})`,
+      })
+        .from(communicationUsage)
+        .where(and(
+          gte(communicationUsage.sentAt, rangeStart),
+          lt(communicationUsage.sentAt, rangeEnd),
+          ...(clinicIdParam !== null ? [eq(communicationUsage.clinicId, clinicIdParam)] : []),
+        ))
+        .groupBy(communicationUsage.clinicId, usageMonth, communicationUsage.channel, communicationUsage.eventType, communicationUsage.status, communicationUsage.billable);
+
+      const emptyTotals = () => ({ sms: 0, whatsapp: 0, email: 0, total: 0, billable: 0, accepted: 0, failed: 0, skipped: 0 });
+      const totals = emptyTotals();
+      const trend = new Map<string, ReturnType<typeof emptyTotals>>();
+      for (let offset = 5; offset >= 0; offset--) {
+        const date = new Date(Date.UTC(year, monthNumber - 1 - offset, 1));
+        trend.set(date.toISOString().slice(0, 7), emptyTotals());
+      }
+      const byEvent = new Map<string, { eventType: string; sms: number; whatsapp: number; email: number; total: number }>();
+      const clinicTotals = new Map<number, ReturnType<typeof emptyTotals> & { lastSentAt: Date | null }>();
+      const clinicEvents = new Map<number, Map<string, { eventType: string; sms: number; whatsapp: number; email: number; total: number }>>();
+      const ensureClinic = (clinicId: number) => {
+        if (!clinicTotals.has(clinicId)) clinicTotals.set(clinicId, { ...emptyTotals(), lastSentAt: null });
+        return clinicTotals.get(clinicId)!;
+      };
+
+      for (const row of usageRows) {
+        const units = Number(row.units ?? 0);
+        const channel = row.channel as "sms" | "whatsapp" | "email";
+        const monthTotals = trend.get(row.month);
+        if (monthTotals && row.status === "accepted" && channel in monthTotals) {
+          monthTotals[channel] += units;
+          monthTotals.total += units;
+          if (row.billable) monthTotals.billable += units;
+        }
+        if (row.month !== month) continue;
+
+        if (row.status in totals) totals[row.status as "accepted" | "failed" | "skipped"] += units;
+        if (row.status !== "accepted" || !(channel in totals)) continue;
+        totals[channel] += units;
+        totals.total += units;
+        if (row.billable) totals.billable += units;
+
+        const event = byEvent.get(row.eventType) ?? { eventType: row.eventType, sms: 0, whatsapp: 0, email: 0, total: 0 };
+        event[channel] += units;
+        event.total += units;
+        byEvent.set(row.eventType, event);
+
+        const clinicTotal = ensureClinic(row.clinicId);
+        if (row.status === "accepted") {
+          clinicTotal[channel] += units;
+          clinicTotal.total += units;
+          if (row.billable) clinicTotal.billable += units;
+        }
+        if (row.status in clinicTotal) clinicTotal[row.status as "accepted" | "failed" | "skipped"] += units;
+        if (row.lastSentAt && (!clinicTotal.lastSentAt || new Date(row.lastSentAt) > new Date(clinicTotal.lastSentAt))) {
+          clinicTotal.lastSentAt = new Date(row.lastSentAt);
+        }
+        const events = clinicEvents.get(row.clinicId) ?? new Map();
+        const clinicEvent = events.get(row.eventType) ?? { eventType: row.eventType, sms: 0, whatsapp: 0, email: 0, total: 0 };
+        clinicEvent[channel] += units;
+        clinicEvent.total += units;
+        events.set(row.eventType, clinicEvent);
+        clinicEvents.set(row.clinicId, events);
+      }
+
+      // Add current-month status totals for clinics even when their only activity failed/skipped.
+      for (const row of usageRows) {
+        if (row.month !== month) continue;
+        const clinicTotal = ensureClinic(row.clinicId);
+        const units = Number(row.units ?? 0);
+        if (row.status in clinicTotal) clinicTotal[row.status as "accepted" | "failed" | "skipped"] += row.status === "accepted" ? 0 : units;
+        if (row.lastSentAt && (!clinicTotal.lastSentAt || new Date(row.lastSentAt) > new Date(clinicTotal.lastSentAt))) {
+          clinicTotal.lastSentAt = new Date(row.lastSentAt);
+        }
+      }
+
+      const clinicUsage = [...clinicInfo.values()]
+        .filter(clinic => clinicIdParam === null || clinic.id === clinicIdParam)
+        .map(clinic => {
+          const clinicTotal = clinicTotals.get(clinic.id) ?? { ...emptyTotals(), lastSentAt: null };
+          return {
+            clinicId: clinic.id,
+            clinicName: clinic.name,
+            plan: clinic.plan,
+            subscriptionStatus: clinic.subscriptionStatus,
+            status: clinic.status,
+            isArchived: clinic.isArchived,
+            ...clinicTotal,
+            byEvent: [...(clinicEvents.get(clinic.id)?.values() ?? [])].sort((a, b) => b.total - a.total),
+          };
+        })
+        .sort((a, b) => b.total - a.total || a.clinicName.localeCompare(b.clinicName));
+
+      res.json({
+        period: { month, timezone: "UTC", from: rangeStart.toISOString(), to: rangeEnd.toISOString(), selectedMonthStart: selectedMonthStart.toISOString() },
+        totals,
+        trend: [...trend.entries()].map(([trendMonth, values]) => ({ month: trendMonth, ...values })),
+        byEvent: [...byEvent.values()].sort((a, b) => b.total - a.total),
+        clinics: clinicUsage,
+      });
+    } catch (err: any) {
+      console.error("[ADMIN MESSAGING USAGE]", err.message);
+      res.status(500).json({ message: "Unable to calculate application messaging usage" });
     }
   });
 
