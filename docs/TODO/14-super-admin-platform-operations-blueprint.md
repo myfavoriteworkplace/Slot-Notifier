@@ -200,7 +200,7 @@ The current data is sufficient for a first operational dashboard, but not for ev
 | Renewal date | Partial | Provider data or subscription dates need to be stored reliably |
 | Subscription invoice history | Partial | Provider event/invoice records need normalization |
 | SMS/WhatsApp/email usage | Ready | Existing admin messaging usage endpoint |
-| Messaging quota and caps | Partial | Usage exists; policy/allowance model does not |
+| Messaging quota and caps | Planning blueprint prepared | Usage exists; allowance, warning, reset, and enforcement policy is defined for review in [Messaging Allowance and Plan Policy](15-messaging-allowance-and-plan-policy-blueprint.md) |
 | Storage usage | Summary hardened | Tracked summary now includes measurement freshness; exact object scan is optional and expensive |
 | Feature provisioning | Partial | Feature flags need a dedicated model rather than ad-hoc UI toggles |
 | Tenant health score | New | Requires explicit, explainable scoring inputs |
