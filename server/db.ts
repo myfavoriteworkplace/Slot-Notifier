@@ -537,4 +537,29 @@ export async function ensureSessionTable() {
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring login_events table:", err.message);
   }
+
+  // subscription_provider_events — append-only subscription provider timeline
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subscription_provider_events (
+        id                  SERIAL PRIMARY KEY,
+        clinic_id           integer REFERENCES clinics(id),
+        provider            varchar(40) NOT NULL DEFAULT 'razorpay',
+        subscription_id     varchar(255),
+        event_id            varchar(255),
+        event_type          varchar(100) NOT NULL,
+        processing_status   varchar(30) NOT NULL DEFAULT 'received',
+        details             jsonb DEFAULT '{}'::jsonb,
+        occurred_at         timestamp,
+        received_at         timestamp DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS subscription_provider_events_clinic_idx
+        ON subscription_provider_events (clinic_id, received_at DESC);
+      CREATE INDEX IF NOT EXISTS subscription_provider_events_subscription_idx
+        ON subscription_provider_events (subscription_id, received_at DESC);
+    `);
+    console.log("[DATABASE] subscription_provider_events table ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring subscription_provider_events table:", err.message);
+  }
 }

@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte, lt, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -1478,17 +1478,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
       const event = req.body?.event as string;
-      const subscriptionId = req.body?.payload?.subscription?.entity?.id as string | undefined;
+      const subscriptionEntity = req.body?.payload?.subscription?.entity;
+      const subscriptionId = subscriptionEntity?.id as string | undefined;
       console.log(`[WEBHOOK] Razorpay event: ${event}, subscriptionId: ${subscriptionId}`);
-      if ((event === "subscription.charged" || event === "subscription.activated") && subscriptionId) {
-        const [clinic] = await db.select().from(clinics)
+      const [clinic] = subscriptionId
+        ? await db.select().from(clinics)
           .where(eq(clinics.razorpaySubscriptionId, subscriptionId))
-          .limit(1);
+          .limit(1)
+        : [];
+      const [providerEvent] = await db.insert(subscriptionProviderEvents).values({
+        clinicId: clinic?.id ?? null,
+        provider: "razorpay",
+        subscriptionId: subscriptionId ?? null,
+        eventId: req.body?.id ?? null,
+        eventType: event || "unknown",
+        processingStatus: clinic ? "received" : "unmatched",
+        details: {
+          providerStatus: subscriptionEntity?.status ?? null,
+          currentStart: subscriptionEntity?.current_start ?? null,
+          currentEnd: subscriptionEntity?.current_end ?? null,
+        },
+        occurredAt: subscriptionEntity?.created_at ? new Date(Number(subscriptionEntity.created_at) * 1000) : null,
+      }).returning({ id: subscriptionProviderEvents.id });
+      if ((event === "subscription.charged" || event === "subscription.activated") && clinic) {
         if (clinic) {
           await storage.updateClinic(clinic.id, { subscriptionStatus: "active" } as any);
           await db.update(activationTokens)
             .set({ used: true })
-            .where(eq(activationTokens.razorpaySubscriptionId, subscriptionId));
+            .where(eq(activationTokens.razorpaySubscriptionId, subscriptionId!));
+          await db.update(subscriptionProviderEvents)
+            .set({ processingStatus: "applied" })
+            .where(eq(subscriptionProviderEvents.id, providerEvent.id));
           console.log(`[WEBHOOK] Clinic ${clinic.id} subscription activated`);
         } else {
           console.warn(`[WEBHOOK] No clinic found for subscription ${subscriptionId}`);
@@ -1498,6 +1518,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[WEBHOOK] Error:", err.message);
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/subscription-events", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const clinicId = req.query.clinicId ? Number(req.query.clinicId) : null;
+      const events = await db.select({
+        id: subscriptionProviderEvents.id,
+        clinicId: subscriptionProviderEvents.clinicId,
+        clinicName: clinics.name,
+        provider: subscriptionProviderEvents.provider,
+        subscriptionId: subscriptionProviderEvents.subscriptionId,
+        eventId: subscriptionProviderEvents.eventId,
+        eventType: subscriptionProviderEvents.eventType,
+        processingStatus: subscriptionProviderEvents.processingStatus,
+        details: subscriptionProviderEvents.details,
+        occurredAt: subscriptionProviderEvents.occurredAt,
+        receivedAt: subscriptionProviderEvents.receivedAt,
+      })
+        .from(subscriptionProviderEvents)
+        .leftJoin(clinics, eq(subscriptionProviderEvents.clinicId, clinics.id))
+        .where(clinicId !== null ? eq(subscriptionProviderEvents.clinicId, clinicId) : undefined)
+        .orderBy(desc(subscriptionProviderEvents.receivedAt))
+        .limit(25);
+      res.json({ events });
+    } catch (err: any) {
+      console.error("[ADMIN SUBSCRIPTION EVENTS]", err.message);
+      res.status(500).json({ message: "Unable to load subscription provider history" });
     }
   });
 

@@ -785,6 +785,24 @@ export const billingAuditLogs = pgTable("billing_audit_logs", {
 
 export type BillingAuditLog = typeof billingAuditLogs.$inferSelect;
 
+// ── SUBSCRIPTION PROVIDER EVENTS ────────────────────────────────────────────
+// Append-only provider timeline used by Super Admin operations views.
+export const subscriptionProviderEvents = pgTable("subscription_provider_events", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  provider: varchar("provider", { length: 40 }).notNull().default("razorpay"),
+  subscriptionId: varchar("subscription_id", { length: 255 }),
+  eventId: varchar("event_id", { length: 255 }),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  processingStatus: varchar("processing_status", { length: 30 }).notNull().default("received"),
+  details: jsonb("details").$type<Record<string, unknown>>().default({}),
+  occurredAt: timestamp("occurred_at"),
+  receivedAt: timestamp("received_at").defaultNow(),
+});
+
+export type SubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferSelect;
+export type InsertSubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferInsert;
+
 // ── PII AUDIT LOGS ───────────────────────────────────────────────────────────
 // Append-only log of every access or mutation of patient PII data.
 // Written fire-and-forget from auditLog.middleware.ts — never blocks a request.

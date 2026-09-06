@@ -22,7 +22,7 @@ The table below is the working summary of what the Super Admin area can do today
 | Clinic directory and search | **Complete** | Makes it easy to find a clinic and see whether it is active, pending, archived, or needs help. | Clinics can be searched and filtered by All, Needs attention, Active, and Pending. | Move toward a dedicated Tenants area when the broader navigation is introduced. | Release A |
 | Clinic detail summary | **Complete** | Lets an administrator understand a clinic’s platform situation without opening several unrelated screens. | The detail drawer shows subscription information, messaging use and failures, storage use and file count, clinic status, and doctor count. | Add clearer history and change tracking for important operational events. | Release A |
 | Subscription status visibility | **Complete / hardened** | Shows whether a clinic’s access plan is working, needs payment attention, has ended, or has an unusual provider status. | Supported states share one interpretation. Legacy `unpaid` data is shown as pending payment, while unknown values remain visible as “Unknown state” instead of being hidden. | Add provider event history, renewal information, invoice history, and any safe long-term data cleanup. | Release B |
-| Subscription provider history | **Pending** | Shows what happened over time when a subscription was created, renewed, paused, failed, or cancelled. | The current screen shows the present subscription state but not a complete event timeline. | Store and display a normalized history of subscription and payment-provider events. | Release B |
+| Subscription provider history | **Complete / first version** | Shows what happened over time when a subscription was created, renewed, paused, failed, or cancelled. | Razorpay webhook events are stored in a normalized timeline and recent events are visible inside the clinic detail view, including whether the event was applied or could not be matched to a clinic. | Add broader event coverage, event replay/reconciliation tools, and provider-specific details after the first version is used in operations. | Release B |
 | Messaging usage | **Complete** | Helps the platform team see whether SMS, WhatsApp, or email activity is unusually high or failing. | Current usage summaries, channel information, reporting period, and delivery failures are shown where available. Failed requests are not incorrectly displayed as zero usage. | Define allowances and reset dates, then show how close each clinic is to its limit. | Release A → B |
 | Messaging allowance and limits | **Pending** | Makes it clear what a clinic is allowed to use and what happens before or after it reaches its limit. | Usage is available, but the full allowance and limit policy is not yet implemented. | Add monthly allowance, soft warning, hard limit, reset date, over-limit behavior, and clear explanations for administrators. | Release B |
 | Storage usage and freshness | **Complete / hardened** | Shows whether clinics are approaching their storage limit and whether the displayed number is recent. | Tracked storage use, limits, file counts, measurement time, and timezone are available. Unavailable storage data is not silently shown as zero. | Add warning thresholds and clearly label tracked totals versus optional exact scans. | Release A → B |
@@ -94,9 +94,9 @@ Release A from this blueprint has been implemented.
 - `git diff --check` passes.
 - The admin route remains protected by the existing login flow. An unauthenticated preview correctly shows the System Admin Login screen.
 
-### Not included in Release A
+### Not included in the initial Release A scope
 
-- Subscription provider event history
+- Full subscription provider event history and reconciliation tools (a first event-history version is now part of Release B)
 - Messaging hard/soft quota policies
 - Feature flag provisioning
 - Unified audit viewer
@@ -1664,8 +1664,8 @@ The current implementation delivers the Overview tab, tenant operations table, t
 
 ### Release B — Controlled operations
 
-1. Subscription state normalization — **started: shared interpretation and legacy compatibility implemented; provider event history and persistent migration remain.**
-2. Provider event history.
+1. Subscription state normalization — **started: shared interpretation and legacy compatibility implemented; persistent migration remains.**
+2. Provider event history — **first version complete: Razorpay webhook events are stored and shown in clinic details; broader coverage and reconciliation remain.**
 3. Messaging quota policies.
 4. Storage warning thresholds — **started: storage freshness metadata and explicit unavailable states implemented; threshold policy remains.**
 5. Feature provisioning with audit.

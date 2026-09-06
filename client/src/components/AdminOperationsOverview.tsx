@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CreditCard,
   Database,
+  History,
   Mail,
   MessageSquare,
   Search,
@@ -83,6 +84,20 @@ type AdminStorageUsageSummary = {
     fileCount: number;
   };
   clinics: ClinicStorageUsage[];
+};
+
+type SubscriptionProviderEvent = {
+  id: number;
+  clinicId: number | null;
+  clinicName: string | null;
+  provider: string;
+  subscriptionId: string | null;
+  eventId: string | null;
+  eventType: string;
+  processingStatus: string;
+  details: Record<string, unknown> | null;
+  occurredAt: string | null;
+  receivedAt: string | null;
 };
 
 type TenantFilter = "all" | "attention" | "active" | "pending";
@@ -189,6 +204,14 @@ export default function AdminOperationsOverview({
     queryKey: ["/api/admin/storage-usage"],
     queryFn: async () => (await apiRequest("GET", "/api/admin/storage-usage")).json(),
     staleTime: 60_000,
+    retry: 1,
+  });
+
+  const subscriptionEventsQuery = useQuery<{ events: SubscriptionProviderEvent[] }>({
+    queryKey: ["/api/admin/subscription-events", selectedClinic?.id],
+    queryFn: async () => (await apiRequest("GET", `/api/admin/subscription-events?clinicId=${selectedClinic!.id}`)).json(),
+    enabled: Boolean(selectedClinic),
+    staleTime: 30_000,
     retry: 1,
   });
 
@@ -471,6 +494,38 @@ export default function AdminOperationsOverview({
                   <div className="rounded-lg border bg-muted/20 p-3"><p className="text-muted-foreground">Billing cycle</p><p className="mt-1 font-bold capitalize">{selectedClinic.billingCycle || "Monthly"}</p></div>
                   <div className="rounded-lg border bg-muted/20 p-3"><p className="text-muted-foreground">Status</p><Badge variant="outline" className={`mt-1 text-[10px] ${subscriptionClass(selectedClinic.subscriptionStatus)}`}>{subscriptionLabel(selectedClinic.subscriptionStatus)}</Badge></div>
                   <div className="rounded-lg border bg-muted/20 p-3"><p className="text-muted-foreground">Provider link</p><p className="mt-1 font-bold">{selectedClinic.razorpaySubscriptionId ? "Connected" : "Not linked"}</p></div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm"><History className="h-4 w-4" />Subscription provider history</CardTitle>
+                  <CardDescription>Recent updates received from the payment provider.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {subscriptionEventsQuery.isLoading ? (
+                    <p className="text-xs text-muted-foreground">Loading subscription history…</p>
+                  ) : subscriptionEventsQuery.isError ? (
+                    <p className="text-xs text-red-600 dark:text-red-400">Subscription history is unavailable.</p>
+                  ) : subscriptionEventsQuery.data?.events.length ? (
+                    <div className="space-y-2">
+                      {subscriptionEventsQuery.data.events.slice(0, 8).map(event => (
+                        <div key={event.id} className="flex items-start justify-between gap-3 rounded-lg border p-3 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-semibold">{event.eventType.replaceAll(".", " ")}</p>
+                            <p className="mt-1 text-muted-foreground">
+                              {event.processingStatus === "applied" ? "Applied to clinic" : event.processingStatus === "unmatched" ? "Clinic link not found" : "Received"}
+                            </p>
+                          </div>
+                          <time className="shrink-0 text-right text-[10px] text-muted-foreground">
+                            {event.receivedAt ? new Date(event.receivedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                          </time>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No provider events have been recorded for this clinic.</p>
+                  )}
                 </CardContent>
               </Card>
 
