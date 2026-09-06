@@ -3,23 +3,42 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and, gte, lte, desc, ne } from "drizzle-orm";
+import { sql, eq, and, gte, lte, lt, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import { format } from 'date-fns';
 import crypto from "crypto";
-import { generateSignedUploadUrl } from "./signedUrl.service";
+import {
+  ALLOWED_IMAGE_TYPES,
+  generateSignedUploadUrl,
+  getUploadMaxBytes,
+  IMAGE_UPLOAD_FOLDERS,
+  validateImageBytes,
+} from "./signedUrl.service";
 import { getClinicStorageQuota, assertClinicStorageAvailable, registerIssuedUpload, consumeIssuedUpload, PLAN_STORAGE_LIMITS, DEFAULT_STORAGE_LIMIT_BYTES } from "./storageQuota";
-import { ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { r2Client, R2_BUCKET_NAME, R2_CONFIGURED } from "./r2Client";
 import { auditLog } from "./auditLog.middleware";
+import {
+  authenticatedImageUploadSchema,
+  clinicPublicProfileSchema,
+  isSafePublicUrl,
+  isValidClinicSlug,
+  normalizeExternalUrl,
+  publicClinicDocumentUploadSchema,
+  websiteConfigSchema,
+} from "./website-security";
+import { toPublicClinic, toPublicClinicListItem } from "./public-clinic";
+import { canRequestImageFolder, type UploadSession } from "./upload-policy";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDigestRecipients } from "./reminder-digest";
 import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
+import { trackCommunication, type CommunicationSendResult } from "./communication-usage";
+import { getUtcInstantForCalendarDate } from "@shared/booking-status";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
@@ -35,6 +54,33 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
 const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmail.com';
 const REMINDER_JOB_SECRET = process.env.REMINDER_JOB_SECRET;
+
+async function sendTrackedEmail(
+  input: {
+    clinicId?: number | null;
+    bookingId?: number | null;
+    eventType: string;
+    recipientType: "patient" | "clinic" | "doctor";
+  },
+  message: { from: string; to: string; subject: string; html: string },
+): Promise<CommunicationSendResult> {
+  const clinicId = input.clinicId;
+  if (!resend || !clinicId) return { status: "skipped", provider: "resend" };
+  return trackCommunication(
+    {
+      ...input,
+      clinicId,
+      channel: "email",
+      isTest: RESEND_MODE !== "PRODUCTION",
+      billable: RESEND_MODE === "PRODUCTION",
+    },
+    async () => {
+      const response = await resend!.emails.send(message);
+      if (response.error) throw new Error(response.error.message);
+      return { status: "accepted", provider: "resend" };
+    },
+  );
+}
 
 function hasReminderJobSecret(req: Request): boolean {
   if (!REMINDER_JOB_SECRET) return false;
@@ -312,6 +358,7 @@ async function sendBookingEmails(
   customerPhone?: string | null,
   clinicPhone?: string | null,
   bookingId?: number | null,
+  clinicId?: number | null,
 ) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured.`);
@@ -378,21 +425,33 @@ async function sendBookingEmails(
     </td></tr>`
   );
 
-  try {
-    await resend.emails.send({
+  const patientResult = await sendTrackedEmail({
+    clinicId: clinicId ?? 0,
+    bookingId,
+    eventType: "booking_received",
+    recipientType: "patient",
+  }, {
       from: EMAIL_FROM, to: finalCustomerEmail,
       subject: `${clinicName} – Booking Received`,
       html: patientHtml,
-    });
-    if (finalClinicEmail) {
-      await resend.emails.send({
+  });
+  if (patientResult.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send booking received email to patient.");
+  }
+  if (finalClinicEmail) {
+    const clinicResult = await sendTrackedEmail({
+      clinicId: clinicId ?? 0,
+      bookingId,
+      eventType: "booking_received",
+      recipientType: "clinic",
+    }, {
         from: EMAIL_FROM, to: finalClinicEmail,
         subject: `New Booking Received – ${customerName} on ${apptDate}`,
         html: clinicHtml,
-      });
+    });
+    if (clinicResult.status === "failed") {
+      console.error("[EMAIL ERROR] Failed to send booking received email to clinic.");
     }
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send booking emails:', error);
   }
 }
 
@@ -408,6 +467,7 @@ async function sendConfirmationEmail(
   bookingId?: number | null,
   lat?: number | null,
   lng?: number | null,
+  clinicId?: number | null,
 ) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured — confirmation email skipped.`);
@@ -450,18 +510,22 @@ async function sendConfirmationEmail(
     </td></tr>`
   );
 
-  try {
-    await resend.emails.send({
+  const result = await sendTrackedEmail({
+    clinicId: clinicId ?? 0,
+    bookingId,
+    eventType: "booking_confirmed",
+    recipientType: "patient",
+  }, {
       from: EMAIL_FROM, to: finalEmail,
       subject: `${clinicName} – Your Appointment is Confirmed`,
       html,
-    });
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send confirmation email:', error);
+  });
+  if (result.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send confirmation email.");
   }
 }
 
-async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string, clinicPhone?: string | null, bookingId?: number | null, reason?: string | null) {
+async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string, clinicPhone?: string | null, bookingId?: number | null, reason?: string | null, clinicId?: number | null) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
   const apptDate   = date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -485,14 +549,18 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
       <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">We apologise for any inconvenience caused.</p>
     </td></tr>`
   );
-  try {
-    await resend.emails.send({
+  const result = await sendTrackedEmail({
+    clinicId: clinicId ?? 0,
+    bookingId,
+    eventType: "booking_cancelled",
+    recipientType: "patient",
+  }, {
       from: EMAIL_FROM, to: finalEmail,
       subject: `${clinic} – Appointment Cancelled`,
       html,
-    });
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send cancellation email:', error);
+  });
+  if (result.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send cancellation email.");
   }
 }
 
@@ -540,6 +608,32 @@ const consentSignRateLimiter = rateLimit({
   message: { message: "Too many consent submissions. Please try again later." },
 });
 
+// Website edits are authenticated but still need abuse protection because they
+// can publish clinic-controlled content and URLs.
+const websiteConfigRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many website changes. Please wait before trying again." },
+});
+
+const publicUploadRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many upload requests. Please try again later." },
+});
+
+const imageVerifyRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many image verification requests. Please try again later." },
+});
+
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   const sess = req.session as any;
   if (req.session && (sess.adminLoggedIn || sess.doctorLoggedIn)) {
@@ -556,6 +650,43 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
+function requireClinicOwner(req: Request, res: Response, next: NextFunction) {
+  const sess = req.session as any;
+  if (!sess.adminLoggedIn || sess.role !== "owner" || !Number.isInteger(Number(sess.clinicId))) {
+    return res.status(403).json({ message: "Clinic owner access required" });
+  }
+  return next();
+}
+
+function requireTrustedMutationOrigin(req: Request, res: Response, next: NextFunction) {
+  const origin = req.get("origin");
+  const referer = req.get("referer");
+  const requestOrigin = `${req.protocol}://${req.get("host")}`;
+  const configuredOrigins = (process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean);
+  const allowedOrigins = new Set([
+    requestOrigin,
+    "https://www.bookmyslot.dental.mossaic.in",
+    ...configuredOrigins,
+  ]);
+  let submittedOrigin = origin;
+
+  if (!submittedOrigin && referer) {
+    try {
+      submittedOrigin = new URL(referer).origin;
+    } catch {
+      submittedOrigin = undefined;
+    }
+  }
+
+  if (!submittedOrigin || !allowedOrigins.has(submittedOrigin)) {
+    return res.status(403).json({ message: "Untrusted request origin" });
+  }
+  return next();
+}
+
 async function sendDoctorAssignmentEmail(
   doctorEmail: string,
   doctorName: string,
@@ -563,6 +694,7 @@ async function sendDoctorAssignmentEmail(
   clinicName: string,
   startTime: Date,
   bookingId: number,
+  clinicId?: number | null,
 ) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured — doctor assignment email skipped.`);
@@ -592,14 +724,18 @@ async function sendDoctorAssignmentEmail(
       </table>
     </td></tr>`
   );
-  try {
-    await resend.emails.send({
+  const result = await sendTrackedEmail({
+    clinicId,
+    bookingId,
+    eventType: "doctor_assignment",
+    recipientType: "doctor",
+  }, {
       from: EMAIL_FROM, to: finalEmail,
       subject: `${clinicName} – New Appointment Assigned`,
       html,
-    });
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send doctor assignment email:', error);
+  });
+  if (result.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send doctor assignment email.");
   }
 }
 
@@ -610,6 +746,7 @@ async function sendDoctorAdminConfirmEmail(
   clinicName: string,
   startTime: Date,
   bookingId: number,
+  clinicId?: number | null,
 ) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured — doctor admin-confirm email skipped.`);
@@ -644,14 +781,18 @@ async function sendDoctorAdminConfirmEmail(
       </table>
     </td></tr>`
   );
-  try {
-    await resend.emails.send({
+  const result = await sendTrackedEmail({
+    clinicId,
+    bookingId,
+    eventType: "booking_confirmed",
+    recipientType: "doctor",
+  }, {
       from: EMAIL_FROM, to: finalEmail,
       subject: `${clinicName} – Appointment Added to Your Schedule`,
       html,
-    });
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send doctor admin-confirm email:', error);
+  });
+  if (result.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send doctor admin-confirm email.");
   }
 }
 
@@ -662,6 +803,7 @@ async function sendAdminDoctorDeclineEmail(
   patientName: string,
   startTime: Date,
   bookingId: number,
+  clinicId?: number | null,
 ) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured — admin doctor-decline email skipped.`);
@@ -691,18 +833,22 @@ async function sendAdminDoctorDeclineEmail(
       </table>
     </td></tr>`
   );
-  try {
-    await resend.emails.send({
+  const result = await sendTrackedEmail({
+    clinicId,
+    bookingId,
+    eventType: "doctor_declined",
+    recipientType: "clinic",
+  }, {
       from: EMAIL_FROM, to: finalEmail,
       subject: `Action Needed – Dr. ${doctorName} Declined on ${apptDate}`,
       html,
-    });
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send admin doctor-decline email:', error);
+  });
+  if (result.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send admin doctor-decline email.");
   }
 }
 
-async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLink: string) {
+async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLink: string, clinicId?: number | null) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
   const html = emailShell(
@@ -717,18 +863,21 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
       <p style="margin:16px 0 0;font-size:12px;color:#a8b8b0;text-align:center;">Or copy this link: <a href="${inviteLink}" style="color:#7c3aed;text-decoration:none;word-break:break-all;">${inviteLink}</a></p>
     </td></tr>`
   );
-  try {
-    await resend.emails.send({
+  const result = await sendTrackedEmail({
+    clinicId,
+    eventType: "doctor_invite",
+    recipientType: "doctor",
+  }, {
       from: EMAIL_FROM, to: finalEmail,
       subject: `${clinicName} – You're Invited to Join`,
       html,
-    });
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send doctor invite email:', error);
+  });
+  if (result.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send doctor invite email.");
   }
 }
 
-async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicName: string, tempPassword: string) {
+async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicName: string, tempPassword: string, clinicId?: number | null) {
   const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login?tab=doctor`;
   if (!resend) {
     console.log(`[EMAIL MOCK] Doctor welcome: ${email} — Login: ${email}, Password: ${tempPassword}`);
@@ -770,14 +919,17 @@ async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicN
       </table>
     </td></tr>`
   );
-  try {
-    await resend.emails.send({
+  const result = await sendTrackedEmail({
+    clinicId,
+    eventType: "doctor_welcome",
+    recipientType: "doctor",
+  }, {
       from: EMAIL_FROM, to: finalEmail,
       subject: `${clinicName} – Your Login Credentials`,
       html,
-    });
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send doctor welcome email:', error);
+  });
+  if (result.status === "failed") {
+    console.error("[EMAIL ERROR] Failed to send doctor welcome email.");
   }
 }
 
@@ -1326,17 +1478,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
       const event = req.body?.event as string;
-      const subscriptionId = req.body?.payload?.subscription?.entity?.id as string | undefined;
+      const subscriptionEntity = req.body?.payload?.subscription?.entity;
+      const subscriptionId = subscriptionEntity?.id as string | undefined;
       console.log(`[WEBHOOK] Razorpay event: ${event}, subscriptionId: ${subscriptionId}`);
-      if ((event === "subscription.charged" || event === "subscription.activated") && subscriptionId) {
-        const [clinic] = await db.select().from(clinics)
+      const [clinic] = subscriptionId
+        ? await db.select().from(clinics)
           .where(eq(clinics.razorpaySubscriptionId, subscriptionId))
-          .limit(1);
+          .limit(1)
+        : [];
+      const [providerEvent] = await db.insert(subscriptionProviderEvents).values({
+        clinicId: clinic?.id ?? null,
+        provider: "razorpay",
+        subscriptionId: subscriptionId ?? null,
+        eventId: req.body?.id ?? null,
+        eventType: event || "unknown",
+        processingStatus: clinic ? "received" : "unmatched",
+        details: {
+          providerStatus: subscriptionEntity?.status ?? null,
+          currentStart: subscriptionEntity?.current_start ?? null,
+          currentEnd: subscriptionEntity?.current_end ?? null,
+        },
+        occurredAt: subscriptionEntity?.created_at ? new Date(Number(subscriptionEntity.created_at) * 1000) : null,
+      }).returning({ id: subscriptionProviderEvents.id });
+      if ((event === "subscription.charged" || event === "subscription.activated") && clinic) {
         if (clinic) {
           await storage.updateClinic(clinic.id, { subscriptionStatus: "active" } as any);
           await db.update(activationTokens)
             .set({ used: true })
-            .where(eq(activationTokens.razorpaySubscriptionId, subscriptionId));
+            .where(eq(activationTokens.razorpaySubscriptionId, subscriptionId!));
+          await db.update(subscriptionProviderEvents)
+            .set({ processingStatus: "applied" })
+            .where(eq(subscriptionProviderEvents.id, providerEvent.id));
           console.log(`[WEBHOOK] Clinic ${clinic.id} subscription activated`);
         } else {
           console.warn(`[WEBHOOK] No clinic found for subscription ${subscriptionId}`);
@@ -1346,6 +1518,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[WEBHOOK] Error:", err.message);
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/admin/subscription-events", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const clinicId = req.query.clinicId ? Number(req.query.clinicId) : null;
+      const events = await db.select({
+        id: subscriptionProviderEvents.id,
+        clinicId: subscriptionProviderEvents.clinicId,
+        clinicName: clinics.name,
+        provider: subscriptionProviderEvents.provider,
+        subscriptionId: subscriptionProviderEvents.subscriptionId,
+        eventId: subscriptionProviderEvents.eventId,
+        eventType: subscriptionProviderEvents.eventType,
+        processingStatus: subscriptionProviderEvents.processingStatus,
+        details: subscriptionProviderEvents.details,
+        occurredAt: subscriptionProviderEvents.occurredAt,
+        receivedAt: subscriptionProviderEvents.receivedAt,
+      })
+        .from(subscriptionProviderEvents)
+        .leftJoin(clinics, eq(subscriptionProviderEvents.clinicId, clinics.id))
+        .where(clinicId !== null ? eq(subscriptionProviderEvents.clinicId, clinicId) : undefined)
+        .orderBy(desc(subscriptionProviderEvents.receivedAt))
+        .limit(25);
+      res.json({ events });
+    } catch (err: any) {
+      console.error("[ADMIN SUBSCRIPTION EVENTS]", err.message);
+      res.status(500).json({ message: "Unable to load subscription provider history" });
     }
   });
 
@@ -1397,22 +1598,78 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
+    const parsed = authenticatedImageUploadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Invalid image upload request",
+        issues: parsed.error.issues.map(issue => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const sess = req.session as UploadSession;
+    const { fileName, contentType, fileType, fileSize, folder } = parsed.data;
+    if (!IMAGE_UPLOAD_FOLDERS.includes(folder) || !canRequestImageFolder(sess, folder)) {
+      return res.status(403).json({ message: "You are not allowed to upload to this folder" });
+    }
+
     try {
-      const { fileName, contentType, fileType, fileSize, folder } = req.body;
-      // Patient documents must use the dedicated booking-based endpoint. That
-      // route derives clinic/patient ownership and enforces the clinic quota.
-      if (folder === "patient-docs") {
-        return res.status(400).json({ message: "Patient documents must be uploaded through the visit document endpoint" });
-      }
       const result = await generateSignedUploadUrl({
-        fileName: fileName || `upload-${Date.now()}`,
-        fileType: fileType || contentType,
-        fileSize: fileSize || 1024 * 1024, // Default 1MB if not provided
-        folder
+        fileName,
+        fileType: fileType || contentType || "",
+        fileSize,
+        folder,
       });
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/uploads/verify-image", imageVerifyRateLimiter, isAuthenticated, async (req, res) => {
+    const parsed = z.object({
+      key: z.string().regex(/^(clinics|doctors|users|case-media)\/[a-zA-Z0-9-]+\.(?:jpg|png|webp)$/),
+      fileType: z.enum(ALLOWED_IMAGE_TYPES),
+      fileSize: z.number().int().positive().max(10 * 1024 * 1024),
+    }).strict().safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid image verification request" });
+    }
+
+    const sess = req.session as UploadSession;
+    const folder = parsed.data.key.split("/", 1)[0];
+    if (!canRequestImageFolder(sess, folder)) {
+      return res.status(403).json({ message: "You are not allowed to verify this image" });
+    }
+    if (!R2_CONFIGURED) {
+      return res.status(503).json({ message: "Image storage is not configured" });
+    }
+
+    try {
+      const object = await r2Client.send(new GetObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: parsed.data.key,
+      }));
+      const objectSize = Number(object.ContentLength);
+      const maxBytes = getUploadMaxBytes(folder);
+      if (!Number.isSafeInteger(objectSize) || objectSize !== parsed.data.fileSize || objectSize > maxBytes) {
+        return res.status(422).json({ message: "Uploaded image size could not be verified" });
+      }
+
+      const body = object.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+      if (!body?.transformToByteArray) {
+        return res.status(422).json({ message: "Uploaded image could not be inspected" });
+      }
+      const bytes = await body.transformToByteArray();
+      if (bytes.byteLength !== objectSize) {
+        return res.status(422).json({ message: "Uploaded image size could not be verified" });
+      }
+      const dimensions = validateImageBytes(bytes, parsed.data.fileType);
+      res.json({ valid: true, dimensions });
+    } catch (err: any) {
+      res.status(422).json({ message: err.message || "Uploaded image failed validation" });
     }
   });
 
@@ -1453,7 +1710,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         doctor = await storage.createDoctor({ name, email, passwordHash, isTemporaryPassword: true, specialization: specialization || null, degree: degree || null, imageUrl: null } as any);
         isNewDoctor = true;
         if (clinic) {
-          sendDoctorWelcomeEmail(email, name, clinic.name, tempPassword).catch(() => {});
+          void sendDoctorWelcomeEmail(email, name, clinic.name, tempPassword, clinic.id);
         }
       }
       await storage.linkDoctorToClinic(clinicId, doctor.id);
@@ -1466,7 +1723,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/public/clinics", async (req, res) => {
     try {
       const clinicsList = await storage.getClinics();
-      res.json(clinicsList.filter(c => !c.isArchived).map(({ id, name, address, username, city, pincode }) => ({ id, name, address, username, city, pincode })));
+      res.json(clinicsList
+        .filter(c => c.status === "approved")
+        .map(toPublicClinicListItem));
     } catch (err: any) {
       res.status(500).json({ message: "Failed to fetch clinics" });
     }
@@ -1739,17 +1998,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── PUBLIC UPLOAD: signed URL for clinic registration docs ─────────────────
-  app.post("/api/public/uploads/signed-url", async (req, res) => {
+  app.post("/api/public/uploads/signed-url", publicUploadRateLimiter, async (req, res) => {
+    const parsed = publicClinicDocumentUploadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Only clinic registration documents may be uploaded here",
+        issues: parsed.error.issues.map(issue => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
     try {
-      const { fileName, contentType, fileSize, folder } = req.body;
-      if (!fileName || !contentType) {
-        return res.status(400).json({ message: "fileName and contentType are required" });
-      }
       const result = await generateSignedUploadUrl({
-        fileName,
-        fileType: contentType,
-        fileSize: fileSize || 5 * 1024 * 1024,
-        folder: folder || "clinic-docs",
+        fileName: parsed.data.fileName,
+        fileType: parsed.data.contentType,
+        fileSize: parsed.data.fileSize ?? 5 * 1024 * 1024,
+        folder: "clinic-docs",
       });
       res.json(result);
     } catch (err: any) {
@@ -1949,11 +2214,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       // OTP was consumed inside the transaction above — send confirmation emails now
-      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
+      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id, clinic.id);
 
       if (customerPhone) {
-        await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
-        await sendBookingConfirmationSms(
+        await trackCommunication({ clinicId: clinic.id, bookingId: booking.id, channel: "whatsapp", eventType: "booking_confirmed", recipientType: "patient" }, () => sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart));
+        await trackCommunication({ clinicId: clinic.id, bookingId: booking.id, channel: "sms", eventType: "booking_confirmed", recipientType: "patient" }, () => sendBookingConfirmationSms(
           customerPhone,
           customerName,
           clinic.name,
@@ -1961,7 +2226,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           null,
           (clinic as any).phone ?? null,
           `BMS-${booking.id}`,
-        );
+        ));
       }
 
       // In-app notification for clinic admin — paid booking confirmed
@@ -2189,11 +2454,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       // OTP was consumed inside the transaction above — send confirmation emails now
-      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
+      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id, clinic.id);
 
       if (customerPhone) {
-        await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
-        await sendBookingReceivedSms(customerPhone, customerName, clinic.name, requestedStart);
+        await trackCommunication({ clinicId: clinic.id, bookingId: booking.id, channel: "whatsapp", eventType: "booking_received", recipientType: "patient" }, () => sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart));
+        await trackCommunication({ clinicId: clinic.id, bookingId: booking.id, channel: "sms", eventType: "booking_received", recipientType: "patient" }, () => sendBookingReceivedSms(customerPhone, customerName, clinic.name, requestedStart));
       }
 
       // Create in-app notification and push it instantly to the clinic admin via WebSocket
@@ -2374,6 +2639,345 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(setting || { key: req.params.key, value: "" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/auth/clinic/settings/messaging-usage", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic admin session required" });
+
+    try {
+      const clinicId = Number(sess.clinicId);
+      const clinic = await storage.getClinic(clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const monthParam = typeof req.query.month === "string" ? req.query.month : "";
+      const localNow = new Intl.DateTimeFormat("en-CA", {
+        timeZone: clinic.timezone,
+        year: "numeric",
+        month: "2-digit",
+      }).format(new Date());
+      const month = monthParam || localNow;
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+        return res.status(400).json({ message: "Month must use YYYY-MM format" });
+      }
+
+      const [year, monthNumber] = month.split("-").map(Number);
+      const firstCalendarDate = `${month}-01`;
+      const nextMonthDate = new Date(Date.UTC(year, monthNumber, 1)).toISOString().slice(0, 10);
+      const from = getUtcInstantForCalendarDate(firstCalendarDate, clinic.timezone);
+      const to = getUtcInstantForCalendarDate(nextMonthDate, clinic.timezone);
+
+      const rows = await db.select({
+        channel: communicationUsage.channel,
+        eventType: communicationUsage.eventType,
+        status: communicationUsage.status,
+        billable: communicationUsage.billable,
+        units: sql<number>`coalesce(sum(${communicationUsage.units}), 0)`,
+      })
+        .from(communicationUsage)
+        .where(and(
+          eq(communicationUsage.clinicId, clinicId),
+          gte(communicationUsage.sentAt, from),
+          lt(communicationUsage.sentAt, to),
+        ))
+        .groupBy(
+          communicationUsage.channel,
+          communicationUsage.eventType,
+          communicationUsage.status,
+          communicationUsage.billable,
+        );
+
+      const channelTotals = { sms: 0, whatsapp: 0, email: 0 };
+      const statusTotals = { accepted: 0, failed: 0, skipped: 0 };
+      let billable = 0;
+      const byEvent = new Map<string, { eventType: string; sms: number; whatsapp: number; email: number; total: number }>();
+
+      for (const row of rows) {
+        const units = Number(row.units ?? 0);
+        if (row.status in statusTotals) {
+          statusTotals[row.status as keyof typeof statusTotals] += units;
+        }
+        if (row.status === "accepted" && row.channel in channelTotals) {
+          channelTotals[row.channel as keyof typeof channelTotals] += units;
+          if (row.billable) billable += units;
+        }
+        const eventRow = byEvent.get(row.eventType) ?? { eventType: row.eventType, sms: 0, whatsapp: 0, email: 0, total: 0 };
+        if (row.status === "accepted" && row.channel in channelTotals) {
+          eventRow[row.channel as keyof Pick<typeof eventRow, "sms" | "whatsapp" | "email">] += units;
+          eventRow.total += units;
+        }
+        byEvent.set(row.eventType, eventRow);
+      }
+
+      const trendMonths = Array.from({ length: 6 }, (_, index) => {
+        const date = new Date(Date.UTC(year, monthNumber - 1 - (5 - index), 1));
+        const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+        const label = date.toISOString().slice(0, 7);
+        return {
+          label,
+          from: getUtcInstantForCalendarDate(`${label}-01`, clinic.timezone),
+          to: getUtcInstantForCalendarDate(next.toISOString().slice(0, 10), clinic.timezone),
+        };
+      });
+      const trend = await Promise.all(trendMonths.map(async trendMonth => {
+        const trendRows = await db.select({
+          channel: communicationUsage.channel,
+          status: communicationUsage.status,
+          billable: communicationUsage.billable,
+          units: sql<number>`coalesce(sum(${communicationUsage.units}), 0)`,
+        })
+          .from(communicationUsage)
+          .where(and(
+            eq(communicationUsage.clinicId, clinicId),
+            gte(communicationUsage.sentAt, trendMonth.from),
+            lt(communicationUsage.sentAt, trendMonth.to),
+          ))
+          .groupBy(communicationUsage.channel, communicationUsage.status, communicationUsage.billable);
+        const values = { sms: 0, whatsapp: 0, email: 0, total: 0, billable: 0 };
+        for (const row of trendRows) {
+          if (row.status !== "accepted" || !(row.channel in values)) continue;
+          const units = Number(row.units ?? 0);
+          values[row.channel as "sms" | "whatsapp" | "email"] += units;
+          values.total += units;
+          if (row.billable) values.billable += units;
+        }
+        return { month: trendMonth.label, ...values };
+      }));
+
+      res.json({
+        period: { month, timezone: clinic.timezone, from: from.toISOString(), to: to.toISOString() },
+        totals: {
+          ...channelTotals,
+          total: channelTotals.sms + channelTotals.whatsapp + channelTotals.email,
+          billable,
+          ...statusTotals,
+        },
+        trend,
+        byEvent: [...byEvent.values()].sort((a, b) => b.total - a.total || a.eventType.localeCompare(b.eventType)),
+      });
+    } catch (err: any) {
+      console.error("[CLINIC MESSAGING USAGE]", err.message);
+      res.status(500).json({ message: "Unable to calculate messaging usage" });
+    }
+  });
+
+  app.get("/api/admin/messaging-usage", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+
+    try {
+      const month = typeof req.query.month === "string" ? req.query.month : new Date().toISOString().slice(0, 7);
+      const clinicIdParam = typeof req.query.clinicId === "string" && req.query.clinicId.trim()
+        ? Number(req.query.clinicId)
+        : null;
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+        return res.status(400).json({ message: "Month must use YYYY-MM format" });
+      }
+      if (clinicIdParam !== null && !Number.isInteger(clinicIdParam)) {
+        return res.status(400).json({ message: "Invalid clinic ID" });
+      }
+
+      const [year, monthNumber] = month.split("-").map(Number);
+      const selectedMonthStart = new Date(Date.UTC(year, monthNumber - 1, 1));
+      const rangeStart = new Date(Date.UTC(year, monthNumber - 6, 1));
+      const rangeEnd = new Date(Date.UTC(year, monthNumber, 1));
+      const usageMonth = sql<string>`to_char(date_trunc('month', ${communicationUsage.sentAt}), 'YYYY-MM')`;
+      const clinicRows = await db.select({
+        id: clinics.id,
+        name: clinics.name,
+        plan: clinics.plan,
+        subscriptionStatus: clinics.subscriptionStatus,
+        status: clinics.status,
+        isArchived: clinics.isArchived,
+      }).from(clinics);
+      const clinicInfo = new Map(clinicRows.map(clinic => [clinic.id, clinic]));
+      if (clinicIdParam !== null && !clinicInfo.has(clinicIdParam)) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const usageRows = await db.select({
+        clinicId: communicationUsage.clinicId,
+        month: usageMonth,
+        channel: communicationUsage.channel,
+        eventType: communicationUsage.eventType,
+        status: communicationUsage.status,
+        billable: communicationUsage.billable,
+        units: sql<number>`coalesce(sum(${communicationUsage.units}), 0)`,
+        lastSentAt: sql<Date | null>`max(${communicationUsage.sentAt})`,
+      })
+        .from(communicationUsage)
+        .where(and(
+          gte(communicationUsage.sentAt, rangeStart),
+          lt(communicationUsage.sentAt, rangeEnd),
+          ...(clinicIdParam !== null ? [eq(communicationUsage.clinicId, clinicIdParam)] : []),
+        ))
+        .groupBy(communicationUsage.clinicId, usageMonth, communicationUsage.channel, communicationUsage.eventType, communicationUsage.status, communicationUsage.billable);
+
+      const emptyTotals = () => ({ sms: 0, whatsapp: 0, email: 0, total: 0, billable: 0, accepted: 0, failed: 0, skipped: 0 });
+      const totals = emptyTotals();
+      const trend = new Map<string, ReturnType<typeof emptyTotals>>();
+      for (let offset = 5; offset >= 0; offset--) {
+        const date = new Date(Date.UTC(year, monthNumber - 1 - offset, 1));
+        trend.set(date.toISOString().slice(0, 7), emptyTotals());
+      }
+      const byEvent = new Map<string, { eventType: string; sms: number; whatsapp: number; email: number; total: number }>();
+      const clinicTotals = new Map<number, ReturnType<typeof emptyTotals> & { lastSentAt: Date | null }>();
+      const clinicEvents = new Map<number, Map<string, { eventType: string; sms: number; whatsapp: number; email: number; total: number }>>();
+      const ensureClinic = (clinicId: number) => {
+        if (!clinicTotals.has(clinicId)) clinicTotals.set(clinicId, { ...emptyTotals(), lastSentAt: null });
+        return clinicTotals.get(clinicId)!;
+      };
+
+      for (const row of usageRows) {
+        const units = Number(row.units ?? 0);
+        const channel = row.channel as "sms" | "whatsapp" | "email";
+        const monthTotals = trend.get(row.month);
+        if (monthTotals && row.status === "accepted" && channel in monthTotals) {
+          monthTotals[channel] += units;
+          monthTotals.total += units;
+          if (row.billable) monthTotals.billable += units;
+        }
+        if (row.month !== month) continue;
+
+        if (row.status in totals) totals[row.status as "accepted" | "failed" | "skipped"] += units;
+        if (row.status !== "accepted" || !(channel in totals)) continue;
+        totals[channel] += units;
+        totals.total += units;
+        if (row.billable) totals.billable += units;
+
+        const event = byEvent.get(row.eventType) ?? { eventType: row.eventType, sms: 0, whatsapp: 0, email: 0, total: 0 };
+        event[channel] += units;
+        event.total += units;
+        byEvent.set(row.eventType, event);
+
+        const clinicTotal = ensureClinic(row.clinicId);
+        if (row.status === "accepted") {
+          clinicTotal[channel] += units;
+          clinicTotal.total += units;
+          if (row.billable) clinicTotal.billable += units;
+        }
+        if (row.status in clinicTotal) clinicTotal[row.status as "accepted" | "failed" | "skipped"] += units;
+        if (row.lastSentAt && (!clinicTotal.lastSentAt || new Date(row.lastSentAt) > new Date(clinicTotal.lastSentAt))) {
+          clinicTotal.lastSentAt = new Date(row.lastSentAt);
+        }
+        const events = clinicEvents.get(row.clinicId) ?? new Map();
+        const clinicEvent = events.get(row.eventType) ?? { eventType: row.eventType, sms: 0, whatsapp: 0, email: 0, total: 0 };
+        clinicEvent[channel] += units;
+        clinicEvent.total += units;
+        events.set(row.eventType, clinicEvent);
+        clinicEvents.set(row.clinicId, events);
+      }
+
+      // Add current-month status totals for clinics even when their only activity failed/skipped.
+      for (const row of usageRows) {
+        if (row.month !== month) continue;
+        const clinicTotal = ensureClinic(row.clinicId);
+        const units = Number(row.units ?? 0);
+        if (row.status in clinicTotal) clinicTotal[row.status as "accepted" | "failed" | "skipped"] += row.status === "accepted" ? 0 : units;
+        if (row.lastSentAt && (!clinicTotal.lastSentAt || new Date(row.lastSentAt) > new Date(clinicTotal.lastSentAt))) {
+          clinicTotal.lastSentAt = new Date(row.lastSentAt);
+        }
+      }
+
+      const clinicUsage = [...clinicInfo.values()]
+        .filter(clinic => clinicIdParam === null || clinic.id === clinicIdParam)
+        .map(clinic => {
+          const clinicTotal = clinicTotals.get(clinic.id) ?? { ...emptyTotals(), lastSentAt: null };
+          return {
+            clinicId: clinic.id,
+            clinicName: clinic.name,
+            plan: clinic.plan,
+            subscriptionStatus: clinic.subscriptionStatus,
+            status: clinic.status,
+            isArchived: clinic.isArchived,
+            ...clinicTotal,
+            byEvent: [...(clinicEvents.get(clinic.id)?.values() ?? [])].sort((a, b) => b.total - a.total),
+          };
+        })
+        .sort((a, b) => b.total - a.total || a.clinicName.localeCompare(b.clinicName));
+
+      res.json({
+        period: { month, timezone: "UTC", from: rangeStart.toISOString(), to: rangeEnd.toISOString(), selectedMonthStart: selectedMonthStart.toISOString() },
+        totals,
+        trend: [...trend.entries()].map(([trendMonth, values]) => ({ month: trendMonth, ...values })),
+        byEvent: [...byEvent.values()].sort((a, b) => b.total - a.total),
+        clinics: clinicUsage,
+      });
+    } catch (err: any) {
+      console.error("[ADMIN MESSAGING USAGE]", err.message);
+      res.status(500).json({ message: "Unable to calculate application messaging usage" });
+    }
+  });
+
+  app.get("/api/admin/storage-usage", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+
+    try {
+      const clinicRows = await db.select({
+        id: clinics.id,
+        name: clinics.name,
+        plan: clinics.plan,
+        subscriptionStatus: clinics.subscriptionStatus,
+        status: clinics.status,
+        isArchived: clinics.isArchived,
+        overrideBytes: clinics.storageLimitBytes,
+      }).from(clinics);
+
+      const usageRows = await db.select({
+        clinicId: patientDocuments.clinicId,
+        usedBytes: sql<number>`coalesce(sum(${patientDocuments.fileSize}), 0)`,
+        fileCount: sql<number>`count(*)`,
+      })
+        .from(patientDocuments)
+        .where(sql`${patientDocuments.deletedAt} IS NULL`)
+        .groupBy(patientDocuments.clinicId);
+
+      const usageByClinic = new Map(usageRows.map(row => [
+        row.clinicId,
+        { usedBytes: Number(row.usedBytes ?? 0), fileCount: Number(row.fileCount ?? 0) },
+      ]));
+
+      const planLimits: Record<string, number> = PLAN_STORAGE_LIMITS;
+      const rows = clinicRows.map(clinic => {
+        const usage = usageByClinic.get(clinic.id) ?? { usedBytes: 0, fileCount: 0 };
+        const planLimit = planLimits[clinic.plan || "starter"] || DEFAULT_STORAGE_LIMIT_BYTES;
+        const limitBytes = Number(clinic.overrideBytes || planLimit);
+        const usagePercent = limitBytes ? Math.min(100, (usage.usedBytes / limitBytes) * 100) : 100;
+        return {
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          plan: clinic.plan,
+          subscriptionStatus: clinic.subscriptionStatus,
+          status: clinic.status,
+          isArchived: clinic.isArchived,
+          usedBytes: usage.usedBytes,
+          limitBytes,
+          remainingBytes: Math.max(0, limitBytes - usage.usedBytes),
+          usagePercent,
+          fileCount: usage.fileCount,
+          source: clinic.overrideBytes ? "clinic_override" : planLimits[clinic.plan || "starter"] ? "plan" : "default",
+        };
+      });
+
+      const totals = rows.reduce((result, row) => ({
+        usedBytes: result.usedBytes + row.usedBytes,
+        limitBytes: result.limitBytes + row.limitBytes,
+        remainingBytes: result.remainingBytes + row.remainingBytes,
+        fileCount: result.fileCount + row.fileCount,
+      }), { usedBytes: 0, limitBytes: 0, remainingBytes: 0, fileCount: 0 });
+
+      res.json({
+        measuredAt: new Date().toISOString(),
+        timezone: "UTC",
+        totals: {
+          ...totals,
+          usagePercent: totals.limitBytes ? Math.min(100, (totals.usedBytes / totals.limitBytes) * 100) : 100,
+        },
+        clinics: rows.sort((a, b) => b.usagePercent - a.usagePercent || a.clinicName.localeCompare(b.clinicName)),
+      });
+    } catch (err: any) {
+      console.error("[ADMIN STORAGE USAGE]", err.message);
+      res.status(500).json({ message: "Unable to calculate application storage usage" });
     }
   });
 
@@ -2821,35 +3425,69 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.patch("/api/auth/clinic/website-config", isAuthenticated, async (req, res) => {
+  app.patch(
+    "/api/auth/clinic/website-config",
+    websiteConfigRateLimiter,
+    isAuthenticated,
+    requireClinicOwner,
+    requireTrustedMutationOrigin,
+    auditLog({ action: "update", resource: "website_config" }),
+    async (req, res) => {
     const sess = req.session as any;
-    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
     try {
-      const clinic = await storage.updateClinic(sess.clinicId, { websiteConfig: req.body } as any);
-      res.json(clinic);
+      const parsed = websiteConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Website configuration contains invalid or oversized content",
+          issues: parsed.error.issues.map(issue => ({
+            path: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+      }
+      const clinic = await storage.updateClinic(sess.clinicId, { websiteConfig: parsed.data } as any);
+      res.json(toPublicClinic(clinic));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
-  });
+    },
+  );
 
-  app.patch("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
+  app.patch(
+    "/api/auth/clinic/me",
+    websiteConfigRateLimiter,
+    isAuthenticated,
+    requireClinicOwner,
+    requireTrustedMutationOrigin,
+    auditLog({ action: "update", resource: "clinic_profile" }),
+    async (req, res) => {
     const sess = req.session as any;
-    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
-    const ALLOWED_FIELDS = ["phone", "email", "website", "address", "city", "pincode", "doctorName", "logoUrl", "latitude", "longitude"];
-    const updates: Record<string, any> = {};
-    for (const field of ALLOWED_FIELDS) {
-      if (field in req.body) updates[field] = req.body[field];
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({ message: "Clinic profile must be a JSON object" });
     }
-    if (Object.keys(updates).length === 0) {
+    const parsed = clinicPublicProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Clinic profile contains invalid, unsafe, or unsupported values",
+        issues: parsed.error.issues.map(issue => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+    if (Object.keys(parsed.data).length === 0) {
       return res.status(400).json({ message: "No valid fields provided" });
     }
     try {
+      const updates = { ...parsed.data };
+      if (updates.website) updates.website = normalizeExternalUrl(updates.website);
       const clinic = await storage.updateClinic(sess.clinicId, updates);
-      res.json(clinic);
+      res.json(toPublicClinic(clinic));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
-  });
+    },
+  );
 
   app.post("/api/auth/clinic/doctors", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
@@ -2877,7 +3515,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const tempPassword = generateTempPassword();
           const passwordHash = await bcrypt.hash(tempPassword, 10);
           doctorRecord = await storage.createDoctor({ name, email, passwordHash, isTemporaryPassword: true, specialization: specialization || null, degree: degree || null, imageUrl: imageUrl || null } as any);
-          sendDoctorWelcomeEmail(email, name, clinic.name, tempPassword).catch(() => {});
+          void sendDoctorWelcomeEmail(email, name, clinic.name, tempPassword, clinic.id);
         }
         const existingLinks = await storage.getClinicDoctors(sess.clinicId);
         const alreadyLinked = existingLinks.some(d => d.id === doctorRecord!.id);
@@ -3373,7 +4011,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Send confirmation email to patient if email provided
       if (customerEmail && customerEmail.trim()) {
         try {
-          await sendBookingEmails(customerEmail.trim(), customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
+          await sendBookingEmails(customerEmail.trim(), customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id, clinic.id);
         } catch (e: any) {
           console.error('[ADMIN BOOKING] Email send failed:', e.message);
         }
@@ -3382,8 +4020,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Send WhatsApp notification if phone provided
       if (customerPhone) {
         try {
-          await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
-          await sendBookingConfirmationSms(
+          await trackCommunication({ clinicId: clinic.id, bookingId: booking.id, channel: "whatsapp", eventType: "booking_confirmed", recipientType: "patient" }, () => sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart));
+          await trackCommunication({ clinicId: clinic.id, bookingId: booking.id, channel: "sms", eventType: "booking_confirmed", recipientType: "patient" }, () => sendBookingConfirmationSms(
             customerPhone,
             customerName,
             clinic.name,
@@ -3391,7 +4029,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             null,
             (clinic as any).phone ?? null,
             `BMS-${booking.id}`,
-          );
+          ));
         } catch (e: any) {
           console.error('[ADMIN BOOKING] WhatsApp/SMS send failed:', e.message);
         }
@@ -4123,12 +4761,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           bookingId,
           clinicLat,
           clinicLng,
-        ).catch((err) => console.error('[EMAIL ERROR] Confirm email failed:', err));
+          clinic?.id,
+        );
       }
 
       // Send WhatsApp confirmation to patient (fire-and-forget)
       if (booking.customerPhone) {
-        sendWhatsAppConfirmationNotification(
+        void trackCommunication({ clinicId: clinic?.id || slot?.clinicId, bookingId, channel: "whatsapp", eventType: "booking_confirmed", recipientType: "patient" }, () => sendWhatsAppConfirmationNotification(
           booking.customerPhone,
           booking.customerName,
           clinic?.name || slot?.clinicName || 'the clinic',
@@ -4138,8 +4777,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinicPhone,
           confirmMapsLink,
           `BMS-${bookingId}`,
-        ).catch(() => {});
-        sendBookingConfirmationSms(
+        ));
+        void trackCommunication({ clinicId: clinic?.id || slot?.clinicId, bookingId, channel: "sms", eventType: "booking_confirmed", recipientType: "patient" }, () => sendBookingConfirmationSms(
           booking.customerPhone,
           booking.customerName,
           clinic?.name || slot?.clinicName || 'the clinic',
@@ -4147,7 +4786,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           booking.assignedDoctor || null,
           clinicPhone,
           `BMS-${bookingId}`,
-        ).catch((err) => console.error('[SMS ERROR] Confirm SMS failed:', err.message));
+        ));
       }
 
       // Notify the doctor that the admin confirmed on their behalf (fire-and-forget)
@@ -4159,7 +4798,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinic?.name || 'the clinic',
           slot ? new Date(slot.startTime) : new Date(),
           bookingId,
-        ).catch((err) => console.error('[EMAIL ERROR] Doctor admin-confirm email failed:', err));
+          clinic?.id,
+        );
 
         // In-app notification for doctor — admin confirmed on their behalf
         try {
@@ -4220,7 +4860,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinicPhone,
           bookingId,
           reason || null,
-        ).catch((err) => console.error('[EMAIL ERROR] Cancellation email failed:', err));
+          clinic?.id || slot?.clinicId,
+        );
       }
 
       // In-app notification for clinic (WebSocket push)
@@ -4299,7 +4940,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinicForAssign?.name || 'the clinic',
           slot ? new Date(slot.startTime) : new Date(),
           bookingId,
-        ).catch((err) => console.error('[EMAIL ERROR] Doctor assignment email failed:', err));
+          clinicForAssign?.id || sess.clinicId,
+        );
 
         // In-app notification for the doctor
         try {
@@ -4377,10 +5019,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           booking.id,
           dClinicLat,
           dClinicLng,
-        ).catch(() => {});
+          doctorClinic?.id,
+        );
       }
       if (booking.customerPhone) {
-        sendWhatsAppConfirmationNotification(
+        void trackCommunication({ clinicId: doctorClinic?.id || slot?.clinicId, bookingId: booking.id, channel: "whatsapp", eventType: "booking_confirmed", recipientType: "patient" }, () => sendWhatsAppConfirmationNotification(
           booking.customerPhone,
           booking.customerName,
           doctorClinic?.name || slot?.clinicName || 'the clinic',
@@ -4390,8 +5033,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           dClinicPhone,
           dMapsLink,
           `BMS-${booking.id}`,
-        ).catch(() => {});
-        sendBookingConfirmationSms(
+        ));
+        void trackCommunication({ clinicId: doctorClinic?.id || slot?.clinicId, bookingId: booking.id, channel: "sms", eventType: "booking_confirmed", recipientType: "patient" }, () => sendBookingConfirmationSms(
           booking.customerPhone,
           booking.customerName,
           doctorClinic?.name || slot?.clinicName || 'the clinic',
@@ -4399,7 +5042,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           booking.assignedDoctor || null,
           dClinicPhone,
           `BMS-${booking.id}`,
-        ).catch((err) => console.error('[SMS ERROR] Confirm SMS failed:', err.message));
+        ));
       }
 
       // In-app notification for clinic admin — doctor approved
@@ -4464,7 +5107,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             booking.customerName,
             new Date(slot.startTime),
             booking.id,
-          ).catch((err) => console.error('[EMAIL ERROR] Admin doctor-decline email failed:', err));
+            clinicForDecline.id,
+          );
         }
         if (clinicForDecline) {
           try {
@@ -4495,13 +5139,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/clinics/:id/public", async (req, res) => {
     try {
       const raw = req.params.id;
-      const numericId = parseInt(raw);
+      const numericId = /^\d+$/.test(raw) ? Number(raw) : NaN;
+      if (Number.isNaN(numericId) && !isValidClinicSlug(raw)) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
       const clinic = isNaN(numericId)
         ? await storage.getClinicByUsername(raw)
         : await storage.getClinic(numericId);
-      if (!clinic || clinic.isArchived) return res.status(404).json({ message: "Clinic not found" });
-      const { passwordHash, registeredBy, ...publicFields } = clinic;
-      res.json(publicFields);
+      if (!clinic || clinic.isArchived || clinic.status !== "approved") {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+      res.json(toPublicClinic(clinic));
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -5495,12 +6143,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         `${req.protocol}://${req.get("host")}`;
       const consentUrl = `${baseUrl}/consent/${token}`;
 
-      await sendWhatsAppConsentLink(
+      await trackCommunication({
+        clinicId: clinic.id,
+        bookingId,
+        channel: "whatsapp",
+        eventType: "consent_request",
+        recipientType: "patient",
+      }, () => sendWhatsAppConsentLink(
         booking.customerPhone,
         booking.customerName,
         clinic.name,
         consentUrl,
-      );
+      ));
 
       // G15 — Notify assigned doctor that the clinic sent a consent form request
       if ((booking as any).assignedDoctorEmail) {
@@ -5601,7 +6255,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const baseUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get("host")}`;
       const consentUrl = `${baseUrl}/consent/${token}`;
 
-      await sendWhatsAppConsentLink(booking.customerPhone, booking.customerName, clinic.name, consentUrl);
+      await trackCommunication({
+        clinicId: clinic.id,
+        bookingId,
+        channel: "whatsapp",
+        eventType: "consent_request",
+        recipientType: "patient",
+      }, () => sendWhatsAppConsentLink(booking.customerPhone, booking.customerName, clinic.name, consentUrl));
 
       // G14 — Notify clinic admin that the doctor requested a consent form
       try {

@@ -33,7 +33,7 @@ const ids = (model: ReturnType<typeof getAppointmentFooterModel>) => [
   ...model.secondary.map((item) => item.id),
 ];
 
-test("old unresolved clinic bookings resolve first and keep rebook secondary", () => {
+test("old unresolved clinic bookings review first and keep rebook secondary", () => {
   const model = getAppointmentFooterModel(
     makeClassification({
       verificationStatus: "pending",
@@ -44,6 +44,7 @@ test("old unresolved clinic bookings resolve first and keep rebook secondary", (
   );
 
   assert.deepEqual(ids(model), ["resolve_booking", "rebook"]);
+  assert.equal(model.primary?.label, "Review Booking");
   assert.equal(model.primary?.target, "actions");
   assert.equal(model.policyState, "old_needs_resolution");
 });
@@ -86,6 +87,7 @@ test("unknown-date clinic bookings resolve with an explicit unknown-date policy 
   );
 
   assert.deepEqual(ids(model), ["resolve_booking"]);
+  assert.equal(model.primary?.label, "Review Booking");
   assert.equal(model.primary?.target, "actions");
   assert.equal(model.policyState, "unknown_date");
 });

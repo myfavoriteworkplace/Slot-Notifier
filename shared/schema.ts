@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, varchar, integer, jsonb, real, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, varchar, integer, jsonb, real, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./models/auth";
@@ -8,17 +8,25 @@ import { relations, sql } from "drizzle-orm";
 export * from "./models/auth";
 
 export type ClinicWebsiteConfig = {
-  theme: "classic" | "warm" | "modern";
+  theme: "classic" | "warm" | "modern" | "red-clinical";
   taglineL1?: string;
   taglineL2?: string;
   heroDescription?: string;
+  announcementText?: string;
   aboutDescription?: string;
+  aboutImageUrl?: string;
   vision?: string;
   values?: string;
   heroImageUrl?: string;
+  heroForegroundImageUrl?: string;
   gallery?: { url: string; caption: string }[];
   services?: { name: string; description: string; imageUrl?: string }[];
+  trustPoints?: { title: string; description: string; icon?: string; category?: string }[];
+  specialties?: { title: string; description: string; icon?: string }[];
+  treatmentGroups?: { name: string; description?: string; items: string[]; imageUrl?: string }[];
   testimonials?: { quote: string; patientName: string; rating: number }[];
+  faq?: { question: string; answer: string }[];
+  socialPosts?: { imageUrl: string; caption?: string; link?: string }[];
   hours?: { day: string; open: string; close: string; closed: boolean }[];
   socialLinks?: { instagram?: string; facebook?: string; youtube?: string };
   showMap?: boolean;
@@ -133,6 +141,46 @@ export const notifications = pgTable("notifications", {
   read: boolean("read").default(false).notNull(),
   type: varchar("type", { length: 80 }),
   bookingId: integer("booking_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── COMMUNICATION USAGE ──────────────────────────────────────────────────────
+// One row represents one logical outbound communication requested for a clinic.
+// This is intentionally separate from audit_logs and billing_audit_logs:
+// provider acceptance/failure is usage data, not a patient-record audit action.
+export const communicationUsage = pgTable("communication_usage", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  channel: varchar("channel", { length: 20 }).notNull(), // sms | whatsapp | email
+  eventType: varchar("event_type", { length: 80 }).notNull(),
+  recipientType: varchar("recipient_type", { length: 30 }).notNull(), // patient | clinic | doctor
+  status: varchar("status", { length: 20 }).notNull(), // accepted | failed | skipped
+  provider: varchar("provider", { length: 40 }),
+  providerMessageId: varchar("provider_message_id", { length: 255 }),
+  units: integer("units").notNull().default(1),
+  billable: boolean("billable").notNull().default(true),
+  isTest: boolean("is_test").notNull().default(false),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicSentAtIdx: index("communication_usage_clinic_sent_at_idx").on(table.clinicId, table.sentAt),
+  clinicChannelIdx: index("communication_usage_clinic_channel_idx").on(table.clinicId, table.channel),
+}));
+
+export type CommunicationUsage = typeof communicationUsage.$inferSelect;
+export type InsertCommunicationUsage = typeof communicationUsage.$inferInsert;
+
+// Existing lifecycle table created by the booking transition layer. Keeping its
+// shape in the Drizzle schema prevents a new table from being mistaken for a
+// rename during schema pushes.
+export const bookingStateLog = pgTable("booking_state_log", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  fromState: varchar("from_state", { length: 80 }),
+  toState: varchar("to_state", { length: 80 }).notNull(),
+  actorRole: varchar("actor_role", { length: 30 }).notNull(),
+  actorName: varchar("actor_name", { length: 255 }),
+  reason: text("reason"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -736,6 +784,24 @@ export const billingAuditLogs = pgTable("billing_audit_logs", {
 });
 
 export type BillingAuditLog = typeof billingAuditLogs.$inferSelect;
+
+// ── SUBSCRIPTION PROVIDER EVENTS ────────────────────────────────────────────
+// Append-only provider timeline used by Super Admin operations views.
+export const subscriptionProviderEvents = pgTable("subscription_provider_events", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  provider: varchar("provider", { length: 40 }).notNull().default("razorpay"),
+  subscriptionId: varchar("subscription_id", { length: 255 }),
+  eventId: varchar("event_id", { length: 255 }),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  processingStatus: varchar("processing_status", { length: 30 }).notNull().default("received"),
+  details: jsonb("details").$type<Record<string, unknown>>().default({}),
+  occurredAt: timestamp("occurred_at"),
+  receivedAt: timestamp("received_at").defaultNow(),
+});
+
+export type SubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferSelect;
+export type InsertSubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferInsert;
 
 // ── PII AUDIT LOGS ───────────────────────────────────────────────────────────
 // Append-only log of every access or mutation of patient PII data.

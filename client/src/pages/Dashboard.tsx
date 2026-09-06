@@ -84,6 +84,7 @@ export default function Dashboard() {
     new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
 
+  const now = Date.now();
   const filteredBookings = bookings?.filter(booking => {
     const bookingDate = new Date(booking.slot.startTime);
     let dateMatch = true;
@@ -96,6 +97,13 @@ export default function Dashboard() {
 
     const clinicMatch = filterClinic === "all" || booking.slot.clinicName === filterClinic;
     return dateMatch && clinicMatch;
+  }).sort((a, b) => {
+    const aTime = new Date(a.slot.startTime).getTime();
+    const bTime = new Date(b.slot.startTime).getTime();
+    const aIsFuture = aTime >= now;
+    const bIsFuture = bTime >= now;
+    if (aIsFuture !== bIsFuture) return aIsFuture ? -1 : 1;
+    return (aIsFuture ? aTime - bTime : bTime - aTime) || b.id - a.id;
   });
 
   const { data: clinicsData } = useQuery<Clinic[]>({

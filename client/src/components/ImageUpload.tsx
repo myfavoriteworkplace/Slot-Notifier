@@ -80,6 +80,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
 
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
+        headers: { "Content-Type": fileToUpload.type },
         body: fileToUpload,
       });
 
@@ -87,7 +88,17 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
         throw new Error("Failed to upload image");
       }
 
-      onImageUploaded(key);
+      const verifyRes = await apiRequest("POST", "/api/uploads/verify-image", {
+        key,
+        fileType: fileToUpload.type,
+        fileSize: fileToUpload.size,
+      });
+      if (!verifyRes.ok) {
+        const error = await verifyRes.json().catch(() => ({}));
+        throw new Error(error.message || "Uploaded image failed validation");
+      }
+
+      onImageUploaded(publicUrl);
       notify.success("Image uploaded");
     } catch (err: any) {
       notify.apiError(err, "Upload failed");

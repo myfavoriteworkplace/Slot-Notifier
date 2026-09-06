@@ -118,7 +118,7 @@ dialog can still open.
 ### Footer parity
 
 The card footer and the dialog's persistent footer represent the same booking
-policy. They must not independently decide whether to show Resolve Booking,
+policy. They must not independently decide whether to show Review Booking,
 Rebook, Reschedule, billing, or final closure.
 
 Both surfaces consume the same `getAppointmentFooterModel()` result:

@@ -18,6 +18,7 @@ import {
   sendZavuWhatsAppConfirmationNotification,
   sendZavuWhatsAppConsentLink,
 } from "./zavu-whatsapp.service";
+import type { CommunicationSendResult } from "./communication-usage";
 
 const PROVIDER = (process.env.WHATSAPP_PROVIDER || "twilio").toLowerCase().trim();
 
@@ -27,20 +28,22 @@ console.log(
   (PROVIDER === "zavu" && !isZavuConfigured ? " (ZAVUDEV_API_KEY missing — will fall back to Twilio)" : "")
 );
 
-async function withFallback(
+export async function withFallback(
   label: string,
-  primary: () => Promise<void>,
-  fallback: () => Promise<void>
-): Promise<void> {
+  primary: () => Promise<CommunicationSendResult>,
+  fallback: () => Promise<CommunicationSendResult>
+): Promise<CommunicationSendResult> {
   try {
-    await primary();
+    const result = await primary();
+    if (result.status !== "failed") return result;
   } catch (err: any) {
     console.warn(`[WHATSAPP] Primary provider failed for "${label}": ${err.message}. Falling back to Twilio.`);
-    try {
-      await fallback();
-    } catch (fallbackErr: any) {
-      console.error(`[WHATSAPP] Fallback also failed for "${label}": ${fallbackErr.message}`);
-    }
+  }
+  try {
+    return await fallback();
+  } catch (fallbackErr: any) {
+    console.error(`[WHATSAPP] Fallback also failed for "${label}": ${fallbackErr.message}`);
+    return { status: "failed", provider: "twilio", error: fallbackErr.message };
   }
 }
 
@@ -49,7 +52,7 @@ export async function sendWhatsAppBookingNotification(
   patientName: string,
   clinicName: string,
   appointmentTime: Date
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   if (PROVIDER === "zavu" && isZavuConfigured) {
     return withFallback(
       "booking-received",
@@ -77,7 +80,7 @@ export async function sendWhatsAppConfirmationNotification(
   clinicPhone?: string | null,
   mapsLink?: string | null,
   bookingRef?: string | null
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   if (PROVIDER === "zavu" && isZavuConfigured) {
     return withFallback(
       "booking-confirmed",
@@ -100,7 +103,7 @@ export async function sendWhatsAppConsentLink(
   patientName: string,
   clinicName: string,
   consentUrl: string
-): Promise<void> {
+): Promise<CommunicationSendResult> {
   if (PROVIDER === "zavu" && isZavuConfigured) {
     return withFallback(
       "consent-request",
@@ -118,7 +121,7 @@ export async function sendWhatsAppConsentLink(
   return twilioConsent(toPhone, patientName, clinicName, consentUrl);
 }
 
-export async function sendWhatsAppMessage(toPhone: string, message: string): Promise<void> {
+export async function sendWhatsAppMessage(toPhone: string, message: string): Promise<CommunicationSendResult> {
   if (PROVIDER === "zavu" && isZavuConfigured) {
     return withFallback(
       "generic-message",

@@ -122,7 +122,7 @@ through these contracts:
 | Patient left early | `PATCH /api/auth/clinic/bookings/:id/patient-left-early` | `{ reason: string }` |
 | Doctor complete treatment | `PATCH /api/doctor/bookings/:id/complete-visit` | none |
 
-`Resolve Booking` is a presentation intent that opens the clinic Actions tab;
+`Review Booking` is a presentation intent that opens the clinic Actions tab;
 it is not a new server route. The Actions tab selects the permitted transition
 after the server rechecks the current booking state. `Open Billing` similarly
 opens the billing workflow and is valid for creating the first bill.

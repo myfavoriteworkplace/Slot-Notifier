@@ -4,7 +4,7 @@ import {
   Phone, Hash, CalendarDays, CheckCircle2, X, UserPlus,
   Building2, Loader2, IndianRupee, ClipboardList, FileText,
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
-  Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
+  Stethoscope, MoreVertical, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
   LogOut, AlertTriangle, ChevronDown, Download,
   Receipt,
@@ -497,14 +497,7 @@ export function AppointmentCard({
     slate: "border-slate-600 bg-slate-700 text-white dark:border-slate-400 dark:bg-slate-600",
   }[latestPillStatus.tone];
 
-  // Header tint follows WHEN; terminal states are muted regardless of date.
-  const headerBg = (isNoShowState || isCancelled || isLeftEarlyState)
-    ? "bg-muted/30"
-    : isToday
-    ? "bg-gradient-to-r from-sky-500/10 to-cyan-500/5"
-    : isPast
-    ? "bg-muted/20"
-    : "bg-gradient-to-r from-primary/5 to-accent/5";
+  const headerBg = "bg-gradient-to-r from-sky-500/6 to-cyan-500/3";
 
 
   // ── Derived display values ──
@@ -577,6 +570,26 @@ export function AppointmentCard({
 
   const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState && !isVisitCompleted;
 
+  const relativeTimeBadge = (() => {
+    const d = differenceInCalendarDays(startTime, new Date());
+    if (isToday) {
+      return {
+        label: "Today",
+        cls: "text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-500/15 border-sky-200 dark:border-sky-500/30",
+      };
+    }
+    if (isPast) {
+      return {
+        label: "Past",
+        cls: "text-slate-600 bg-slate-50 dark:text-slate-300 dark:bg-slate-500/15 border-slate-200 dark:border-slate-500/30",
+      };
+    }
+    return {
+      label: d === 1 ? "Tomorrow" : `in ${d}d`,
+      cls: "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30",
+    };
+  })();
+
   return (
     <Card
       className={`relative min-w-0 overflow-visible mt-3 mb-3 h-full rounded-xl border border-border/70 bg-card shadow-sm transition-colors duration-200 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
@@ -600,48 +613,60 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onCardClick(); }}
       >
         {/* ── Header ── */}
-        <div className={`px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} transition-colors`}>
-          <div className="flex min-w-0 items-start justify-between gap-2 relative">
+        <div className={`relative z-[1] min-h-[92px] sm:min-h-[100px] px-3 sm:px-4 ${latestLabel ? "pt-5" : "pt-2.5"} pb-2 ${headerBg} border-b border-border/40 shadow-[0_1px_3px_-1px_rgba(15,23,42,0.18)] transition-colors`}>
+          <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1">
 
             {/* Avatar + name */}
-            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+            <div className="contents">
               <div className="shrink-0 h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
                 <span className="text-sm font-bold text-primary dark:text-primary/80 leading-none">
                   {booking.customerName.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="min-w-0 space-y-0.5">
-                {/* Row 1: patient identity, visit history, and stable appointment reference */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
+              <div className="min-w-0 space-y-1">
+                {/* Row 1: patient identity and visit history */}
+                <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="min-w-0 flex-1 truncate text-left font-bold text-sm leading-tight cursor-help">
+                          {booking.customerName}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="start" className="text-xs font-medium">
+                        {booking.customerName}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   {visitNumber !== undefined && totalVisits !== undefined && totalVisits > 1 && (
                     <span className="inline-flex items-center gap-0.5 text-xs leading-none font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-1 rounded-md shrink-0">
                       <Repeat2 className="h-2.5 w-2.5" />
                       Visit {visitNumber}/{totalVisits}
                     </span>
                   )}
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
-                    Ref #{bookingNumber}
-                  </span>
                 </div>
                 {/* Row 2: PAT code */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                   {booking.patientCode ? (
-                    <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
+                    <span className="min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground/60">Patient ID not assigned</span>
                   )}
                 </div>
-                {/* Row 3: Phone · Age · Gender */}
-              <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                  <Phone className="h-2.5 w-2.5 shrink-0" />
-                <span className="min-w-0 max-w-full truncate">{booking.customerPhone || "--"}</span>
-                  <span className="opacity-30 shrink-0 px-0.5">·</span>
+                {/* Clinic phone gets its own line so the complete number remains visible. */}
+                {role !== "doctor" && (
+                  <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                    <Phone className="h-2.5 w-2.5 shrink-0" />
+                    <span className="whitespace-nowrap">{booking.customerPhone || "--"}</span>
+                  </div>
+                )}
+                {/* Age · Gender */}
+                <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                   <span className="shrink-0">{booking.customerAge ? `${booking.customerAge}y` : "--"}</span>
                   <span className="opacity-30 shrink-0 px-0.5">·</span>
-                <span className="min-w-0 truncate">
+                  <span className="min-w-0 truncate">
                     {booking.customerGender
                       ? booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)
                       : "--"}
@@ -649,46 +674,36 @@ export function AppointmentCard({
                 </div>
               </div>
             </div>
-            {/* Status + ⋮ menu */}
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="cursor-help">
-                      <StatusBadge />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
-                    {statusTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
 
-              {/* Doctor visit badge */}
-              {role === "doctor" && isCheckedIn && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-                  Arrived{booking.checkedInAt ? ` · ${format(new Date(booking.checkedInAt), "h:mm a")}` : ""}
-                </span>
-              )}
-              {role === "doctor" && isVisitCompleted && booking.completedAt && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Done · {format(new Date(booking.completedAt), "d MMM h:mm a")}
-                </span>
-              )}
+            {/* Status + actions share the name row and doctor metadata stays below them. */}
+            <div className="flex min-w-0 flex-col items-end gap-1">
+              <div className="flex items-center gap-2">
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="shrink-0 cursor-help">
+                        <StatusBadge />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
+                      {statusTooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-              {/* ⋮ Three-dot menu — clinic only */}
-              {canShowMoreMenu && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground bg-muted/50 border border-border/50 hover:bg-muted hover:border-border/80 active:scale-[0.95] transition-all"
-                      data-testid={`button-more-${booking.id}`}
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
-                  </PopoverTrigger>
+                {/* ⋮ Three-dot menu — clinic only */}
+                {canShowMoreMenu && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground active:scale-[0.95] transition-all"
+                        aria-label="Open booking actions"
+                        data-testid={`button-more-${booking.id}`}
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
                   <PopoverContent className="w-52 p-1.5 rounded-xl shadow-xl border border-border/60" side="bottom" align="end" onClick={(e) => e.stopPropagation()}>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Actions</p>
 
@@ -985,7 +1000,21 @@ export function AppointmentCard({
                       <p className="text-xs text-center text-muted-foreground/50 py-2 px-2">No actions available</p>
                     )}
                   </PopoverContent>
-                </Popover>
+                  </Popover>
+                )}
+              </div>
+
+              {/* Doctor visit metadata is kept below the status instead of beside patient details. */}
+              {role === "doctor" && isCheckedIn && (
+                <span className="inline-flex max-w-[110px] items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                  Arrived{booking.checkedInAt ? ` · ${format(new Date(booking.checkedInAt), "h:mm a")}` : ""}
+                </span>
+              )}
+              {role === "doctor" && isVisitCompleted && booking.completedAt && (
+                <span className="max-w-[110px] overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                  Done · {format(new Date(booking.completedAt), "d MMM h:mm a")}
+                </span>
               )}
             </div>
           </div>
@@ -994,43 +1023,35 @@ export function AppointmentCard({
         {/* ── Info Rows ── */}
         <div className="px-3 sm:px-4 py-2.5 space-y-2.5">
 
-          {/* Date + time — doubles as collapse toggle on mobile (or expand when isCollapsed) */}
+          {/* Date + time — two rows so the date, time range, and relative chip do not compete for one line */}
           <div
-            className={`flex items-center gap-2 text-xs min-w-0 overflow-hidden ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
+            className={`grid min-w-0 grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-x-2 gap-y-0.5 text-xs ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
             onClick={(role === "clinic" || (role === "doctor" && !displayClinicName)) ? (e) => { e.stopPropagation(); isCollapsed ? onToggleCollapse?.() : setMobileExpanded(v => !v); } : undefined}
           >
-            <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="row-span-2 h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
-            <span className="font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
-            {/* Relative time badge — timing colour is independent from booking status */}
-            {(() => {
-              const d = differenceInCalendarDays(startTime, new Date());
-              const timeBadge = isToday
-                ? {
-                    label: "Today",
-                    cls: "text-sky-700 bg-sky-50 dark:text-sky-300 dark:bg-sky-500/15 border-sky-200 dark:border-sky-500/30",
-                  }
-                : isPast
-                ? {
-                    label: "Past",
-                    cls: "text-slate-600 bg-slate-50 dark:text-slate-300 dark:bg-slate-500/15 border-slate-200 dark:border-slate-500/30",
-                  }
-                : {
-                    label: d === 1 ? "Tomorrow" : `in ${d}d`,
-                    cls: "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30",
-                  };
-              return <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${timeBadge.cls}`}>{timeBadge.label}</span>;
-            })()}
-            <span className="text-muted-foreground font-medium shrink-0">
-              {format(startTime, "h:mm a")}
-              <span className="mx-1 opacity-40">→</span>
-              {format(endTime, "h:mm a")}
-            </span>
+            <div className="col-start-2 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-muted-foreground font-medium shrink-0">Scheduled:</span>
+              <span className="font-semibold text-foreground whitespace-nowrap">{format(startTime, "EEE, d MMM")}</span>
+            </div>
+            <div className="col-start-2 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-muted-foreground font-medium whitespace-nowrap">
+                {format(startTime, "h:mm a")}
+                <span className="mx-1 opacity-40">→</span>
+                {format(endTime, "h:mm a")}
+              </span>
+              <span
+                title={relativeTimeBadge.label}
+                className={`shrink-0 whitespace-nowrap text-xs font-semibold border px-1.5 py-px rounded-full ${relativeTimeBadge.cls}`}
+              >
+                {relativeTimeBadge.label}
+              </span>
+            </div>
             {/* Collapse chevron — visible on mobile only, shown when clinic role or doctor has no clinic name */}
             {(role === "clinic" || (role === "doctor" && !displayClinicName)) && (
               <ChevronDown
-                className={`h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
+                className={`col-start-3 row-span-2 h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0 sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
               />
             )}
           </div>
@@ -1268,6 +1289,19 @@ export function AppointmentCard({
               <span className="text-muted-foreground/50 pt-0.5">–</span>
             )}
           </div>
+
+          {/* Booking received — clinic-only audit metadata */}
+          {role === "clinic" && booking.createdAt && (
+            <div className="grid grid-cols-[18px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+              </div>
+              <span className="text-muted-foreground shrink-0">Booking received:</span>
+              <span className="min-w-0 font-medium text-foreground">
+                {format(new Date(booking.createdAt), "d MMM yyyy · h:mm a")}
+              </span>
+            </div>
+          )}
 
           </div>{/* end collapsible detail rows */}
         </div>

@@ -40,7 +40,7 @@ import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave, Patient } from "@shared/schema";
 import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
-import { getBookingEmptyStateMeta, type BookingsPagedResponse } from "@/lib/booking-list";
+import { getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
 import { BookingProgressStrip } from "@/components/BookingProgressStrip";
@@ -1889,7 +1889,7 @@ export default function DoctorDashboard() {
                         ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
                         : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
                       // Determine which time group this card belongs to and whether to show a divider
-                      const drGroup = isGrouped ? (isApptPast ? 1 : 0) : -1;
+                      const drGroup = isGrouped ? getTimeGroup(booking, new Date()) : -1;
                       const drShowDivider = isGrouped && drGroup !== drLastGroup;
                       // Monotonic guard: once in Past group never step back to Future/Today
                       if (isGrouped) drLastGroup = Math.max(drLastGroup, drGroup);
@@ -1900,11 +1900,7 @@ export default function DoctorDashboard() {
                             <div className="h-px flex-1 bg-border/50" />
                             <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${drGroupCfg.textColor} ${drGroupCfg.bg} ${drGroupCfg.border}`}>
                               {drGroupCfg.label}
-                              <span className="font-black opacity-70">— {displayBookings.filter((b: any) => {
-                                const bt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-                                const bClassification = classifyClientBooking(b, "doctor", bookingDateContext);
-                                return (bClassification.isOld ? 1 : 0) === drGroup;
-                              }).length}</span>
+                              <span className="font-black opacity-70">— {displayBookings.filter((b: any) => getTimeGroup(b, new Date()) === drGroup).length}</span>
                             </span>
                             <div className="h-px flex-1 bg-border/50" />
                           </div>
@@ -3256,29 +3252,6 @@ export default function DoctorDashboard() {
                         <section className="rounded-xl border border-border/60 bg-white dark:bg-card shadow-sm p-3 space-y-2.5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
 
-                          {/* Phone */}
-                          <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
-                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                              <Phone className="h-3 w-3 text-muted-foreground" />
-                            </div>
-                            <span className="text-muted-foreground shrink-0">Phone:</span>
-                            {b.customerPhone ? (
-                              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
-                                <a href={`tel:${b.customerPhone}`} className="min-w-0 max-w-full truncate font-semibold text-foreground hover:text-primary transition-colors">
-                                  {b.customerPhone}
-                                </a>
-                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
-                                  <Copy className="h-2.5 w-2.5 text-muted-foreground" />
-                                </button>
-                                <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
-                                  <Phone className="h-2.5 w-2.5 text-primary" />
-                                </a>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground/50">–</span>
-                            )}
-                          </div>
-
                           {/* Visit Type */}
                           <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
                             <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
@@ -3633,11 +3606,17 @@ export default function DoctorDashboard() {
                              <Button
                                variant="outline"
                                 className="w-full h-11 text-sm font-semibold gap-2 active:scale-[0.98]"
-                               onClick={() => setPatientModalTab("overview")}
-                               data-testid={`modal-button-${modalReviewAction.id}-${b.id}`}
+                                onClick={() => {
+                                  if (patientModalTab === "overview") {
+                                    setPatientModalId(null);
+                                  } else {
+                                    setPatientModalTab("overview");
+                                  }
+                                }}
+                                data-testid={`modal-button-${patientModalTab === "overview" ? "close" : modalReviewAction.id}-${b.id}`}
                              >
                                <ClipboardList className="h-3.5 w-3.5" />
-                               {modalReviewAction.label}
+                                {patientModalTab === "overview" ? "Close" : modalReviewAction.label}
                              </Button>
                            </>
                          )}
@@ -3661,7 +3640,7 @@ export default function DoctorDashboard() {
                           </div>
                         )}
 
-                        {bIsCheckedIn && (
+                        {bIsCheckedIn && !bIsPast && (
                            <>
                               <div className="grid grid-cols-1 sm:grid-cols-3 items-stretch gap-2">
                              <Button
@@ -3689,7 +3668,7 @@ export default function DoctorDashboard() {
                           </>
                         )}
 
-                        {bIsInConsultation && (
+                        {bIsInConsultation && !bIsPast && (
                            <>
                               <div className="grid grid-cols-1 sm:grid-cols-4 items-stretch gap-2">
                              <Button

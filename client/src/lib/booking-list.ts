@@ -34,6 +34,7 @@ export type BookingListFilters = {
   bookings: BookingWithSlot[];
   quickFilter: string;
   activePatientFilter?: { id: number; name: string } | null;
+  now?: Date;
   filterDate?: Date;
   filterEndDate?: Date;
   todayStart: Date;
@@ -56,14 +57,18 @@ function getStatusGroup(booking: BookingWithSlot, todayStart: Date, todayStr: st
 }
 
 /**
- * Returns 0 for Future/Today slots, 1 for Past slots.
- * Used to split mixed-date booking lists (All, All Pending, Owned) into
- * a "Future / Today" group above and a "Past" group below, matching the
- * server-side CASE WHEN sort order.
+ * Returns 0 for appointments that have not started yet and 1 for appointments
+ * whose start timestamp has passed.
+ *
+ * Used to split mixed booking lists (All, All Pending, Owned) into a future
+ * group above and a past group below, matching the server-side CASE WHEN sort
+ * order. The timestamp comparison intentionally uses the current instant, not
+ * the start of the calendar day, so an earlier appointment today is treated as
+ * past for ordering.
  */
-export function getTimeGroup(booking: BookingWithSlot, todayStart: Date): number {
-  const classification = classifyClientBooking(booking, "clinic", createClientBookingDateContext(todayStart));
-  return classification.isOld ? 1 : 0;
+export function getTimeGroup(booking: BookingWithSlot, now: Date = new Date()): number {
+  const startTime = new Date(booking.slot.startTime).getTime();
+  return Number.isFinite(startTime) && startTime < now.getTime() ? 1 : 0;
 }
 
 export function getBookingDisplayMeta({
@@ -258,6 +263,7 @@ export function filterAndSortBookings({
   bookings,
   quickFilter,
   activePatientFilter,
+  now,
   filterDate,
   filterEndDate,
   todayStart,
@@ -316,14 +322,23 @@ export function filterAndSortBookings({
     return true;
   });
 
+  const sortNow = now ?? new Date();
   const sorted = [...filtered].sort((a, b) => {
-    if (quickFilter === "all" && !filterDate) {
-      const groupA = getStatusGroup(a, todayStart, todayStr);
-      const groupB = getStatusGroup(b, todayStart, todayStr);
+    const aTime = new Date(a.slot.startTime).getTime();
+    const bTime = new Date(b.slot.startTime).getTime();
+
+    if ((quickFilter === "all" || quickFilter === "all-pending") && !filterDate) {
+      const groupA = getTimeGroup(a, sortNow);
+      const groupB = getTimeGroup(b, sortNow);
       if (groupA !== groupB) return groupA - groupB;
+      return groupA === 0 ? aTime - bTime : bTime - aTime;
     }
 
-    return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
+    if (quickFilter === "past") {
+      return bTime - aTime || b.id - a.id;
+    }
+
+    return aTime - bTime || b.id - a.id;
   });
 
   if (!activePatientFilter) {

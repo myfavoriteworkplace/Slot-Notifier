@@ -61,7 +61,7 @@ The new model:
 
 The following decisions are now fixed for the next implementation phases:
 
-1. Same-day past-due bookings expose **Resolve Booking** only by default.
+1. Same-day past-due bookings expose **Review Booking** only by default.
 2. Old active clinic visits use **Manage Visit** and open the Actions tab.
 3. Terminal records show billing when bills exist; batch-admin no-shows may also
    expose Revert No-Show.
@@ -91,9 +91,9 @@ The following decisions are now fixed for the next implementation phases:
 |---|---|---|
 | Future pending | Confirm | Cancel |
 | Future confirmed | Mark Arrived | Remind |
-| Same-day past due | Resolve Booking | Only actions explicitly eligible by classifier |
-| Old unresolved | Resolve Booking | Rebook |
-| Unknown date | Resolve Booking | — |
+| Same-day past due | Review Booking | Only actions explicitly eligible by classifier |
+| Old unresolved | Review Booking | Rebook |
+| Unknown date | Review Booking | — |
 | Old active | Manage Visit | Open Billing |
 | Treatment completed | Mark Visit Done | Open Billing |
 | Completed with unpaid bills | Settle Payment | Rebook |
@@ -436,10 +436,10 @@ first; it does not require one developer to implement every package.
 
 | Independent step | What is still pending | Problem today | What can go wrong if it is not done | Executable work | Minimum dependency | Current progress |
 |---|---|---|---|---|---|---|
-| 1. Confirm the button rules | Record when Cancel, Mark No Show, Rebook, Resolve Booking, and Reassign Doctor should appear for clinic staff and doctors. | The rules were previously not recorded as one approved contract. | Different screens could make different decisions about the same appointment. | Record the approved rules in this document; align the shared past-due no-show policy; add focused policy tests. | None. This is the starting decision package. | **Complete — approved and recorded** |
+| 1. Confirm the button rules | Record when Cancel, Mark No Show, Rebook, Review Booking, and Reassign Doctor should appear for clinic staff and doctors. | The rules were previously not recorded as one approved contract. | Different screens could make different decisions about the same appointment. | Record the approved rules in this document; align the shared past-due no-show policy; add focused policy tests. | None. This is the starting decision package. | **Complete — approved and recorded** |
 | 2. Remove duplicate clinic-popup buttons | Make the opened clinic booking popup render one footer action set only. | The popup renders the shared footer and then renders older stage-specific footer branches as well. Confirm, Bill, Cancel, Rebook, Revert No-Show, and Mark Visit Done can appear twice or conflict. | Clinic staff may click the wrong duplicate button, see contradictory options, or believe an appointment is in a different state than it really is. | Keep the shared footer model and action handlers; remove the active manual `modalIs...` footer branches; keep cancellation/reason dialogs only behind the model action; move any true admin-only controls into a separately controlled Actions area. | Step 1. | **Pending — high risk** |
 | 3. Fix clinic-card overflow actions | Make every overflow action either work correctly or disappear. | `Reassign Doctor` is visible but currently has an empty click handler. `Mark No Show` can be offered for a future appointment. | Staff can click a button that does nothing, or mark a future appointment as a no-show. This damages trust and can create incorrect appointment records. | Wire Reassign Doctor to a real doctor-selection flow, or remove it; make Mark No Show past/due-only; keep Patient Left Early limited to active visits; keep Override limited to its approved states; preserve server checks. | Step 1. | **Pending — high risk** |
-| 4. Make old and future actions agree | Ensure the card and popup show the same actions for past, future, same-day overdue, and unknown-date bookings. | The shared policy uses Resolve Booking/Rebook for old unresolved records, but the popup's old fallback can still show Cancel. | Staff may cancel a booking that should be resolved or rebooked, or see different instructions depending on whether they opened the popup. | Compare card and popup action IDs for every date category; remove unconditional popup Confirm/Cancel fallbacks; verify same-day overdue and unknown-date behavior. | Steps 1 and 2. | **Pending — high risk** |
+| 4. Make old and future actions agree | Ensure the card and popup show the same actions for past, future, same-day overdue, and unknown-date bookings. | The shared policy uses Review Booking/Rebook for old unresolved records, but the popup's old fallback can still show Cancel. | Staff may cancel a booking that should be reviewed or rebooked, or see different instructions depending on whether they opened the popup. | Compare card and popup action IDs for every date category; remove unconditional popup Confirm/Cancel fallbacks; verify same-day overdue and unknown-date behavior. | Steps 1 and 2. | **Pending — high risk** |
 | 5. Use the same status words everywhere | Give No Show, Left Early, Treatment Completed, In Consultation, and Doctor Declined one consistent meaning. | The card can show Left Early as No Show and Doctor Declined as Cancelled, while popups use more precise wording. | Staff can misunderstand what happened to a patient, especially when reviewing history, billing, or deciding whether to rebook. | Create one shared lifecycle label map; use it in the card and both popup types; keep short labels only when necessary without merging meanings; add label tests. | Step 1. | **Pending — medium risk** |
 | 6. Match the doctor card and patient popup | Make the doctor card and doctor patient popup show the same actions for the same appointment state. | The card uses the shared doctor footer model, while the popup has separate review/context logic. | Doctors may see Accept, Start, Done, Rx, or Review options in one place but not the other. Historical appointments may look actionable when they should be read-only. | Calculate one doctor classification/model; render action IDs once in the popup; keep Overview for explanation/history only; verify approval, consultation, treatment-completed, completed, terminal, and declined states. | Step 1. | **Partial foundation — parity pending** |
 | 7. Add final tests and browser checks | Prove that buttons appear once, have the right labels, and work at normal and narrow screen sizes. | Current tests validate the pure policy but do not catch duplicate JSX branches or visual differences between card and popup. Browser verification is also still open. | A future change can reintroduce duplicate buttons or wrong-state actions without failing the existing tests. Layout problems may reach staff before they are noticed. | Add UI/render-level action-count tests; cover all clinic and doctor lifecycle rows; test loading states and labels; run the card/popup browser matrix; run `npm run build` and Build Check; record any browser-environment limitation. | Steps 2–6. | **Pending — final gate** |
@@ -552,7 +552,7 @@ footer implementation.
 `client/src/lib/appointment-footer-model.ts`.
 
 The shared clinic model intentionally handles past unresolved bookings with
-`Resolve Booking` and, where eligible, `Rebook`. The old popup fallback can
+`Review Booking` and, where eligible, `Rebook`. The old popup fallback can
 still show a `Cancel` control for those same records because it uses a broad
 pre-arrival fallback instead of the model's policy state.
 
@@ -750,7 +750,7 @@ npm test -- client/src/lib/appointment-footer-model.matrix.test.ts
    - Confirm;
    - Mark Arrived;
    - Remind;
-   - Resolve Booking;
+   - Review Booking;
    - Manage Visit;
    - Mark Visit Done;
    - Billing;

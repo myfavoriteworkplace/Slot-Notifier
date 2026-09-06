@@ -27,8 +27,8 @@ Clinic actions are wired in `BookingsPanel.tsx`.
 | --- | --- |
 | Future pending | **Confirm**; Cancel is secondary. |
 | Future confirmed | **Mark Arrived**; Remind is secondary when eligible. |
-| Same-day past due | **Resolve Booking** → Actions; do not offer Rebook by default. |
-| Old unresolved | **Resolve Booking** → Actions; Rebook is secondary. |
+| Same-day past due | **Review Booking** → Actions; do not offer Rebook by default. |
+| Old unresolved | **Review Booking** → Actions; Rebook is secondary. |
 | Old active | **Manage Visit** → Actions; billing remains reachable. |
 | Treatment completed | **Mark Visit Done**; Open Billing remains reachable even when the first bill has not been created. |
 | Completed | Settle Payment, View Invoice, or Review Visit according to bill state; Rebook is secondary. |
@@ -51,7 +51,7 @@ there are bills or notes attached.
 - Visit completion may record `visitCompletionNote`.
 - The doctor completes treatment to `treatment_completed`; clinic final closure
   moves it to `completed`. These are separate transitions.
-- `Resolve Booking` is the explicit administrative path for old, same-day
+- `Review Booking` is the explicit administrative path for old, same-day
   past-due, and unknown-date records. It must not silently become Rebook.
 - Billing is an entry point for active and treatment-completed visits even when
   no bill exists yet; completed records use bill/payment state to choose the

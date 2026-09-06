@@ -900,6 +900,9 @@ export class DatabaseStorage implements IStorage {
         : new Date(),
       clinicTimezone,
     );
+    // todayDate intentionally stabilizes calendar-day filters across pages;
+    // proximity ordering still needs the actual current instant.
+    const sortNow = new Date();
     const {
       todayStr,
       todayStart,
@@ -1027,13 +1030,22 @@ export class DatabaseStorage implements IStorage {
     const offset = (safePage - 1) * pageSize;
 
     // Fetch paginated data — order depends on the active filter:
-    //   all / all-pending : future/today first (group 0), then past (group 1);
-    //                        ascending by startTime within each group
+    //   all / all-pending : future first (nearest first), then past
+    //                        (most-recent past first)
     //   past              : most-recent past first (descending)
     //   all others        : ascending by startTime (closest slot first)
+    //
+    // Keep this ordering in SQL, before LIMIT/OFFSET. Sorting only the loaded
+    // client pages would allow a distant record to hide a nearer appointment
+    // on a later page.
     const clinicOrderBy: any[] =
       (filter === 'all' || filter === 'all-pending')
-        ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`, asc(slots.startTime), asc(bookings.id)]
+        ? [
+            sql`CASE WHEN ${slots.startTime} >= ${sortNow} THEN 0 ELSE 1 END`,
+            sql`CASE WHEN ${slots.startTime} >= ${sortNow} THEN ${slots.startTime} END ASC`,
+            sql`CASE WHEN ${slots.startTime} < ${sortNow} THEN ${slots.startTime} END DESC`,
+            desc(bookings.id),
+          ]
         : filter === 'past'
         ? [desc(slots.startTime), desc(bookings.id)]
         : [asc(slots.startTime), asc(bookings.id)];
@@ -1094,6 +1106,9 @@ export class DatabaseStorage implements IStorage {
         : new Date(),
       clinicTimezone,
     );
+    // Keep the mixed-list proximity split tied to the real current instant,
+    // not to the stable calendar boundary used by the filters.
+    const sortNow = new Date();
     const {
       todayStr,
       todayStart,
@@ -1232,11 +1247,17 @@ export class DatabaseStorage implements IStorage {
     const safePage = Math.min(page, totalPages);
     const offset = (safePage - 1) * pageSize;
 
-    // Order depends on filter: mixed (all/owned): future/today first then past;
-    // past: most-recent first (descending); awaiting/today/upcoming/others: ascending
+    // Order depends on filter: mixed (all/owned): future first (nearest first)
+    // then past (most-recent first); past: most-recent first (descending);
+    // awaiting/today/upcoming/others: ascending.
     const doctorOrderBy: any[] =
       (filter === 'all' || filter === 'owned')
-        ? [sql`CASE WHEN ${slots.startTime} >= ${todayStart} THEN 0 ELSE 1 END`, asc(slots.startTime), asc(bookings.id)]
+        ? [
+            sql`CASE WHEN ${slots.startTime} >= ${sortNow} THEN 0 ELSE 1 END`,
+            sql`CASE WHEN ${slots.startTime} >= ${sortNow} THEN ${slots.startTime} END ASC`,
+            sql`CASE WHEN ${slots.startTime} < ${sortNow} THEN ${slots.startTime} END DESC`,
+            desc(bookings.id),
+          ]
         : filter === 'past'
         ? [desc(slots.startTime), desc(bookings.id)]
         : [asc(slots.startTime), asc(bookings.id)];

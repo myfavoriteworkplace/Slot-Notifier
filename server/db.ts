@@ -480,6 +480,32 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error ensuring booking_state_log table:", err.message);
   }
 
+  // communication_usage — append-only clinic messaging ledger used by billing/reporting
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS communication_usage (
+        id                    SERIAL PRIMARY KEY,
+        clinic_id             integer NOT NULL REFERENCES clinics(id),
+        booking_id            integer REFERENCES bookings(id),
+        channel               varchar(20) NOT NULL,
+        event_type            varchar(80) NOT NULL,
+        recipient_type        varchar(30) NOT NULL,
+        status                varchar(20) NOT NULL,
+        provider              varchar(40),
+        provider_message_id   varchar(255),
+        units                 integer NOT NULL DEFAULT 1,
+        billable              boolean NOT NULL DEFAULT true,
+        is_test               boolean NOT NULL DEFAULT false,
+        sent_at               timestamp NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS communication_usage_clinic_sent_at_idx ON communication_usage (clinic_id, sent_at);
+      CREATE INDEX IF NOT EXISTS communication_usage_clinic_channel_idx ON communication_usage (clinic_id, channel);
+    `);
+    console.log("[DATABASE] communication_usage table ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring communication_usage table:", err.message);
+  }
+
   // Core query performance indexes
   try {
     await pool.query(`
@@ -510,5 +536,30 @@ export async function ensureSessionTable() {
     console.log("[DATABASE] login_events table ready.");
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring login_events table:", err.message);
+  }
+
+  // subscription_provider_events — append-only subscription provider timeline
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subscription_provider_events (
+        id                  SERIAL PRIMARY KEY,
+        clinic_id           integer REFERENCES clinics(id),
+        provider            varchar(40) NOT NULL DEFAULT 'razorpay',
+        subscription_id     varchar(255),
+        event_id            varchar(255),
+        event_type          varchar(100) NOT NULL,
+        processing_status   varchar(30) NOT NULL DEFAULT 'received',
+        details             jsonb DEFAULT '{}'::jsonb,
+        occurred_at         timestamp,
+        received_at         timestamp DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS subscription_provider_events_clinic_idx
+        ON subscription_provider_events (clinic_id, received_at DESC);
+      CREATE INDEX IF NOT EXISTS subscription_provider_events_subscription_idx
+        ON subscription_provider_events (subscription_id, received_at DESC);
+    `);
+    console.log("[DATABASE] subscription_provider_events table ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring subscription_provider_events table:", err.message);
   }
 }

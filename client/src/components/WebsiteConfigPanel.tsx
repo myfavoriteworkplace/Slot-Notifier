@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -13,11 +13,13 @@ import {
 } from "@/components/ui/sheet";
 import {
   Globe, Palette, Image, Layers, Star, Clock, Share2,
-  Plus, Trash2, ExternalLink, Save, Eye, Smartphone,
+  Plus, Trash2, ExternalLink, Save, Eye,
   BarChart2, Sparkles, Instagram, Facebook, Youtube,
-  Users, Layout, Lock, X, RefreshCw,
+  Users, Layout, Lock, X, RefreshCw, HelpCircle, ListChecks,
+  ShieldCheck, Info,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
+import LiveSectionPreview from "@/components/website-preview/LiveSectionPreview";
 
 interface WebsiteConfigPanelProps {
   clinic: any;
@@ -42,7 +44,15 @@ const THEME_OPTIONS: { id: ClinicWebsiteConfig["theme"]; label: string; descript
     description: "Bold typography, dark hero, clean grid. Perfect for cosmetic or premium clinics.",
     preview: "bg-[#0F172A]",
   },
+  {
+    id: "red-clinical",
+    label: "Red Clinical",
+    description: "High-contrast red and charcoal presentation with bold treatment cards. Inspired by premium specialist clinics.",
+    preview: "bg-gradient-to-br from-[#130506] via-[#8f1717] to-[#e11d24]",
+  },
 ];
+
+const DEFAULT_THEME: ClinicWebsiteConfig["theme"] = "red-clinical";
 
 const DEFAULT_HOURS = [
   { day: "Mon – Fri", open: "9:00 AM", close: "7:00 PM", closed: false },
@@ -66,17 +76,23 @@ const FEATURE_EMOJI: Record<string, string> = {
   award: "🏆", zap: "⚡", activity: "📈", check: "✅",
 };
 
-type Section = "theme" | "hero" | "about" | "features" | "stats" | "services" | "gallery" | "testimonials" | "hours" | "social";
+type Section =
+  | "theme" | "hero" | "about" | "features" | "stats" | "services"
+  | "trust" | "specialties" | "treatments" | "gallery" | "testimonials"
+  | "faq" | "hours" | "social" | "social-posts" | "doctors" | "footer";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
-  const existing: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
+  const existing: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: DEFAULT_THEME };
 
-  const [theme, setTheme] = useState<ClinicWebsiteConfig["theme"]>(existing.theme ?? "classic");
+  const [theme, setTheme] = useState<ClinicWebsiteConfig["theme"]>(existing.theme ?? DEFAULT_THEME);
   const [taglineL1, setTaglineL1] = useState(existing.taglineL1 ?? "");
   const [taglineL2, setTaglineL2] = useState(existing.taglineL2 ?? "");
   const [heroDescription, setHeroDescription] = useState(existing.heroDescription ?? "");
+  const [announcementText, setAnnouncementText] = useState(existing.announcementText ?? "");
   const [heroImageUrl, setHeroImageUrl] = useState(existing.heroImageUrl ?? "");
+  const [heroForegroundImageUrl, setHeroForegroundImageUrl] = useState(existing.heroForegroundImageUrl ?? "");
   const [aboutDescription, setAboutDescription] = useState(existing.aboutDescription ?? "");
+  const [aboutImageUrl, setAboutImageUrl] = useState(existing.aboutImageUrl ?? "");
   const [vision, setVision] = useState(existing.vision ?? "");
   const [values, setValues] = useState(existing.values ?? "");
   const [features, setFeatures] = useState<{ icon: string; title: string }[]>(
@@ -100,12 +116,23 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const [services, setServices] = useState<{ name: string; description: string; imageUrl?: string }[]>(
     existing.services?.length ? existing.services : [{ name: "", description: "" }]
   );
+  const [trustPoints, setTrustPoints] = useState<{ title: string; description: string; icon?: string; category?: string }[]>(
+    existing.trustPoints ?? []
+  );
+  const [specialties, setSpecialties] = useState<{ title: string; description: string; icon?: string }[]>(
+    existing.specialties ?? []
+  );
+  const [treatmentGroups, setTreatmentGroups] = useState<{ name: string; description?: string; items: string[]; imageUrl?: string }[]>(
+    existing.treatmentGroups ?? []
+  );
   const [gallery, setGallery] = useState<{ url: string; caption: string }[]>(
     existing.gallery?.length ? existing.gallery : []
   );
   const [testimonials, setTestimonials] = useState<{ quote: string; patientName: string; rating: number }[]>(
     existing.testimonials?.length ? existing.testimonials : []
   );
+  const [faq, setFaq] = useState<{ question: string; answer: string }[]>(existing.faq ?? []);
+  const [socialPosts, setSocialPosts] = useState<{ imageUrl: string; caption?: string; link?: string }[]>(existing.socialPosts ?? []);
   const [hours, setHours] = useState<{ day: string; open: string; close: string; closed: boolean }[]>(
     existing.hours?.length ? existing.hours : DEFAULT_HOURS
   );
@@ -113,18 +140,21 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     existing.socialLinks ?? {}
   );
   const [showMap, setShowMap] = useState(existing.showMap !== false);
-  const [openSection, setOpenSection] = useState<Section>("hero");
+  const [openSection, setOpenSection] = useState<Section>("theme");
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
 
   useEffect(() => {
-    const e: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
-    setTheme(e.theme ?? "classic");
+    const e: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: DEFAULT_THEME };
+    setTheme(e.theme ?? DEFAULT_THEME);
     setTaglineL1(e.taglineL1 ?? "");
     setTaglineL2(e.taglineL2 ?? "");
     setHeroDescription(e.heroDescription ?? "");
+    setAnnouncementText(e.announcementText ?? "");
     setHeroImageUrl(e.heroImageUrl ?? "");
+    setHeroForegroundImageUrl(e.heroForegroundImageUrl ?? "");
     setAboutDescription(e.aboutDescription ?? "");
+    setAboutImageUrl(e.aboutImageUrl ?? "");
     setVision(e.vision ?? "");
     setValues(e.values ?? "");
     setFeatures(e.features?.length ? e.features : [
@@ -136,8 +166,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     setFeaturesImageUrl(e.featuresImageUrl ?? "");
     setStats(e.stats?.length ? e.stats : DEFAULT_STATS_PREFILL);
     setServices(e.services?.length ? e.services : [{ name: "", description: "" }]);
+    setTrustPoints(e.trustPoints ?? []);
+    setSpecialties(e.specialties ?? []);
+    setTreatmentGroups(e.treatmentGroups ?? []);
     setGallery(e.gallery?.length ? e.gallery : []);
     setTestimonials(e.testimonials?.length ? e.testimonials : []);
+    setFaq(e.faq ?? []);
+    setSocialPosts(e.socialPosts ?? []);
     setHours(e.hours?.length ? e.hours : DEFAULT_HOURS);
     setSocialLinks(e.socialLinks ?? {});
     setShowMap(e.showMap !== false);
@@ -164,16 +199,26 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       taglineL1: taglineL1 || undefined,
       taglineL2: taglineL2 || undefined,
       heroDescription: heroDescription || undefined,
+      announcementText: announcementText || undefined,
       heroImageUrl: heroImageUrl || undefined,
+      heroForegroundImageUrl: heroForegroundImageUrl || undefined,
       aboutDescription: aboutDescription || undefined,
+      aboutImageUrl: aboutImageUrl || undefined,
       vision: vision || undefined,
       values: values || undefined,
       features: features.filter(f => f.title),
       featuresImageUrl: featuresImageUrl || undefined,
       stats: stats.filter(s => s.value && s.label),
       services: services.filter(s => s.name),
+      trustPoints: trustPoints.filter(point => point.title && point.description),
+      specialties: specialties.filter(s => s.title && s.description),
+      treatmentGroups: treatmentGroups
+        .map(group => ({ ...group, items: group.items.filter(Boolean) }))
+        .filter(group => group.name && group.items.length > 0),
       gallery: gallery.filter(g => g.url),
       testimonials: testimonials.filter(t => t.quote && t.patientName),
+      faq: faq.filter(item => item.question && item.answer),
+      socialPosts: socialPosts.filter(post => post.imageUrl),
       hours,
       socialLinks: Object.values(socialLinks).some(Boolean) ? socialLinks : undefined,
       showMap,
@@ -189,8 +234,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const liveTestimonials = testimonials.filter(t => t.quote && t.patientName);
   const liveStats = stats.filter(s => s.value && s.label);
   const liveFeatures = features.filter(f => f.title);
+  const liveTrustPoints = trustPoints.filter(point => point.title && point.description);
+  const liveSpecialties = specialties.filter(s => s.title && s.description);
+  const liveTreatmentGroups = treatmentGroups.filter(g => g.name && g.items.some(Boolean));
+  const liveFaq = faq.filter(item => item.question && item.answer);
+  const liveSocialPosts = socialPosts.filter(post => post.imageUrl);
   const socialCount = [socialLinks.instagram, socialLinks.facebook, socialLinks.youtube].filter(Boolean).length;
-  const themeLabel = THEME_OPTIONS.find(t => t.id === theme)?.label ?? "Classic";
+  const themeLabel = THEME_OPTIONS.find(t => t.id === theme)?.label ?? "Red Clinical";
 
   /* ── Sidebar row config ──────────────────────────── */
   const MAP_ROWS: {
@@ -234,6 +284,30 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       dot: liveServices.length > 0 ? "green" : "gray", editable: true, accent: "bg-teal-500",
     },
     {
+      id: "trust", icon: ShieldCheck, label: "Trust & Facilities",
+      status: liveTrustPoints.length > 0
+        ? `${liveTrustPoints.length} point${liveTrustPoints.length !== 1 ? "s" : ""} · showing`
+        : "Add patient benefits",
+      dot: liveTrustPoints.length > 0 ? "green" : "gray",
+      editable: true, accent: "bg-red-500",
+    },
+    {
+      id: "specialties", icon: Sparkles, label: "Specialties",
+      status: specialties.filter(s => s.title && s.description).length > 0
+        ? `${specialties.filter(s => s.title && s.description).length} cards · showing`
+        : "Add speciality cards",
+      dot: specialties.some(s => s.title && s.description) ? "green" : "gray",
+      editable: true, accent: "bg-red-500",
+    },
+    {
+      id: "treatments", icon: ListChecks, label: "Treatment Groups",
+      status: treatmentGroups.filter(g => g.name && g.items.some(Boolean)).length > 0
+        ? `${treatmentGroups.filter(g => g.name && g.items.some(Boolean)).length} groups · showing`
+        : "Add treatment groups",
+      dot: treatmentGroups.some(g => g.name && g.items.some(Boolean)) ? "green" : "gray",
+      editable: true, accent: "bg-red-600",
+    },
+    {
       id: "doctors", icon: Users, label: "Doctors",
       status: "Auto from Manage Doctors",
       dot: "green", editable: false, accent: "bg-sky-400",
@@ -250,6 +324,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       dot: liveTestimonials.length > 0 ? "green" : "amber", editable: true, accent: "bg-amber-400",
     },
     {
+      id: "faq", icon: HelpCircle, label: "FAQ",
+      status: faq.filter(item => item.question && item.answer).length > 0
+        ? `${faq.filter(item => item.question && item.answer).length} answers · showing`
+        : "Add answers to activate",
+      dot: faq.some(item => item.question && item.answer) ? "green" : "amber",
+      editable: true, accent: "bg-red-400",
+    },
+    {
       id: "hours", icon: Clock, label: "Clinic Hours",
       status: `${hours.length} time slot${hours.length !== 1 ? "s" : ""} · visible`,
       dot: "green", editable: true, accent: "bg-slate-400",
@@ -258,6 +340,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       id: "social", icon: Share2, label: "Social Links",
       status: socialCount > 0 ? `${socialCount} link${socialCount !== 1 ? "s" : ""} connected` : "No links added yet",
       dot: socialCount > 0 ? "green" : "gray", editable: true, accent: "bg-pink-400",
+    },
+    {
+      id: "social-posts", icon: Instagram, label: "Social Gallery",
+      status: socialPosts.filter(post => post.imageUrl).length > 0
+        ? `${socialPosts.filter(post => post.imageUrl).length} posts · showing`
+        : "Add social cards",
+      dot: socialPosts.some(post => post.imageUrl) ? "green" : "gray",
+      editable: true, accent: "bg-fuchsia-400",
     },
     {
       id: "footer", icon: Globe, label: "Footer",
@@ -271,6 +361,61 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const needsAttentionCount = MAP_ROWS.filter(r => r.dot === "amber").length;
 
   const activeRow = MAP_ROWS.find(r => r.id === openSection);
+
+  const draftConfig = useMemo<ClinicWebsiteConfig>(() => ({
+    theme,
+    taglineL1: taglineL1 || undefined,
+    taglineL2: taglineL2 || undefined,
+    heroDescription: heroDescription || undefined,
+    announcementText: announcementText || undefined,
+    heroImageUrl: heroImageUrl || undefined,
+    heroForegroundImageUrl: heroForegroundImageUrl || undefined,
+    aboutDescription: aboutDescription || undefined,
+    aboutImageUrl: aboutImageUrl || undefined,
+    vision: vision || undefined,
+    values: values || undefined,
+    features: liveFeatures.length ? liveFeatures : undefined,
+    featuresImageUrl: featuresImageUrl || undefined,
+    stats: liveStats.length ? liveStats : undefined,
+    services: liveServices.length ? liveServices : undefined,
+    trustPoints: liveTrustPoints.length ? liveTrustPoints : undefined,
+    specialties: liveSpecialties.length ? liveSpecialties : undefined,
+    treatmentGroups: liveTreatmentGroups.length
+      ? liveTreatmentGroups.map(group => ({ ...group, items: group.items.filter(Boolean) }))
+      : undefined,
+    gallery: liveGallery.length ? liveGallery : undefined,
+    testimonials: liveTestimonials.length ? liveTestimonials : undefined,
+    faq: liveFaq.length ? liveFaq : undefined,
+    socialPosts: liveSocialPosts.length ? liveSocialPosts : undefined,
+    hours,
+    socialLinks: socialCount > 0 ? socialLinks : undefined,
+    showMap,
+  }), [
+    theme, taglineL1, taglineL2, heroDescription, announcementText,
+    heroImageUrl, heroForegroundImageUrl, aboutDescription, aboutImageUrl,
+    vision, values, liveFeatures, featuresImageUrl, liveStats, liveServices,
+    liveTrustPoints, liveSpecialties, liveTreatmentGroups, liveGallery,
+    liveTestimonials, liveFaq, liveSocialPosts, hours, socialCount,
+    socialLinks, showMap,
+  ]);
+
+  const previewClinic = useMemo(() => ({
+    id: clinic?.id ?? 0,
+    name: clinic?.name ?? "Your clinic",
+    address: clinic?.address ?? null,
+    city: clinic?.city ?? null,
+    phone: clinic?.phone ?? null,
+    email: clinic?.email ?? null,
+    website: clinic?.website ?? null,
+    logoUrl: clinic?.logoUrl ?? null,
+    latitude: clinic?.latitude ?? null,
+    longitude: clinic?.longitude ?? null,
+    doctors: Array.isArray(clinic?.doctors) ? clinic.doctors : null,
+    doctorName: clinic?.doctorName ?? null,
+    doctorSpecialization: clinic?.doctorSpecialization ?? null,
+    doctorDegree: clinic?.doctorDegree ?? null,
+  }), [clinic]);
+  const bookingHref = clinic?.id ? `/book/${clinic.id}` : "/book";
 
   /* ── Content preview pane (top of right panel) ──────── */
   const PreviewPane = () => {
@@ -292,13 +437,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "theme":
         return (
           <div className="h-full flex flex-col">
-            <SectionHeader icon={Palette} title="Visual Style" status={`${themeLabel} active`} statusCls="text-primary" />
+            <SectionHeader icon={Palette} title="Visual Style" status={themeLabel} statusCls="text-primary" />
             <div className="flex-1 p-3 flex gap-2 items-center bg-muted/10 overflow-hidden">
               {THEME_OPTIONS.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setTheme(t.id)}
-                  className={`flex-1 rounded-xl overflow-hidden border-2 transition-all text-left ${theme === t.id ? "border-primary shadow-md" : "border-border/40 hover:border-primary/40"}`}
+                    className={`flex-1 rounded-xl overflow-hidden border-2 transition-colors text-left ${theme === t.id ? "border-primary bg-primary/[0.03] ring-1 ring-primary/20" : "border-border/40 hover:border-primary/40"}`}
                   data-testid={`theme-preview-${t.id}`}
                 >
                   <div className={`h-12 w-full ${t.preview} flex items-end p-1.5`}>
@@ -453,6 +598,73 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "trust":
+        if (liveTrustPoints.length === 0) {
+          return (
+            <div className="h-full flex flex-col">
+              <SectionHeader icon={ShieldCheck} title="Trust & Facilities" status="Hidden — no points added" statusCls="text-muted-foreground" />
+              <div className="flex-1 flex flex-col items-center justify-center p-4 text-center gap-2 bg-muted/10">
+                <ShieldCheck className="h-7 w-7 text-red-400" />
+                <p className="text-xs font-semibold text-foreground">Trust section is hidden</p>
+                <p className="text-xs text-muted-foreground">Add real clinic benefits such as accessibility, parking, emergency care, or technology.</p>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={ShieldCheck} title="Trust & Facilities" status={`${liveTrustPoints.length} points · live`} statusCls="text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {liveTrustPoints.slice(0, 6).map((point, i) => (
+                  <div key={i} className="p-2 rounded-lg border border-red-200/70 dark:border-red-500/20 bg-red-50/40 dark:bg-red-950/10">
+                    <ShieldCheck className="h-4 w-4 text-red-600 mb-1" />
+                    <p className="text-xs font-bold leading-tight line-clamp-2">{point.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{point.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "specialties":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Sparkles} title="Specialties" status={`${liveSpecialties.length} cards · preview`} statusCls={liveSpecialties.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(liveSpecialties.length ? liveSpecialties : specialties).slice(0, 3).map((item, i) => (
+                  <div key={i} className="p-3 rounded-lg border border-red-200/70 dark:border-red-500/20 bg-red-50/40 dark:bg-red-950/10">
+                    <div className="h-6 w-6 rounded-md bg-red-600 text-white flex items-center justify-center mb-2">
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </div>
+                    <p className="text-xs font-bold leading-tight line-clamp-2">{item.title || "Specialty title…"}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description || "Add a short description…"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "treatments":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={ListChecks} title="Treatment Groups" status={`${liveTreatmentGroups.length} groups · preview`} statusCls={liveTreatmentGroups.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(liveTreatmentGroups.length ? liveTreatmentGroups : treatmentGroups).slice(0, 3).map((group, i) => (
+                  <div key={i} className="p-3 rounded-lg bg-red-600 text-white min-h-[92px]">
+                    <p className="text-xs font-bold leading-tight line-clamp-2">{group.name || "Treatment group…"}</p>
+                    <p className="text-[10px] text-white/70 mt-2 line-clamp-3">{group.items.filter(Boolean).join(" · ") || "Add treatment items…"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
       case "gallery":
         if (liveGallery.length === 0) {
           return (
@@ -507,6 +719,21 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   </div>
                   <p className="text-xs text-gray-600 dark:text-muted-foreground italic leading-relaxed line-clamp-2">"{t.quote}"</p>
                   <p className="text-xs font-bold text-[#0A3D2E] dark:text-foreground mt-1">— {t.patientName}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case "faq":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={HelpCircle} title="Frequently Asked Questions" status={`${liveFaq.length} answers · preview`} statusCls={liveFaq.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-white dark:bg-card overflow-hidden space-y-1.5">
+              {(liveFaq.length ? liveFaq : faq).slice(0, 3).map((item, i) => (
+                <div key={i} className="rounded-lg border border-red-200/70 dark:border-red-500/20 overflow-hidden">
+                  <p className="px-2.5 py-1.5 bg-red-600 text-white text-xs font-semibold line-clamp-1">{item.question || "Question…"}</p>
+                  <p className="px-2.5 py-1.5 text-xs text-muted-foreground line-clamp-1">{item.answer || "Answer…"}</p>
                 </div>
               ))}
             </div>
@@ -568,6 +795,22 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "social-posts":
+        return (
+          <div className="h-full flex flex-col">
+            <SectionHeader icon={Instagram} title="Social Gallery" status={`${liveSocialPosts.length} posts · preview`} statusCls={liveSocialPosts.length ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"} />
+            <div className="flex-1 p-4 bg-[#8f1717] dark:bg-red-950/50 overflow-hidden">
+              <div className="grid grid-cols-3 gap-2">
+                {(liveSocialPosts.length ? liveSocialPosts : socialPosts).slice(0, 3).map((post, i) => (
+                  <div key={i} className="aspect-square rounded-lg overflow-hidden bg-white/10">
+                    {post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover" /> : <Instagram className="w-full h-full p-8 text-white/40" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className="h-full flex items-center justify-center bg-muted/10">
@@ -587,13 +830,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">Choose the visual style for your public clinic page. You can change this anytime.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
               {THEME_OPTIONS.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTheme(t.id)}
-                  className={`group relative rounded-xl border-2 overflow-hidden text-left transition-all ${
-                    theme === t.id ? "border-primary shadow-md shadow-primary/20" : "border-border/60 hover:border-primary/40"
+                    className={`group relative rounded-xl border-2 overflow-hidden text-left transition-colors ${
+                     theme === t.id ? "border-primary bg-primary/[0.03]" : "border-border/60 hover:border-primary/40"
                   }`}
                   data-testid={`theme-option-${t.id}`}
                 >
@@ -619,6 +862,10 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "hero":
         return (
           <div className="space-y-4">
+            <div>
+              <Label className="label-field mb-1.5 block">Top Strip Message (optional)</Label>
+              <Input value={announcementText} onChange={e => setAnnouncementText(e.target.value)} placeholder="e.g. Advanced dental care in your city" className="rounded-xl" onFocus={scrollFocus} data-testid="input-announcement-text" />
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <Label className="label-field mb-1.5 block">Tagline Line 1</Label>
@@ -635,8 +882,13 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             </div>
             <div>
               <Label className="label-field mb-1.5 block">Hero / Clinic Photo</Label>
-              <p className="text-xs text-muted-foreground mb-2">Used as the background (Warm theme) or side image (Classic & Modern themes).</p>
+              <p className="text-xs text-muted-foreground mb-2">Used as the main image across themes. The Red Clinical theme uses it as the hero background.</p>
               <ImageUpload currentImage={heroImageUrl || undefined} onImageUploaded={(url) => setHeroImageUrl(url)} folder="clinics" fallbackText="Hero" />
+            </div>
+            <div>
+              <Label className="label-field mb-1.5 block">Hero Foreground / Doctor Photo (optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">Used by the Red Clinical theme for a separate doctor or portrait image.</p>
+              <ImageUpload currentImage={heroForegroundImageUrl || undefined} onImageUploaded={(url) => setHeroForegroundImageUrl(url)} folder="clinics" fallbackText="Doctor" />
             </div>
           </div>
         );
@@ -644,6 +896,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "about":
         return (
           <div className="space-y-4">
+            <div>
+              <Label className="label-field mb-1.5 block">About Photo (optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">Shown beside the clinic story in the Red Clinical theme.</p>
+              <ImageUpload currentImage={aboutImageUrl || undefined} onImageUploaded={(url) => setAboutImageUrl(url)} folder="clinics" fallbackText="About" />
+            </div>
             <div>
               <Label className="label-field mb-1.5 block">About / Our Story</Label>
               <Textarea value={aboutDescription} onChange={e => setAboutDescription(e.target.value)} placeholder="Tell patients about your clinic, your background, and what makes you different..." rows={4} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-about-description" />
@@ -743,7 +1000,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   <Input value={s.description} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-service-desc-${i}`} />
                 </div>
                 <div>
-                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Service Photo (optional)</Label>
+                  <Label className="label-field mb-1.5 block">Service Photo (optional)</Label>
                   <ImageUpload currentImage={s.imageUrl || undefined} onImageUploaded={(url) => setServices(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Svc" />
                 </div>
               </div>
@@ -751,6 +1008,94 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setServices(prev => [...prev, { name: "", description: "" }])} data-testid="button-add-service">
               <Plus className="h-3.5 w-3.5" />Add Service
             </Button>
+          </div>
+        );
+
+      case "trust":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 6 specific, truthful reasons patients can trust your clinic. Examples include wheelchair access, emergency appointments, parking, technology, specialist care, or EMI options.</p>
+            {trustPoints.map((point, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Trust point {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setTrustPoints(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-trust-point-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid sm:grid-cols-[1fr_180px] gap-3">
+                  <Input value={point.title} onChange={e => setTrustPoints(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="e.g. Wheelchair-friendly ground floor" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-trust-point-title-${i}`} />
+                  <select value={point.category ?? ""} onChange={e => setTrustPoints(prev => prev.map((x, j) => j === i ? { ...x, category: e.target.value || undefined } : x))} className="rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[44px]" data-testid={`select-trust-point-category-${i}`}>
+                    <option value="">Category (optional)</option>
+                    <option value="Accessibility">Accessibility</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Facilities">Facilities</option>
+                    <option value="Payment">Payment</option>
+                    <option value="Specialist care">Specialist care</option>
+                  </select>
+                </div>
+                <Textarea value={point.description} onChange={e => setTrustPoints(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Explain how this helps patients" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-trust-point-description-${i}`} />
+              </div>
+            ))}
+            {trustPoints.length < 6 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setTrustPoints(prev => [...prev, { title: "", description: "" }])} data-testid="button-add-trust-point">
+                <Plus className="h-3.5 w-3.5" />Add Trust Point
+              </Button>
+            )}
+          </div>
+        );
+
+      case "specialties":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 6 speciality cards. These are shown in the Red Clinical theme as focused areas of expertise.</p>
+            {specialties.map((item, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Specialty {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setSpecialties(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-specialty-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Input value={item.title} onChange={e => setSpecialties(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Specialty title" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-specialty-title-${i}`} />
+                <Textarea value={item.description} onChange={e => setSpecialties(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description of this speciality" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-specialty-description-${i}`} />
+              </div>
+            ))}
+            {specialties.length < 6 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setSpecialties(prev => [...prev, { title: "", description: "" }])} data-testid="button-add-specialty">
+                <Plus className="h-3.5 w-3.5" />Add Specialty
+              </Button>
+            )}
+          </div>
+        );
+
+      case "treatments":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 8 treatment groups. Enter one treatment per line to create the reference-style red treatment cards.</p>
+            {treatmentGroups.map((group, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Treatment Group {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setTreatmentGroups(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-treatment-group-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Input value={group.name} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="e.g. Aesthetic & Conservative Dentistry" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-treatment-group-name-${i}`} />
+                <Textarea value={group.description ?? ""} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Optional group description" rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-treatment-group-description-${i}`} />
+                <Textarea value={group.items.join("\n")} onChange={e => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, items: e.target.value.split("\n").map(v => v.trim()).filter(Boolean) } : x))} placeholder={"One treatment per line\nComposite bonding\nCeramic veneers"} rows={4} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-treatment-group-items-${i}`} />
+                <div>
+                  <Label className="label-field mb-1.5 block">Group Image (optional)</Label>
+                  <ImageUpload currentImage={group.imageUrl || undefined} onImageUploaded={(url) => setTreatmentGroups(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Treat" />
+                </div>
+              </div>
+            ))}
+            {treatmentGroups.length < 8 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setTreatmentGroups(prev => [...prev, { name: "", description: "", items: [] }])} data-testid="button-add-treatment-group">
+                <Plus className="h-3.5 w-3.5" />Add Treatment Group
+              </Button>
+            )}
           </div>
         );
 
@@ -808,6 +1153,30 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "faq":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 12 frequently asked questions. The FAQ section is hidden until at least one complete answer is saved.</p>
+            {faq.map((item, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Question {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setFaq(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-faq-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <Input value={item.question} onChange={e => setFaq(prev => prev.map((x, j) => j === i ? { ...x, question: e.target.value } : x))} placeholder="Frequently asked question" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-faq-question-${i}`} />
+                <Textarea value={item.answer} onChange={e => setFaq(prev => prev.map((x, j) => j === i ? { ...x, answer: e.target.value } : x))} placeholder="Answer for patients" rows={3} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-faq-answer-${i}`} />
+              </div>
+            ))}
+            {faq.length < 12 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setFaq(prev => [...prev, { question: "", answer: "" }])} data-testid="button-add-faq">
+                <Plus className="h-3.5 w-3.5" />Add Question
+              </Button>
+            )}
+          </div>
+        );
+
       case "hours":
         return (
           <div className="space-y-3">
@@ -851,6 +1220,31 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         );
 
+      case "social-posts":
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Add up to 6 image cards for the social gallery. These are manually managed; the page does not connect to a live social-media feed.</p>
+            {socialPosts.map((post, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Social Post {i + 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setSocialPosts(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-social-post-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <ImageUpload currentImage={post.imageUrl || undefined} onImageUploaded={(url) => setSocialPosts(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Post" />
+                <Input value={post.caption ?? ""} onChange={e => setSocialPosts(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-social-post-caption-${i}`} />
+                <Input value={post.link ?? ""} onChange={e => setSocialPosts(prev => prev.map((x, j) => j === i ? { ...x, link: e.target.value } : x))} placeholder="Post link (optional)" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-social-post-link-${i}`} />
+              </div>
+            ))}
+            {socialPosts.length < 6 && (
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setSocialPosts(prev => [...prev, { imageUrl: "" }])} data-testid="button-add-social-post">
+                <Plus className="h-3.5 w-3.5" />Add Social Post
+              </Button>
+            )}
+          </div>
+        );
+
       default:
         return null;
     }
@@ -863,10 +1257,10 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     <div className="space-y-5">
 
       {/* ── Top header ── */}
-      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
         <div className="flex">
           <div className="w-1.5 bg-sky-500/60 shrink-0" />
-          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
                 <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
@@ -878,39 +1272,45 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {previewUrl && (
-                <>
-                  {/* Mobile: open preview in-app sheet */}
-                  <Button
-                    variant="outline"
-                    className="gap-2 rounded-xl min-h-[44px] sm:hidden"
-                    onClick={() => setPreviewSheetOpen(true)}
-                    data-testid="button-preview-mobile"
-                  >
-                    <Smartphone className="h-3.5 w-3.5" />
-                    Preview
-                  </Button>
-                  {/* Desktop: open in new tab */}
-                  <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
-                    <Button variant="outline" className="gap-2 rounded-xl min-h-[44px]">
-                      <Eye className="h-3.5 w-3.5" />
-                      Preview
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </a>
-                </>
-              )}
-              <Button
-                className="gap-2 rounded-xl min-h-[44px]"
-                onClick={handleSave}
-                disabled={saveMutation.isPending}
-                data-testid="button-save-website"
-              >
-                <Save className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Save Website</span>
-                <span className="sm:hidden">Save</span>
-              </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Plain-language setup guide ── */}
+      <div
+        className="rounded-2xl border border-amber-200/80 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20 overflow-hidden"
+        data-testid="website-setup-guide"
+      >
+        <div className="flex">
+          <div className="w-1.5 shrink-0 bg-amber-400 dark:bg-amber-500" />
+          <div className="flex-1 px-4 py-3.5 sm:px-5">
+            <div className="flex items-start gap-2.5">
+              <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                  How to set up your clinic website
+                </h3>
+                <ol className="mt-2.5 grid gap-x-6 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    ["Choose a website style", "Start with a theme that matches the look you want for your clinic."],
+                    ["Complete each section", "Add your introduction, services, treatments, facilities, FAQs, photos, and contact details."],
+                    ["Follow the status dots", "Green means ready. Amber means more information is needed. Grey means optional or not added yet."],
+                    ["Preview your website", "Preview shows the last saved version, so save your changes first to review your latest edits."],
+                    ["Save when you are finished", "Click Save Website to publish your updates to the page patients see before booking."],
+                    ["Some details are automatic", "Your clinic name, address, phone number, and other profile details can come from your clinic profile."],
+                  ].map(([title, description], index) => (
+                    <li key={title} className="flex items-start gap-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/75">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-900/70 dark:text-amber-100">
+                        {index + 1}
+                      </span>
+                      <span>
+                        <strong className="font-semibold text-amber-950 dark:text-amber-100">{title}:</strong>{" "}
+                        {description}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
           </div>
         </div>
@@ -919,60 +1319,52 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       {/* ══════════════════════════════════════════════
           WEBSITE STRUCTURE  (2-pane unified editor)
       ══════════════════════════════════════════════ */}
-      <div className="rounded-2xl border border-border/60 overflow-hidden shadow-sm">
+      <div className="rounded-2xl border border-primary/20 bg-card overflow-hidden">
 
         {/* E — Panel header with completion counter */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-muted/40 border-b border-border/50">
+        <div className="flex flex-col gap-3 px-5 py-4 bg-primary/[0.04] border-b border-primary/20 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <Layout className="h-4 w-4 text-primary shrink-0" />
-            <span className="font-semibold text-sm text-foreground">Website Structure</span>
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Layout className="h-4 w-4 text-primary" />
+            </div>
+            <span className="font-semibold text-base text-foreground">Website Structure</span>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {configuredCount} of {MAP_ROWS.length} sections set up
               {needsAttentionCount > 0 && ` · ${needsAttentionCount} need content`}
             </span>
           </div>
-          {previewUrl && (
-            <a
-              href={previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline active:underline active:opacity-70 shrink-0"
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {previewUrl && (
+              <Button
+                variant="outline"
+                className="gap-2 rounded-xl min-h-[40px]"
+                onClick={() => setPreviewSheetOpen(true)}
+                data-testid="button-preview-website"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Preview
+              </Button>
+            )}
+            <Button
+              className="gap-2 rounded-xl min-h-[40px]"
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              data-testid="button-save-website"
             >
-              Open live page <ExternalLink className="h-2.5 w-2.5" />
-            </a>
-          )}
-        </div>
-
-        {/* A — Page-order section map: shows sections as a horizontal ordered strip */}
-        <div className="hide-scrollbar border-b border-border/40 bg-gradient-to-r from-muted/40 to-transparent overflow-x-auto shrink-0">
-          <div className="flex items-center gap-1 px-4 py-2 min-w-max">
-            <span className="text-xs font-semibold text-muted-foreground/60 mr-2 shrink-0 uppercase tracking-wide">Page top → bottom</span>
-            {MAP_ROWS.map((row, idx) => {
-              const Icon = row.icon;
-              const isMapActive = openSection === row.id;
-              const mapDotCls = row.dot === "green" ? "bg-emerald-500" : row.dot === "amber" ? "bg-amber-400" : "bg-muted-foreground/25";
-              return (
-                <button
-                  key={row.id}
-                  onClick={() => row.editable ? setOpenSection(row.id as Section) : undefined}
-                  disabled={!row.editable}
-                  title={`${row.label} — ${row.status}`}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all shrink-0 min-h-[44px] ${
-                    isMapActive
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : row.editable
-                        ? "border-border/40 text-muted-foreground hover:bg-muted/50 hover:border-border active:scale-[0.97]"
-                        : "border-border/20 text-muted-foreground/40 cursor-default"
-                  }`}
-                  data-testid={`section-map-${row.id}`}
-                >
-                  <span className="text-xs font-mono opacity-50">{idx + 1}</span>
-                  <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${mapDotCls}`} />
-                  <Icon className="h-3 w-3" />
-                  <span className="hidden sm:inline">{row.label}</span>
-                </button>
-              );
-            })}
+              <Save className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Save Website</span>
+              <span className="sm:hidden">Save</span>
+            </Button>
+            {previewUrl && (
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary font-semibold flex items-center gap-1 px-1 hover:underline active:underline active:opacity-70 shrink-0"
+              >
+                Open public page <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            )}
           </div>
         </div>
 
@@ -980,7 +1372,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(400px, 60vh, 600px)" }}>
 
           {/* ── Mobile: horizontal tab strip with status dots (hidden on desktop) ── */}
-          <div className="hide-scrollbar lg:hidden flex overflow-x-auto gap-1 p-2 border-b border-border/40">
+          <div className="hide-scrollbar lg:hidden flex overflow-x-auto gap-1 p-2 bg-muted/[0.18] border-b border-border/50">
             {MAP_ROWS.map((row, idx) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
@@ -988,13 +1380,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               return (
                 <button
                   key={row.id}
-                  onClick={() => row.editable ? setOpenSection(row.id as Section) : undefined}
-                  disabled={!row.editable}
+                  onClick={() => setOpenSection(row.id as Section)}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border whitespace-nowrap shrink-0 transition-all min-h-[44px] text-xs font-semibold ${
                     isActive
-                      ? "bg-primary/10 border-primary/30 text-primary"
+                    ? "bg-primary/12 border-primary/40 text-primary ring-1 ring-primary/15"
                       : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97]"
-                  } ${!row.editable ? "opacity-40 cursor-default" : ""}`}
+                  }`}
                   data-testid={`mobile-tab-${row.id}`}
                 >
                   <span className="text-xs font-mono opacity-40">{idx + 1}</span>
@@ -1007,7 +1398,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
 
           {/* B — Left: redesigned section navigator (desktop only) */}
-          <div className="hidden lg:flex lg:flex-col w-60 shrink-0 border-r border-border/40 overflow-y-auto">
+          <div className="hidden lg:flex lg:flex-col w-60 shrink-0 bg-muted/[0.22] border-r border-border/60 overflow-y-auto">
             {MAP_ROWS.map((row, idx) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
@@ -1020,11 +1411,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 row.dot === "green" ? "text-emerald-600 dark:text-emerald-400" :
                 "text-muted-foreground";
 
-              if (!row.editable) {
+               if (!row.editable) {
                 return (
-                  <div
+                   <button
+                     type="button"
+                     onClick={() => setOpenSection(row.id as Section)}
                     key={row.id}
-                    className="flex items-start gap-3 px-3 py-3 border-b border-border/20 bg-muted/10"
+                     className={`mx-2 flex w-[calc(100%-1rem)] items-start gap-3 px-3 py-3 border-b border-border/30 bg-muted/20 rounded-lg text-left transition-colors hover:bg-muted/40 ${openSection === row.id ? "ring-1 ring-primary/25" : ""}`}
+                     aria-current={openSection === row.id ? "page" : undefined}
                   >
                     <span className="text-xs font-mono text-muted-foreground/30 mt-1.5 w-4 text-right shrink-0">{idx + 1}</span>
                     <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -1035,7 +1429,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                       <p className="text-xs text-muted-foreground/50 mt-1 leading-tight line-clamp-2">{row.autoNote || row.status}</p>
                     </div>
                     <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${dotCls}`} />
-                  </div>
+                   </button>
                 );
               }
 
@@ -1043,15 +1437,16 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <button
                   key={row.id}
                   onClick={() => setOpenSection(row.id as Section)}
-                  className={`w-full flex items-start gap-3 px-3 py-3 text-left transition-all group min-h-[52px] border-b border-border/20 ${
+                   className={`mx-2 w-[calc(100%-1rem)] flex items-start gap-3 px-3 py-3 text-left transition-all group min-h-[52px] ${
                     isActive
-                      ? "bg-primary/8 border-l-[3px] border-l-primary"
-                      : "hover:bg-muted/50 active:bg-muted/70 border-l-[3px] border-l-transparent"
+                        ? "bg-primary/10 border border-primary/25 border-l-[3px] border-l-primary rounded-xl"
+                       : "hover:bg-background/70 active:bg-muted/70 border-b border-border/30 border-l-[3px] border-l-transparent"
                   }`}
+                   aria-current={isActive ? "page" : undefined}
                   data-testid={`map-row-${row.id}`}
                 >
                   <span className={`text-xs font-mono mt-1.5 w-4 text-right shrink-0 ${isActive ? "text-primary/50" : "text-muted-foreground/30"}`}>{idx + 1}</span>
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? "bg-primary/10" : "bg-muted group-hover:bg-muted/70"}`}>
+                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? "bg-primary/15" : "bg-muted group-hover:bg-muted/70"}`}>
                     <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
@@ -1067,15 +1462,22 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           {/* ── Right: preview + editor ── */}
           <div className="flex-1 flex flex-col overflow-hidden">
 
-            {/* C — Content preview strip (SectionHeader rendered inside each PreviewPane case) */}
-            <div className="h-52 shrink-0 border-b border-border/40 overflow-hidden">
-              {PreviewPane()}
+             {/* C — Theme-aware live preview of the selected public section */}
+             <div className="h-[clamp(280px,42vh,440px)] shrink-0 overflow-hidden border-b border-border/40">
+               <LiveSectionPreview
+                 section={openSection}
+                 config={draftConfig}
+                 clinic={previewClinic}
+                 bookingHref={bookingHref}
+                 sectionIndex={MAP_ROWS.findIndex(row => row.id === openSection)}
+                 sectionCount={MAP_ROWS.length}
+               />
             </div>
 
             {/* Edit form area */}
             {activeRow?.editable ? (
               <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-5">
+                <div className="editor-form-fields flex-1 overflow-y-auto p-5">
                   {EditorPane()}
                 </div>
                 {/* Sticky save bar */}
@@ -1109,18 +1511,19 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         </div>
       </div>
 
-      {/* ── Mobile live preview sheet ── */}
+      {/* ── Full-screen saved website preview ── */}
       {previewUrl && (
         <Sheet open={previewSheetOpen} onOpenChange={setPreviewSheetOpen}>
           <SheetContent
             side="bottom"
-            className="h-[92dvh] p-0 flex flex-col rounded-t-2xl overflow-hidden"
+            className="!inset-0 !h-[100dvh] !w-screen !max-w-none !rounded-none !border-0 !p-0 flex flex-col overflow-hidden [&>button]:hidden"
           >
             {/* Header bar */}
-            <SheetHeader className="shrink-0 flex flex-row items-center justify-between px-4 py-3 border-b border-border/50 bg-background space-y-0">
-              <SheetTitle className="text-sm font-semibold flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-primary" />
-                Live Clinic Page
+            <SheetHeader className="shrink-0 flex flex-row items-center justify-between gap-3 px-4 py-3 border-b border-border/50 bg-background space-y-0">
+              <SheetTitle className="text-sm font-semibold flex items-center gap-2 min-w-0">
+                <Eye className="h-4 w-4 text-primary shrink-0" />
+                <span className="truncate">Clinic Website Preview</span>
+                <span className="hidden sm:inline text-[11px] font-normal text-muted-foreground shrink-0">Saved version</span>
               </SheetTitle>
               <div className="flex items-center gap-2">
                 <Button
@@ -1155,15 +1558,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               </div>
             </SheetHeader>
 
-            {/* URL pill */}
-            <div className="shrink-0 px-4 py-2 bg-muted/30 border-b border-border/40">
-              <p className="text-[11px] text-muted-foreground font-mono truncate text-center">
-                {window.location.origin}{previewUrl}
-              </p>
-            </div>
-
             {/* iframe */}
-            <div className="flex-1 overflow-hidden bg-background">
+            <div className="min-h-0 flex-1 overflow-hidden bg-background">
               <iframe
                 key={iframeKey}
                 src={previewUrl}

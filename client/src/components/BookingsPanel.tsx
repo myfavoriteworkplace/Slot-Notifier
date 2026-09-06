@@ -267,8 +267,9 @@ export default function BookingsPanel({
     services: [{ description: "Dental Consultation", amount: "500", category: "Consultation" }],
   });
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const todayStart = startOfDay(new Date());
+  const now = new Date();
+  const todayStr = format(now, 'yyyy-MM-dd');
+  const todayStart = startOfDay(now);
   const statNext7DaysEnd = addDays(todayStart, 7);
   const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const thisWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
@@ -1919,7 +1920,7 @@ export default function BookingsPanel({
                   : [];
 
                 const isPending = !isConfirmed && !isBookingPast;
-                const group = isGrouped ? getTimeGroup(booking, todayStart) : -1;
+                const group = isGrouped ? getTimeGroup(booking, now) : -1;
                 const showDivider = isGrouped && group !== lastGroup;
                 const actionState = getActionState(booking);
                 // Monotonic guard: once we enter the Past group, never step back to Future/Today
@@ -1932,7 +1933,7 @@ export default function BookingsPanel({
                       <div className="h-px flex-1 bg-border/50" />
                       <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
                         {groupCfg.label}
-                        <span className="font-black opacity-70">— {filteredBookings?.filter(b => getTimeGroup(b, todayStart) === group).length ?? 0}</span>
+                        <span className="font-black opacity-70">— {filteredBookings?.filter(b => getTimeGroup(b, now) === group).length ?? 0}</span>
                       </span>
                       <div className="h-px flex-1 bg-border/50" />
                       <button
@@ -3353,17 +3354,26 @@ export default function BookingsPanel({
 
                           const renderFooterAction = (action: AppointmentFooterAction, primary: boolean) => {
                             const pending = footerActionPending(action);
+                            const currentTab = getModalTab(booking.id);
+                            const isCurrentTabAction = action.target === currentTab;
+                            const buttonLabel = isCurrentTabAction ? "Close" : action.label;
                             const button = (
                               <Button
                                 variant={primary ? "default" : "outline"}
                                 size={primary ? "default" : "sm"}
                                 className={`w-full min-w-0 ${primary ? "min-h-11 h-auto py-2 text-sm font-semibold" : "min-h-10 h-auto py-2 text-xs font-medium"} gap-1.5 whitespace-normal text-center leading-tight active:scale-[0.98] transition-all`}
-                                onClick={() => handleFooterAction(action)}
+                                onClick={() => {
+                                  if (isCurrentTabAction) {
+                                    setOpenBookingId(null);
+                                  } else {
+                                    handleFooterAction(action);
+                                  }
+                                }}
                                 disabled={pending}
-                                data-testid={`button-dialog-footer-${action.id}-${booking.id}`}
+                                data-testid={`button-dialog-footer-${isCurrentTabAction ? "close" : action.id}-${booking.id}`}
                               >
                                 {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                {action.label}
+                                {buttonLabel}
                               </Button>
                             );
                             return (
