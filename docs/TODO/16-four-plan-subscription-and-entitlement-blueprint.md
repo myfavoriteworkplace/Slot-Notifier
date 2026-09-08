@@ -28,7 +28,8 @@ This blueprint proposes:
 4. **Pro** as the higher-volume and premium-visibility plan.
 5. One shared entitlement catalog used by pricing, administration, clinic UI, backend authorization, messaging, storage, analytics, and audit records.
 6. Server-side enforcement for every commercial limit.
-7. A safe trial-expiry process that preserves clinic data and does not silently break essential clinical or security communication.
+7. A safe initial-Trial and post-paid-expiry recovery process that preserves clinic data and does not silently break essential clinical or security communication.
+8. A Super Admin plan-management flow that can configure policies, assign a plan, extend a Trial, and assign a paid plan after a paid subscription expires.
 
 This document is a policy and implementation blueprint. It does not authorize changing plan prices, Razorpay configuration, database schema, clinic access, or notification behavior until the decisions in this document are approved.
 
@@ -91,6 +92,9 @@ The repository already contains useful pieces:
 The following gaps must be treated as part of the four-plan work:
 
 - No Trial lifecycle or trial expiry state.
+- No default transition from an expired paid plan into a controlled Trial/recovery state.
+- No Super Admin action for assigning or extending Trial on an existing clinic.
+- No dedicated, provider-safe action for assigning a paid plan after paid expiry.
 - No central plan entitlement catalog.
 - No complete server-side enforcement for advertised booking, doctor, deal, analytics, or messaging differences.
 - No consistent plan-aware access response for every clinic route.
@@ -114,6 +118,13 @@ The following principles govern the plan model.
 
 Trial should help a clinic understand the product and complete a realistic workflow. It should not become an unrestricted free operating tier.
 
+The same Trial entitlement can be used for two controlled purposes:
+
+1. **Initial Trial:** the clinic evaluates BookMySlot before subscribing.
+2. **Post-paid-expiry recovery Trial:** a previously paid clinic gets a temporary, capped recovery period after its paid subscription expires so the platform does not abruptly remove all operational access while the clinic is being reactivated.
+
+The post-paid-expiry recovery Trial is not a reset of the clinic’s original acquisition Trial. It must have an explicit origin and must not create an endless free loop.
+
 ### 3.2 Core healthcare workflows remain available
 
 Patient data, clinical history, consent, billing records, basic appointment management, and data portability should not be artificially removed from lower paid plans.
@@ -135,13 +146,15 @@ Hiding a navigation item or disabling a button is not plan enforcement. Every re
 
 ### 3.4 Data must never disappear at expiry or downgrade
 
-When a trial expires or a clinic downgrades:
+When an initial Trial expires, a paid subscription expires, or a clinic downgrades:
 
 - Existing data remains preserved.
 - The clinic receives a clear explanation.
 - New restricted activity is controlled explicitly.
 - Export and data-access rights remain available.
 - No records are silently deleted.
+- A paid subscription expiry first moves the clinic into the controlled Trial/recovery state defined in this document.
+- A later Trial/recovery expiry changes access state explicitly; it does not silently reactivate a paid plan.
 
 ### 3.5 Essential communication must be protected
 
@@ -304,6 +317,87 @@ When the clinic selects a paid plan:
 - The clinic should not be charged twice because of a Trial-to-paid transition.
 
 Recommended initial conversion rule: the paid plan becomes effective immediately after successful subscription activation, and usage already consumed is retained in the period rather than reset.
+
+### 5.7 Paid-plan expiry automatically enters Trial/recovery
+
+The recommended default behavior is:
+
+> When an active paid Starter, Growth, or Pro subscription reaches a confirmed expiry, the clinic automatically moves to the Trial plan with `trialing` access for a controlled recovery period.
+
+This is a deliberate access-preservation policy. It gives the clinic a clear opportunity to contact the platform or be assigned a new paid plan by an application administrator, while applying the smaller Trial limits instead of silently continuing the expired paid entitlements.
+
+#### Trigger conditions
+
+The fallback must occur only when the paid subscription is genuinely expired:
+
+- A verified provider event confirms expiry, cancellation at the end of the paid term, or non-renewal.
+- The stored paid subscription period has ended and the provider status has been reconciled.
+- A Super Admin explicitly confirms expiry through an audited administrative action.
+
+The following should not immediately trigger the recovery Trial:
+
+- A temporary provider outage.
+- An unprocessed or unmatched webhook.
+- A short payment retry period.
+- A `past_due` state that still has an approved payment grace period.
+- An unknown provider value.
+
+Those states remain visible as attention states until reconciled.
+
+#### Recovery Trial behavior
+
+When the transition is applied:
+
+1. The effective plan becomes `trial`.
+2. The access state becomes `trialing`.
+3. The Trial origin is recorded as `paid_expiry`.
+4. The previous paid plan is preserved.
+5. The previous paid subscription/provider identifier remains historical and is not reused as an active Trial subscription.
+6. The recovery Trial starts at the confirmed expiry time.
+7. The recommended recovery duration is 14 calendar days.
+8. The Trial limits in Section 5.4 apply immediately.
+9. Essential security, OTP, consent, and appointment messages remain protected.
+10. The clinic sees the Trial end date and a clear option to contact support or request a paid plan.
+
+The clinic must not silently retain the old Growth or Pro limits after paid expiry.
+
+#### Existing usage above Trial limits
+
+A previously paid clinic may already exceed Trial limits when it enters recovery. The system must not delete or deactivate existing data merely to fit the smaller limits.
+
+Instead:
+
+- Existing doctors, deals, files, appointments, patient records, and clinical records remain visible according to authorization.
+- New activity that would increase a restricted count beyond the Trial limit is blocked with an explainable message.
+- Existing storage above the Trial limit is preserved, but new uploads are blocked until the clinic upgrades, removes files, or receives an approved exception.
+- Existing public content is not silently deleted; publication behavior after the recovery period must be explicit.
+- Messaging uses the Trial allowance for new accepted/billable activity, with essential-message protection.
+- Super Admin sees an “above Trial limit” warning for each affected entitlement.
+
+#### No repeated automatic reset loophole
+
+The recovery Trial must not restart repeatedly because the same paid subscription produces multiple provider events.
+
+Required safeguards:
+
+- Make the expiry transition idempotent using the provider subscription/event identity and an internal transition record.
+- Allow one automatic recovery Trial per paid subscription instance.
+- Do not reset Trial dates when the same expiry event is received again.
+- A new paid subscription may receive its own recovery Trial if it later genuinely expires.
+- Any additional Trial extension or recovery period requires an explicit, audited Super Admin action.
+
+#### Recovery Trial expiry
+
+When the 14-day recovery Trial ends:
+
+- The clinic remains on the `trial` plan for historical clarity.
+- The access state becomes `expired` or the project’s approved equivalent.
+- The clinic does not silently return to Starter, Growth, or Pro.
+- The clinic cannot use expired paid entitlements.
+- The clinic retains approved read-only access, support contact, and data export behavior.
+- A Super Admin may later assign Starter, Growth, or Pro through the dedicated plan-assignment flow.
+
+The exact post-recovery read-only behavior must be consistent with initial Trial expiry, but it must never delete clinic data.
 
 ---
 
@@ -698,6 +792,23 @@ trial_expiry_reason
 
 The final storage shape should follow the project’s existing schema conventions. The important requirement is that Trial dates and conversion history are explicit and auditable.
 
+Recommended additional lifecycle values are:
+
+```text
+trial_origin
+  initial_signup
+  paid_expiry
+  admin_granted
+
+previous_paid_plan
+paid_expired_at
+recovery_trial_transition_id
+```
+
+`previous_paid_plan` is required for clear support and Super Admin display when the clinic’s current `plan` has changed to `trial`. The historical provider subscription identifier should remain in provider-event history rather than being overwritten or reused.
+
+The implementation may use separate normalized tables instead of adding every value directly to `clinics`, but the effective state must be queryable without reconstructing it from an unbounded event log.
+
 ### 12.4 Paid subscription states
 
 For paid plans, access decisions must use the shared subscription-state policy. The policy must define:
@@ -708,8 +819,34 @@ For paid plans, access decisions must use the shared subscription-state policy. 
 - Whether existing data remains readable.
 - Which actions require reactivation.
 - How provider errors differ from confirmed cancellation.
+- When confirmed expiry triggers the default Trial/recovery transition.
+- How provider expiry events are reconciled before changing the clinic’s effective plan.
 
 No route should independently invent its own interpretation of `unpaid`, `expired`, or unknown provider states.
+
+### 12.5 State transition policy
+
+The intended high-level transitions are:
+
+```text
+initial_signup
+  -> trialing / plan=trial
+  -> active / plan=starter|growth|pro
+
+active paid plan
+  -> past_due
+  -> active paid plan              (payment succeeds)
+  -> trialing / plan=trial         (confirmed paid expiry)
+
+trialing / plan=trial
+  -> active / plan=starter|growth|pro  (admin or approved paid conversion)
+  -> expired / plan=trial              (Trial or recovery Trial ends)
+
+expired / plan=trial
+  -> active / plan=starter|growth|pro  (Super Admin assigns and activates a paid plan)
+```
+
+The `active paid plan -> trialing / plan=trial` transition is the required default for a confirmed paid subscription expiry. It must not be implemented as a client-only display change; it is a server-side, audited lifecycle transition.
 
 ---
 
@@ -737,6 +874,8 @@ The catalog should support at least:
 ```text
 booking_monthly_limit
 booking_trial_total_limit
+trial_duration_days
+trial_origin
 active_doctor_limit
 smile_deal_live_limit
 storage_bytes_limit
@@ -772,6 +911,7 @@ Every entitlement response should be able to explain whether its value came from
 - Plan default.
 - Tenant override.
 - Trial state.
+- Trial origin and previous paid plan.
 - Subscription state.
 - Emergency disablement.
 
@@ -869,6 +1009,109 @@ Temporary support exceptions should be distinct from plan defaults:
 
 Permanent undocumented overrides should not be introduced.
 
+### 14.5 Super Admin plan configuration
+
+The application Admin should have a dedicated **Subscription Plans** or **Plan Policies** area rather than requiring administrators to edit clinic records directly.
+
+The configuration view should show all four plans and support controlled policy configuration for:
+
+- Trial duration.
+- Booking limits.
+- Active doctor limits.
+- Smile Deal limits.
+- Storage limits.
+- SMS, WhatsApp, and email allowances.
+- Analytics level.
+- Export level.
+- Website level.
+- Inventory and pharmacy level.
+- Support level.
+- Premium badge and featured-placement eligibility.
+
+Configuration rules:
+
+- Only authorized Super Admins can change plan policies.
+- Each change requires a reason.
+- Changes are versioned with effective timestamps.
+- Existing historical usage remains tied to the policy that was active at the time.
+- A policy change must not silently reset clinic usage.
+- High-impact paid-plan or messaging changes should require an explicit confirmation step.
+- Plan policy configuration is different from a tenant-specific exception.
+
+### 14.6 Super Admin plan assignment and Trial extension
+
+The Admin clinic detail view should provide a dedicated plan-management action with:
+
+- Current plan and effective state.
+- Previous paid plan, when the clinic is in a recovery Trial.
+- Trial origin.
+- Trial start, expiry, and grace dates.
+- Current usage against Trial or paid limits.
+- Provider subscription status.
+- Target plan selector.
+- Billing-cycle selector for paid plans only.
+- Effective-date explanation.
+- Required administrator reason.
+- Confirmation before submission.
+
+Supported actions:
+
+#### Start or assign Trial
+
+For a clinic without an active paid subscription:
+
+- Set plan to `trial`.
+- Set state to `trialing`.
+- Create Trial dates.
+- Record the Trial origin as `admin_granted` or `initial_signup`.
+- Do not create a Razorpay subscription.
+- Do not create a paid activation link.
+
+#### Extend Trial
+
+For a clinic already in initial or recovery Trial:
+
+- Offer approved durations such as 7 days and 14 days, plus a controlled custom-date option if needed.
+- Require a reason.
+- Show the current and new expiry dates.
+- Record the administrator, previous expiry, new expiry, origin, and reason.
+- Do not reset usage unless a separate policy explicitly approves it.
+
+#### Assign a paid plan after paid expiry
+
+For a clinic in recovery Trial or expired Trial:
+
+- Allow the administrator to select Starter, Growth, or Pro.
+- Require monthly or annual billing cycle.
+- Create or initiate the correct new paid subscription flow.
+- Do not reuse the expired provider subscription identifier.
+- Keep the old provider event history intact.
+- Set the clinic to a payment-pending state until the approved activation/payment event succeeds, unless a documented manual override is used.
+- On successful activation, set the effective plan and paid active state.
+- Record the previous Trial state and the new paid plan.
+
+This action must not be implemented by exposing the general clinic-edit endpoint to arbitrary `plan` updates.
+
+#### Change an active paid plan
+
+Changing Starter, Growth, or Pro for an already-paid clinic requires a separate provider-aware upgrade/downgrade policy. The administrator must see whether the change is effective immediately or at renewal. A direct database change must not leave Razorpay billing on the old plan.
+
+#### Assigning Trial to an active paid clinic
+
+This should be blocked by default. A paid-to-Trial move is only safe after the paid provider subscription is cancelled or otherwise reconciled, with an explicit reason and audit record. It must not create a clinic that is simultaneously billed as paid and entitled as Trial.
+
+### 14.7 Provider and admin race protection
+
+Plan assignment and expiry fallback must be safe if an administrator action and a provider webhook arrive close together.
+
+The implementation should:
+
+- Re-read the clinic and provider state inside the final transaction or guarded update.
+- Use provider subscription/event identities for idempotency.
+- Reject stale admin updates when the clinic’s subscription state has changed.
+- Record whether the final state came from a provider event, admin action, or manual override.
+- Never allow a late provider event for an expired subscription to reactivate the old paid plan without reconciliation.
+
 ---
 
 ## 15. Super Admin requirements
@@ -882,6 +1125,9 @@ Add or plan for:
 - Clinics in Trial.
 - Trials expiring within 7 days.
 - Expired Trials awaiting conversion.
+- Clinics automatically moved from an expired paid plan into recovery Trial.
+- Recovery Trials that are above one or more Trial limits.
+- Clinics awaiting Super Admin paid-plan assignment.
 - Active clinics by plan.
 - Clinics approaching booking, doctor, storage, or messaging limits.
 - Clinics with unknown or provider-error subscription states.
@@ -899,7 +1145,9 @@ Recommended columns:
 | Tenant | Clinic identity |
 | Plan | Trial, Starter, Growth, or Pro |
 | Access state | Trialing, active, pending payment, expired, or other state |
-| Trial/renewal date | Relevant expiry or renewal date |
+| Trial origin | Initial signup, paid expiry, or admin granted |
+| Trial/renewal date | Relevant expiry, recovery expiry, or renewal date |
+| Previous paid plan | Paid plan before recovery Trial, if applicable |
 | Booking usage | Used / limit |
 | Doctor usage | Active / limit |
 | Messaging usage | Per-channel used / limit |
@@ -916,6 +1164,8 @@ The tenant detail drawer should explain:
 - Effective access state.
 - Billing cycle.
 - Trial dates or paid renewal date.
+- Whether the Trial is initial or post-paid-expiry recovery.
+- Previous paid plan and paid expiry timestamp, if applicable.
 - Provider subscription link status.
 - Booking usage and limit.
 - Active doctor count and limit.
@@ -924,6 +1174,7 @@ The tenant detail drawer should explain:
 - Storage usage and limit.
 - Analytics and feature access.
 - Active exceptions.
+- Pending paid-plan assignment or activation.
 - Pending warnings.
 - Last entitlement calculation time.
 - Relevant audit events.
@@ -1019,11 +1270,14 @@ Approve:
 2. Record the Trial start event once.
 3. Add expiry and grace-period calculations.
 4. Add conversion tracking.
-5. Add clinic-facing Trial notices.
-6. Add Super Admin Trial filters and attention states.
-7. Add tests for timezone and boundary behavior.
+5. Add Trial origin and previous paid-plan tracking.
+6. Add the confirmed paid-expiry -> Trial/recovery transition.
+7. Add idempotency for provider expiry events.
+8. Add clinic-facing Trial and recovery-Trial notices.
+9. Add Super Admin Trial filters and attention states.
+10. Add tests for timezone and boundary behavior.
 
-**Output:** A reliable Trial lifecycle without changing paid clinic access.
+**Output:** A reliable initial and post-paid-expiry Trial lifecycle without losing clinic data or leaving paid provider state inconsistent.
 
 ### Phase 3 — Reporting-only entitlements
 
@@ -1036,7 +1290,20 @@ Approve:
 
 **Output:** Measurable plan usage with no sudden production disruption.
 
-### Phase 4 — Warning mode
+### Phase 4 — Super Admin plan configuration and assignment
+
+1. Add the four-plan policy configuration view.
+2. Add versioned policy updates with audit reasons.
+3. Add clinic-level Start Trial and Extend Trial actions.
+4. Add Assign Paid Plan for recovery or expired Trial clinics.
+5. Add provider-aware activation and payment-pending states.
+6. Add confirmation and stale-state protection.
+7. Add previous-plan, Trial-origin, and transition history to the tenant detail view.
+8. Prevent direct unrestricted plan mutation through the general clinic-edit route.
+
+**Output:** Administrators can safely configure Trial policy, extend a Trial, and assign a paid plan after paid expiry.
+
+### Phase 5 — Warning mode
 
 1. Add 80% and 95% warnings where applicable.
 2. Add Trial expiry warnings.
@@ -1047,7 +1314,7 @@ Approve:
 
 **Output:** Clinics and platform staff can act before limits interrupt work.
 
-### Phase 5 — Controlled server-side enforcement
+### Phase 6 — Controlled server-side enforcement
 
 1. Enforce doctor creation limits.
 2. Enforce new booking limits.
@@ -1062,18 +1329,19 @@ Approve:
 
 **Output:** Predictable commercial limits with protected clinical and security workflows.
 
-### Phase 6 — Provider and commercial alignment
+### Phase 7 — Provider and commercial alignment
 
 1. Confirm Razorpay plan mapping remains correct.
 2. Add paid-plan upgrade and downgrade flows.
 3. Add Trial-to-paid conversion handling.
-4. Define transaction-fee calculation only after the fee policy is approved.
-5. Add plan-change reconciliation and provider event handling.
-6. Add historical policy references to usage reports.
+4. Add recovery-Trial-to-paid assignment handling.
+5. Define transaction-fee calculation only after the fee policy is approved.
+6. Add plan-change reconciliation and provider event handling.
+7. Add historical policy references to usage reports.
 
 **Output:** Subscription state and entitlements remain aligned with the payment provider.
 
-### Phase 7 — Commercial refinement
+### Phase 8 — Commercial refinement
 
 After at least one or two complete usage periods:
 
@@ -1097,6 +1365,10 @@ Test:
 
 - Every plan resolves to the expected limits.
 - Trial dates use the correct boundary behavior.
+- A confirmed paid subscription expiry moves the clinic to `trialing` with `plan=trial`.
+- Repeated copies of the same provider expiry event do not restart or extend the recovery Trial.
+- A recovery Trial records its previous paid plan and origin.
+- A recovery Trial uses Trial limits immediately, without deleting data above those limits.
 - Existing Starter, Growth, and Pro identifiers remain valid.
 - Unknown plan or state values remain visible and actionable.
 - Legacy `unpaid` maps to `pending_payment`.
@@ -1110,6 +1382,11 @@ Test every restricted operation for:
 - Trial at the limit.
 - Trial expired.
 - Trial in grace period.
+- Paid plan expired and automatically entered recovery Trial.
+- Recovery Trial above Trial limits.
+- Recovery Trial expired awaiting Super Admin assignment.
+- Super Admin assigned a paid plan after recovery Trial.
+- Super Admin extended initial and recovery Trial.
 - Active Starter.
 - Active Growth.
 - Active Pro.
@@ -1132,6 +1409,8 @@ Test:
 - Multi-recipient messages.
 - Storage metadata and exact-scan differences.
 - First-month and plan-change behavior.
+- Paid-expiry fallback and repeated provider-event idempotency.
+- Late provider event after paid expiry.
 
 ### 18.4 Privacy tests
 
@@ -1181,6 +1460,13 @@ The following decisions must be confirmed before implementation:
 18. Should Starter have standard email support from launch?
 19. Is an allowance prorated during the first paid month?
 20. What payment grace period applies to paid subscriptions?
+21. Is the recovery Trial duration exactly 14 days?
+22. Should the automatic recovery Trial be available once per paid provider subscription instance?
+23. What read-only and public-booking behavior applies after the recovery Trial ends?
+24. Which Super Admin roles can configure plan policies?
+25. Which Super Admin roles can assign or extend a Trial?
+26. Does assigning a paid plan after expiry require successful payment before access changes?
+27. Which paid-plan changes are effective immediately versus at the next renewal?
 
 No code should infer answers to these questions from current UI text.
 
@@ -1192,6 +1478,10 @@ The four-plan policy is ready for implementation when:
 
 - Trial, Starter, Growth, and Pro have plain-language purposes.
 - Trial duration and expiry behavior are approved.
+- Confirmed paid-plan expiry defaults to the controlled Trial/recovery state.
+- Recovery Trial duration, limits, origin, and one-transition-per-subscription rule are approved.
+- Super Admin can assign a paid plan later without reusing an expired provider subscription.
+- Super Admin Trial assignment and extension actions require authorization, confirmation, reason, and audit history.
 - Trial does not require payment details unless explicitly approved.
 - Booking, doctor, Smile Deal, storage, and messaging limits are approved.
 - Starter, Growth, and Pro identifiers remain stable.
@@ -1203,6 +1493,7 @@ The four-plan policy is ready for implementation when:
 - Subscription state and plan are modeled separately.
 - Unknown and legacy subscription values have a defined interpretation.
 - Upgrade, downgrade, expiry, and support-exception behavior is documented.
+- Paid expiry, recovery Trial, and later paid-plan assignment behavior is documented.
 - Transaction-fee scope is either implemented and audited or removed from enforceable marketing claims.
 - Server-side enforcement is required for every restricted operation.
 - Usage and entitlement warnings have an audit approach.
@@ -1229,6 +1520,8 @@ This blueprint does not:
 - Promise unlimited messaging or unlimited storage.
 - Add write-enabled Super Admin impersonation.
 - Delete data at Trial expiry or downgrade.
+- Treat a recovery Trial as a new unrestricted acquisition Trial.
+- Reactivate an expired paid provider subscription without reconciliation.
 
 ---
 
@@ -1252,5 +1545,8 @@ The recommended commercial position is:
 - Use volume, messaging, analytics, visibility, and support for differentiation.
 - Include essential WhatsApp notifications in Starter, while reserving advanced promotional WhatsApp for Growth and Pro.
 - Start with reporting, then warnings, then controlled enforcement.
+- On confirmed paid expiry, move the clinic by default to a 14-day Trial/recovery state using Trial limits.
+- Preserve the previous paid plan and provider history.
+- Let Super Admin later assign Starter, Growth, or Pro through a provider-aware, audited action.
 
-After approval, the next document update should reconcile the messaging blueprint with the Trial tier and record the final decisions. Only after that should the shared entitlement catalog and Trial lifecycle be implemented.
+After approval, the next document update should reconcile the messaging blueprint with the Trial and recovery-Trial tiers and record the final decisions. Only after that should the shared entitlement catalog, expiry fallback, and Super Admin plan-management flow be implemented.
