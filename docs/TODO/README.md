@@ -21,6 +21,8 @@ This folder contains an evidence-based review of the application and a prioritiz
 | [10-environment-categorisation-plan.md](./10-environment-categorisation-plan.md) | Compatibility-first plan for separating `APP_ENV` labels from `NODE_ENV` runtime behavior |
 | [13-dynamic-theme-aware-website-section-preview.md](./13-dynamic-theme-aware-website-section-preview.md) | Plan for a prominent, draft-aware section preview that matches the selected public website theme |
 | [14-super-admin-platform-operations-blueprint.md](./14-super-admin-platform-operations-blueprint.md) | Team-ready blueprint for Super Admin subscription, service usage, storage, health, security, and audit operations |
+| [15-messaging-allowance-and-plan-policy-blueprint.md](./15-messaging-allowance-and-plan-policy-blueprint.md) | Planning blueprint for messaging allowances, thresholds, reset periods, and staged enforcement |
+| [16-four-plan-subscription-and-entitlement-blueprint.md](./16-four-plan-subscription-and-entitlement-blueprint.md) | Detailed four-tier subscription model and entitlement blueprint for Trial, Starter, Growth, and Pro |
 
 ## Executive summary
 
