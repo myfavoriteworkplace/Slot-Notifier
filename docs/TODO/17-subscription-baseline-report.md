@@ -47,5 +47,5 @@
 - Active doctor counts are based on clinic_doctors links because the current schema has no active/inactive doctor field.
 - Smile Deal live-post counts are a proxy based on is_active and the starts_at/expires_at window because draft and published states are not separate fields.
 
-This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits. It is development-environment evidence only and must not be treated as the current-clinic Render baseline. Before catalog calculations are accepted, representative development fixtures or populated development data should be used; before production rollout or enforcement, the same generator must be run against the Render PostgreSQL database.
+This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits. It is development-environment evidence only and must not be treated as the current-clinic Render baseline. The shared catalog now has representative in-memory policy tests; if database-level reporting is added during development, use populated development fixtures or a development snapshot. Before production rollout or enforcement, the same generator must be run against the Render PostgreSQL database.
 

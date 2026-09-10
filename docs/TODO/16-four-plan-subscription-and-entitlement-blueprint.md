@@ -43,7 +43,7 @@ This table is the approved execution order. It separates the completed commercia
 |---|---|---|---|---|
 | **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, and transaction-fee scope. | **Complete for implementation planning.** The approved contract is recorded in Section 19. Transaction-fee calculation and exact inventory/pharmacy item-count thresholds are explicitly deferred. | The signed-off four-plan matrix, terminology, message categories, and decision log mark every item as Approved or Explicitly deferred. |
 | **1. Record the current baseline** | Take a safe “before” snapshot so new restrictions do not accidentally break existing clinics. | Inventory current plan assignments, subscription states, Razorpay IDs, usage, storage, doctors, deals, bookings, and provider events. Identify clinics that would already be above a proposed Trial or paid limit. | **Development validation is partially complete; the production-clinic migration baseline is intentionally deferred.** The read-only generator is `scripts/subscription-baseline.ts`; the Replit development database used for the first run had zero clinic rows. During the current development phase, representative fixtures or populated development data are sufficient for validating catalog calculations. A full Render-clinic baseline is required before production rollout or enforcement, not before development catalog work. | Development fixtures prove the calculations and unavailable-data handling; before production rollout, every clinic has a known current plan, access state, usage snapshot, and migration/exception decision. |
-| **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **Not started as a shared catalog.** Paid plan values and some storage/messaging data exist, but the public pricing page and activation response still contain hardcoded values. | Draft and published policies are distinct; historical versions are immutable; annual savings are calculated; all consumers have a migration plan away from hardcoded values. |
+| **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **In progress — catalog foundation and resolution tests completed.** The shared published catalog now contains the approved four-plan limits, feature levels, messaging allowances, annual prices, annual-savings calculation, explicit deferrals, and unknown-plan handling. Existing pricing, activation, storage, and usage consumers still need migration to the catalog. | Draft and published policies are distinct; historical versions are immutable; annual savings are calculated; all consumers have a migration plan away from hardcoded values. |
 | **3. Add subscription, Trial, assignment, and exception history** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, assignment history, policy version references, transition identity, and time-limited exceptions. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no complete lifecycle or history model. | The system can explain initial Trial, paid conversion, renewal, expiry, recovery, extension, downgrade, exception, and later paid assignment without reconstructing history manually. |
 | **4. Build the effective-entitlement service** | Give every part of the app the same answer about what a clinic may do right now. | Resolve clinic → plan → subscription/Trial state → policy defaults → temporary exception → emergency disablement; return value, source, usage, limit, and stable error code. | **Not started.** The subscription-state normalizer exists, but it does not calculate plan permissions or limits. | A single server-side service answers both “what is included?” and “is this action allowed?” |
 | **5. Calculate usage in reporting-only mode** | Measure first, without blocking anyone. | Calculate booking, doctor, Smile Deal, storage, SMS, WhatsApp, email, analytics, and export usage; show used, limit, remaining, reset/expiry date, timezone, and data freshness. | **Partial foundation.** Communication usage, storage tracking, and some Admin/clinic views exist; plan limits are not connected to a unified report. | At least one complete reporting period proves the numbers are accurate and unavailable data is not shown as zero. |
@@ -1733,3 +1733,37 @@ The immediate next step is to build and validate the shared plan-policy catalog 
 7. Do not assign plans, change subscription state, create Trial records, or enforce limits during this development stage.
 
 The generator is read-only and uses the runtime `DATABASE_URL`; credentials must remain in the environment's secret configuration and must not be copied into the repository or chat. The future pre-production baseline should run from the Render backend environment or an approved one-off environment against the Render database. The catalog must preserve the approved Section 19 decisions and remain reporting-only until the later warning and enforcement gates are approved.
+
+### 22.3 Shared catalog foundation evidence
+
+The development-stage catalog foundation was started on **2026-09-11 (Asia/Calcutta)**:
+
+- Shared policy source: `shared/plan-catalog.ts`
+- Focused policy tests: `shared/plan-catalog.test.ts`
+- Catalog state: published code-level policy document, version `2026-09-11.v1`
+- Plans represented: `trial`, `starter`, `growth`, and `pro`
+- Included policy data:
+  - prices and calculated annual savings
+  - Trial duration, grace period, and Trial-lifetime allowances
+  - booking, active-doctor, Smile Deal, and storage limits
+  - SMS, WhatsApp, and email allowances
+  - analytics, export, inventory, pharmacy, website, support, and visibility levels
+  - essential versus advanced WhatsApp packaging
+  - explicit transaction-fee and inventory/pharmacy item-count deferrals
+  - unknown-plan handling without a silent Starter fallback
+- Representative test coverage includes every plan, legacy `unpaid` separation from plan identity, unknown values, Trial and monthly periods, fair-use unlimited values, annual savings, and feature packaging.
+
+Verification completed:
+
+```text
+npx tsx --test shared/plan-catalog.test.ts client/src/lib/booking-list.test.ts
+  11 passed, 0 failed
+
+npm run check
+  passed
+
+npm run build
+  passed
+```
+
+This is a catalog foundation, not a completed consumer migration. The next catalog work is to migrate the public pricing and other plan-value consumers to this source without enabling enforcement. Draft/published persistence, immutable database policy history, Trial lifecycle fields, reporting-only entitlement endpoints, and the Render production baseline remain later gates.
