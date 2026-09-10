@@ -89,6 +89,16 @@ The current public pricing baseline is:
 
 The annual prices are approximately ten months of monthly pricing, giving an effective two-month annual discount.
 
+The corresponding annual savings are:
+
+| Plan | Annual price | Saving versus twelve monthly payments |
+|---|---:|---:|
+| Starter | ₹9,990/year | ₹1,998 |
+| Growth | ₹15,990/year | ₹3,198 |
+| Pro | ₹29,990/year | ₹5,998 |
+
+These savings should be shown clearly when the annual billing option is selected. The Pro saving is ₹5,998, calculated as ₹35,988 in monthly payments minus ₹29,990 annually.
+
 This blueprint recommends keeping these prices initially. Packaging and enforcement should be corrected before price optimization is attempted.
 
 ### 2.2 Current advertised differences
@@ -147,6 +157,35 @@ The following gaps must be treated as part of the four-plan work:
 - No approved rule for which messages are essential, routine, optional, or test.
 - No complete audit trail for entitlement decisions and quota blocks.
 - No final decision on whether essential WhatsApp notifications should be available on Starter.
+- The public pricing page does not show Trial as the primary low-friction entry point.
+- The public pricing page does not clearly show messaging allowances, storage limits, annual savings, or the units for volume limits.
+- The public pricing page does not provide a consistent upgrade explanation from Starter to Growth or Pro.
+
+---
+
+### 2.5 Pricing page alignment requirements
+
+The public pricing page is a presentation layer for the shared plan catalog. It must not become a separate source of plan rules or make commercial promises that the entitlement system cannot explain.
+
+The updated pricing experience should:
+
+- Show **Trial** as the primary entry point for a new clinic.
+- Present Trial as a free, temporary evaluation option rather than as a Razorpay-paid plan.
+- State that Trial requires no payment card unless the approved commercial policy changes.
+- Describe Trial as access to the **core clinic workflow with controlled limits**, not as an unrestricted full-feature plan.
+- Keep Growth visually recommended without implying that Starter is unsafe or unusable.
+- Use unambiguous units such as “Up to 30 bookings per month” rather than “Up to 30 / mo.”
+- Show separate SMS, WhatsApp, and email allowances, including whether each allowance is Trial-lifetime or calendar-month based.
+- Show storage limits because clinic files may include X-rays, consent documents, and clinical photos.
+- Show the annual price and the saving against twelve monthly payments:
+  - Starter: ₹9,990/year, save ₹1,998.
+  - Growth: ₹15,990/year, save ₹3,198.
+  - Pro: ₹29,990/year, save ₹5,998.
+- Explain what a clinic gains when moving from Starter to Growth or Pro, including booking capacity, doctor capacity, messaging allowances, storage, analytics, and advanced workflows.
+- Use Starter WhatsApp wording that distinguishes essential appointment notifications from advanced, bulk, or promotional workflows. This wording must remain conditional until the Starter WhatsApp decision is approved and the capability is available.
+- Either omit transaction-fee percentages or label them clearly as planned/unfinalized until the fee scope, calculation, reconciliation, and enforcement policy are approved.
+
+The pricing page should read these values from the shared versioned plan catalog when implementation begins. Hardcoded marketing values must not drift from the entitlement policy.
 
 ---
 
@@ -274,6 +313,8 @@ The Trial should answer a clinic’s practical questions:
 - Can the clinic understand the public website and Smile Deal experience?
 
 The Trial should not be an artificial brochure. It should allow the clinic to complete the main workflow with controlled volume.
+
+For public-facing copy, “core clinic workflow” means the clinic can test the central booking, appointment, patient, consent, billing, communication, and basic operational experience within Trial limits. It does not mean that every advanced Growth or Pro capability is included.
 
 ### 5.2 Trial duration
 
@@ -480,6 +521,8 @@ Its value should come from:
 
 The public pricing page should clearly identify Growth as the recommended plan without implying that Starter is unsafe or unusable.
 
+The pricing page should also provide a simple upgrade story. A Starter clinic approaching its limit should be able to understand that Growth provides five times the booking capacity, up to three doctors, higher messaging allowances, more storage, advanced analytics, and additional operational headroom. This guidance is explanatory; it must not replace server-side entitlement checks.
+
 ### 6.3 Pro
 
 Pro is for established or high-volume clinics and clinics that value public visibility and faster support.
@@ -605,6 +648,8 @@ The current public pricing page does not advertise WhatsApp for Starter. This bl
 - Bulk, promotional, or advanced WhatsApp workflows: Growth and Pro only.
 
 This provides a coherent Trial-to-Starter experience while still preserving meaningful Growth and Pro differentiation.
+
+If this recommendation is approved, the public pricing page should describe Starter as including essential appointment notifications within its allowance, while describing Growth and Pro as adding higher allowances and advanced, bulk, or promotional workflows. If the business chooses the alternative, the pricing page must not show Starter WhatsApp as included or imply that Trial depends on it.
 
 If the business instead wants WhatsApp to remain Growth/Pro-only, the Trial must not advertise or rely on WhatsApp as part of its complete workflow. That alternative should be explicitly approved rather than left as an accidental downgrade.
 
@@ -904,6 +949,7 @@ Plan values must be defined in one shared policy catalog rather than duplicated 
 - Messaging helpers.
 - Analytics routes.
 - Upgrade prompts.
+- Public pricing copy and comparison tables.
 
 The catalog should describe both limits and feature access.
 
@@ -1300,7 +1346,8 @@ Approve:
 3. Move plan descriptions and limits into one shared source.
 4. Add policy versioning.
 5. Add tests for plan resolution.
-6. Keep current behavior unchanged until enforcement is intentionally enabled.
+6. Define the pricing-page view model for plan names, units, allowances, annual savings, and upgrade copy.
+7. Keep current behavior unchanged until enforcement is intentionally enabled.
 
 **Output:** One explainable plan policy used by presentation and future enforcement.
 
@@ -1351,6 +1398,10 @@ Approve:
 4. Add operational alerts.
 5. Add audit records for warnings.
 6. Verify unavailable data is not displayed as zero.
+7. Verify Trial is presented separately from paid plans and uses core-workflow wording.
+8. Verify pricing units, messaging allowances, storage limits, annual prices, and annual savings match the approved catalog.
+9. Verify transaction-fee copy is omitted or clearly marked as unfinalized.
+10. Verify Starter WhatsApp copy matches the approved essential-notification decision.
 
 **Output:** Clinics and platform staff can act before limits interrupt work.
 
@@ -1507,6 +1558,8 @@ The following decisions must be confirmed before implementation:
 25. Which Super Admin roles can assign or extend a Trial?
 26. Does assigning a paid plan after expiry require successful payment before access changes?
 27. Which paid-plan changes are effective immediately versus at the next renewal?
+28. Should Trial be displayed as a banner/entry panel or as a comparison-table column, or both?
+29. Which exact public wording is approved for the Starter WhatsApp scope and Trial core workflow?
 
 No code should infer answers to these questions from current UI text.
 
@@ -1526,6 +1579,11 @@ The four-plan policy is ready for implementation when:
 - Booking, doctor, Smile Deal, storage, and messaging limits are approved.
 - Starter, Growth, and Pro identifiers remain stable.
 - Prices and annual discount treatment are documented.
+- Annual pricing shows the correct savings: ₹1,998 for Starter, ₹3,198 for Growth, and ₹5,998 for Pro.
+- Public pricing uses clear volume units, including “bookings per month,” rather than ambiguous shorthand.
+- Public pricing shows separate messaging allowances and storage limits from the shared plan catalog.
+- Trial is presented as a separate, no-card entry path with core-workflow wording rather than an unrestricted full-feature promise.
+- Growth has an understandable upgrade story without making Starter appear unusable.
 - Core clinical and data-portability features are explicitly protected.
 - Feature-based and volume-based entitlements are distinguished.
 - WhatsApp packaging is explicitly decided.
@@ -1580,10 +1638,13 @@ The recommended commercial position is:
 
 - Keep current paid prices.
 - Add a 14-day no-card Trial.
+- Present Trial as the primary low-friction pricing-page entry point, separate from paid Razorpay plans.
 - Make Growth the recommended plan.
 - Keep core clinical workflows available on all tiers.
 - Use volume, messaging, analytics, visibility, and support for differentiation.
 - Include essential WhatsApp notifications in Starter, while reserving advanced promotional WhatsApp for Growth and Pro.
+- Show separate messaging allowances, storage limits, clear booking units, annual prices, and annual savings on the pricing page.
+- Keep transaction-fee percentages out of enforceable marketing claims until their scope is implemented and audited.
 - Start with reporting, then warnings, then controlled enforcement.
 - On confirmed paid expiry, move the clinic by default to a 14-day Trial/recovery state using Trial limits.
 - Preserve the previous paid plan and provider history.
