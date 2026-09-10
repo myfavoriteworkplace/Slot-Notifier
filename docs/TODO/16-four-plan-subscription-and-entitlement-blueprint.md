@@ -1,6 +1,6 @@
 # Four-Plan Subscription and Entitlement Blueprint
 
-**Status:** Planning only — implementation roadmap clarified; no application behavior has been changed
+**Status:** Commercial policy approved for implementation planning; implementation roadmap clarified; no application behavior has been changed
 **Related blueprints:** [Super Admin Platform Operations](14-super-admin-platform-operations-blueprint.md), [Messaging Allowance and Plan Policy](15-messaging-allowance-and-plan-policy-blueprint.md)  
 **Audience:** Product, operations, support, finance, frontend, backend, database, QA, security, and platform teams  
 **Application:** BookMySlot dental clinic platform  
@@ -31,29 +31,31 @@ This blueprint proposes:
 7. A safe initial-Trial and post-paid-expiry recovery process that preserves clinic data and does not silently break essential clinical or security communication.
 8. A Super Admin plan-management flow that can configure policies, assign a plan, extend a Trial, and assign a paid plan after a paid subscription expires.
 
-This document is a policy and implementation blueprint. It does not authorize changing plan prices, Razorpay configuration, database schema, clinic access, or notification behavior until the decisions in this document are approved.
+This document is a policy and implementation blueprint. The commercial policy in Section 19 is approved for implementation planning, but that approval does not authorize changing plan prices, Razorpay configuration, database schema, clinic access, or notification behavior. Those changes require the staged implementation and release gates described below.
 
 ---
 
 ## Implementation plan at a glance
 
-This table is the recommended execution order. It separates business decisions from coding work so that the application does not start blocking clinics before the rules are agreed and measured.
+This table is the approved execution order. It separates the completed commercial decision gate from implementation work so that the application does not start blocking clinics before the rules are measured and the policy is versioned.
 
 | Step | Purpose in common words | Main implementation work | Progress today | Done when |
 |---|---|---|---|---|
-| **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, and transaction-fee scope. | **Needs product approval.** The blueprint contains recommendations, but the open decisions are not signed off. | There is one approved four-plan matrix and no route or UI has to guess what a limit means. |
+| **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, and transaction-fee scope. | **Complete for implementation planning.** The approved contract is recorded in Section 19. Transaction-fee calculation and exact inventory/pharmacy item-count thresholds are explicitly deferred. | The signed-off four-plan matrix, terminology, message categories, and decision log mark every item as Approved or Explicitly deferred. |
 | **1. Record the current baseline** | Take a safe “before” snapshot so new restrictions do not accidentally break existing clinics. | Inventory current plan assignments, subscription states, Razorpay IDs, usage, storage, doctors, deals, bookings, and provider events. Identify clinics that would already be above a proposed Trial or paid limit. | **Foundation exists, audit still needed.** The app already stores several of these values, but there is no complete entitlement baseline report. | Every clinic has a known current plan, access state, usage snapshot, and migration/exception decision. |
-| **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **Partial foundation.** Paid plan values and some storage/messaging data exist, but there is no central entitlement catalog. | Pricing, Admin, clinic UI, services, and routes all read the same versioned policy. |
-| **3. Add explicit subscription and Trial lifecycle data** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, and transition identity. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no Trial lifecycle fields. | The system can explain whether a clinic is Trialing, active, pending payment, expired, or in recovery without reconstructing history manually. |
+| **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **Not started as a shared catalog.** Paid plan values and some storage/messaging data exist, but the public pricing page and activation response still contain hardcoded values. | Draft and published policies are distinct; historical versions are immutable; annual savings are calculated; all consumers have a migration plan away from hardcoded values. |
+| **3. Add subscription, Trial, assignment, and exception history** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, assignment history, policy version references, transition identity, and time-limited exceptions. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no complete lifecycle or history model. | The system can explain initial Trial, paid conversion, renewal, expiry, recovery, extension, downgrade, exception, and later paid assignment without reconstructing history manually. |
 | **4. Build the effective-entitlement service** | Give every part of the app the same answer about what a clinic may do right now. | Resolve clinic → plan → subscription/Trial state → policy defaults → temporary exception → emergency disablement; return value, source, usage, limit, and stable error code. | **Not started.** The subscription-state normalizer exists, but it does not calculate plan permissions or limits. | A single server-side service answers both “what is included?” and “is this action allowed?” |
 | **5. Calculate usage in reporting-only mode** | Measure first, without blocking anyone. | Calculate booking, doctor, Smile Deal, storage, SMS, WhatsApp, email, analytics, and export usage; show used, limit, remaining, reset/expiry date, timezone, and data freshness. | **Partial foundation.** Communication usage, storage tracking, and some Admin/clinic views exist; plan limits are not connected to a unified report. | At least one complete reporting period proves the numbers are accurate and unavailable data is not shown as zero. |
-| **6. Implement Trial and paid-expiry recovery** | Give new clinics a safe trial and give expired paid clinics a short, controlled chance to recover. | Start Trial once, calculate expiry/grace dates, warn before expiry, move confirmed paid expiry to recovery Trial, preserve old plan/provider history, and make the transition idempotent. | **Not started.** No `trialing` state or automatic paid-expiry recovery flow exists. | Repeated provider events cannot restart a Trial, and expiry never deletes data or silently leaves paid access active. |
-| **7. Add Super Admin plan operations** | Let authorized staff manage plans safely without editing clinic rows directly. | Add policy configuration, Start Trial, Extend Trial, Assign Paid Plan after expiry, reasons, confirmation, role checks, audit events, stale-state protection, and provider-aware activation. | **Partial foundation.** Clinic approval can select Starter/Growth/Pro, but there is no dedicated four-plan management flow or Trial action. | Every manual plan change is authorized, confirmed, explainable, audited, and safe against provider/admin races. |
-| **8. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial foundation.** Some storage and messaging usage views exist; there is no complete plan/Trial/entitlement view. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
-| **9. Turn on warnings before restrictions** | Give people time to act instead of suddenly stopping work. | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, warning audit records, and upgrade/support guidance. | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and audit events do not. | Warnings are accurate, explainable, timezone-aware, and do not consume the clinic’s own allowance. |
-| **10. Enforce limits on the server** | Actually apply the plan rules securely; hiding a button is not enough. | Enforce doctor, booking, deal, storage, analytics, export, and messaging rules in backend routes/services; protect essential clinical/security messages; return structured errors. | **Not started.** Current dashboard modules are generally available independently of plan. | Every restricted operation is checked server-side and gives a clear reason when denied; existing data remains visible. |
-| **11. Align Razorpay and plan changes** | Ensure the screen, database, and payment provider never disagree. | Verify plan/cycle mapping, Trial-to-paid conversion, recovery-Trial-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation, idempotency, and historical policy references. | **Partial foundation.** Razorpay plan mapping and provider-event history exist; Trial conversion/recovery and safe plan changes do not. | A paid plan is activated only through the approved provider/payment path, and expired provider subscriptions are never reused accidentally. |
-| **12. Release gradually and refine** | Learn from real usage before making the limits permanent. | Run policy tests, authorization tests, counting/privacy tests, Build Check, reporting comparison, warning rollout, controlled optional-message enforcement, monitoring, and versioned allowance changes. | **Not started.** The blueprint defines tests and rollout stages, but no four-plan rollout has begun. | Production behavior is measured, support issues are understood, and future plan changes remain explainable through policy versions. |
+| **6. Build the read-only Subscription Plans Admin area** | Let operations review the model and its impact before mutations are enabled. | Add separate Plan Policies and Clinic Subscription Management views with published policy, versions, provider mappings, usage impact, affected clinics, Trial history, exceptions, and provider history. | **Not started.** Existing Admin views show partial plan and usage data but no dedicated four-plan policy area. | Read-only views are role-protected, responsive, backed by real data, and distinguish catalog price, provider price, policy version, and clinic exception. |
+| **7. Add draft → review → validate → publish policy workflow** | Make global commercial changes deliberate and auditable. | Add draft editing, required reasons, validation, calculated savings, provider-mapping checks, impact preview, explicit publish confirmation, immutable versions, and policy audit records. | **Not started.** Current clinic editing and approval routes are not policy workflows. | Invalid or incomplete policies cannot publish, and publishing never changes an existing Razorpay subscription by itself. |
+| **8. Implement Trial creation, conversion, expiry, and recovery** | Give new clinics a safe trial and give expired paid clinics a short, controlled chance to recover. | Start Trial once, calculate expiry/grace dates, warn before expiry, move confirmed paid expiry to recovery Trial, preserve old plan/provider history, and make the transition idempotent. | **Not started.** No `trialing` state or automatic paid-expiry recovery flow exists. | Repeated provider events cannot restart a Trial, and expiry never deletes data or silently leaves paid access active. |
+| **9. Add safe Super Admin plan operations** | Let authorized staff manage plans safely without editing clinic rows directly. | Add Start Trial, Extend Trial, Assign Paid Plan after expiry, reasons, confirmation, role checks, audit events, stale-state protection, and provider-aware activation. | **Partial foundation.** Clinic approval can select Starter/Growth/Pro, but there is no dedicated four-plan management flow or Trial action. | Every manual plan change is authorized, confirmed, explainable, audited, and safe against provider/admin races. |
+| **10. Complete provider lifecycle and commercial alignment** | Ensure the screen, database, and payment provider never disagree. | Verify plan/cycle mapping, Trial-to-paid conversion, recovery-Trial-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation, idempotency, and historical policy references. | **Partial foundation.** Razorpay plan mapping and provider-event history exist; Trial conversion/recovery and safe plan changes do not. | A paid plan is activated only through the approved provider/payment path, and expired provider subscriptions are never reused accidentally. |
+| **11. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial foundation.** Some storage and messaging usage views exist; there is no complete plan/Trial/entitlement view. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
+| **12. Turn on warnings before restrictions** | Give people time to act instead of suddenly stopping work. | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, warning audit records, and upgrade/support guidance. | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and audit events do not. | Warnings are accurate, explainable, timezone-aware, and do not consume the clinic’s own allowance. |
+| **13. Enforce limits on the server** | Actually apply the plan rules securely; hiding a button is not enough. | Enforce doctor, booking, deal, storage, analytics, export, and messaging rules in backend routes/services; protect essential clinical/security messages; return structured errors. | **Not started.** Current dashboard modules are generally available independently of plan. | Every restricted operation is checked server-side and gives a clear reason when denied; existing data remains visible. |
+| **14. Release gradually, monitor, and refine** | Learn from real usage before making the limits permanent. | Run policy tests, authorization tests, counting/privacy tests, Build Check, reporting comparison, warning rollout, controlled optional-message enforcement, monitoring, and versioned allowance changes. | **Not started.** The blueprint defines tests and rollout stages, but no four-plan rollout has begun. | At least one or two complete usage periods are reviewed; release gates pass; support and provider reconciliation procedures exist. |
 
 ### What this means in common-man terms
 
@@ -318,10 +320,12 @@ For public-facing copy, “core clinic workflow” means the clinic can test the
 
 ### 5.2 Trial duration
 
-Recommended policy:
+Approved policy:
 
 - 14 calendar days.
-- Trial starts when the clinic is activated or completes its first authenticated onboarding session.
+- An initial Trial starts when the clinic is activated by the platform. The first authenticated session does not delay the start.
+- An administrator-granted Trial starts when the grant is recorded.
+- A paid-expiry recovery Trial starts at the confirmed paid-expiry timestamp.
 - The start event must be recorded once and must not reset merely because the clinic logs out.
 - The exact start and end timestamps should be stored.
 - The clinic timezone should be used for the human-facing expiry date.
@@ -331,7 +335,7 @@ The product should not offer repeated automatic trials to the same clinic withou
 
 ### 5.3 Trial payment details
 
-Recommended policy: do not require a payment card or Razorpay payment method to start the Trial.
+Approved policy: do not require a payment card or Razorpay payment method to start the Trial.
 
 Reasons:
 
@@ -344,7 +348,7 @@ The platform may request billing details when the clinic chooses a paid plan, no
 
 ### 5.4 Trial limits
 
-Recommended initial limits:
+Approved initial limits:
 
 | Limit | Trial policy |
 |---|---|
@@ -363,7 +367,7 @@ The messaging values are trial allowances, not a promise of unlimited free messa
 
 ### 5.5 Trial expiry
 
-Recommended expiry sequence:
+Approved expiry sequence:
 
 1. Seven days before expiry:
    - Show an in-product notice.
@@ -374,18 +378,19 @@ Recommended expiry sequence:
 3. At expiry:
    - Preserve all data.
    - Stop new Trial-only activity that exceeds the Trial limits.
-   - Stop new public bookings after the grace policy is applied.
+   - Stop new public bookings immediately, including during grace.
+   - Keep the public clinic profile visible with a clear booking-unavailable or upgrade message.
    - Do not silently delete the public profile, patient data, or clinical records.
 4. Grace period:
-   - Provide a short read-only grace period, recommended as seven days.
-   - Permit login, viewing, support contact, and data export.
-   - Do not continue unrestricted Trial messaging.
+   - Provide exactly seven calendar days of read-only grace, ending at `trial_grace_ends_at`.
+   - Permit login, viewing existing records, support contact, security/account-recovery messages, and one standard data export.
+   - Do not permit new bookings, new public bookings, new restricted records, uploads, or unrestricted Trial messaging.
 5. After grace period:
-   - Keep the account and data available for upgrade or support.
-   - Keep protected data access and export behavior explicit.
+   - Keep the account and data available for upgrade, support, and standard authenticated export.
+   - Keep required appointment, security, and consent notifications for already-created records protected and auditable.
    - Do not treat an expired Trial as an active paid subscription.
 
-The exact grace-period duration is a product decision, but it must be stored and displayed rather than inferred only from UI state.
+The seven-day grace period must be stored and displayed rather than inferred only from UI state. The same read-only and non-bookable behavior applies after a recovery Trial ends, while preserving the previous paid-plan history.
 
 ### 5.6 Trial conversion
 
@@ -397,11 +402,11 @@ When the clinic selects a paid plan:
 - The conversion event should be audited.
 - The clinic should not be charged twice because of a Trial-to-paid transition.
 
-Recommended initial conversion rule: the paid plan becomes effective immediately after successful subscription activation, and usage already consumed is retained in the period rather than reset.
+Approved conversion rule: the paid plan becomes effective immediately after successful subscription activation. Usage already consumed during the Trial remains in historical reporting but does not consume the paid plan’s first calendar-month allowance. A duplicate activation event must not reset the allowance again in the same local calendar month.
 
 ### 5.7 Paid-plan expiry automatically enters Trial/recovery
 
-The recommended default behavior is:
+The approved default behavior is:
 
 > When an active paid Starter, Growth, or Pro subscription reaches a confirmed expiry, the clinic automatically moves to the Trial plan with `trialing` access for a controlled recovery period.
 
@@ -435,7 +440,7 @@ When the transition is applied:
 4. The previous paid plan is preserved.
 5. The previous paid subscription/provider identifier remains historical and is not reused as an active Trial subscription.
 6. The recovery Trial starts at the confirmed expiry time.
-7. The recommended recovery duration is 14 calendar days.
+7. The recovery duration is exactly 14 calendar days.
 8. The Trial limits in Section 5.4 apply immediately.
 9. Essential security, OTP, consent, and appointment messages remain protected.
 10. The clinic sees the Trial end date and a clear option to contact support or request a paid plan.
@@ -478,7 +483,7 @@ When the 14-day recovery Trial ends:
 - The clinic retains approved read-only access, support contact, and data export behavior.
 - A Super Admin may later assign Starter, Growth, or Pro through the dedicated plan-assignment flow.
 
-The exact post-recovery read-only behavior must be consistent with initial Trial expiry, but it must never delete clinic data.
+The post-recovery behavior is the same read-only, non-bookable state as initial Trial expiry. Standard authenticated export and support remain available, protected notifications for existing records continue through the audited protected-message path, and clinic data is never deleted.
 
 ---
 
@@ -629,7 +634,7 @@ The following are suitable for plan-based differentiation:
 
 The detailed operational messaging policy remains in [15-messaging-allowance-and-plan-policy-blueprint](15-messaging-allowance-and-plan-policy-blueprint.md). This four-plan blueprint adds the Trial tier and places messaging in the broader entitlement model.
 
-### 8.1 Recommended allowances
+### 8.1 Approved allowances
 
 | Plan | SMS | WhatsApp | Email | Period |
 |---|---:|---:|---:|---|
@@ -642,23 +647,20 @@ The three channels remain separate. Unused email allowance must not silently con
 
 ### 8.2 WhatsApp packaging decision
 
-The current public pricing page does not advertise WhatsApp for Starter. This blueprint recommends:
+The current public pricing page does not advertise WhatsApp for Starter. The approved packaging is:
 
 - Essential appointment WhatsApp notifications: available in Trial, Starter, Growth, and Pro within each plan’s allowance.
-- Bulk, promotional, or advanced WhatsApp workflows: Growth and Pro only.
+- Routine reminder, bulk, promotional, and advanced WhatsApp workflows: Growth and Pro only.
 
 This provides a coherent Trial-to-Starter experience while still preserving meaningful Growth and Pro differentiation.
 
-If this recommendation is approved, the public pricing page should describe Starter as including essential appointment notifications within its allowance, while describing Growth and Pro as adding higher allowances and advanced, bulk, or promotional workflows. If the business chooses the alternative, the pricing page must not show Starter WhatsApp as included or imply that Trial depends on it.
-
-If the business instead wants WhatsApp to remain Growth/Pro-only, the Trial must not advertise or rely on WhatsApp as part of its complete workflow. That alternative should be explicitly approved rather than left as an accidental downgrade.
+The approved public wording is: “Starter includes essential WhatsApp appointment and security notifications within the monthly allowance. Growth and Pro add higher allowances plus routine reminder, bulk, promotional, and advanced WhatsApp workflows.” Trial wording is: “Trial includes a limited allowance for the core clinic workflow, including essential appointment and security notifications.”
 
 ### 8.3 Counting rules
 
-The recommended starting rule is:
+The approved starting rule is:
 
-- Count accepted or provider-billable production messages.
-- Do not count failed messages unless the provider charged for them.
+- Count accepted production messages and any failed production message for which the provider charged.
 - Do not count intentionally skipped messages.
 - Do not count messages marked as test.
 - Count one unit per recipient when the provider charges per recipient.
@@ -666,10 +668,10 @@ The recommended starting rule is:
 
 The event-purpose mapping must classify messages as:
 
-| Category | Examples | Recommended behavior |
+| Category | Examples | Approved behavior |
 |---|---|---|
 | Essential service | OTP, booking confirmation, security, consent links | Do not silently block |
-| Routine clinic operations | Appointment reminders and routine clinic alerts | Warn, then apply approved policy |
+| Routine clinic operations | Appointment reminders and routine clinic alerts | Included in paid plans according to channel allowance; routine WhatsApp workflows require Growth or Pro |
 | Optional/promotional | Campaigns and bulk announcements | First candidate for hard blocking |
 | Test/development | Provider verification and admin tests | Exclude from clinic allowance |
 
@@ -688,7 +690,7 @@ No messaging behavior should change merely because this document is created.
 
 ## 9. Storage entitlement policy
 
-### 9.1 Recommended limits
+### 9.1 Approved starting limits
 
 | Plan | Storage limit |
 |---|---:|
@@ -720,7 +722,7 @@ Storage limits apply to platform-managed storage. They must not expose private o
 
 ### 10.1 Booking limits
 
-Recommended starting values:
+Approved starting values:
 
 | Plan | Booking limit |
 |---|---:|
@@ -738,11 +740,11 @@ The system must define what counts as a booking:
 - Whether a duplicate prevented by the booking-protection layer counts.
 - Whether test or internal bookings are excluded.
 
-Recommended starting rule: count successfully created production bookings once, excluding rejected or atomic-conflict attempts. Preserve all lifecycle changes in reporting without counting every status transition as a new booking.
+Approved starting rule: count successfully created production bookings once, excluding rejected, duplicate, test, internal, or atomic-conflict attempts. Cancelled and no-show bookings count because they were successfully created. A reschedule updates the same booking and does not count again. Clinic-created and patient-created production bookings count equally. Preserve all lifecycle changes in reporting without counting every status transition as a new booking.
 
 ### 10.2 Doctor limits
 
-Recommended starting values:
+Approved starting values:
 
 | Plan | Active doctor limit |
 |---|---:|
@@ -755,7 +757,7 @@ The limit should apply to active configured doctors, not historical doctors who 
 
 ### 10.3 Smile Deal limits
 
-Recommended starting values:
+Approved starting values:
 
 | Plan | Deal limit |
 |---|---:|
@@ -772,7 +774,7 @@ The system should distinguish:
 - Archived.
 - Rejected or removed for policy reasons.
 
-Whether drafts count toward a limit must be explicit. Recommended policy: only active published posts count against the live-post allowance; Trial may have one temporary draft or post for evaluation.
+Approved policy: only active published posts count against the paid live-post allowance; Trial may have one temporary draft or post for evaluation. Drafts, expired, archived, and rejected/removed posts do not consume paid live-post capacity.
 
 ---
 
@@ -791,14 +793,14 @@ Analytics differences should be based on depth and history, not on hiding essent
 
 ### 11.2 Data export
 
-Recommended policy:
+Approved policy:
 
 - Trial: one export.
 - Starter: standard export with reasonable rate limits.
 - Growth: advanced filters and scheduled export.
 - Pro: full export options and priority processing.
 
-All export operations must remain audited. A plan limit must not prevent a clinic from retrieving its own data during account closure, support, or legally required access.
+All export operations must remain audited. After Trial or recovery expiry, and after downgrade, authenticated standard export remains available with reasonable rate limits. Scheduled, advanced, or priority export features follow the effective plan; account closure, support, and legally required access cannot be blocked by a plan limit.
 
 ### 11.3 Clinic website
 
@@ -896,16 +898,15 @@ The implementation may use separate normalized tables instead of adding every va
 
 ### 12.4 Paid subscription states
 
-For paid plans, access decisions must use the shared subscription-state policy. The policy must define:
+For paid plans, the approved subscription-state policy is:
 
-- Whether a payment grace period exists.
-- Whether messaging continues during payment grace.
-- Whether new bookings continue during payment review.
-- Whether existing data remains readable.
-- Which actions require reactivation.
-- How provider errors differ from confirmed cancellation.
-- When confirmed expiry triggers the default Trial/recovery transition.
-- How provider expiry events are reconciled before changing the clinic’s effective plan.
+- A verified renewal-payment failure enters `past_due` with exactly seven calendar days of payment grace. The grace clock starts at the provider-confirmed failure timestamp and is not extended by an outage, unmatched webhook, or repeated copy of the same event.
+- During payment grace, the clinic keeps its current paid plan limits for existing clinical operations, new production bookings, and all message categories, with warnings shown. Essential messages remain protected.
+- Initial paid activation grants no paid access until the provider confirms successful activation/payment, unless an explicitly audited manual support override is used.
+- Existing data remains readable throughout `past_due`, expired, cancelled, and unknown states according to normal authorization. New restricted activity after confirmed expiry uses the recovery-Trial rules.
+- A provider outage, unmatched webhook, unknown provider value, or unconfirmed `past_due` state does not trigger recovery. Those states remain visible for reconciliation.
+- At the end of payment grace, provider-confirmed non-renewal or expiry triggers the default 14-day recovery Trial. Successful payment returns the clinic to `active` without erasing usage or restarting a Trial.
+- Provider expiry events must be reconciled and applied idempotently before changing the clinic’s effective plan.
 
 No route should independently invent its own interpretation of `unpaid`, `expired`, or unknown provider states.
 
@@ -1050,11 +1051,11 @@ UNKNOWN_SUBSCRIPTION_STATE
 
 ### 14.1 Upgrades
 
-Recommended initial policy:
+Approved initial policy:
 
 - Take effect after successful paid subscription activation.
 - Do not erase usage already consumed.
-- Use the new plan’s limits for the remaining period.
+- Use the new plan’s limits for the remaining period. The clinic receives the full new plan allowance for the current local calendar month; repeated provider events must not reset it.
 - Preserve an audit event showing the previous and new plan.
 - Explain whether the billing provider charged immediately or at the next renewal.
 
@@ -1068,6 +1069,7 @@ Downgrades require special handling:
 - Identify which existing items exceed the new limit.
 - Give the clinic a clear resolution path.
 - Do not silently deactivate a doctor or unpublish a deal without an approved policy.
+- A paid downgrade requested by a clinic or administrator takes effect at the next provider renewal, after provider confirmation. The current plan remains effective until that renewal; above-limit existing items remain visible and current-period usage is not reset.
 
 ### 14.3 Manual administrator changes
 
@@ -1116,13 +1118,15 @@ The configuration view should show all four plans and support controlled policy 
 
 Configuration rules:
 
-- Only authorized Super Admins can change plan policies.
+- Only the platform owner role, or a named Super Admin delegated the separate billing-operator permission, can create, validate, or publish plan policies. Ordinary Super Admins may view operational policy data but cannot publish it.
 - Each change requires a reason.
 - Changes are versioned with effective timestamps.
 - Existing historical usage remains tied to the policy that was active at the time.
 - A policy change must not silently reset clinic usage.
 - High-impact paid-plan or messaging changes should require an explicit confirmation step.
 - Plan policy configuration is different from a tenant-specific exception.
+
+The billing-operator permission does not grant patient-data access, treatment-revenue access, or impersonation access.
 
 ### 14.6 Super Admin plan assignment and Trial extension
 
@@ -1221,6 +1225,13 @@ Add or plan for:
 - Paid plan conversion rate once analytics is approved.
 
 Financial metrics such as MRR, ARR, ARPU, LTV, treatment revenue, and clinic patient-bill totals remain outside the normal tenant operations view.
+
+The approved action boundary is:
+
+- The platform owner may publish plan policies and perform approved billing-policy operations.
+- A named billing operator or clinic-operations operator may receive only the delegated permissions needed for approved Trial or billing actions.
+- Ordinary Super Admins may view operational policy and entitlement data but may not publish policies, use generic clinic editing to mutate plans, or bypass provider confirmation.
+- No role may use unrestricted impersonation or a broad “Mark Paid” mutation to bypass these permissions.
 
 ### 15.2 Tenant table
 
@@ -1527,47 +1538,79 @@ Before each enforcement phase:
 
 ---
 
-## 19. Open decisions requiring product approval
+## 19. Phase 0 decision register and open decisions
 
-The following decisions must be confirmed before implementation:
+### 19.1 Phase 0 status
 
-1. Is the Trial exactly 14 days?
-2. Does the Trial start at clinic activation or first authenticated use?
-3. Is the Trial grace period exactly seven days?
-4. Are payment details required before a clinic can start a Trial?
-5. Are Trial messaging allowances lifetime limits or period limits?
-6. Should essential WhatsApp notifications be included in Starter?
-7. Which messages are classified as essential?
-8. Do provider-billable failures consume allowance?
-9. Are booking limits based on created bookings or completed appointments?
-10. Do cancelled or no-show bookings count?
-11. Do Smile Deal drafts count toward a plan limit?
-12. What is Pro fair use?
-13. What happens to public booking after Trial expiry?
-14. What export access remains after expiry or downgrade?
-15. What exactly does the transaction fee apply to?
-16. Will inventory and pharmacy limits be volume-based or feature-based?
-17. Which advanced website controls belong to Growth versus Pro?
-18. Should Starter have standard email support from launch?
-19. Is an allowance prorated during the first paid month?
-20. What payment grace period applies to paid subscriptions?
-21. Is the recovery Trial duration exactly 14 days?
-22. Should the automatic recovery Trial be available once per paid provider subscription instance?
-23. What read-only and public-booking behavior applies after the recovery Trial ends?
-24. Which Super Admin roles can configure plan policies?
-25. Which Super Admin roles can assign or extend a Trial?
-26. Does assigning a paid plan after expiry require successful payment before access changes?
-27. Which paid-plan changes are effective immediately versus at the next renewal?
-28. Should Trial be displayed as a banner/entry panel or as a comparison-table column, or both?
-29. Which exact public wording is approved for the Starter WhatsApp scope and Trial core workflow?
+**Status:** Complete for policy approval. All commercial rules are approved or explicitly deferred.
 
-No code should infer answers to these questions from current UI text.
+This closes the commercial decision gate, but it does not authorize implementation to skip the roadmap, baseline, reporting, provider, privacy, or release checks. The labels in this section mean:
+
+- **Current baseline:** what the application or public pricing currently says. This is recorded for migration and comparison; it is not automatically an approved future rule.
+- **Proposed default:** the recommended starting position before the decision pass.
+- **Approved:** confirmed for implementation planning; implementation still follows the roadmap and completion criteria.
+- **Explicitly deferred:** deliberately outside the current implementation contract; it must not be inferred or marketed as active.
+
+### 19.2 Resolved decisions
+
+The following decisions override earlier “recommended” wording in this document where that wording was intentionally non-final:
+
+1. **Trial duration:** exactly 14 calendar days.
+2. **Trial start:** initial Trial starts at clinic activation; administrator-granted Trial starts when granted; recovery Trial starts at confirmed paid expiry. First authenticated use does not delay an initial Trial.
+3. **Initial Trial grace:** exactly seven calendar days of read-only grace.
+4. **Payment details:** no card, Razorpay payment method, or paid provider subscription is required before Trial start.
+5. **Trial messaging period:** SMS, WhatsApp, and email Trial allowances are lifetime limits for that Trial transition. Paid allowances reset monthly in the clinic timezone.
+6. **Starter WhatsApp:** essential service WhatsApp is included; routine reminders, bulk, promotional, and advanced workflows require Growth or Pro.
+7. **Essential messages:** OTP, account recovery, security notices, booking confirmation/cancellation/reschedule, consent links, and required service notices for existing records.
+8. **Provider-billable failures:** they consume the relevant channel allowance and remain visible as failed/billable.
+9. **Booking basis:** successfully created production bookings count once, not completed appointments. Clinic-created and patient-created bookings count equally.
+10. **Cancelled/no-show bookings:** both count because they were created. A reschedule does not count a second time; rejected, duplicate, test, internal, and atomic-conflict attempts do not count.
+11. **Smile Deal drafts:** paid-plan limits count active published posts only. Trial allows one temporary draft or post; drafts do not consume paid live-post capacity.
+12. **Pro fair use:** no advertised numeric cap for bookings, active doctors, or live Smile Deals. Review thresholds are 1,000 monthly bookings, 25 active doctors, or 100 live deals; thresholds trigger notice and support review, not an automatic hard block.
+13. **Public booking after initial Trial expiry:** public booking stops at Trial expiry, including during grace. The profile remains visible as non-bookable with an upgrade/support notice.
+14. **Export after expiry/downgrade:** authenticated standard export remains available with reasonable rate limits. Scheduled, advanced, and priority export features follow the effective plan; closure, support, and legally required access cannot be blocked.
+15. **Inventory and pharmacy:** differentiation is feature-based (Trial limited volume, Starter basic, Growth advanced, Pro full); exact item-count thresholds are deferred and must not be invented during implementation.
+16. **Website controls:** Trial and Starter provide the basic profile and booking entry point; Growth adds sections, theme controls, and advanced blocks; Pro adds custom branding and premium visibility eligibility.
+17. **Starter support:** Starter includes standard email support and help-center/onboarding guidance from launch; Growth and Pro receive priority support.
+18. **First paid month allowance:** no proration. Successful activation receives the full paid allowance for the remainder of the clinic-local calendar month, and it resets on the next month boundary.
+19. **Payment grace:** exactly seven calendar days after a provider-confirmed renewal-payment failure. Provider outage, unmatched webhook, unknown state, or unconfirmed retry does not start recovery.
+20. **Recovery Trial duration:** exactly 14 calendar days from confirmed paid expiry.
+21. **Recovery idempotency:** exactly one automatic recovery Trial per paid provider subscription instance; repeated events cannot restart or extend it.
+22. **Post-recovery behavior:** existing data remains readable, standard export and support remain available, public booking is disabled, and only protected notifications for existing records continue through the audited protected-message path.
+23. **Policy roles:** the platform owner publishes; a delegated billing operator may configure drafts and perform approved billing operations; ordinary Super Admins may view operational policy data only.
+24. **Trial roles:** the platform owner or delegated clinic-operations operator may start or extend Trial with confirmation, reason, expiry, and audit history.
+25. **Paid assignment after expiry:** access changes to the paid plan only after provider-confirmed payment/activation, except for an explicitly audited manual support override; an expired provider subscription is never reused.
+26. **Plan-change timing:** provider-confirmed upgrades are immediate; provider-confirmed paid downgrades take effect at the next renewal. Usage is never erased or reset.
+27. **Trial presentation:** Trial is both the primary no-card entry banner/panel and a clearly labeled comparison-table column.
+28. **Public wording:** Starter copy is “Starter includes essential WhatsApp appointment and security notifications within the monthly allowance. Growth and Pro add higher allowances plus routine reminder, bulk, promotional, and advanced WhatsApp workflows.” Trial copy is “Trial includes a limited allowance for the core clinic workflow, including essential appointment and security notifications.”
+
+### 19.3 Explicit deferrals
+
+The following items are intentionally not approved for implementation or marketing enforcement:
+
+1. **Transaction-fee policy:** the advertised percentages must be omitted or labeled unfinalized until a separate audited policy defines scope, calculation, collection, refunds, taxes, discounts, rounding, and reconciliation.
+2. **Exact inventory item-count thresholds.**
+3. **Exact pharmacy item-count thresholds.**
+
+No code may infer a different answer from current UI text. These deferrals must remain visible in the policy catalog and public-copy review until separately approved.
+
+### 19.4 Phase 0 completion evidence
+
+Phase 0 is complete for implementation planning because:
+
+- The four-plan matrix, Trial lifecycle, recovery lifecycle, messaging categories, and counting rules are approved above.
+- Upgrade, downgrade, payment-grace, renewal, public-booking, export, support-exception, and post-expiry behaviors are explicit.
+- Starter WhatsApp scope and Pro fair-use behavior have approved wording and review thresholds.
+- Policy publication, Trial operations, paid assignment, and manual payment authority are role-scoped.
+- Transaction-fee calculation and exact inventory/pharmacy item counts are recorded as explicit deferrals, not assumptions.
+
+Before implementation begins, the approved policy must be copied into a versioned catalog and the current-clinic baseline must be completed. No catalog, entitlement, schema, provider, or enforcement implementation may silently alter this decision history.
 
 ---
 
 ## 20. Acceptance criteria
 
-The four-plan policy is ready for implementation when:
+The commercial policy phase is complete. Implementation may begin only through the staged roadmap, with each phase meeting its own gate. The policy and implementation baseline must satisfy all of the following:
 
 - Trial, Starter, Growth, and Pro have plain-language purposes.
 - Trial duration and expiry behavior are approved.
@@ -1598,6 +1641,17 @@ The four-plan policy is ready for implementation when:
 - Historical policy versions can explain past usage.
 - Super Admin visibility remains within the platform-operations boundary.
 - A reporting-only period is planned before hard enforcement.
+- Draft and published plan policies are separate, and published policy versions are immutable.
+- Annual savings are calculated from monthly and annual prices rather than manually entered.
+- A policy impact preview identifies affected clinics before publication.
+- The current-clinic baseline distinguishes unavailable data from zero and records migration or exception decisions.
+- Trial start, expiry, conversion, and recovery transitions are idempotent.
+- Late provider events cannot reactivate an expired paid plan without reconciliation.
+- Paid upgrades and downgrades follow provider-confirmed timing.
+- Standard authenticated export remains available after expiry and downgrade, subject to reasonable rate limits.
+- Generic clinic-edit routes cannot mutate plan state or bypass provider confirmation.
+- Policy publication and clinic-level support exceptions use separate permissions and audit records.
+- Transaction fees and exact inventory/pharmacy item-count thresholds remain explicitly deferred until separately approved.
 
 ---
 
@@ -1623,9 +1677,9 @@ This blueprint does not:
 
 ---
 
-## 22. Recommended next decision
+## 22. Recommended next implementation stage
 
-Approve or revise the proposed matrix before implementation:
+Phase 0 is complete for policy approval. The following matrix is the approved starting contract for the versioned catalog and reporting work:
 
 | Plan | Bookings | Doctors | Storage | SMS | WhatsApp | Email |
 |---|---:|---:|---:|---:|---:|---:|
@@ -1634,7 +1688,7 @@ Approve or revise the proposed matrix before implementation:
 | Growth | 150/month | 3 | 500 MB | 500 | 500 | 1,500 |
 | Pro | Unlimited with fair use | Unlimited with fair use | 2,047 MB | 2,000 | 2,000 | 6,000 |
 
-The recommended commercial position is:
+The approved commercial position is:
 
 - Keep current paid prices.
 - Add a 14-day no-card Trial.
@@ -1642,12 +1696,12 @@ The recommended commercial position is:
 - Make Growth the recommended plan.
 - Keep core clinical workflows available on all tiers.
 - Use volume, messaging, analytics, visibility, and support for differentiation.
-- Include essential WhatsApp notifications in Starter, while reserving advanced promotional WhatsApp for Growth and Pro.
+- Include essential WhatsApp notifications in Starter, while reserving routine reminder, bulk, promotional, and advanced WhatsApp workflows for Growth and Pro.
 - Show separate messaging allowances, storage limits, clear booking units, annual prices, and annual savings on the pricing page.
 - Keep transaction-fee percentages out of enforceable marketing claims until their scope is implemented and audited.
 - Start with reporting, then warnings, then controlled enforcement.
 - On confirmed paid expiry, move the clinic by default to a 14-day Trial/recovery state using Trial limits.
 - Preserve the previous paid plan and provider history.
-- Let Super Admin later assign Starter, Growth, or Pro through a provider-aware, audited action.
+- Let authorized platform owners or delegated billing operators later assign Starter, Growth, or Pro through a provider-aware, audited action.
 
-After approval, the next document update should reconcile the messaging blueprint with the Trial and recovery-Trial tiers and record the final decisions. Only after that should the shared entitlement catalog, expiry fallback, and Super Admin plan-management flow be implemented.
+The next implementation stage is to complete the dated current-clinic baseline and create the versioned shared plan-policy catalog. Those steps must preserve the approved decisions in Section 19, keep transaction fees and exact inventory/pharmacy thresholds deferred, and leave application enforcement unchanged until reporting and release gates are complete.

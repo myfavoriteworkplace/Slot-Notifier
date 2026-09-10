@@ -20,3 +20,4 @@
 - [Public clinic SEO safety gate](public-clinic-seo-safety.md) — canonical `/clinic/:slug` and explicit DTO/content/upload controls must precede indexing work.
 - [Drizzle legacy-table guard](drizzle-schema-push.md) — declare legacy raw-SQL tables in Drizzle before schema pushes, or new tables may be offered as destructive renames.
 - [Super Admin platform scope](super-admin-platform-scope.md) — Super Admin operates subscriptions and platform services; clinic-private treatment revenue stays out of normal admin views.
+- [Subscription policy gate](subscription-policy-gate.md) — four-plan commercial policy is approved; implementation must start with baseline/catalog work and preserve explicit deferrals.
