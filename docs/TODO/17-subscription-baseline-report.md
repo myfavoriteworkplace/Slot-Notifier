@@ -41,11 +41,11 @@
 
 ## Limitations and migration decisions
 
-- The configured development database currently has no clinic rows.
-- This project has no production database attached, so a live production baseline cannot be generated here until deployment creates one.
+- The configured Replit development database used for this report currently has no clinic rows.
+- The application is deployed on Render with a separate PostgreSQL database, but this report was not run against that Render database. A controlled Render baseline run is still required.
 - Trial dates, Trial origin, previous paid plan, paid-expiry history, exception history, and policy versions are not currently stored.
 - Active doctor counts are based on clinic_doctors links because the current schema has no active/inactive doctor field.
 - Smile Deal live-post counts are a proxy based on is_active and the starts_at/expires_at window because draft and published states are not separate fields.
 
-This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits.
+This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits. It is development-environment evidence only and must not be treated as the current-clinic Render baseline.
 
