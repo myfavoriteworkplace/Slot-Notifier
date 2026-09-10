@@ -17,6 +17,7 @@ import {
   Upload, X, Star, Zap, ShieldCheck, ExternalLink, Info,
 } from "lucide-react";
 import { z } from "zod";
+import { PUBLISHED_PLAN_POLICY, type PaidPlanKey } from "@shared/plan-catalog";
 
 // ─── Small reusables ──────────────────────────────────────────────────────────
 
@@ -30,6 +31,30 @@ function FieldRow({ icon: Icon, children }: { icon: React.ElementType; children:
     </div>
   );
 }
+
+const PLAN_OPTION_ICONS = {
+  starter: Zap,
+  growth: Building2,
+  pro: ShieldCheck,
+} satisfies Record<PaidPlanKey, typeof Zap>;
+
+const PLAN_OPTIONS = (["starter", "growth", "pro"] as const).map((id) => {
+  const policy = PUBLISHED_PLAN_POLICY.plans[id];
+  const bookings = policy.limits.bookings.value === null ? "Unlimited bookings" : `Up to ${policy.limits.bookings.value} bookings`;
+  const doctors = policy.limits.activeDoctors.value === null
+    ? "unlimited doctors"
+    : `${policy.limits.activeDoctors.value} doctor${policy.limits.activeDoctors.value === 1 ? "" : "s"}`;
+  const visibility = policy.features.verifiedBadge ? "Premium badge" : "basic workflow";
+  return {
+    id,
+    icon: PLAN_OPTION_ICONS[id],
+    name: policy.displayName,
+    price: `₹${policy.pricing.monthly!.toLocaleString("en-IN")}/mo`,
+    annual: `₹${policy.pricing.annual!.toLocaleString("en-IN")}/yr`,
+    desc: `${bookings} · ${doctors} · ${visibility}`,
+    popular: policy.recommended,
+  };
+});
 
 // ─── Trust score logic (mirrors server) ───────────────────────────────────────
 
@@ -906,11 +931,7 @@ export default function RegisterClinic() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {([
-                        { id: "starter", icon: Zap, name: "Starter", price: "₹999/mo", annual: "₹9,990/yr", desc: "Up to 30 bookings · 1 doctor · 5% fee" },
-                        { id: "growth", icon: Building2, name: "Growth", price: "₹1,599/mo", annual: "₹15,990/yr", desc: "Up to 150 bookings · 3 doctors · 3% fee", popular: true },
-                        { id: "pro", icon: ShieldCheck, name: "Pro", price: "₹2,999/mo", annual: "₹29,990/yr", desc: "Unlimited · Premium badge · 1.5% fee" },
-                      ] as const).map((plan) => {
+                      {PLAN_OPTIONS.map((plan) => {
                         const Icon = plan.icon;
                         const active = selectedPlan === plan.id;
                         return (
@@ -925,7 +946,7 @@ export default function RegisterClinic() {
                                 : "border-border/60 bg-card hover:border-primary/40 hover:bg-primary/3"
                             }`}
                           >
-                            {(plan as any).popular && (
+                            {plan.popular && (
                               <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-primary to-accent text-white px-2.5 py-0.5 rounded-full">
                                 Popular
                               </span>

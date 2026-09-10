@@ -2,89 +2,98 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Check, X, Zap, Building2, ShieldCheck, ArrowRight, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PUBLISHED_PLAN_POLICY, getAnnualSavings, type PaidPlanKey } from "@shared/plan-catalog";
 
-const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
+const PAID_PLAN_KEYS = ["starter", "growth", "pro"] as const;
+const PLAN_PRESENTATION = {
+  starter: {
     icon: Zap,
     description: "Perfect for single-chair clinics getting started online.",
-    monthly: 999,
-    annual: 9990,
-    annualMonthly: 833,
-    transactionFee: "5%",
-    bookings: "Up to 30 / mo",
-    doctors: "1 doctor",
-    deals: "1 deal post",
-    badge: false,
-    featured: false,
-    whatsapp: false,
-    analytics: "Basic",
-    support: "None",
-    popular: false,
     color: "border-border",
     headerBg: "bg-secondary/50 dark:bg-secondary/30",
     iconBg: "bg-primary/10 border-primary/20",
     iconColor: "text-primary",
   },
-  {
-    id: "growth",
-    name: "Growth",
+  growth: {
     icon: Building2,
     description: "Ideal for 2–3 chair clinics ready to grow their patient base.",
-    monthly: 1599,
-    annual: 15990,
-    annualMonthly: 1333,
-    transactionFee: "3%",
-    bookings: "Up to 150 / mo",
-    doctors: "Up to 3 doctors",
-    deals: "3 deal posts",
-    badge: false,
-    featured: false,
-    whatsapp: true,
-    analytics: "Advanced",
-    support: "Email",
-    popular: true,
     color: "border-primary/50",
     headerBg: "bg-gradient-to-r from-primary/90 via-primary to-accent/80",
     iconBg: "bg-white/15 border-white/25",
     iconColor: "text-white",
   },
-  {
-    id: "pro",
-    name: "Pro",
+  pro: {
     icon: ShieldCheck,
     description: "For premium clinics that want maximum visibility and reach.",
-    monthly: 2999,
-    annual: 29990,
-    annualMonthly: 2499,
-    transactionFee: "1.5%",
-    bookings: "Unlimited",
-    doctors: "Unlimited doctors",
-    deals: "Unlimited deal posts",
-    badge: true,
-    featured: true,
-    whatsapp: true,
-    analytics: "Full",
-    support: "Email + Phone",
-    popular: false,
     color: "border-border",
     headerBg: "bg-secondary/50 dark:bg-secondary/30",
     iconBg: "bg-primary/10 border-primary/20",
     iconColor: "text-primary",
   },
-];
+} satisfies Record<PaidPlanKey, {
+  icon: typeof Zap;
+  description: string;
+  color: string;
+  headerBg: string;
+  iconBg: string;
+  iconColor: string;
+}>;
 
+function formatCount(value: number | null, singular: string, plural: string) {
+  return value === null ? `Unlimited ${plural}` : `${value} ${value === 1 ? singular : plural}`;
+}
+
+function formatBookings(value: number | null) {
+  return value === null ? "Unlimited" : `Up to ${value} / mo`;
+}
+
+function analyticsLabel(value: "basic_snapshot" | "basic" | "advanced" | "full") {
+  return value === "basic_snapshot" ? "Basic snapshot" : value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function supportLabel(value: "help_center_onboarding" | "standard_email" | "priority_email" | "priority_email_phone") {
+  return value === "help_center_onboarding"
+    ? "Help center"
+    : value === "standard_email"
+      ? "Email"
+      : value === "priority_email"
+        ? "Priority email"
+        : "Email + Phone";
+}
+
+const PLANS = PAID_PLAN_KEYS.map((id) => {
+  const policy = PUBLISHED_PLAN_POLICY.plans[id];
+  const presentation = PLAN_PRESENTATION[id];
+  return {
+    id,
+    ...presentation,
+    name: policy.displayName,
+    monthly: policy.pricing.monthly!,
+    annual: policy.pricing.annual!,
+    annualMonthly: Math.round(policy.pricing.annual! / 12),
+    annualSavings: getAnnualSavings(policy)!,
+    bookings: formatBookings(policy.limits.bookings.value),
+    doctors: formatCount(policy.limits.activeDoctors.value, "doctor", "doctors"),
+    deals: formatCount(policy.limits.smileDeals.value, "deal post", "deal posts"),
+    badge: policy.features.verifiedBadge,
+    featured: policy.features.featuredDealPlacement,
+    whatsapp: policy.features.essentialWhatsapp,
+    analytics: analyticsLabel(policy.features.analytics),
+    support: supportLabel(policy.features.support),
+    popular: policy.recommended,
+  };
+});
+
+const [starterPolicy, growthPolicy, proPolicy] = PAID_PLAN_KEYS.map((id) => PUBLISHED_PLAN_POLICY.plans[id]);
 const COMPARISON_ROWS = [
-  { label: "Monthly bookings", starter: "30", growth: "150", pro: "Unlimited" },
-  { label: "Transaction fee per booking", starter: "5%", growth: "3%", pro: "1.5%" },
-  { label: "Doctors on roster", starter: "1", growth: "3", pro: "Unlimited" },
-  { label: "Smile Deal posts", starter: "1", growth: "3", pro: "Unlimited" },
-  { label: "WhatsApp booking alerts", starter: false, growth: true, pro: true },
-  { label: "Analytics dashboard", starter: "Basic", growth: "Advanced", pro: "Full" },
-  { label: "Premium verified badge", starter: false, growth: false, pro: true },
-  { label: "Featured placement on deals", starter: false, growth: false, pro: true },
-  { label: "Priority support", starter: "—", growth: "Email", pro: "Email + Phone" },
+  { label: "Monthly bookings", starter: formatBookings(starterPolicy.limits.bookings.value).replace("Up to ", ""), growth: formatBookings(growthPolicy.limits.bookings.value).replace("Up to ", ""), pro: formatBookings(proPolicy.limits.bookings.value) },
+  { label: "Doctors on roster", starter: String(starterPolicy.limits.activeDoctors.value), growth: String(growthPolicy.limits.activeDoctors.value), pro: "Unlimited" },
+  { label: "Smile Deal posts", starter: String(starterPolicy.limits.smileDeals.value), growth: String(growthPolicy.limits.smileDeals.value), pro: "Unlimited" },
+  { label: "WhatsApp booking alerts", starter: starterPolicy.features.essentialWhatsapp, growth: growthPolicy.features.essentialWhatsapp, pro: proPolicy.features.essentialWhatsapp },
+  { label: "Analytics dashboard", starter: analyticsLabel(starterPolicy.features.analytics), growth: analyticsLabel(growthPolicy.features.analytics), pro: analyticsLabel(proPolicy.features.analytics) },
+  { label: "Premium verified badge", starter: starterPolicy.features.verifiedBadge, growth: growthPolicy.features.verifiedBadge, pro: proPolicy.features.verifiedBadge },
+  { label: "Featured placement on deals", starter: starterPolicy.features.featuredDealPlacement, growth: growthPolicy.features.featuredDealPlacement, pro: proPolicy.features.featuredDealPlacement },
+  { label: "Priority support", starter: supportLabel(starterPolicy.features.support), growth: supportLabel(growthPolicy.features.support), pro: supportLabel(proPolicy.features.support) },
 ];
 
 function Cell({ value }: { value: string | boolean }) {
@@ -198,9 +207,14 @@ export default function Pricing() {
                       <span className={`text-sm font-semibold ml-1 ${isGrowth ? "text-white/60" : "text-muted-foreground"}`}>/mo</span>
                     </div>
                     {annual && (
-                      <p className={`text-xs mt-1 ${isGrowth ? "text-white/55" : "text-muted-foreground"}`}>
-                        Billed as ₹{plan.annual.toLocaleString("en-IN")}/year
-                      </p>
+                      <>
+                        <p className={`text-xs mt-1 ${isGrowth ? "text-white/55" : "text-muted-foreground"}`}>
+                          Billed as ₹{plan.annual.toLocaleString("en-IN")}/year
+                        </p>
+                        <p className={`text-[11px] mt-1 ${isGrowth ? "text-white/45" : "text-muted-foreground/80"}`}>
+                          Save ₹{plan.annualSavings.toLocaleString("en-IN")} per year
+                        </p>
+                      </>
                     )}
                   </div>
 
@@ -214,7 +228,6 @@ export default function Pricing() {
                   <ul className="flex flex-col gap-2">
                     {[
                       plan.bookings,
-                      `Transaction fee: ${plan.transactionFee}`,
                       plan.doctors,
                       plan.deals,
                       plan.whatsapp ? "WhatsApp notifications" : null,

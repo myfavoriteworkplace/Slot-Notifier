@@ -39,6 +39,7 @@ import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDiges
 import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
 import { trackCommunication, type CommunicationSendResult } from "./communication-usage";
 import { getUtcInstantForCalendarDate } from "@shared/booking-status";
+import { isBillingCycle, resolvePlanPolicy } from "@shared/plan-catalog";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
@@ -1419,9 +1420,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Send approval email with credentials and activation link
       const frontendBase = process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in';
       const activationUrl = `${frontendBase}/activate/${token}`;
-      const planLabels: Record<string, string> = { starter: "Starter", growth: "Growth", pro: "Pro" };
       const cycleLabels: Record<string, string> = { monthly: "Monthly", annual: "Annual" };
-      const planLabel = `${planLabels[plan] || plan} — ${cycleLabels[billingCycle] || billingCycle}`;
+      const planLabel = `${resolvePlanPolicy(plan).policy?.displayName || plan} — ${cycleLabels[billingCycle] || billingCycle}`;
 
       if (existing.email) {
         await sendClinicApprovalEmail(existing.name, existing.email, username, plainPassword, activationUrl, planLabel);
@@ -1444,16 +1444,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (new Date() > row.expiresAt) return res.status(410).json({ message: "This activation link has expired" });
       const clinic = await storage.getClinic(row.clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
-      const planPrices: Record<string, Record<string, number>> = {
-        starter: { monthly: 999, annual: 9990 },
-        growth:  { monthly: 1599, annual: 15990 },
-        pro:     { monthly: 2999, annual: 29990 },
-      };
+      const planPolicy = resolvePlanPolicy(row.plan).policy;
+      const price = planPolicy && isBillingCycle(row.billingCycle)
+        ? planPolicy.pricing[row.billingCycle]
+        : null;
       res.json({
         clinicName: clinic.name,
         plan: row.plan,
         billingCycle: row.billingCycle,
-        price: planPrices[row.plan]?.[row.billingCycle] ?? 999,
+        price,
         shortUrl: row.shortUrl,
         razorpaySubscriptionId: row.razorpaySubscriptionId,
         razorpayKeyId: process.env.RAZORPAY_KEY_ID || null,

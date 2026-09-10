@@ -6,10 +6,12 @@ import { Link, useLocation } from "wouter";
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
+import { PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
 
 const BRAND   = "#0F9B6E";
 const BRAND_D = "#0A7A56";
 const BRAND_M = "#1DB887";
+const STARTER_MONTHLY_PRICE = PUBLISHED_PLAN_POLICY.plans.starter.pricing.monthly!;
 
 const LIGHT = {
   bg:   "#FFFFFF",
@@ -527,7 +529,7 @@ export default function Landing() {
                   Register once and get a complete clinic portal — bookings, doctors, slots, and patient records, all in one place.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 11, marginBottom: 32 }}>
-                  {["Register free — plans from ₹999/month", "Ready to accept bookings in minutes", "Manage doctors, slots & records easily"].map(item => (
+                  {[`Register free — plans from ₹${STARTER_MONTHLY_PRICE.toLocaleString("en-IN")}/month`, "Ready to accept bookings in minutes", "Manage doctors, slots & records easily"].map(item => (
                     <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "rgba(255,255,255,.8)" }}>
                       <div style={{ width: 19, height: 19, borderRadius: "50%", background: "rgba(15,155,110,.2)", border: "1.5px solid rgba(15,155,110,.45)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         <Check style={{ width: 9, height: 9, color: "#1DB887", strokeWidth: 3 }} />

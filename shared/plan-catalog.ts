@@ -21,7 +21,7 @@ export const PLAN_POLICY_EFFECTIVE_DATE = "2026-09-11";
 export type PlanPolicyStatus = "draft" | "published";
 export type PlanResolutionKey = PlanKey | "unknown";
 
-export type LimitPeriod = "trial_lifetime" | "calendar_month" | "fair_use";
+export type LimitPeriod = "trial_lifetime" | "calendar_month" | "ongoing" | "fair_use";
 
 export type NumericPlanLimit = {
   value: number | null;
@@ -161,8 +161,8 @@ export const PUBLISHED_PLAN_POLICY: PlanPolicyDocument = {
       trial: { durationDays: null, graceDays: null },
       limits: {
         bookings: numericLimit(30, "calendar_month"),
-        activeDoctors: numericLimit(1, "calendar_month"),
-        smileDeals: numericLimit(1, "calendar_month"),
+        activeDoctors: numericLimit(1, "ongoing"),
+        smileDeals: numericLimit(1, "ongoing"),
         storageBytes: 100 * MEGABYTE,
         messaging: { sms: 100, whatsapp: 100, email: 300, period: "calendar_month" },
       },
@@ -193,8 +193,8 @@ export const PUBLISHED_PLAN_POLICY: PlanPolicyDocument = {
       trial: { durationDays: null, graceDays: null },
       limits: {
         bookings: numericLimit(150, "calendar_month"),
-        activeDoctors: numericLimit(3, "calendar_month"),
-        smileDeals: numericLimit(3, "calendar_month"),
+        activeDoctors: numericLimit(3, "ongoing"),
+        smileDeals: numericLimit(3, "ongoing"),
         storageBytes: 500 * MEGABYTE,
         messaging: { sms: 500, whatsapp: 500, email: 1500, period: "calendar_month" },
       },
@@ -256,6 +256,10 @@ export function isPlanKey(value: string | null | undefined): value is PlanKey {
 
 export function isPaidPlanKey(value: string | null | undefined): value is PaidPlanKey {
   return !!value && (PAID_PLAN_KEYS as readonly string[]).includes(value);
+}
+
+export function isBillingCycle(value: string | null | undefined): value is BillingCycle {
+  return !!value && (BILLING_CYCLES as readonly string[]).includes(value);
 }
 
 /**

@@ -1,13 +1,16 @@
 import { db } from "./db";
 import { patientDocuments, clinics } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { PLAN_KEYS, PUBLISHED_PLAN_POLICY, resolvePlanPolicy } from "@shared/plan-catalog";
 
-export const DEFAULT_STORAGE_LIMIT_BYTES = 100 * 1024 * 1024;
-export const PLAN_STORAGE_LIMITS: Record<string, number> = {
-  starter: 100 * 1024 * 1024,
-  growth: 500 * 1024 * 1024,
-  pro: 2047 * 1024 * 1024,
-};
+export const DEFAULT_STORAGE_LIMIT_BYTES = PUBLISHED_PLAN_POLICY.plans.starter.limits.storageBytes;
+export const PLAN_STORAGE_LIMITS: Record<string, number> = Object.fromEntries(
+  PLAN_KEYS.map((planKey) => [planKey, PUBLISHED_PLAN_POLICY.plans[planKey].limits.storageBytes]),
+);
+
+export function getPlanStorageLimitBytes(rawPlan: string | null | undefined) {
+  return resolvePlanPolicy(rawPlan).policy?.limits.storageBytes ?? null;
+}
 
 const issuedUploads = new Map<string, { clinicId: number; fileSize: number; expiresAt: number }>();
 
@@ -29,7 +32,8 @@ export async function getClinicStorageQuota(clinicId: number) {
     plan: clinics.plan,
     overrideBytes: clinics.storageLimitBytes,
   }).from(clinics).where(eq(clinics.id, clinicId));
-  const limitBytes = Number(clinic?.overrideBytes || PLAN_STORAGE_LIMITS[clinic?.plan || "starter"] || DEFAULT_STORAGE_LIMIT_BYTES);
+  const planLimitBytes = getPlanStorageLimitBytes(clinic?.plan);
+  const limitBytes = Number(clinic?.overrideBytes || planLimitBytes || DEFAULT_STORAGE_LIMIT_BYTES);
   const rows = await db.select({ fileSize: patientDocuments.fileSize })
     .from(patientDocuments).where(eq(patientDocuments.clinicId, clinicId));
   const usedBytes = rows.reduce((sum, row) => sum + Number(row.fileSize ?? 0), 0);
@@ -38,7 +42,7 @@ export async function getClinicStorageQuota(clinicId: number) {
     limitBytes,
     remainingBytes: Math.max(0, limitBytes - usedBytes),
     usagePercent: limitBytes ? Math.min(100, (usedBytes / limitBytes) * 100) : 100,
-    source: clinic?.overrideBytes ? "clinic_override" : PLAN_STORAGE_LIMITS[clinic?.plan || "starter"] ? "plan" : "default",
+    source: clinic?.overrideBytes ? "clinic_override" : planLimitBytes ? "plan" : "default",
     plan: clinic?.plan || "starter",
   };
 }
