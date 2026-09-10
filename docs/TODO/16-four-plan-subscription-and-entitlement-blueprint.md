@@ -1,6 +1,6 @@
 # Four-Plan Subscription and Entitlement Blueprint
 
-**Status:** Planning only — no application behavior has been changed  
+**Status:** Planning only — implementation roadmap clarified; no application behavior has been changed
 **Related blueprints:** [Super Admin Platform Operations](14-super-admin-platform-operations-blueprint.md), [Messaging Allowance and Plan Policy](15-messaging-allowance-and-plan-policy-blueprint.md)  
 **Audience:** Product, operations, support, finance, frontend, backend, database, QA, security, and platform teams  
 **Application:** BookMySlot dental clinic platform  
@@ -32,6 +32,46 @@ This blueprint proposes:
 8. A Super Admin plan-management flow that can configure policies, assign a plan, extend a Trial, and assign a paid plan after a paid subscription expires.
 
 This document is a policy and implementation blueprint. It does not authorize changing plan prices, Razorpay configuration, database schema, clinic access, or notification behavior until the decisions in this document are approved.
+
+---
+
+## Implementation plan at a glance
+
+This table is the recommended execution order. It separates business decisions from coding work so that the application does not start blocking clinics before the rules are agreed and measured.
+
+| Step | Purpose in common words | Main implementation work | Progress today | Done when |
+|---|---|---|---|---|
+| **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, and transaction-fee scope. | **Needs product approval.** The blueprint contains recommendations, but the open decisions are not signed off. | There is one approved four-plan matrix and no route or UI has to guess what a limit means. |
+| **1. Record the current baseline** | Take a safe “before” snapshot so new restrictions do not accidentally break existing clinics. | Inventory current plan assignments, subscription states, Razorpay IDs, usage, storage, doctors, deals, bookings, and provider events. Identify clinics that would already be above a proposed Trial or paid limit. | **Foundation exists, audit still needed.** The app already stores several of these values, but there is no complete entitlement baseline report. | Every clinic has a known current plan, access state, usage snapshot, and migration/exception decision. |
+| **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **Partial foundation.** Paid plan values and some storage/messaging data exist, but there is no central entitlement catalog. | Pricing, Admin, clinic UI, services, and routes all read the same versioned policy. |
+| **3. Add explicit subscription and Trial lifecycle data** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, and transition identity. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no Trial lifecycle fields. | The system can explain whether a clinic is Trialing, active, pending payment, expired, or in recovery without reconstructing history manually. |
+| **4. Build the effective-entitlement service** | Give every part of the app the same answer about what a clinic may do right now. | Resolve clinic → plan → subscription/Trial state → policy defaults → temporary exception → emergency disablement; return value, source, usage, limit, and stable error code. | **Not started.** The subscription-state normalizer exists, but it does not calculate plan permissions or limits. | A single server-side service answers both “what is included?” and “is this action allowed?” |
+| **5. Calculate usage in reporting-only mode** | Measure first, without blocking anyone. | Calculate booking, doctor, Smile Deal, storage, SMS, WhatsApp, email, analytics, and export usage; show used, limit, remaining, reset/expiry date, timezone, and data freshness. | **Partial foundation.** Communication usage, storage tracking, and some Admin/clinic views exist; plan limits are not connected to a unified report. | At least one complete reporting period proves the numbers are accurate and unavailable data is not shown as zero. |
+| **6. Implement Trial and paid-expiry recovery** | Give new clinics a safe trial and give expired paid clinics a short, controlled chance to recover. | Start Trial once, calculate expiry/grace dates, warn before expiry, move confirmed paid expiry to recovery Trial, preserve old plan/provider history, and make the transition idempotent. | **Not started.** No `trialing` state or automatic paid-expiry recovery flow exists. | Repeated provider events cannot restart a Trial, and expiry never deletes data or silently leaves paid access active. |
+| **7. Add Super Admin plan operations** | Let authorized staff manage plans safely without editing clinic rows directly. | Add policy configuration, Start Trial, Extend Trial, Assign Paid Plan after expiry, reasons, confirmation, role checks, audit events, stale-state protection, and provider-aware activation. | **Partial foundation.** Clinic approval can select Starter/Growth/Pro, but there is no dedicated four-plan management flow or Trial action. | Every manual plan change is authorized, confirmed, explainable, audited, and safe against provider/admin races. |
+| **8. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial foundation.** Some storage and messaging usage views exist; there is no complete plan/Trial/entitlement view. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
+| **9. Turn on warnings before restrictions** | Give people time to act instead of suddenly stopping work. | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, warning audit records, and upgrade/support guidance. | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and audit events do not. | Warnings are accurate, explainable, timezone-aware, and do not consume the clinic’s own allowance. |
+| **10. Enforce limits on the server** | Actually apply the plan rules securely; hiding a button is not enough. | Enforce doctor, booking, deal, storage, analytics, export, and messaging rules in backend routes/services; protect essential clinical/security messages; return structured errors. | **Not started.** Current dashboard modules are generally available independently of plan. | Every restricted operation is checked server-side and gives a clear reason when denied; existing data remains visible. |
+| **11. Align Razorpay and plan changes** | Ensure the screen, database, and payment provider never disagree. | Verify plan/cycle mapping, Trial-to-paid conversion, recovery-Trial-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation, idempotency, and historical policy references. | **Partial foundation.** Razorpay plan mapping and provider-event history exist; Trial conversion/recovery and safe plan changes do not. | A paid plan is activated only through the approved provider/payment path, and expired provider subscriptions are never reused accidentally. |
+| **12. Release gradually and refine** | Learn from real usage before making the limits permanent. | Run policy tests, authorization tests, counting/privacy tests, Build Check, reporting comparison, warning rollout, controlled optional-message enforcement, monitoring, and versioned allowance changes. | **Not started.** The blueprint defines tests and rollout stages, but no four-plan rollout has begun. | Production behavior is measured, support issues are understood, and future plan changes remain explainable through policy versions. |
+
+### What this means in common-man terms
+
+Think of a plan as a membership package and an entitlement as the rule that checks whether a particular action is included in that package.
+
+- **Trial** is a short test period, not a permanent free plan.
+- **Starter, Growth, and Pro** are paid packages with different amounts of usage and different advanced features.
+- **Plan** answers “what package does this clinic have?”
+- **Subscription state** answers “is that package currently active, waiting for payment, expired, or in a recovery period?”
+- **Usage** answers “how much of the package has the clinic already used?”
+- **Entitlement checking** is the security guard that checks every important action on the server. It must work even if someone bypasses the screen and calls the API directly.
+- **Reporting mode** means we measure what would happen without blocking anyone yet.
+- **Warning mode** means we tell the clinic it is getting close to a limit.
+- **Enforcement mode** means selected actions are finally stopped when the approved limit is reached.
+- **Recovery Trial** means an expired paid clinic keeps a smaller, temporary level of access while it renews or contacts support. It does not keep its old paid limits forever.
+- **Existing data is never deleted** just because a clinic downgrades or expires. New restricted activity is controlled instead.
+
+The safest order is therefore: **agree the rules → measure current usage → build one shared policy → add Trial states → show reports → warn → enforce carefully → connect payment changes → refine using real data**.
 
 ---
 
