@@ -1725,15 +1725,15 @@ This is valid evidence that the configured Replit development database is empty,
 The development catalog stage now includes the shared policy source, representative resolution tests, and consumer migration:
 
 1. Keep the current Replit and Render development environments non-enforcing.
-2. Add representative development fixtures or a populated development snapshot covering Trial, Starter, Growth, Pro, legacy `unpaid`, unknown states, usage below/at/above limits, and unavailable usage data.
+2. Add representative development fixtures or a populated development snapshot covering Trial, Starter, Growth, Pro, legacy `unpaid`, unknown states, usage below/at/above limits, and unavailable usage data. **Complete with read-only policy-impact fixtures and tests.**
 3. Create the versioned shared catalog from the approved Section 19 matrix. **Complete for the code-level published catalog.**
 4. Add resolution tests for plan limits, annual savings, feature levels, messaging allowances, Trial rules, explicit deferrals, and unknown values. **Complete.**
 5. Migrate public pricing, registration, landing-page pricing copy, activation pricing/labels, and storage quota resolution to the catalog without enabling enforcement. **Complete.**
-6. Run the read-only baseline generator against representative development data and confirm it never treats unavailable data as zero.
+6. Run the read-only baseline generator against representative development data and confirm it never treats unavailable data as zero. **Complete for the representative fixture suite; the configured development database remains empty.**
 7. Keep the full Render-clinic migration baseline as a pre-production gate.
 8. Do not assign plans, change subscription state, create Trial records, or enforce limits during this development stage.
 
-The generator is read-only and uses the runtime `DATABASE_URL`; credentials must remain in the environment's secret configuration and must not be copied into the repository or chat. The future pre-production baseline should run from the Render backend environment or an approved one-off environment against the Render database. The catalog must preserve the approved Section 19 decisions and remain reporting-only until the later warning and enforcement gates are approved.
+The generator is read-only and uses the runtime `DATABASE_URL`; credentials must remain in the environment's secret configuration and must not be copied into the repository or chat. The representative fixture suite is also pure and does not connect to or mutate the database. The future pre-production baseline should run from the Render backend environment or an approved one-off environment against the Render database. The catalog must preserve the approved Section 19 decisions and remain reporting-only until the later warning and enforcement gates are approved.
 
 ### 22.3 Shared catalog foundation evidence
 
@@ -1787,4 +1787,28 @@ The following plan-value consumers now read from `shared/plan-catalog.ts`:
 
 Transaction-fee percentages were removed from public plan comparison and registration copy because their policy remains explicitly deferred. No booking, upload, messaging, subscription, or plan-assignment enforcement was added.
 
-The remaining catalog-related gates are draft/published persistence, immutable database policy history, Trial lifecycle fields, reporting-only entitlement endpoints, representative database usage fixtures, and the Render production baseline.
+### 22.5 Baseline policy-impact fixture evidence
+
+The baseline generator no longer carries a second hardcoded copy of the plan limits. Its impact calculations now derive booking, doctor, Smile Deal, storage, and messaging values from `shared/plan-catalog.ts` through `shared/subscription-baseline-policy.ts`.
+
+Representative read-only fixtures are defined in `shared/subscription-baseline-fixtures.ts` and verified by `shared/subscription-baseline-policy.test.ts`. They cover:
+
+- Trial at its lifetime boundaries, including lifetime messaging
+- Starter above booking, doctor, Smile Deal, storage, and messaging limits
+- Growth exactly at its configured limits
+- Pro fair-use review thresholds
+- A legacy `unpaid` subscription state kept separate from plan identity
+- An unknown plan that remains unresolved instead of falling back to Starter
+- Unavailable usage values represented as `null` without false over-limit findings
+
+Validation:
+
+```text
+npm run test:subscription-baseline
+  passed
+
+npm run audit:subscription-baseline
+  passed; configured development database contains no clinic rows
+```
+
+The remaining catalog-related gates are draft/published persistence, immutable database policy history, Trial lifecycle fields, reporting-only entitlement endpoints, and the Render production baseline.

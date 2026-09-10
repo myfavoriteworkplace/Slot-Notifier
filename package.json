@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push",
     "scan": "node scripts/scan.cjs",
     "audit:subscription-baseline": "node --import tsx scripts/subscription-baseline.ts",
+    "test:subscription-baseline": "node --import tsx --test shared/subscription-baseline-policy.test.ts",
     "benchmark": "node scripts/benchmark.mjs",
     "clinic:doctor": "npm run build && clinic doctor -- node dist/index.cjs",
     "clinic:flame": "npm run build && clinic flame -- node dist/index.cjs",

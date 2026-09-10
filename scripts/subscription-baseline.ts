@@ -1,5 +1,11 @@
 import { pool } from "../server/db";
 import { getSubscriptionStatusInfo } from "../shared/subscription-status";
+import {
+  BASELINE_MESSAGE_CHANNELS,
+  compareBaselineImpact,
+  type BaselineUsage,
+} from "../shared/subscription-baseline-policy";
+import { isPaidPlanKey } from "../shared/plan-catalog";
 
 type ClinicRow = {
   id: number;
@@ -90,50 +96,7 @@ type ClinicBaseline = {
   flags: string[];
 };
 
-const PLAN_LIMITS: Record<string, {
-  bookingsMonthly: number | null;
-  bookingsTrialTotal: number | null;
-  doctors: number | null;
-  smileDeals: number | null;
-  storageBytes: number | null;
-  messaging: Record<string, number | null>;
-}> = {
-  trial: {
-    bookingsMonthly: null,
-    bookingsTrialTotal: 10,
-    doctors: 1,
-    smileDeals: 1,
-    storageBytes: 50 * 1024 * 1024,
-    messaging: { sms: 25, whatsapp: 25, email: 50 },
-  },
-  starter: {
-    bookingsMonthly: 30,
-    bookingsTrialTotal: null,
-    doctors: 1,
-    smileDeals: 1,
-    storageBytes: 100 * 1024 * 1024,
-    messaging: { sms: 100, whatsapp: 100, email: 300 },
-  },
-  growth: {
-    bookingsMonthly: 150,
-    bookingsTrialTotal: null,
-    doctors: 3,
-    smileDeals: 3,
-    storageBytes: 500 * 1024 * 1024,
-    messaging: { sms: 500, whatsapp: 500, email: 1500 },
-  },
-  pro: {
-    bookingsMonthly: null,
-    bookingsTrialTotal: null,
-    doctors: null,
-    smileDeals: null,
-    storageBytes: 2047 * 1024 * 1024,
-    messaging: { sms: 2000, whatsapp: 2000, email: 6000 },
-  },
-};
-
-const PAID_PLANS = new Set(["starter", "growth", "pro"]);
-const MESSAGE_CHANNELS = ["sms", "whatsapp", "email"];
+const MESSAGE_CHANNELS = BASELINE_MESSAGE_CHANNELS;
 
 async function query<T = Record<string, unknown>>(text: string): Promise<T[]> {
   const result = await pool.query(text);
@@ -240,45 +203,22 @@ function uniqueClinicIdByName(clinics: ClinicRow[]) {
 function compareImpact(
   baseline: ClinicBaseline,
   planKey: string | null,
-  limits: typeof PLAN_LIMITS.trial,
   isTrial: boolean,
 ): string[] {
-  const impact: string[] = [];
-  const bookings = isTrial ? baseline.bookings.allTime : baseline.bookings.currentLocalMonth;
-  const bookingLimit = isTrial ? limits.bookingsTrialTotal : limits.bookingsMonthly;
-  if (bookings !== null && bookingLimit !== null && bookings > bookingLimit) {
-    impact.push(`bookings ${bookings}/${bookingLimit}`);
-  }
-  const doctors = baseline.doctors.linkedCount;
-  if (doctors !== null && limits.doctors !== null && doctors > limits.doctors) {
-    impact.push(`active doctors ${doctors}/${limits.doctors}`);
-  }
-  const deals = baseline.smileDeals.activePublishedProxy;
-  if (deals !== null && limits.smileDeals !== null && deals > limits.smileDeals) {
-    impact.push(`live Smile Deals ${deals}/${limits.smileDeals}`);
-  }
-  const storage = baseline.storage.trackedBytes;
-  if (storage !== null && limits.storageBytes !== null && storage > limits.storageBytes) {
-    impact.push(`storage ${storage}/${limits.storageBytes} bytes`);
-  }
-  for (const channel of MESSAGE_CHANNELS) {
-    const used = baseline.messaging.currentLocalMonth[channel]?.countedUnits ?? null;
-    const limit = limits.messaging[channel];
-    if (!isTrial && used !== null && limit !== null && used > limit) {
-      impact.push(`${channel} ${used}/${limit}`);
-    }
-  }
-  if (planKey === "pro") {
-    const review = [
-      [baseline.bookings.currentLocalMonth, 1000, "monthly bookings"],
-      [baseline.doctors.linkedCount, 25, "active doctors"],
-      [baseline.smileDeals.activePublishedProxy, 100, "live Smile Deals"],
-    ] as const;
-    for (const [used, threshold, label] of review) {
-      if (used !== null && used > threshold) impact.push(`${label} above Pro review threshold ${threshold}`);
-    }
-  }
-  return impact;
+  const usage: BaselineUsage = {
+    bookingsAllTime: baseline.bookings.allTime,
+    bookingsCurrentLocalMonth: baseline.bookings.currentLocalMonth,
+    activeDoctors: baseline.doctors.linkedCount,
+    liveSmileDeals: baseline.smileDeals.activePublishedProxy,
+    storageBytes: baseline.storage.trackedBytes,
+    allTimeMessages: Object.fromEntries(
+      MESSAGE_CHANNELS.map((channel) => [channel, baseline.messaging.allTime[channel]?.countedUnits ?? null]),
+    ) as BaselineUsage["allTimeMessages"],
+    currentLocalMonthMessages: Object.fromEntries(
+      MESSAGE_CHANNELS.map((channel) => [channel, baseline.messaging.currentLocalMonth[channel]?.countedUnits ?? null]),
+    ) as BaselineUsage["currentLocalMonthMessages"],
+  };
+  return compareBaselineImpact(usage, planKey, isTrial);
 }
 
 async function main() {
@@ -490,15 +430,13 @@ async function main() {
       flags: [],
     };
 
-    baseline.impact.trial = compareImpact(baseline, "trial", PLAN_LIMITS.trial, true);
-    baseline.impact.assignedPlan = rawPlan && PLAN_LIMITS[rawPlan]
-      ? compareImpact(baseline, rawPlan, PLAN_LIMITS[rawPlan], false)
-      : [];
+    baseline.impact.trial = compareImpact(baseline, "trial", true);
+    baseline.impact.assignedPlan = compareImpact(baseline, rawPlan, false);
 
-    if (!rawPlan || !PLAN_LIMITS[rawPlan]) baseline.flags.push("unknown_plan");
+    if (!rawPlan || !isPaidPlanKey(rawPlan) && rawPlan !== "trial") baseline.flags.push("unknown_plan");
     if (clinic.subscription_status?.toLowerCase() === "unpaid") baseline.flags.push("legacy_unpaid_maps_to_pending_payment");
     if (subscriptionInfo.state === "unknown") baseline.flags.push("unknown_subscription_state");
-    if (PAID_PLANS.has(rawPlan ?? "") && !clinic.razorpay_subscription_id) baseline.flags.push("paid_plan_without_provider_link");
+    if (isPaidPlanKey(rawPlan) && !clinic.razorpay_subscription_id) baseline.flags.push("paid_plan_without_provider_link");
     if (clinic.is_archived && subscriptionInfo.state === "active") baseline.flags.push("archived_with_active_subscription");
     if (clinic.storage_limit_bytes !== null) baseline.flags.push("clinic_storage_override_present");
     if (providerEventsAvailable && clinic.razorpay_subscription_id && !provider) baseline.flags.push("provider_link_without_event_history");
