@@ -42,7 +42,7 @@ This table is the approved execution order. It separates the completed commercia
 | Step | Purpose in common words | Main implementation work | Progress today | Done when |
 |---|---|---|---|---|
 | **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, and transaction-fee scope. | **Complete for implementation planning.** The approved contract is recorded in Section 19. Transaction-fee calculation and exact inventory/pharmacy item-count thresholds are explicitly deferred. | The signed-off four-plan matrix, terminology, message categories, and decision log mark every item as Approved or Explicitly deferred. |
-| **1. Record the current baseline** | Take a safe “before” snapshot so new restrictions do not accidentally break existing clinics. | Inventory current plan assignments, subscription states, Razorpay IDs, usage, storage, doctors, deals, bookings, and provider events. Identify clinics that would already be above a proposed Trial or paid limit. | **Report generator and first development evidence snapshot completed, but the baseline is not complete.** The read-only generator is `scripts/subscription-baseline.ts`; the Replit development database used for that run had zero clinic rows. The application runs on Render with a separate PostgreSQL database, but the generator has not yet been run against that populated Render database. | Every clinic has a known current plan, access state, usage snapshot, and migration/exception decision. |
+| **1. Record the current baseline** | Take a safe “before” snapshot so new restrictions do not accidentally break existing clinics. | Inventory current plan assignments, subscription states, Razorpay IDs, usage, storage, doctors, deals, bookings, and provider events. Identify clinics that would already be above a proposed Trial or paid limit. | **Development validation is partially complete; the production-clinic migration baseline is intentionally deferred.** The read-only generator is `scripts/subscription-baseline.ts`; the Replit development database used for the first run had zero clinic rows. During the current development phase, representative fixtures or populated development data are sufficient for validating catalog calculations. A full Render-clinic baseline is required before production rollout or enforcement, not before development catalog work. | Development fixtures prove the calculations and unavailable-data handling; before production rollout, every clinic has a known current plan, access state, usage snapshot, and migration/exception decision. |
 | **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **Not started as a shared catalog.** Paid plan values and some storage/messaging data exist, but the public pricing page and activation response still contain hardcoded values. | Draft and published policies are distinct; historical versions are immutable; annual savings are calculated; all consumers have a migration plan away from hardcoded values. |
 | **3. Add subscription, Trial, assignment, and exception history** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, assignment history, policy version references, transition identity, and time-limited exceptions. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no complete lifecycle or history model. | The system can explain initial Trial, paid conversion, renewal, expiry, recovery, extension, downgrade, exception, and later paid assignment without reconstructing history manually. |
 | **4. Build the effective-entitlement service** | Give every part of the app the same answer about what a clinic may do right now. | Resolve clinic → plan → subscription/Trial state → policy defaults → temporary exception → emergency disablement; return value, source, usage, limit, and stable error code. | **Not started.** The subscription-state normalizer exists, but it does not calculate plan permissions or limits. | A single server-side service answers both “what is included?” and “is this action allowed?” |
@@ -1604,7 +1604,7 @@ Phase 0 is complete for implementation planning because:
 - Policy publication, Trial operations, paid assignment, and manual payment authority are role-scoped.
 - Transaction-fee calculation and exact inventory/pharmacy item counts are recorded as explicit deferrals, not assumptions.
 
-Before implementation begins, the approved policy must be copied into a versioned catalog and the current-clinic baseline must be completed. No catalog, entitlement, schema, provider, or enforcement implementation may silently alter this decision history.
+Before production rollout or enforcement begins, the approved policy must be copied into a versioned catalog and the current-clinic baseline must be completed. During the current development phase, catalog work may proceed using representative development fixtures, provided that no production clinic access or provider state is changed and the deferred production baseline remains an explicit release gate.
 
 ---
 
@@ -1704,7 +1704,7 @@ The approved commercial position is:
 - Preserve the previous paid plan and provider history.
 - Let authorized platform owners or delegated billing operators later assign Starter, Growth, or Pro through a provider-aware, audited action.
 
-The next implementation stage is to complete the dated current-clinic baseline and create the versioned shared plan-policy catalog. Those steps must preserve the approved decisions in Section 19, keep transaction fees and exact inventory/pharmacy thresholds deferred, and leave application enforcement unchanged until reporting and release gates are complete.
+The next development stage is to create the versioned shared plan-policy catalog and validate it against representative development data. The full current-clinic baseline against Render is deferred until the project is preparing for production rollout or enforcement. Both steps must preserve the approved decisions in Section 19, keep transaction fees and exact inventory/pharmacy thresholds deferred, and leave application enforcement unchanged until reporting and release gates are complete.
 
 ### 22.1 Step 1 baseline execution evidence
 
@@ -1715,20 +1715,21 @@ On **2026-09-11 (Asia/Calcutta)**, the first read-only baseline execution was co
 - Evidence report: [17-subscription-baseline-report.md](17-subscription-baseline-report.md)
 - Development schema: initialized successfully with the existing `db:push` workflow.
 - Development data result: **0 clinics, 0 bookings, 0 communication-usage rows, 0 patient documents, and 0 provider events**.
-- Render data result: not queried by this Replit development run. The application is deployed on Render with a separate PostgreSQL database, so the next evidence run must execute the same read-only generator in a controlled Render environment against the Render database connection.
+- Render data result: intentionally deferred during the current development phase. The application is deployed on Render with a separate PostgreSQL database, but a full Render-clinic migration baseline is a pre-production rollout gate rather than a prerequisite for catalog development.
 - Privacy boundary: the report emits clinic IDs and operational metrics only. It does not emit clinic names, emails, phone numbers, patient information, provider IDs, or credentials.
 
-This is valid evidence that the configured Replit development database is empty, but it is **not** a completed every-clinic migration baseline. No clinic is being treated as “within limits” merely because the development database has no clinic rows. The next baseline run must target the Render PostgreSQL database, or an authorized populated snapshot of it, then record per-clinic migration or exception decisions before the shared catalog or entitlement enforcement begins.
+This is valid evidence that the configured Replit development database is empty, but it is **not** a completed every-clinic migration baseline. No clinic is being treated as “within limits” merely because the development database has no clinic rows. This does not block development catalog work. Before catalog calculations are accepted, the development environment should use representative fixtures or populated test data that exercise each plan, subscription state, usage boundary, missing-data case, and unknown-value case. Before production rollout or enforcement, the same read-only generator must target the Render PostgreSQL database, or an authorized populated snapshot of it, and record per-clinic migration or exception decisions.
 
-### 22.2 Correct deployment-aware next step
+### 22.2 Development-phase next step
 
-The immediate next step is a controlled, read-only baseline run against the Render PostgreSQL database:
+The immediate next step is to build and validate the shared plan-policy catalog in the development environment:
 
-1. Confirm the target is the Render environment/database intended to represent current clinics.
-2. Run `npm run audit:subscription-baseline` from the Render backend environment, or from an approved one-off environment using the same Render database connection.
-3. Preserve the generated report as the dated Render baseline evidence.
-4. Review every clinic's plan, subscription state, provider link, usage, data-quality flags, and projected Trial/paid-plan impact.
-5. Record a migration or explicit exception decision for every flagged clinic.
-6. Do not assign plans, change subscription state, create Trial records, or enforce limits during this run.
+1. Keep the current Replit and Render development environments non-enforcing.
+2. Add representative development fixtures or a populated development snapshot covering Trial, Starter, Growth, Pro, legacy `unpaid`, unknown states, usage below/at/above limits, and unavailable usage data.
+3. Create the versioned shared catalog from the approved Section 19 matrix.
+4. Add resolution tests for plan limits, annual savings, feature levels, messaging allowances, Trial rules, explicit deferrals, and unknown values.
+5. Run the read-only baseline generator against the representative development data and confirm it never treats unavailable data as zero.
+6. Keep the full Render-clinic migration baseline as a pre-production gate.
+7. Do not assign plans, change subscription state, create Trial records, or enforce limits during this development stage.
 
-The generator is read-only and uses the runtime `DATABASE_URL`; credentials must remain in Render's secret/environment configuration and must not be copied into the repository or chat. Once this baseline is complete, the next coding stage is the versioned shared plan-policy catalog. The catalog must preserve the approved Section 19 decisions and must remain reporting-only until the later warning and enforcement gates are approved.
+The generator is read-only and uses the runtime `DATABASE_URL`; credentials must remain in the environment's secret configuration and must not be copied into the repository or chat. The future pre-production baseline should run from the Render backend environment or an approved one-off environment against the Render database. The catalog must preserve the approved Section 19 decisions and remain reporting-only until the later warning and enforcement gates are approved.
