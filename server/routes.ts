@@ -39,6 +39,7 @@ import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDiges
 import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
 import { trackCommunication, type CommunicationSendResult } from "./communication-usage";
 import { getUtcInstantForCalendarDate } from "@shared/booking-status";
+import { getEffectiveEntitlementReport } from "./effective-entitlement";
 import { isBillingCycle, resolvePlanPolicy } from "@shared/plan-catalog";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
@@ -1549,6 +1550,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Super Admin read-only entitlement report. Mutations remain outside this
+  // endpoint until the dedicated plan-management workflow is implemented.
+  app.get("/api/admin/clinics/:id/entitlements", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const clinicId = Number(req.params.id);
+      if (!Number.isInteger(clinicId) || clinicId <= 0) {
+        return res.status(400).json({ message: "Invalid clinic ID" });
+      }
+      const report = await getEffectiveEntitlementReport(clinicId);
+      if (!report) return res.status(404).json({ message: "Clinic not found" });
+      res.json(report);
+    } catch (err: any) {
+      console.error("[ADMIN ENTITLEMENTS]", err.message);
+      res.status(500).json({ message: "Unable to calculate clinic entitlements" });
+    }
+  });
+
   // PATCH /api/clinics/:id/mark-paid — admin manual override
   app.patch("/api/clinics/:id/mark-paid", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Only superusers can mark clinics as paid" });
@@ -2977,6 +2996,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[ADMIN STORAGE USAGE]", err.message);
       res.status(500).json({ message: "Unable to calculate application storage usage" });
+    }
+  });
+
+  // Reporting-only effective entitlement snapshot. This intentionally does
+  // not block actions or mutate clinic/provider subscription state.
+  app.get("/api/auth/clinic/settings/entitlements", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId || sess.role === "doctor") {
+      return res.status(403).json({ message: "Clinic admin session required" });
+    }
+    try {
+      const report = await getEffectiveEntitlementReport(Number(sess.clinicId));
+      if (!report) return res.status(404).json({ message: "Clinic not found" });
+      res.json(report);
+    } catch (err: any) {
+      console.error("[CLINIC ENTITLEMENTS]", err.message);
+      res.status(500).json({ message: "Unable to calculate clinic entitlements" });
     }
   });
 
