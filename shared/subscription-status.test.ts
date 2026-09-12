@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { getSubscriptionStatusInfo } from "./subscription-status";
 
 test("normalizes supported subscription states", () => {
+  assert.equal(getSubscriptionStatusInfo("trialing").state, "trialing");
   assert.equal(getSubscriptionStatusInfo("active").state, "active");
   assert.equal(getSubscriptionStatusInfo("past_due").state, "past_due");
   assert.equal(getSubscriptionStatusInfo("provider_error").state, "provider_error");

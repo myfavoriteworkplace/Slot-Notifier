@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte, lt, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -40,7 +40,7 @@ import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.servic
 import { trackCommunication, type CommunicationSendResult } from "./communication-usage";
 import { getUtcInstantForCalendarDate } from "@shared/booking-status";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
-import { isBillingCycle, resolvePlanPolicy } from "@shared/plan-catalog";
+import { isBillingCycle, resolvePlanPolicy, PAID_PLAN_KEYS, PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
@@ -1565,6 +1565,164 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[ADMIN ENTITLEMENTS]", err.message);
       res.status(500).json({ message: "Unable to calculate clinic entitlements" });
+    }
+  });
+
+  // Start or extend a Trial through an audited, provider-independent
+  // lifecycle operation. Paid activation and entitlement enforcement remain
+  // separate workflows.
+  app.post("/api/admin/clinics/:id/trial", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can manage Trials" });
+
+    const parsed = z.object({
+      action: z.enum(["start", "extend"]),
+      reason: z.string().trim().min(10).max(500),
+      extensionDays: z.coerce.number().int().min(1).max(30).optional(),
+      transitionId: z.string().uuid().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Action, reason, and valid Trial details are required" });
+    }
+
+    const clinicId = Number(req.params.id);
+    if (!Number.isInteger(clinicId) || clinicId <= 0) {
+      return res.status(400).json({ message: "Invalid clinic ID" });
+    }
+
+    const transitionId = parsed.data.transitionId || crypto.randomUUID();
+    const now = new Date();
+    const trialPolicy = resolvePlanPolicy("trial", PUBLISHED_PLAN_POLICY).policy;
+    const trialDurationDays = trialPolicy?.trial.durationDays ?? 14;
+    const trialGraceDays = trialPolicy?.trial.graceDays ?? 7;
+    const extensionDays = parsed.data.extensionDays ?? 7;
+    const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+    const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [existingEvent] = await tx.select()
+          .from(subscriptionLifecycleEvents)
+          .where(and(
+            eq(subscriptionLifecycleEvents.clinicId, clinicId),
+            eq(subscriptionLifecycleEvents.transitionId, transitionId),
+          ))
+          .limit(1);
+
+        const [current] = await tx.select().from(clinics).where(eq(clinics.id, clinicId)).limit(1);
+        if (!current) {
+          const error = new Error("Clinic not found");
+          (error as any).statusCode = 404;
+          throw error;
+        }
+
+        if (existingEvent) {
+          return { clinic: current, event: existingEvent, idempotent: true };
+        }
+
+        const currentTrialEnd = current.trialEndsAt ? new Date(current.trialEndsAt) : null;
+        const hasRecordedTrial = current.plan === "trial" && !!current.trialStartedAt;
+        const activeTrial = hasRecordedTrial && !!currentTrialEnd && currentTrialEnd > now;
+        const normalizedStatus = (current.subscriptionStatus || "").toLowerCase();
+        const activePaidPlan = PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number]) &&
+          ["active", "manual_override"].includes(normalizedStatus);
+
+        if (parsed.data.action === "start" && hasRecordedTrial) {
+          const error = new Error(activeTrial
+            ? "This clinic already has an active Trial. Use Extend Trial instead."
+            : "This clinic already has Trial history. Use Extend Trial rather than restarting it.");
+          (error as any).statusCode = 409;
+          throw error;
+        }
+        if (parsed.data.action === "extend" && !hasRecordedTrial) {
+          const error = new Error("This clinic has no Trial history to extend.");
+          (error as any).statusCode = 409;
+          throw error;
+        }
+        if (parsed.data.action === "start" && activePaidPlan) {
+          const error = new Error("An active paid plan must not be replaced by a Trial.");
+          (error as any).statusCode = 409;
+          throw error;
+        }
+
+        const paidPlanWasActiveOrExpired = PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number]) &&
+          ["active", "past_due", "expired", "cancelled", "manual_override"].includes(normalizedStatus);
+        const nextTrialStartedAt = parsed.data.action === "start"
+          ? now
+          : new Date(current.trialStartedAt as Date);
+        const baseEnd = parsed.data.action === "start"
+          ? now
+          : currentTrialEnd && currentTrialEnd > now ? currentTrialEnd : now;
+        const nextTrialEndsAt = addDays(baseEnd, parsed.data.action === "start" ? trialDurationDays : extensionDays);
+        const nextTrialGraceEndsAt = addDays(nextTrialEndsAt, trialGraceDays);
+        const nextOrigin = parsed.data.action === "start"
+          ? paidPlanWasActiveOrExpired ? "paid_expiry" : "admin_granted"
+          : current.trialOrigin || "admin_granted";
+        const nextPreviousPaidPlan = current.previousPaidPlan ||
+          (paidPlanWasActiveOrExpired ? current.plan : null);
+        const nextStatus = "trialing";
+        const eventType = parsed.data.action === "start" ? "trial_started" : "trial_extended";
+
+        const [updatedClinic] = await tx.update(clinics)
+          .set({
+            plan: "trial",
+            subscriptionStatus: nextStatus,
+            trialStartedAt: nextTrialStartedAt,
+            trialEndsAt: nextTrialEndsAt,
+            trialGraceEndsAt: nextTrialGraceEndsAt,
+            trialOrigin: nextOrigin,
+            previousPaidPlan: nextPreviousPaidPlan,
+            subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
+          })
+          .where(eq(clinics.id, clinicId))
+          .returning();
+
+        const [assignment] = await tx.insert(subscriptionPlanAssignments).values({
+          clinicId,
+          plan: "trial",
+          billingCycle: current.billingCycle || "monthly",
+          source: parsed.data.action === "start" ? "admin_trial_start" : "admin_trial_extension",
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          transitionId,
+          assignedByType: "superuser",
+          assignedById: actorId,
+          reason: parsed.data.reason,
+          startsAt: now,
+          endsAt: nextTrialGraceEndsAt,
+        }).returning();
+
+        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
+          clinicId,
+          eventType,
+          fromPlan: current.plan,
+          toPlan: "trial",
+          fromStatus: current.subscriptionStatus,
+          toStatus: nextStatus,
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          transitionId,
+          actorType: "superuser",
+          actorId,
+          reason: parsed.data.reason,
+          metadata: {
+            trialOrigin: nextOrigin,
+            extensionDays: parsed.data.action === "start" ? null : extensionDays,
+            trialStartedAt: nextTrialStartedAt.toISOString(),
+            trialEndsAt: nextTrialEndsAt.toISOString(),
+            trialGraceEndsAt: nextTrialGraceEndsAt.toISOString(),
+            assignmentId: assignment.id,
+          },
+          effectiveAt: now,
+        }).returning();
+
+        return { clinic: updatedClinic, event, idempotent: false };
+      });
+
+      res.status(result.idempotent ? 200 : 201).json(result);
+    } catch (error: any) {
+      const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
+      console.error("[ADMIN TRIAL]", error?.message || error);
+      res.status(statusCode).json({
+        message: statusCode === 500 ? "Unable to update the clinic Trial" : error.message,
+      });
     }
   });
 

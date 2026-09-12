@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   Database,
+  Play,
+  Plus,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -16,10 +19,13 @@ import {
 import type { Clinic } from "@shared/schema";
 import type { EffectiveEntitlementItem, EffectiveEntitlementReport } from "@shared/effective-entitlement";
 import { apiRequest } from "@/lib/queryClient";
+import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const CAPABILITY_LABELS: Record<string, string> = {
   bookings: "Bookings",
@@ -107,6 +113,11 @@ function UsageValue({ item }: { item: EffectiveEntitlementItem }) {
 export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] }) {
   const [search, setSearch] = useState("");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
+  const [trialDialogOpen, setTrialDialogOpen] = useState(false);
+  const [trialAction, setTrialAction] = useState<"start" | "extend">("start");
+  const [trialReason, setTrialReason] = useState("");
+  const [extensionDays, setExtensionDays] = useState("7");
+  const queryClient = useQueryClient();
   const selectedClinic = clinics.find(clinic => clinic.id === selectedClinicId) ?? null;
 
   const reportQuery = useQuery<EffectiveEntitlementReport>({
@@ -130,6 +141,37 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
   const featureCapabilities = reportQuery.data?.capabilities.filter(item => !USAGE_CAPABILITIES.has(item.capability)) ?? [];
   const attentionCount = reportQuery.data?.capabilities.filter(item => item.overLimit === true).length ?? 0;
   const report = reportQuery.data;
+  const hasTrialHistory = Boolean(report?.access.trialStartedAt && report.plan.effective === "trial");
+
+  const trialMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedClinicId === null) throw new Error("Select a clinic first");
+      const response = await apiRequest("POST", `/api/admin/clinics/${selectedClinicId}/trial`, {
+        action: trialAction,
+        reason: trialReason.trim(),
+        extensionDays: trialAction === "extend" ? Number(extensionDays) : undefined,
+        transitionId: crypto.randomUUID(),
+      });
+      return response.json();
+    },
+    onSuccess: async () => {
+      setTrialDialogOpen(false);
+      setTrialReason("");
+      notify.success(trialAction === "start" ? "Trial started" : "Trial extended", {
+        description: `${selectedClinic?.name || "Clinic"} now has an audited Trial lifecycle record.`,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      await reportQuery.refetch();
+    },
+    onError: (error: Error) => notify.error(error.message || "Could not update Trial"),
+  });
+
+  const openTrialDialog = (action: "start" | "extend") => {
+    setTrialAction(action);
+    setTrialReason("");
+    setExtensionDays("7");
+    setTrialDialogOpen(true);
+  };
 
   return (
     <div className="space-y-5">
@@ -222,10 +264,22 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                           {selectedClinic.city || "Clinic"} · measured {formatDate(report.measuredAt)}
                         </CardDescription>
                       </div>
-                      <Badge variant="outline" className={`capitalize ${statusClass(report.access.state)}`}>
-                        {report.access.state === "attention" ? <AlertTriangle className="mr-1 h-3 w-3" /> : report.access.state === "unknown" ? <ShieldAlert className="mr-1 h-3 w-3" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
-                        {labelFor(report.access.state)}
-                      </Badge>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Badge variant="outline" className={`capitalize ${statusClass(report.access.state)}`}>
+                          {report.access.state === "attention" ? <AlertTriangle className="mr-1 h-3 w-3" /> : report.access.state === "unknown" ? <ShieldAlert className="mr-1 h-3 w-3" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+                          {labelFor(report.access.state)}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant={hasTrialHistory ? "outline" : "default"}
+                          className="h-8"
+                          onClick={() => openTrialDialog(hasTrialHistory ? "extend" : "start")}
+                          data-testid={`button-${hasTrialHistory ? "extend" : "start"}-trial-${selectedClinic.id}`}
+                        >
+                          {hasTrialHistory ? <Plus className="mr-1.5 h-3.5 w-3.5" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
+                          {hasTrialHistory ? "Extend Trial" : "Start Trial"}
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -305,13 +359,68 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                 </Card>
 
                 <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-                  This is a reporting-only view. It does not assign plans, create Trial records, change subscription state, call payment providers, or enforce limits.
+                  Trial actions are limited to authorized Super Admins, require a reason, and write an append-only lifecycle record. Paid activation, policy editing, provider mutations, and entitlement enforcement remain separate workflows.
                 </div>
               </>
             )}
           </div>
         )}
       </div>
+
+      <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              {trialAction === "start" ? "Start Trial" : "Extend Trial"}
+            </DialogTitle>
+            <DialogDescription>
+              {trialAction === "start"
+                ? `${selectedClinic?.name || "This clinic"} will receive the published 14-day Trial policy.`
+                : `${selectedClinic?.name || "This clinic"} will receive additional Trial time without restarting its Trial history.`}
+              {" "}This does not create or change a Razorpay subscription.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {trialAction === "extend" && (
+              <div className="space-y-2">
+                <label htmlFor="trial-extension-days" className="text-sm font-semibold">Additional days</label>
+                <Input
+                  id="trial-extension-days"
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={extensionDays}
+                  onChange={event => setExtensionDays(event.target.value)}
+                  className="h-9"
+                />
+                <p className="text-xs text-muted-foreground">Choose between 1 and 30 days. The grace date moves with the Trial end date.</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <label htmlFor="trial-reason" className="text-sm font-semibold">Reason <span className="text-destructive">*</span></label>
+              <Textarea
+                id="trial-reason"
+                value={trialReason}
+                onChange={event => setTrialReason(event.target.value)}
+                placeholder="Record why this Trial access is being granted or extended."
+                maxLength={500}
+                className="min-h-[100px] text-sm"
+              />
+              <p className="text-xs text-muted-foreground">{trialReason.trim().length}/10 minimum characters · {trialReason.length}/500</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setTrialDialogOpen(false)} disabled={trialMutation.isPending}>Cancel</Button>
+            <Button
+              onClick={() => trialMutation.mutate()}
+              disabled={trialMutation.isPending || trialReason.trim().length < 10 || (trialAction === "extend" && (!Number.isInteger(Number(extensionDays)) || Number(extensionDays) < 1 || Number(extensionDays) > 30))}
+            >
+              {trialMutation.isPending ? "Saving…" : trialAction === "start" ? "Start Trial" : "Extend Trial"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

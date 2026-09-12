@@ -318,8 +318,12 @@ export function resolveEffectiveEntitlements(input: EffectiveEntitlementInput): 
     }
   }
 
+  const trialIsActive =
+    effectiveResolution.planKey === "trial" &&
+    !!input.trialEndsAt &&
+    input.trialEndsAt > now;
   const accessState: EffectiveEntitlementReport["access"]["state"] =
-    effectiveResolution.planKey === "trial" ? "trial" :
+    trialIsActive ? "trial" :
     sponsoredGrant ? "active_paid" :
     subscription.state === "active" || subscription.state === "manual_override" ? "active_paid" :
     subscription.state === "unknown" ? "unknown" : "attention";

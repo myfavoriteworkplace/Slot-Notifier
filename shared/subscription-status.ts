@@ -1,4 +1,5 @@
 export const SUBSCRIPTION_STATES = [
+  "trialing",
   "pending_payment",
   "active",
   "past_due",
@@ -31,6 +32,7 @@ export function getSubscriptionStatusInfo(rawStatus: string | null | undefined):
   const normalized = raw?.toLowerCase();
 
   const state: SubscriptionState =
+    normalized === "trialing" || normalized === "trial" ? "trialing" :
     normalized === "active" ? "active" :
     normalized === "pending_payment" || normalized === "unpaid" ? "pending_payment" :
     normalized === "past_due" ? "past_due" :
@@ -41,6 +43,7 @@ export function getSubscriptionStatusInfo(rawStatus: string | null | undefined):
     "unknown";
 
   const labels: Record<SubscriptionState, string> = {
+    trialing: "Trial active",
     pending_payment: "Payment pending",
     active: "Active",
     past_due: "Past due",
@@ -55,7 +58,7 @@ export function getSubscriptionStatusInfo(rawStatus: string | null | undefined):
     state,
     raw,
     label: labels[state],
-    isActive: state === "active",
-    needsAttention: state !== "active",
+    isActive: state === "active" || state === "trialing",
+    needsAttention: state !== "active" && state !== "trialing",
   };
 }
