@@ -28,6 +28,8 @@ export type TrialTransition = TrialWindow & {
   previousPaidPlan: string | null;
 };
 
+export type TrialPhase = "not_trial" | "unknown" | "active" | "grace" | "expired";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function buildTrialWindow(
@@ -79,4 +81,52 @@ export function buildPaidExpiryRecoveryTransition(
     origin: "paid_expiry",
     previousPaidPlan: currentPlan,
   };
+}
+
+export function getTrialPhase(
+  clinic: Pick<TrialLifecycleClinic, "plan" | "trialEndsAt" | "trialGraceEndsAt">,
+  now: Date,
+): TrialPhase {
+  if (clinic.plan !== "trial") return "not_trial";
+
+  const trialEndsAt = clinic.trialEndsAt?.getTime();
+  const trialGraceEndsAt = clinic.trialGraceEndsAt?.getTime();
+  if (
+    trialEndsAt === undefined ||
+    trialGraceEndsAt === undefined ||
+    !Number.isFinite(trialEndsAt) ||
+    !Number.isFinite(trialGraceEndsAt)
+  ) {
+    return "unknown";
+  }
+
+  const nowMs = now.getTime();
+  if (!Number.isFinite(nowMs)) {
+    throw new Error("Trial phase requires a valid current time");
+  }
+  if (nowMs < trialEndsAt) return "active";
+  if (nowMs < trialGraceEndsAt) return "grace";
+  return "expired";
+}
+
+export function isTrialConversionEligible(
+  clinic: TrialLifecycleClinic,
+  now: Date,
+): boolean {
+  return (
+    clinic.plan === "trial" &&
+    clinic.subscriptionStatus?.toLowerCase() === "trialing" &&
+    ["active", "grace"].includes(getTrialPhase(clinic, now))
+  );
+}
+
+export function isTrialExpiredAfterGrace(
+  clinic: TrialLifecycleClinic,
+  now: Date,
+): boolean {
+  return (
+    clinic.plan === "trial" &&
+    clinic.subscriptionStatus?.toLowerCase() === "trialing" &&
+    getTrialPhase(clinic, now) === "expired"
+  );
 }

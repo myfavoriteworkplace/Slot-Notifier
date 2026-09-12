@@ -4,6 +4,9 @@ import {
   buildInitialTrialTransition,
   buildPaidExpiryRecoveryTransition,
   buildTrialWindow,
+  getTrialPhase,
+  isTrialConversionEligible,
+  isTrialExpiredAfterGrace,
 } from "./trial-lifecycle";
 
 const now = new Date("2026-09-12T08:00:00.000Z");
@@ -53,4 +56,41 @@ test("does not recover Trial, pending-payment, or unknown plans", () => {
 test("rejects invalid Trial windows", () => {
   assert.throws(() => buildTrialWindow(now, 0, 7), /duration/);
   assert.throws(() => buildTrialWindow(now, 14, -1), /grace/);
+});
+
+test("uses the exact Trial and grace boundaries", () => {
+  const clinic = {
+    plan: "trial",
+    subscriptionStatus: "trialing",
+    trialStartedAt: now,
+    trialEndsAt: new Date("2026-09-26T08:00:00.000Z"),
+    trialGraceEndsAt: new Date("2026-10-03T08:00:00.000Z"),
+    previousPaidPlan: null,
+  };
+
+  assert.equal(getTrialPhase(clinic, new Date("2026-09-26T07:59:59.999Z")), "active");
+  assert.equal(getTrialPhase(clinic, new Date("2026-09-26T08:00:00.000Z")), "grace");
+  assert.equal(getTrialPhase(clinic, new Date("2026-10-02T23:59:59.999Z")), "grace");
+  assert.equal(getTrialPhase(clinic, new Date("2026-10-03T08:00:00.000Z")), "expired");
+  assert.equal(isTrialConversionEligible(clinic, new Date("2026-10-02T23:59:59.999Z")), true);
+  assert.equal(isTrialExpiredAfterGrace(clinic, new Date("2026-10-03T08:00:00.000Z")), true);
+});
+
+test("does not treat missing Trial dates or non-Trial plans as active", () => {
+  assert.equal(getTrialPhase({
+    plan: "trial",
+    trialEndsAt: null,
+    trialGraceEndsAt: null,
+  }, now), "unknown");
+  assert.equal(getTrialPhase({
+    plan: "starter",
+    trialEndsAt: null,
+    trialGraceEndsAt: null,
+  }, now), "not_trial");
+  assert.equal(isTrialConversionEligible({
+    plan: "trial",
+    subscriptionStatus: "expired",
+    trialEndsAt: new Date("2026-09-01T00:00:00.000Z"),
+    trialGraceEndsAt: new Date("2026-09-08T00:00:00.000Z"),
+  }, now), false);
 });

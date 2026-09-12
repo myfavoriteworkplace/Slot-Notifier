@@ -482,18 +482,6 @@ export default function Admin() {
     }
   });
 
-  const markPaidMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest('PATCH', `/api/clinics/${id}/mark-paid`);
-      if (!res.ok) throw new Error("Failed to mark as paid");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      notify.success("Marked as paid", { description: "Clinic subscription is now active." });
-    }
-  });
-
   const rejectClinicMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await apiRequest('PATCH', `/api/clinics/${id}/reject`);
@@ -1127,19 +1115,6 @@ export default function Admin() {
                             <Key className="h-3.5 w-3.5 mr-1" />
                             Creds
                           </Button>
-                          {(clinic as any).subscriptionStatus !== "active" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1.5 text-xs border-blue-400/50 text-blue-600 hover:bg-blue-500/10 dark:text-blue-400"
-                              onClick={() => markPaidMutation.mutate(clinic.id)}
-                              disabled={markPaidMutation.isPending}
-                              data-testid={`button-mark-paid-${clinic.id}`}
-                            >
-                              <CreditCard className="h-3.5 w-3.5" />
-                              Mark Paid
-                            </Button>
-                          )}
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
                             <Archive className="h-4 w-4" />
                           </Button>

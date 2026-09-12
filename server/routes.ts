@@ -42,7 +42,11 @@ import { getUtcInstantForCalendarDate } from "@shared/booking-status";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
 import { isBillingCycle, resolvePlanPolicy, PAID_PLAN_KEYS, PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
 import { validatePlanPolicyDocument } from "@shared/plan-policy-validation";
-import { buildInitialTrialTransition, buildPaidExpiryRecoveryTransition } from "@shared/trial-lifecycle";
+import {
+  buildInitialTrialTransition,
+  buildPaidExpiryRecoveryTransition,
+  isTrialExpiredAfterGrace,
+} from "@shared/trial-lifecycle";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
@@ -59,6 +63,7 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
 const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmail.com';
 const REMINDER_JOB_SECRET = process.env.REMINDER_JOB_SECRET;
+const SUBSCRIPTION_JOB_SECRET = process.env.SUBSCRIPTION_JOB_SECRET || REMINDER_JOB_SECRET;
 
 async function sendTrackedEmail(
   input: {
@@ -95,6 +100,110 @@ function hasReminderJobSecret(req: Request): boolean {
   const expected = Buffer.from(REMINDER_JOB_SECRET);
   const received = Buffer.from(headerSecret);
   return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+function hasSubscriptionJobSecret(req: Request): boolean {
+  if (!SUBSCRIPTION_JOB_SECRET) return false;
+  const headerSecret = req.header("x-subscription-job-secret") ||
+    req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!headerSecret) return false;
+  const expected = Buffer.from(SUBSCRIPTION_JOB_SECRET);
+  const received = Buffer.from(headerSecret);
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+async function expireTrialIfDue(clinicId: number, now = new Date()): Promise<{
+  status: "processed" | "idempotent" | "not_due" | "missing" | "race";
+  clinic?: typeof clinics.$inferSelect;
+}> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(clinics).where(eq(clinics.id, clinicId)).limit(1);
+    if (!current) return { status: "missing" as const };
+    if (!isTrialExpiredAfterGrace(current, now)) {
+      return { status: "not_due" as const, clinic: current };
+    }
+
+    const trialGraceEndsAt = current.trialGraceEndsAt as Date;
+    const transitionId = `trial-expiry:${clinicId}:${trialGraceEndsAt.toISOString()}`;
+    const [existingEvent] = await tx.select({ id: subscriptionLifecycleEvents.id })
+      .from(subscriptionLifecycleEvents)
+      .where(and(
+        eq(subscriptionLifecycleEvents.clinicId, clinicId),
+        eq(subscriptionLifecycleEvents.transitionId, transitionId),
+      ))
+      .limit(1);
+    if (existingEvent) {
+      return { status: "idempotent" as const, clinic: current };
+    }
+
+    const [updatedClinic] = await tx.update(clinics)
+      .set({ subscriptionStatus: "expired" })
+      .where(and(
+        eq(clinics.id, clinicId),
+        eq(clinics.plan, "trial"),
+        eq(clinics.subscriptionStatus, "trialing"),
+      ))
+      .returning();
+    if (!updatedClinic) return { status: "race" as const };
+
+    await tx.insert(subscriptionPlanAssignments).values({
+      clinicId,
+      plan: "trial",
+      billingCycle: current.billingCycle || "monthly",
+      source: "trial_expiry",
+      policyVersion: current.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
+      transitionId,
+      assignedByType: "system",
+      assignedById: "trial_lifecycle",
+      reason: "Trial expired after the approved grace period",
+      startsAt: current.trialStartedAt || now,
+      endsAt: trialGraceEndsAt,
+    });
+    await tx.insert(subscriptionLifecycleEvents).values({
+      clinicId,
+      eventType: "expired",
+      fromPlan: current.plan,
+      toPlan: current.plan,
+      fromStatus: current.subscriptionStatus,
+      toStatus: "expired",
+      policyVersion: current.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
+      transitionId,
+      actorType: "system",
+      actorId: "trial_lifecycle",
+      reason: "Trial expired after the approved grace period",
+      metadata: {
+        trialOrigin: current.trialOrigin,
+        trialEndsAt: current.trialEndsAt?.toISOString() ?? null,
+        trialGraceEndsAt: trialGraceEndsAt.toISOString(),
+        previousPaidPlan: current.previousPaidPlan,
+      },
+      effectiveAt: now,
+    });
+
+    return { status: "processed" as const, clinic: updatedClinic };
+  });
+}
+
+async function reconcileExpiredTrials(now = new Date()) {
+  const candidates = await db.select({ id: clinics.id })
+    .from(clinics)
+    .where(and(
+      eq(clinics.plan, "trial"),
+      eq(clinics.subscriptionStatus, "trialing"),
+      lte(clinics.trialGraceEndsAt, now),
+    ));
+  const results = [];
+  for (const candidate of candidates) {
+    results.push({ clinicId: candidate.id, ...(await expireTrialIfDue(candidate.id, now)) });
+  }
+  return {
+    measuredAt: now.toISOString(),
+    candidates: candidates.length,
+    processed: results.filter((result) => result.status === "processed").length,
+    idempotent: results.filter((result) => result.status === "idempotent").length,
+    races: results.filter((result) => result.status === "race").length,
+    results,
+  };
 }
 
 function sendTransitionError(res: Response, err: unknown): void {
@@ -1157,6 +1266,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // POST /api/internal/subscription-lifecycle/reconcile — scheduler-only
+  // sweep for Trial records that passed the approved grace boundary.
+  app.post("/api/internal/subscription-lifecycle/reconcile", async (req, res) => {
+    if (!SUBSCRIPTION_JOB_SECRET) {
+      return res.status(503).json({ message: "Subscription lifecycle scheduler is not configured" });
+    }
+    if (!hasSubscriptionJobSecret(req)) {
+      return res.status(401).json({ message: "Invalid subscription lifecycle scheduler credentials" });
+    }
+    try {
+      return res.json(await reconcileExpiredTrials());
+    } catch (error) {
+      console.error("[SUBSCRIPTION LIFECYCLE] Reconcile failed:", error);
+      return res.status(500).json({ message: "Subscription lifecycle reconciliation failed" });
+    }
+  });
+
   app.get("/api/auth/clinic/reminders/digest-preview", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId || sess.role === "doctor") {
@@ -1489,7 +1615,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .limit(1)
         : [];
       const [duplicateProviderEvent] = eventId
-        ? await db.select({ id: subscriptionProviderEvents.id })
+        ? await db.select({
+          id: subscriptionProviderEvents.id,
+          processingStatus: subscriptionProviderEvents.processingStatus,
+        })
           .from(subscriptionProviderEvents)
           .where(and(
             eq(subscriptionProviderEvents.provider, "razorpay"),
@@ -1497,36 +1626,97 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           ))
           .limit(1)
         : [];
-      if (duplicateProviderEvent) {
+      if (duplicateProviderEvent && ["applied", "ignored", "unmatched"].includes(duplicateProviderEvent.processingStatus)) {
         return res.json({ received: true, duplicate: true });
       }
 
-      const [providerEvent] = await db.insert(subscriptionProviderEvents).values({
-        clinicId: clinic?.id ?? null,
-        provider: "razorpay",
-        subscriptionId: subscriptionId ?? null,
-        eventId: eventId ?? null,
-        eventType: event || "unknown",
-        processingStatus: clinic ? "received" : "unmatched",
-        details: {
-          providerStatus: subscriptionEntity?.status ?? null,
-          currentStart: subscriptionEntity?.current_start ?? null,
-          currentEnd: subscriptionEntity?.current_end ?? null,
-        },
-        occurredAt: subscriptionEntity?.created_at ? new Date(Number(subscriptionEntity.created_at) * 1000) : null,
-      }).returning({ id: subscriptionProviderEvents.id });
+      const [providerEvent] = duplicateProviderEvent
+        ? [duplicateProviderEvent]
+        : await db.insert(subscriptionProviderEvents).values({
+          clinicId: clinic?.id ?? null,
+          provider: "razorpay",
+          subscriptionId: subscriptionId ?? null,
+          eventId: eventId ?? null,
+          eventType: event || "unknown",
+          processingStatus: clinic ? "received" : "unmatched",
+          details: {
+            providerStatus: subscriptionEntity?.status ?? null,
+            currentStart: subscriptionEntity?.current_start ?? null,
+            currentEnd: subscriptionEntity?.current_end ?? null,
+          },
+          occurredAt: subscriptionEntity?.created_at ? new Date(Number(subscriptionEntity.created_at) * 1000) : null,
+        }).returning({ id: subscriptionProviderEvents.id });
       if ((event === "subscription.charged" || event === "subscription.activated") && clinic) {
-        if (clinic) {
-          await storage.updateClinic(clinic.id, { subscriptionStatus: "active" } as any);
-          await db.update(activationTokens)
+        const providerCurrentEnd = subscriptionEntity?.current_end
+          ? new Date(Number(subscriptionEntity.current_end) * 1000)
+          : null;
+        const activationTransitionId = `razorpay:activation:${eventId || subscriptionId || "unknown"}:${event}`;
+        const activationResult = await db.transaction(async (tx) => {
+          const [current] = await tx.select().from(clinics).where(eq(clinics.id, clinic.id)).limit(1);
+          if (!current) return { status: "missing" as const };
+          if (!PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number])) {
+            return { status: "ignored" as const };
+          }
+
+          const wasPendingPayment = current.subscriptionStatus === "pending_payment";
+          const [updatedClinic] = await tx.update(clinics)
+            .set({
+              subscriptionStatus: "active",
+              paidAccessExpiresAt: providerCurrentEnd || current.paidAccessExpiresAt,
+              trialStartedAt: null,
+              trialEndsAt: null,
+              trialGraceEndsAt: null,
+              trialOrigin: null,
+            })
+            .where(and(
+              eq(clinics.id, clinic.id),
+              inArray(clinics.subscriptionStatus, ["pending_payment", "active", "past_due"] as string[]),
+            ))
+            .returning();
+          if (!updatedClinic) return { status: "race" as const };
+
+          const [existingActivation] = await tx.select({ id: subscriptionLifecycleEvents.id })
+            .from(subscriptionLifecycleEvents)
+            .where(and(
+              eq(subscriptionLifecycleEvents.clinicId, clinic.id),
+              eq(subscriptionLifecycleEvents.transitionId, activationTransitionId),
+            ))
+            .limit(1);
+          if (!existingActivation) {
+            await tx.insert(subscriptionLifecycleEvents).values({
+              clinicId: clinic.id,
+              eventType: wasPendingPayment ? "converted" : "renewed",
+              fromPlan: current.plan,
+              toPlan: current.plan,
+              fromStatus: current.subscriptionStatus,
+              toStatus: "active",
+              policyVersion: current.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
+              transitionId: activationTransitionId,
+              actorType: "provider",
+              actorId: "razorpay",
+              reason: wasPendingPayment
+                ? "Provider confirmed paid access after Trial or recovery assignment"
+                : "Provider confirmed subscription payment",
+              metadata: {
+                providerEventId: eventId ?? null,
+                providerSubscriptionId: subscriptionId ?? null,
+                currentEnd: providerCurrentEnd?.toISOString() ?? null,
+              },
+              effectiveAt: providerCurrentEnd || new Date(),
+            });
+          }
+
+          await tx.update(activationTokens)
             .set({ used: true })
             .where(eq(activationTokens.razorpaySubscriptionId, subscriptionId!));
-          await db.update(subscriptionProviderEvents)
-            .set({ processingStatus: "applied" })
-            .where(eq(subscriptionProviderEvents.id, providerEvent.id));
+          return { status: "applied" as const, clinic: updatedClinic };
+        });
+
+        await db.update(subscriptionProviderEvents)
+          .set({ processingStatus: activationResult.status === "applied" ? "applied" : "ignored" })
+          .where(eq(subscriptionProviderEvents.id, providerEvent.id));
+        if (activationResult.status === "applied") {
           console.log(`[WEBHOOK] Clinic ${clinic.id} subscription activated`);
-        } else {
-          console.warn(`[WEBHOOK] No clinic found for subscription ${subscriptionId}`);
         }
       }
 
@@ -1942,6 +2132,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!Number.isInteger(clinicId) || clinicId <= 0) {
         return res.status(400).json({ message: "Invalid clinic ID" });
       }
+      await expireTrialIfDue(clinicId);
       const report = await getEffectiveEntitlementReport(clinicId);
       if (!report) return res.status(404).json({ message: "Clinic not found" });
       res.json(report);
@@ -2159,9 +2350,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (activePaidPlan) {
         return res.status(409).json({ message: "An active paid plan must be changed through a provider-aware upgrade or downgrade workflow." });
       }
-      const activeTrial = current.plan === "trial" && current.trialEndsAt && new Date(current.trialEndsAt) > now;
-      if (activeTrial) return res.status(409).json({ message: "An active Trial must expire or be explicitly handled before assigning a paid plan." });
-
       const [existingEvent] = await db.select()
         .from(subscriptionLifecycleEvents)
         .where(and(
@@ -2252,9 +2440,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           startsAt: now,
         }).returning();
 
+        const convertingFromTrial = current.plan === "trial";
         const [event] = await tx.insert(subscriptionLifecycleEvents).values({
           clinicId,
-          eventType: "plan_assigned",
+          eventType: convertingFromTrial ? "converted" : "plan_assigned",
           fromPlan: current.plan,
           toPlan: parsed.data.plan,
           fromStatus: current.subscriptionStatus,
@@ -2270,6 +2459,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             providerSubscriptionId: razorpaySubId || null,
             activationTokenId: token,
             assignmentId: assignment.id,
+            conversionState: convertingFromTrial ? "pending_payment" : null,
           },
           effectiveAt: now,
         }).returning();
@@ -2427,19 +2617,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // PATCH /api/clinics/:id/mark-paid — admin manual override
+  // The former broad Mark Paid mutation is intentionally disabled. Paid
+  // subscription access must come from the dedicated provider-aware workflow.
   app.patch("/api/clinics/:id/mark-paid", isAuthenticated, async (req, res) => {
-    if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Only superusers can mark clinics as paid" });
-    try {
-      const clinicId = parseInt(req.params.id);
-      const clinic = await storage.updateClinic(clinicId, { subscriptionStatus: "active" } as any);
-      await db.update(activationTokens)
-        .set({ used: true })
-        .where(and(eq(activationTokens.clinicId, clinicId), eq(activationTokens.used, false)));
-      res.json(clinic);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
+    if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
+    return res.status(410).json({
+      message: "Direct Mark Paid is disabled. Use the audited paid-plan assignment and provider activation workflow.",
+    });
   });
 
   // GET /api/clinics/:id/activation-link — returns unexpired activation token URL for a clinic
@@ -3866,6 +4050,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ message: "Clinic admin session required" });
     }
     try {
+      await expireTrialIfDue(Number(sess.clinicId));
       const report = await getEffectiveEntitlementReport(Number(sess.clinicId));
       if (!report) return res.status(404).json({ message: "Clinic not found" });
       res.json(report);
