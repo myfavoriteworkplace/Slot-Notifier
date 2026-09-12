@@ -1,6 +1,6 @@
 # Four-Plan Subscription and Entitlement Blueprint
 
-**Status:** Commercial policy approved for implementation planning; implementation roadmap clarified; no application behavior has been changed
+**Status:** Commercial policy approved for implementation planning; sponsored-access and platform-revenue gaps resolved; no application behavior has been changed
 **Related blueprints:** [Super Admin Platform Operations](14-super-admin-platform-operations-blueprint.md), [Messaging Allowance and Plan Policy](15-messaging-allowance-and-plan-policy-blueprint.md)  
 **Audience:** Product, operations, support, finance, frontend, backend, database, QA, security, and platform teams  
 **Application:** BookMySlot dental clinic platform  
@@ -30,6 +30,7 @@ This blueprint proposes:
 6. Server-side enforcement for every commercial limit.
 7. A safe initial-Trial and post-paid-expiry recovery process that preserves clinic data and does not silently break essential clinical or security communication.
 8. A Super Admin plan-management flow that can configure policies, assign a plan, extend a Trial, and assign a paid plan after a paid subscription expires.
+9. A strict separation between paid subscription money, complimentary access, and clinic-private treatment revenue.
 
 This document is a policy and implementation blueprint. The commercial policy in Section 19 is approved for implementation planning, but that approval does not authorize changing plan prices, Razorpay configuration, database schema, clinic access, or notification behavior. Those changes require the staged implementation and release gates described below.
 
@@ -41,17 +42,17 @@ This table is the approved execution order. It separates the completed commercia
 
 | Step | Purpose in common words | Main implementation work | Progress today | Done when |
 |---|---|---|---|---|
-| **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, and transaction-fee scope. | **Complete for implementation planning.** The approved contract is recorded in Section 19. Transaction-fee calculation and exact inventory/pharmacy item-count thresholds are explicitly deferred. | The signed-off four-plan matrix, terminology, message categories, and decision log mark every item as Approved or Explicitly deferred. |
+| **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, sponsored access, platform-revenue definitions, and transaction-fee scope. | **Complete for implementation planning.** The approved contract is recorded in Section 19. Transaction-fee calculation and exact inventory/pharmacy item-count thresholds are explicitly deferred. Sponsored access and platform subscription reporting are now defined separately from paid access and clinic treatment revenue. | The signed-off four-plan matrix, terminology, message categories, access-exception rules, revenue definitions, and decision log mark every item as Approved or Explicitly deferred. |
 | **1. Record the current baseline** | Take a safe “before” snapshot so new restrictions do not accidentally break existing clinics. | Inventory current plan assignments, subscription states, Razorpay IDs, usage, storage, doctors, deals, bookings, and provider events. Identify clinics that would already be above a proposed Trial or paid limit. | **Development validation is partially complete; the production-clinic migration baseline is intentionally deferred.** The read-only generator is `scripts/subscription-baseline.ts`; the Replit development database used for the first run had zero clinic rows. During the current development phase, representative fixtures or populated development data are sufficient for validating catalog calculations. A full Render-clinic baseline is required before production rollout or enforcement, not before development catalog work. | Development fixtures prove the calculations and unavailable-data handling; before production rollout, every clinic has a known current plan, access state, usage snapshot, and migration/exception decision. |
 | **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **Development consumer migration complete; policy lifecycle remains deferred.** The shared published catalog now contains the approved four-plan limits, feature levels, messaging allowances, annual prices, annual-savings calculation, explicit deferrals, and unknown-plan handling. Public pricing, registration, landing-page pricing copy, activation pricing/labels, and storage quota resolution now read from the catalog. | Draft and published policies are distinct; historical versions are immutable; annual savings are calculated; all consumers have a migration plan away from hardcoded values. |
-| **3. Add subscription, Trial, assignment, and exception history** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, assignment history, policy version references, transition identity, and time-limited exceptions. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no complete lifecycle or history model. | The system can explain initial Trial, paid conversion, renewal, expiry, recovery, extension, downgrade, exception, and later paid assignment without reconstructing history manually. |
+| **3. Add subscription, Trial, assignment, and exception history** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, assignment history, policy version references, transition identity, sponsored-access grants, and time-limited exceptions. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no complete lifecycle or history model. | The system can explain initial Trial, paid conversion, renewal, expiry, recovery, extension, downgrade, sponsored access, exception, and later paid assignment without reconstructing history manually. |
 | **4. Build the effective-entitlement service** | Give every part of the app the same answer about what a clinic may do right now. | Resolve clinic → plan → subscription/Trial state → policy defaults → temporary exception → emergency disablement; return value, source, usage, limit, and stable error code. | **Not started.** The subscription-state normalizer exists, but it does not calculate plan permissions or limits. | A single server-side service answers both “what is included?” and “is this action allowed?” |
 | **5. Calculate usage in reporting-only mode** | Measure first, without blocking anyone. | Calculate booking, doctor, Smile Deal, storage, SMS, WhatsApp, email, analytics, and export usage; show used, limit, remaining, reset/expiry date, timezone, and data freshness. | **Partial foundation.** Communication usage, storage tracking, and some Admin/clinic views exist; plan limits are not connected to a unified report. | At least one complete reporting period proves the numbers are accurate and unavailable data is not shown as zero. |
 | **6. Build the read-only Subscription Plans Admin area** | Let operations review the model and its impact before mutations are enabled. | Add separate Plan Policies and Clinic Subscription Management views with published policy, versions, provider mappings, usage impact, affected clinics, Trial history, exceptions, and provider history. | **Not started.** Existing Admin views show partial plan and usage data but no dedicated four-plan policy area. | Read-only views are role-protected, responsive, backed by real data, and distinguish catalog price, provider price, policy version, and clinic exception. |
 | **7. Add draft → review → validate → publish policy workflow** | Make global commercial changes deliberate and auditable. | Add draft editing, required reasons, validation, calculated savings, provider-mapping checks, impact preview, explicit publish confirmation, immutable versions, and policy audit records. | **Not started.** Current clinic editing and approval routes are not policy workflows. | Invalid or incomplete policies cannot publish, and publishing never changes an existing Razorpay subscription by itself. |
 | **8. Implement Trial creation, conversion, expiry, and recovery** | Give new clinics a safe trial and give expired paid clinics a short, controlled chance to recover. | Start Trial once, calculate expiry/grace dates, warn before expiry, move confirmed paid expiry to recovery Trial, preserve old plan/provider history, and make the transition idempotent. | **Not started.** No `trialing` state or automatic paid-expiry recovery flow exists. | Repeated provider events cannot restart a Trial, and expiry never deletes data or silently leaves paid access active. |
-| **9. Add safe Super Admin plan operations** | Let authorized staff manage plans safely without editing clinic rows directly. | Add Start Trial, Extend Trial, Assign Paid Plan after expiry, reasons, confirmation, role checks, audit events, stale-state protection, and provider-aware activation. | **Partial foundation.** Clinic approval can select Starter/Growth/Pro, but there is no dedicated four-plan management flow or Trial action. | Every manual plan change is authorized, confirmed, explainable, audited, and safe against provider/admin races. |
-| **10. Complete provider lifecycle and commercial alignment** | Ensure the screen, database, and payment provider never disagree. | Verify plan/cycle mapping, Trial-to-paid conversion, recovery-Trial-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation, idempotency, and historical policy references. | **Partial foundation.** Razorpay plan mapping and provider-event history exist; Trial conversion/recovery and safe plan changes do not. | A paid plan is activated only through the approved provider/payment path, and expired provider subscriptions are never reused accidentally. |
+| **9. Add safe Super Admin plan operations** | Let authorized staff manage plans safely without editing clinic rows directly. | Add Start Trial, Extend Trial, Assign Paid Plan after expiry, Grant Sponsored Access, reasons, confirmation, role checks, audit events, stale-state protection, and provider-aware activation. | **Partial foundation.** Clinic approval can select Starter/Growth/Pro, but there is no dedicated four-plan management flow, Trial action, or sponsored-access workflow. | Every manual plan or access change is authorized, confirmed, explainable, audited, time-bounded where applicable, and safe against provider/admin races. |
+| **10. Complete provider lifecycle and commercial alignment** | Ensure the screen, database, and payment provider never disagree. | Verify plan/cycle mapping, Trial-to-paid conversion, recovery-Trial-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation, idempotency, historical policy references, and payment/refund/chargeback reconciliation. | **Partial foundation.** Razorpay plan mapping and provider-event history exist; Trial conversion/recovery, safe plan changes, and a financial ledger do not. | A paid plan is activated only through the approved provider/payment path, expired provider subscriptions are never reused accidentally, and platform-revenue reports distinguish captured, refunded, settled, and complimentary amounts. |
 | **11. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial foundation.** Some storage and messaging usage views exist; there is no complete plan/Trial/entitlement view. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
 | **12. Turn on warnings before restrictions** | Give people time to act instead of suddenly stopping work. | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, warning audit records, and upgrade/support guidance. | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and audit events do not. | Warnings are accurate, explainable, timezone-aware, and do not consume the clinic’s own allowance. |
 | **13. Enforce limits on the server** | Actually apply the plan rules securely; hiding a button is not enough. | Enforce doctor, booking, deal, storage, analytics, export, and messaging rules in backend routes/services; protect essential clinical/security messages; return structured errors. | **Not started.** Current dashboard modules are generally available independently of plan. | Every restricted operation is checked server-side and gives a clear reason when denied; existing data remains visible. |
@@ -1097,6 +1098,35 @@ Temporary support exceptions should be distinct from plan defaults:
 
 Permanent undocumented overrides should not be introduced.
 
+#### 14.4.1 Sponsored or complimentary access
+
+An administrator may grant either:
+
+1. A selected-feature or selected-limit exception, which is the default for support cases; or
+2. A full-plan sponsored assignment, where the clinic receives the effective entitlements of Trial, Starter, Growth, or Pro for a fixed period without a provider charge.
+
+A full-plan grant is allowed only through the dedicated sponsored-access workflow. It must not mutate a paid provider subscription or make a clinic appear to have completed payment. The effective entitlement response must identify the grant as `sponsored` or `manual_override`, include its expiry, and retain the underlying plan and provider state.
+
+Sponsored access rules:
+
+- It must have a fixed start and end timestamp.
+- It must not overlap an active paid subscription by default. The normal operation is to schedule it after the paid period, or grant a narrowly scoped support exception without changing paid billing.
+- It never pauses, extends, cancels, or rewrites the paid provider subscription.
+- There may be only one effective sponsored-access grant per clinic. A new grant must extend or explicitly replace the existing grant; additive stacking is not allowed.
+- At expiry, the override is removed and the underlying entitlement state is recalculated. An active paid subscription resumes as paid access; an expired paid subscription follows the recovery/expired rules; a pending or unknown state remains pending/unknown.
+- Extensions and replacements preserve the original history and create a new audit event.
+- A reason is mandatory. The record should also capture the offer/campaign identifier when one exists, the granting administrator, the previous effective state, the new effective state, and the policy/catalog version used to calculate any list value.
+- The clinic-facing label must say **Sponsored access**, **Complimentary access**, or an equivalent non-payment term. It must not say “Paid,” “Payment received,” or imply a provider renewal.
+
+Sponsored access has no cash value in the revenue ledger. A reporting-only list value may be stored as a waived amount, but it must never be included in captured, settled, or accounting revenue.
+
+#### 14.4.2 Authority for sponsored access
+
+- The platform owner and delegated billing operator may grant or extend full-plan sponsored access and any exception with financial or commercial impact.
+- A delegated clinic-operations operator may grant selected operational features within an approved duration and scope policy, but may not grant a full paid plan or record a payment.
+- Ordinary Super Admins may view sponsored-access status and history but may not create, extend, replace, revoke, or publish it.
+- A future approval workflow may add two-person approval for unusually long, high-value, or Pro-level grants; until then, the dedicated roles, confirmation, mandatory reason, and audit record are required.
+
 ### 14.5 Super Admin plan configuration
 
 The application Admin should have a dedicated **Subscription Plans** or **Plan Policies** area rather than requiring administrators to edit clinic records directly.
@@ -1226,6 +1256,36 @@ Add or plan for:
 
 Financial metrics such as MRR, ARR, ARPU, LTV, treatment revenue, and clinic patient-bill totals remain outside the normal tenant operations view.
 
+### 15.2 Restricted platform subscription finance report
+
+Platform subscription money may be reported in a separate, role-protected finance/reconciliation view. This is not clinic treatment revenue and must not be embedded in the normal tenant overview or patient billing screens.
+
+For the first implementation, **payments received** means provider-confirmed captured subscription payments on a cash basis. The report must show the related measures separately rather than using an ambiguous single “revenue” number:
+
+- Gross captured payment amount.
+- Refunds and chargebacks as negative adjustments.
+- Provider fees, if supplied by the provider.
+- Provider tax amounts, if supplied by the provider.
+- Net captured amount after refunds, chargebacks, and fees.
+- Settled amount and settlement date when provider settlement data is available.
+- Complimentary/sponsored list value waived, always with zero cash received.
+- Verified manual/offline payments, separately identified from provider-captured payments.
+- Failed, declined, pending, duplicate, unmatched, and unreconciled payment events.
+
+The report must not call gross captured payments “accounting revenue” unless a separate finance/accounting policy approves revenue-recognition rules. Accounting revenue, tax liability, and settlement reconciliation are distinct concepts.
+
+The authoritative order for provider money is:
+
+1. Provider-confirmed captured payment for captured cash reporting.
+2. Provider refund or chargeback record for negative adjustments.
+3. Provider fee and tax fields where available.
+4. Provider settlement records for bank-settled reporting.
+5. Manual records only when verified under the offline-payment policy.
+
+Provider webhook history alone is not a complete financial ledger. Financial records need provider payment/charge identity, amount, currency, occurrence time, capture state, linked clinic/subscription, and reconciliation status. Duplicate provider events must not duplicate money.
+
+Access to this report is restricted to the platform owner and delegated finance/billing operators. Ordinary Super Admins and clinic-operations operators may see operational subscription state, but not platform-wide financial totals or payment amounts unless separately delegated. Clinic-private treatment revenue and patient billing remain excluded for every role in this platform report.
+
 The approved action boundary is:
 
 - The platform owner may publish plan policies and perform approved billing-policy operations.
@@ -1233,7 +1293,7 @@ The approved action boundary is:
 - Ordinary Super Admins may view operational policy and entitlement data but may not publish policies, use generic clinic editing to mutate plans, or bypass provider confirmation.
 - No role may use unrestricted impersonation or a broad “Mark Paid” mutation to bypass these permissions.
 
-### 15.2 Tenant table
+### 15.3 Tenant table
 
 Recommended columns:
 
@@ -1253,7 +1313,7 @@ Recommended columns:
 | Support status | Open operational issue count |
 | Actions | Open details, audit, or approved support action |
 
-### 15.3 Tenant detail
+### 15.4 Tenant detail
 
 The tenant detail drawer should explain:
 
@@ -1318,7 +1378,32 @@ Record at least:
 - Action allowed during a grace or support exception.
 - Emergency feature disablement.
 
-### 16.3 Privacy and security
+### 16.3 Required platform subscription money records
+
+The subscription money model must be separate from entitlement and clinic treatment billing records. It should support a normalized financial record or ledger with, at minimum:
+
+- Clinic and provider.
+- Provider payment, charge, invoice, refund, chargeback, and settlement identities where available.
+- Provider subscription identity where applicable.
+- Record type: captured payment, refund, chargeback, fee, tax, settlement, manual payment, complimentary grant, or adjustment.
+- Amount and currency.
+- Occurred, captured, refunded, charged-back, or settled timestamp as applicable.
+- Capture/payment status.
+- Source: provider, verified manual entry, or sponsored-access workflow.
+- Reconciliation status and last reconciliation time.
+- Link to the originating provider event without treating the event itself as the financial amount.
+- Actor and reason for manual records or adjustments.
+
+Rules:
+
+- A failed or declined payment has zero captured amount and must not be counted as money received.
+- A refund or chargeback is a negative adjustment linked to the original captured payment.
+- Provider fees and taxes are displayed as separate fields; they must not be silently netted into gross captured payments.
+- A sponsored grant may record a waived catalog/list value and zero cash received, but must never create a captured-payment record.
+- Manual/offline payments are allowed only as verified records, never as fabricated provider events or fake Razorpay identifiers.
+- Duplicate provider events and repeated reconciliation runs must be idempotent.
+
+### 16.4 Privacy and security
 
 Entitlement and usage endpoints must:
 
@@ -1394,10 +1479,11 @@ Approve:
 2. Add versioned policy updates with audit reasons.
 3. Add clinic-level Start Trial and Extend Trial actions.
 4. Add Assign Paid Plan for recovery or expired Trial clinics.
-5. Add provider-aware activation and payment-pending states.
-6. Add confirmation and stale-state protection.
-7. Add previous-plan, Trial-origin, and transition history to the tenant detail view.
-8. Prevent direct unrestricted plan mutation through the general clinic-edit route.
+5. Add Grant Sponsored Access for selected features/limits and fixed-term full-plan access.
+6. Add provider-aware activation and payment-pending states.
+7. Add confirmation, role checks, one-active-grant rules, and stale-state protection.
+8. Add previous-plan, Trial-origin, sponsored-access, and transition history to the tenant detail view.
+9. Prevent direct unrestricted plan or subscription mutation through the general clinic-edit route.
 
 **Output:** Administrators can safely configure Trial policy, extend a Trial, and assign a paid plan after paid expiry.
 
@@ -1440,6 +1526,9 @@ Approve:
 5. Define transaction-fee calculation only after the fee policy is approved.
 6. Add plan-change reconciliation and provider event handling.
 7. Add historical policy references to usage reports.
+8. Add an idempotent provider-money ledger for captured payments, refunds, chargebacks, fees, taxes, and settlements.
+9. Add separately identified verified manual/offline payments and zero-cash sponsored grants.
+10. Add the restricted platform subscription finance/reconciliation report.
 
 **Output:** Subscription state and entitlements remain aligned with the payment provider.
 
@@ -1583,6 +1672,18 @@ The following decisions override earlier “recommended” wording in this docum
 26. **Plan-change timing:** provider-confirmed upgrades are immediate; provider-confirmed paid downgrades take effect at the next renewal. Usage is never erased or reset.
 27. **Trial presentation:** Trial is both the primary no-card entry banner/panel and a clearly labeled comparison-table column.
 28. **Public wording:** Starter copy is “Starter includes essential WhatsApp appointment and security notifications within the monthly allowance. Growth and Pro add higher allowances plus routine reminder, bulk, promotional, and advanced WhatsApp workflows.” Trial copy is “Trial includes a limited allowance for the core clinic workflow, including essential appointment and security notifications.”
+29. **Sponsored-access scope:** An administrator may grant a selected-feature/selected-limit exception by default. A full-plan sponsored assignment is also allowed, but only through a dedicated, audited workflow with a fixed expiry; it is not a payment and does not create a provider subscription.
+30. **Sponsored-access overlap:** Sponsored access must not overlap an active paid subscription by default. It may be scheduled after paid access ends. A narrowly scoped support exception during paid access may be approved without changing the paid provider subscription or billing dates.
+31. **Sponsored-access effect on paid billing:** Sponsored access leaves the underlying paid subscription untouched. It does not pause, extend, cancel, renew, or rewrite provider billing.
+32. **Sponsored-access expiry:** At the exact end time, the sponsored override ends and the underlying state is recalculated. Paid active access resumes when applicable; expired paid access follows recovery/expired rules; pending and unknown states remain visible as such. Expiry does not create an automatic renewal.
+33. **Sponsored-access stacking:** Only one effective sponsored-access grant may exist for a clinic. A later action must extend or explicitly replace it, preserving history; additive stacking is not allowed.
+34. **Sponsored-access authority:** The platform owner or delegated billing operator may grant or extend full-plan or commercially meaningful sponsored access. A delegated clinic-operations operator may grant only selected operational exceptions within policy. Ordinary Super Admins are view-only for these actions.
+35. **Sponsored-access reason:** A reason is mandatory for every grant, extension, replacement, or revocation. The record also captures the actor, scope, dates, previous and new effective state, and offer/campaign identifier when available.
+36. **Sponsored list value:** A sponsored offer may record a snapshot of the catalog/list price that was waived, including currency and policy version, for commercial reporting. This is a waived value, not captured cash, settled cash, net revenue, or accounting revenue.
+37. **Meaning of payments received:** Initial platform finance reporting uses provider-confirmed captured subscription payments as the primary cash-basis measure. Refunds and chargebacks reduce it; fees and taxes are displayed separately; settlement amounts are shown separately when provider settlement data is available. The report must not call this accounting revenue without a separate accounting policy.
+38. **Refunds, chargebacks, taxes, and failures:** Refunds and chargebacks are linked negative adjustments. Provider fees and taxes are separate fields. Failed, declined, pending, duplicate, or unmatched payment attempts do not count as captured money.
+39. **Manual/offline payments:** They are allowed only as exceptional, separately identified, verified records. A platform owner or delegated billing operator must record amount, currency, received date, payment method, external reference/evidence, actor, reason, and verification/reversal status. Manual records must never fabricate a provider event or provider identifier.
+40. **Platform-revenue visibility:** A separate restricted subscription-finance/reconciliation view is available to the platform owner and delegated finance/billing operators. Ordinary Super Admins and clinic-operations operators retain operational subscription visibility but not platform financial totals or payment amounts. Clinic treatment revenue remains excluded for every role.
 
 ### 19.3 Explicit deferrals
 
@@ -1602,6 +1703,8 @@ Phase 0 is complete for implementation planning because:
 - Upgrade, downgrade, payment-grace, renewal, public-booking, export, support-exception, and post-expiry behaviors are explicit.
 - Starter WhatsApp scope and Pro fair-use behavior have approved wording and review thresholds.
 - Policy publication, Trial operations, paid assignment, and manual payment authority are role-scoped.
+- Sponsored access, expiry, non-overlap, non-stacking, authority, mandatory reasons, and waived-list-value treatment are approved above.
+- Captured-payment reporting, refund/chargeback treatment, provider fee/tax separation, manual/offline payment evidence, and restricted finance-report visibility are approved above.
 - Transaction-fee calculation and exact inventory/pharmacy item counts are recorded as explicit deferrals, not assumptions.
 
 Before production rollout or enforcement begins, the approved policy must be copied into a versioned catalog and the current-clinic baseline must be completed. During the current development phase, catalog work may proceed using representative development fixtures, provided that no production clinic access or provider state is changed and the deferred production baseline remains an explicit release gate.
@@ -1651,6 +1754,15 @@ The commercial policy phase is complete. Implementation may begin only through t
 - Standard authenticated export remains available after expiry and downgrade, subject to reasonable rate limits.
 - Generic clinic-edit routes cannot mutate plan state or bypass provider confirmation.
 - Policy publication and clinic-level support exceptions use separate permissions and audit records.
+- Sponsored access can grant selected features or a full plan only through a fixed-term, audited workflow.
+- Sponsored access does not pause, extend, cancel, or rewrite an active paid provider subscription.
+- Sponsored access does not overlap active paid access by default, cannot stack additively, and expires back to the underlying state.
+- A mandatory reason, actor, scope, dates, and optional offer/campaign identifier are recorded for every sponsored-access change.
+- Complimentary list value is reported as waived value and never as captured, settled, or accounting revenue.
+- Platform subscription finance reporting distinguishes captured payments, refunds, chargebacks, fees, taxes, settlements, manual payments, failed attempts, and sponsored access.
+- A provider-money ledger is idempotent and separate from provider webhook history and clinic treatment billing.
+- Manual/offline payments require authorized verification and evidence and never fabricate provider events.
+- Platform subscription money is visible only in the restricted finance/reconciliation view for the platform owner and delegated finance/billing operators.
 - Transaction fees and exact inventory/pharmacy item-count thresholds remain explicitly deferred until separately approved.
 
 ---
@@ -1703,6 +1815,8 @@ The approved commercial position is:
 - On confirmed paid expiry, move the clinic by default to a 14-day Trial/recovery state using Trial limits.
 - Preserve the previous paid plan and provider history.
 - Let authorized platform owners or delegated billing operators later assign Starter, Growth, or Pro through a provider-aware, audited action.
+- Allow fixed-term sponsored access through a separate audited exception workflow, without treating it as paid activation.
+- Report platform subscription money separately from sponsored list value and clinic-private treatment revenue.
 
 The current development stage is to validate the versioned shared plan-policy catalog and migrate existing plan-value consumers to it. The full current-clinic baseline against Render is deferred until the project is preparing for production rollout or enforcement. Both steps must preserve the approved decisions in Section 19, keep transaction fees and exact inventory/pharmacy thresholds deferred, and leave application enforcement unchanged until reporting and release gates are complete.
 

@@ -422,7 +422,9 @@ Allowed actions should be explicit and audited:
 
 - Refresh provider status
 - Resend activation/payment link
-- Mark subscription active manually
+- Apply a provider-reconciled manual support override
+- Grant or extend an approved complimentary/sponsored access period
+- Record a verified manual/offline subscription payment
 - Place subscription into review
 - View provider event history
 
@@ -432,6 +434,8 @@ Potentially destructive or financially meaningful actions should require:
 - Reason
 - Current user identity
 - Audit event
+
+The old broad **Mark Paid** action must not remain as a generic mutation. Complimentary access is not a successful payment, and a manual payment record is not proof of a provider event. These actions require separate workflows, states, evidence, and permissions. See the [Four-Plan Subscription and Entitlement Blueprint](16-four-plan-subscription-and-entitlement-blueprint.md) for the authoritative sponsored-access and platform-revenue policy.
 
 ### Subscription data to add later
 
