@@ -48,5 +48,11 @@
 - Active doctor counts are based on clinic_doctors links because the current schema has no active/inactive doctor field.
 - Smile Deal live-post counts are a proxy based on is_active and the starts_at/expires_at window because draft and published states are not separate fields.
 
-This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits. It is development-environment evidence only and must not be treated as the current-clinic Render baseline. The shared catalog and baseline policy now have passing representative tests. Before production rollout or enforcement, the same generator must be run against the Render PostgreSQL database.
+## Production baseline gate attempt
+
+On **2026-09-12 (Asia/Calcutta)**, the approved production read-only database path was checked before running the baseline. The platform reported that this Repl has no production database attached and that publishing the app is required to create one. The production baseline therefore could not run, and no production records were read or changed.
+
+This report remains development-environment evidence only and must not be treated as the current-clinic Render baseline. The shared catalog and baseline policy have passing representative tests. After an approved production database or populated production snapshot becomes available, the same generator must be run read-only and the report must record each clinic’s migration or exception decision before production rollout or enforcement.
+
+This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits.
 
