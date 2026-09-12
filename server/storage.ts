@@ -3,7 +3,7 @@ import {
   users, slots, bookings, notifications, reminderDigestLogs, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
   inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock, patientCharts,
-  patientMedicalHistory,
+  patientMedicalHistory, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -32,6 +32,10 @@ import {
   type PatientChart,
   type PatientMedicalHistory,
   type ClinicAnalyticsResult,
+  type SubscriptionLifecycleEvent, type InsertSubscriptionLifecycleEvent,
+  type SubscriptionPlanAssignment, type InsertSubscriptionPlanAssignment,
+  type SubscriptionAccessGrant, type InsertSubscriptionAccessGrant,
+  type SubscriptionAccessException, type InsertSubscriptionAccessException,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne, inArray } from "drizzle-orm";
@@ -299,6 +303,16 @@ export interface IStorage {
   updateClinic(id: number, updates: Partial<Clinic>): Promise<Clinic>;
   archiveClinic(id: number): Promise<Clinic>;
   unarchiveClinic(id: number): Promise<Clinic>;
+
+  // Subscription lifecycle/history (append-only)
+  createSubscriptionLifecycleEvent(data: InsertSubscriptionLifecycleEvent): Promise<SubscriptionLifecycleEvent>;
+  getSubscriptionLifecycleEvents(clinicId: number, limit?: number): Promise<SubscriptionLifecycleEvent[]>;
+  createSubscriptionPlanAssignment(data: InsertSubscriptionPlanAssignment): Promise<SubscriptionPlanAssignment>;
+  getSubscriptionPlanAssignments(clinicId: number): Promise<SubscriptionPlanAssignment[]>;
+  createSubscriptionAccessGrant(data: InsertSubscriptionAccessGrant): Promise<SubscriptionAccessGrant>;
+  getSubscriptionAccessGrants(clinicId: number): Promise<SubscriptionAccessGrant[]>;
+  createSubscriptionAccessException(data: InsertSubscriptionAccessException): Promise<SubscriptionAccessException>;
+  getSubscriptionAccessExceptions(clinicId: number): Promise<SubscriptionAccessException[]>;
 
   // Doctors
   getDoctorByEmail(email: string): Promise<Doctor | undefined>;
@@ -1937,6 +1951,56 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clinics.id, id))
       .returning();
     return updated;
+  }
+
+  // Subscription lifecycle/history (append-only)
+  async createSubscriptionLifecycleEvent(data: InsertSubscriptionLifecycleEvent): Promise<SubscriptionLifecycleEvent> {
+    const [event] = await db.insert(subscriptionLifecycleEvents).values(data).returning();
+    return event;
+  }
+
+  async getSubscriptionLifecycleEvents(clinicId: number, limit = 100): Promise<SubscriptionLifecycleEvent[]> {
+    return await db.select()
+      .from(subscriptionLifecycleEvents)
+      .where(eq(subscriptionLifecycleEvents.clinicId, clinicId))
+      .orderBy(desc(subscriptionLifecycleEvents.effectiveAt), desc(subscriptionLifecycleEvents.id))
+      .limit(Math.max(1, Math.min(limit, 500)));
+  }
+
+  async createSubscriptionPlanAssignment(data: InsertSubscriptionPlanAssignment): Promise<SubscriptionPlanAssignment> {
+    const [assignment] = await db.insert(subscriptionPlanAssignments).values(data).returning();
+    return assignment;
+  }
+
+  async getSubscriptionPlanAssignments(clinicId: number): Promise<SubscriptionPlanAssignment[]> {
+    return await db.select()
+      .from(subscriptionPlanAssignments)
+      .where(eq(subscriptionPlanAssignments.clinicId, clinicId))
+      .orderBy(desc(subscriptionPlanAssignments.startsAt), desc(subscriptionPlanAssignments.id));
+  }
+
+  async createSubscriptionAccessGrant(data: InsertSubscriptionAccessGrant): Promise<SubscriptionAccessGrant> {
+    const [grant] = await db.insert(subscriptionAccessGrants).values(data).returning();
+    return grant;
+  }
+
+  async getSubscriptionAccessGrants(clinicId: number): Promise<SubscriptionAccessGrant[]> {
+    return await db.select()
+      .from(subscriptionAccessGrants)
+      .where(eq(subscriptionAccessGrants.clinicId, clinicId))
+      .orderBy(desc(subscriptionAccessGrants.startsAt), desc(subscriptionAccessGrants.id));
+  }
+
+  async createSubscriptionAccessException(data: InsertSubscriptionAccessException): Promise<SubscriptionAccessException> {
+    const [exception] = await db.insert(subscriptionAccessExceptions).values(data).returning();
+    return exception;
+  }
+
+  async getSubscriptionAccessExceptions(clinicId: number): Promise<SubscriptionAccessException[]> {
+    return await db.select()
+      .from(subscriptionAccessExceptions)
+      .where(eq(subscriptionAccessExceptions.clinicId, clinicId))
+      .orderBy(desc(subscriptionAccessExceptions.startsAt), desc(subscriptionAccessExceptions.id));
   }
 
   // Doctors

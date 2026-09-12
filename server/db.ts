@@ -562,4 +562,98 @@ export async function ensureSessionTable() {
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring subscription_provider_events table:", err.message);
   }
+
+  // subscription lifecycle/history — append-only records for future transitions
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS clinics
+        ADD COLUMN IF NOT EXISTS trial_started_at timestamp,
+        ADD COLUMN IF NOT EXISTS trial_ends_at timestamp,
+        ADD COLUMN IF NOT EXISTS trial_grace_ends_at timestamp,
+        ADD COLUMN IF NOT EXISTS trial_origin varchar(40),
+        ADD COLUMN IF NOT EXISTS previous_paid_plan varchar(20),
+        ADD COLUMN IF NOT EXISTS paid_access_expires_at timestamp,
+        ADD COLUMN IF NOT EXISTS subscription_policy_version varchar(40);
+
+      CREATE TABLE IF NOT EXISTS subscription_lifecycle_events (
+        id             SERIAL PRIMARY KEY,
+        clinic_id      integer NOT NULL REFERENCES clinics(id),
+        event_type     varchar(50) NOT NULL,
+        from_plan      varchar(20),
+        to_plan        varchar(20),
+        from_status    varchar(30),
+        to_status      varchar(30),
+        policy_version varchar(40),
+        transition_id  varchar(120) NOT NULL,
+        actor_type     varchar(30) NOT NULL DEFAULT 'system',
+        actor_id       varchar(255),
+        reason         text,
+        metadata       jsonb DEFAULT '{}'::jsonb,
+        effective_at   timestamp NOT NULL DEFAULT NOW(),
+        created_at     timestamp NOT NULL DEFAULT NOW(),
+        CONSTRAINT subscription_lifecycle_events_clinic_transition_uidx UNIQUE (clinic_id, transition_id)
+      );
+      CREATE INDEX IF NOT EXISTS subscription_lifecycle_events_clinic_effective_idx
+        ON subscription_lifecycle_events (clinic_id, effective_at);
+
+      CREATE TABLE IF NOT EXISTS subscription_plan_assignments (
+        id               SERIAL PRIMARY KEY,
+        clinic_id        integer NOT NULL REFERENCES clinics(id),
+        plan             varchar(20) NOT NULL,
+        billing_cycle    varchar(10) NOT NULL DEFAULT 'monthly',
+        source           varchar(30) NOT NULL,
+        policy_version   varchar(40),
+        transition_id    varchar(120) NOT NULL,
+        assigned_by_type varchar(30),
+        assigned_by_id   varchar(255),
+        reason           text,
+        starts_at        timestamp NOT NULL DEFAULT NOW(),
+        ends_at          timestamp,
+        created_at       timestamp NOT NULL DEFAULT NOW(),
+        CONSTRAINT subscription_plan_assignments_clinic_transition_uidx UNIQUE (clinic_id, transition_id)
+      );
+      CREATE INDEX IF NOT EXISTS subscription_plan_assignments_clinic_starts_idx
+        ON subscription_plan_assignments (clinic_id, starts_at);
+
+      CREATE TABLE IF NOT EXISTS subscription_access_grants (
+        id               SERIAL PRIMARY KEY,
+        clinic_id        integer NOT NULL REFERENCES clinics(id),
+        grant_id         varchar(120) NOT NULL UNIQUE,
+        plan             varchar(20) NOT NULL,
+        policy_version   varchar(40),
+        list_price_minor integer,
+        currency         varchar(3) NOT NULL DEFAULT 'INR',
+        reason           text NOT NULL,
+        granted_by_type  varchar(30) NOT NULL,
+        granted_by_id    varchar(255),
+        starts_at        timestamp NOT NULL,
+        ends_at          timestamp NOT NULL,
+        revoked_at       timestamp,
+        created_at       timestamp NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS subscription_access_grants_clinic_dates_idx
+        ON subscription_access_grants (clinic_id, starts_at, ends_at);
+
+      CREATE TABLE IF NOT EXISTS subscription_access_exceptions (
+        id              SERIAL PRIMARY KEY,
+        clinic_id       integer NOT NULL REFERENCES clinics(id),
+        exception_id    varchar(120) NOT NULL UNIQUE,
+        entitlement_key varchar(100) NOT NULL,
+        override_value  jsonb,
+        policy_version  varchar(40),
+        reason          text NOT NULL,
+        granted_by_type varchar(30) NOT NULL,
+        granted_by_id   varchar(255),
+        starts_at       timestamp NOT NULL,
+        ends_at         timestamp NOT NULL,
+        revoked_at      timestamp,
+        created_at      timestamp NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS subscription_access_exceptions_clinic_dates_idx
+        ON subscription_access_exceptions (clinic_id, starts_at, ends_at);
+    `);
+    console.log("[DATABASE] subscription lifecycle/history tables ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring subscription lifecycle/history tables:", err.message);
+  }
 }

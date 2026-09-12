@@ -45,7 +45,7 @@ This table is the approved high-level execution order. The individually executab
 | **0. Approve the rules** | Decide what each plan includes before anyone builds limits around it. | Confirm Trial duration, limits, grace period, messaging categories, booking counting, WhatsApp packaging, Pro fair use, payment grace, sponsored access, platform-revenue definitions, and transaction-fee scope. | **Complete for implementation planning.** The approved contract is recorded in Section 19. Transaction-fee calculation and exact inventory/pharmacy item-count thresholds are explicitly deferred. Sponsored access and platform subscription reporting are now defined separately from paid access and clinic treatment revenue. | The signed-off four-plan matrix, terminology, message categories, access-exception rules, revenue definitions, and decision log mark every item as Approved or Explicitly deferred. |
 | **1. Record the current baseline** | Take a safe “before” snapshot so new restrictions do not accidentally break existing clinics. | Inventory current plan assignments, subscription states, Razorpay IDs, usage, storage, doctors, deals, bookings, and provider events. Identify clinics that would already be above a proposed Trial or paid limit. | **Development validation is complete for representative fixtures and the current development database; the production-clinic migration baseline is intentionally deferred.** The read-only generator is `scripts/subscription-baseline.ts`; the current development report contains one active Starter clinic in pending-payment state, with 17 all-time bookings and an above-proposed-Trial-limit flag. A full Render-clinic baseline is required before production rollout or enforcement. | Development fixtures and the development report prove the calculations and unavailable-data handling; before production rollout, every production clinic has a known current plan, access state, usage snapshot, and migration/exception decision. |
 | **2. Create one shared plan catalog** | Put the rules in one place instead of copying numbers across screens and routes. | Define `trial`, `starter`, `growth`, and `pro`; centralize limits, feature levels, messaging allowances, warnings, and policy versions; add resolution tests. | **Development consumer migration complete; policy lifecycle remains deferred.** The shared published catalog now contains the approved four-plan limits, feature levels, messaging allowances, annual prices, annual-savings calculation, explicit deferrals, and unknown-plan handling. Public pricing, registration, landing-page pricing copy, activation pricing/labels, and storage quota resolution now read from the catalog. | Draft and published policies are distinct; historical versions are immutable; annual savings are calculated; all consumers have a migration plan away from hardcoded values. |
-| **3. Add subscription, Trial, assignment, and exception history** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, assignment history, policy version references, transition identity, sponsored-access grants, and time-limited exceptions. Keep legacy `unpaid` readable. | **Not started.** The current schema has plan, billing cycle, subscription status, and Razorpay ID, but no complete lifecycle or history model. | The system can explain initial Trial, paid conversion, renewal, expiry, recovery, extension, downgrade, sponsored access, exception, and later paid assignment without reconstructing history manually. |
+| **3. Add subscription, Trial, assignment, and exception history** | Make “which plan” different from “is this clinic currently allowed to use it?” | Add or normalize Trial start/end/grace dates, Trial origin, previous paid plan, paid-expiry time, conversion history, assignment history, policy version references, transition identity, sponsored-access grants, and time-limited exceptions. Keep legacy `unpaid` readable. | **Complete for the lifecycle/history data contract.** Nullable current-lifecycle columns, append-only lifecycle events, plan assignments, sponsored-access grants, and time-limited entitlement exceptions are registered in the shared schema and startup SQL. Storage exposes insert/read methods without enabling transitions or enforcement. | The system can explain initial Trial, paid conversion, renewal, expiry, recovery, extension, downgrade, sponsored access, exception, and later paid assignment without reconstructing history manually. |
 | **4. Build the effective-entitlement service** | Give every part of the app the same answer about what a clinic may do right now. | Resolve clinic → plan → subscription/Trial state → policy defaults → temporary exception → emergency disablement; return value, source, usage, limit, and stable error code. | **Not started.** The subscription-state normalizer exists, but it does not calculate plan permissions or limits. | A single server-side service answers both “what is included?” and “is this action allowed?” |
 | **5. Calculate usage in reporting-only mode** | Measure first, without blocking anyone. | Calculate booking, doctor, Smile Deal, storage, SMS, WhatsApp, email, analytics, and export usage; show used, limit, remaining, reset/expiry date, timezone, and data freshness. | **Partial foundation.** Communication usage, storage tracking, and some Admin/clinic views exist; plan limits are not connected to a unified report. | At least one complete reporting period proves the numbers are accurate and unavailable data is not shown as zero. |
 | **6. Build the read-only Subscription Plans Admin area** | Let operations review the model and its impact before mutations are enabled. | Add separate Plan Policies and Clinic Subscription Management views with published policy, versions, provider mappings, usage impact, affected clinics, Trial history, exceptions, and provider history. | **Not started.** Existing Admin views show partial plan and usage data but no dedicated four-plan policy area. | Read-only views are role-protected, responsive, backed by real data, and distinguish catalog price, provider price, policy version, and clinic exception. |
@@ -1965,19 +1965,114 @@ Build Check
 
 The baseline policy-impact verification gate is complete for development. The remaining catalog-related gates are draft/published persistence, immutable database policy history, Trial lifecycle fields, reporting-only entitlement endpoints, and the Render production baseline.
 
-### 22.6 Recommended next executable step
+### 22.6 Subscription lifecycle/history implementation evidence
 
-**Next step: add subscription lifecycle and history data.**
+Step 6 was implemented on **2026-09-12 (Asia/Calcutta)** as a data-contract migration only:
 
-This is the first subscription feature step after the catalog and baseline gates. It should:
+- `clinics` now has nullable current-lifecycle fields for Trial dates, Trial origin, previous paid plan, paid-access expiry, and the current policy version.
+- `subscription_lifecycle_events` records append-only transitions with from/to plan and status, policy version, transition identity, actor, reason, metadata, effective time, and creation time.
+- `subscription_plan_assignments` records plan and billing-cycle assignment history with source, actor, policy version, transition identity, and validity dates.
+- `subscription_access_grants` records fixed-term sponsored access separately from paid provider subscriptions, including the catalog/list-price snapshot that was waived.
+- `subscription_access_exceptions` records fixed-term entitlement overrides separately from sponsored access.
+- Duplicate transition, grant, and exception identifiers are rejected by database uniqueness constraints.
+- `IStorage` and `DatabaseStorage` expose append-only insert/read methods for all four history records. There are intentionally no update/delete methods.
+- Legacy `unpaid` values remain readable through the existing subscription-status normalization; no existing clinic subscription state was changed.
+- Startup registration is idempotent in both `server/index.ts` and `server/db.ts`. All new clinic columns are nullable, and no Trial, assignment, grant, or exception rows are created automatically.
 
-1. Add Trial start/end/grace dates and Trial origin.
-2. Add previous paid plan and paid-expiry time.
-3. Add conversion, assignment, sponsored-access, and temporary-exception history.
-4. Store the policy version and transition identity used for each change.
-5. Preserve legacy `unpaid` values as readable input.
-6. Add append-only audit records, storage methods, idempotent schema registration, and the exact Render SQL.
+The exact SQL to run manually on Render PostgreSQL, if the deployment does not run the startup registration, is:
 
-This step must establish the data contract without automatically assigning plans, changing existing subscription state, calling payment-provider mutations, or enabling entitlement enforcement. New lifecycle rows and fields must be nullable or safely defaulted, and existing clinic data must remain untouched.
+```sql
+ALTER TABLE clinics
+  ADD COLUMN IF NOT EXISTS trial_started_at timestamp,
+  ADD COLUMN IF NOT EXISTS trial_ends_at timestamp,
+  ADD COLUMN IF NOT EXISTS trial_grace_ends_at timestamp,
+  ADD COLUMN IF NOT EXISTS trial_origin varchar(40),
+  ADD COLUMN IF NOT EXISTS previous_paid_plan varchar(20),
+  ADD COLUMN IF NOT EXISTS paid_access_expires_at timestamp,
+  ADD COLUMN IF NOT EXISTS subscription_policy_version varchar(40);
 
-Implementing this step is required before Trial behavior, effective entitlements, or new Super Admin assignment actions because those features need durable Trial origin, expiry, previous-plan, assignment, exception, policy-version, and audit history.
+CREATE TABLE IF NOT EXISTS subscription_lifecycle_events (
+  id serial PRIMARY KEY,
+  clinic_id integer NOT NULL REFERENCES clinics(id),
+  event_type varchar(50) NOT NULL,
+  from_plan varchar(20),
+  to_plan varchar(20),
+  from_status varchar(30),
+  to_status varchar(30),
+  policy_version varchar(40),
+  transition_id varchar(120) NOT NULL,
+  actor_type varchar(30) NOT NULL DEFAULT 'system',
+  actor_id varchar(255),
+  reason text,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  effective_at timestamp NOT NULL DEFAULT NOW(),
+  created_at timestamp NOT NULL DEFAULT NOW(),
+  CONSTRAINT subscription_lifecycle_events_clinic_transition_uidx UNIQUE (clinic_id, transition_id)
+);
+CREATE INDEX IF NOT EXISTS subscription_lifecycle_events_clinic_effective_idx
+  ON subscription_lifecycle_events (clinic_id, effective_at);
+
+CREATE TABLE IF NOT EXISTS subscription_plan_assignments (
+  id serial PRIMARY KEY,
+  clinic_id integer NOT NULL REFERENCES clinics(id),
+  plan varchar(20) NOT NULL,
+  billing_cycle varchar(10) NOT NULL DEFAULT 'monthly',
+  source varchar(30) NOT NULL,
+  policy_version varchar(40),
+  transition_id varchar(120) NOT NULL,
+  assigned_by_type varchar(30),
+  assigned_by_id varchar(255),
+  reason text,
+  starts_at timestamp NOT NULL DEFAULT NOW(),
+  ends_at timestamp,
+  created_at timestamp NOT NULL DEFAULT NOW(),
+  CONSTRAINT subscription_plan_assignments_clinic_transition_uidx UNIQUE (clinic_id, transition_id)
+);
+CREATE INDEX IF NOT EXISTS subscription_plan_assignments_clinic_starts_idx
+  ON subscription_plan_assignments (clinic_id, starts_at);
+
+CREATE TABLE IF NOT EXISTS subscription_access_grants (
+  id serial PRIMARY KEY,
+  clinic_id integer NOT NULL REFERENCES clinics(id),
+  grant_id varchar(120) NOT NULL UNIQUE,
+  plan varchar(20) NOT NULL,
+  policy_version varchar(40),
+  list_price_minor integer,
+  currency varchar(3) NOT NULL DEFAULT 'INR',
+  reason text NOT NULL,
+  granted_by_type varchar(30) NOT NULL,
+  granted_by_id varchar(255),
+  starts_at timestamp NOT NULL,
+  ends_at timestamp NOT NULL,
+  revoked_at timestamp,
+  created_at timestamp NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS subscription_access_grants_clinic_dates_idx
+  ON subscription_access_grants (clinic_id, starts_at, ends_at);
+
+CREATE TABLE IF NOT EXISTS subscription_access_exceptions (
+  id serial PRIMARY KEY,
+  clinic_id integer NOT NULL REFERENCES clinics(id),
+  exception_id varchar(120) NOT NULL UNIQUE,
+  entitlement_key varchar(100) NOT NULL,
+  override_value jsonb,
+  policy_version varchar(40),
+  reason text NOT NULL,
+  granted_by_type varchar(30) NOT NULL,
+  granted_by_id varchar(255),
+  starts_at timestamp NOT NULL,
+  ends_at timestamp NOT NULL,
+  revoked_at timestamp,
+  created_at timestamp NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS subscription_access_exceptions_clinic_dates_idx
+  ON subscription_access_exceptions (clinic_id, starts_at, ends_at);
+```
+
+This step establishes the durable data contract without automatically assigning plans, changing existing subscription state, calling payment-provider mutations, or enabling entitlement enforcement. Trial behavior, effective entitlements, and Super Admin assignment actions remain later steps.
+
+### 22.7 Recommended next executable step
+
+**Next step: add the effective-entitlement service in reporting-only mode.**
+
+It should resolve the current clinic snapshot, normalized subscription state, published catalog policy, active sponsored access, and active time-limited exceptions into one explainable result. It must return the source, policy version, usage, limit, and reason for each capability without blocking requests or changing clinic data.

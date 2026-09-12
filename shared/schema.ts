@@ -73,6 +73,13 @@ export const clinics = pgTable("clinics", {
   subscriptionStatus: varchar("subscription_status", { length: 20 }).default("unpaid"), // unpaid, active, expired
   billingCycle: varchar("billing_cycle", { length: 10 }).default("monthly"), // monthly, annual
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
+  trialStartedAt: timestamp("trial_started_at"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  trialGraceEndsAt: timestamp("trial_grace_ends_at"),
+  trialOrigin: varchar("trial_origin", { length: 40 }),
+  previousPaidPlan: varchar("previous_paid_plan", { length: 20 }),
+  paidAccessExpiresAt: timestamp("paid_access_expires_at"),
+  subscriptionPolicyVersion: varchar("subscription_policy_version", { length: 40 }),
   websiteConfig: jsonb("website_config").$type<ClinicWebsiteConfig>(),
   defaultSlotConfig: jsonb("default_slot_config").$type<DefaultSlotConfig>(),
 });
@@ -802,6 +809,145 @@ export const subscriptionProviderEvents = pgTable("subscription_provider_events"
 
 export type SubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferSelect;
 export type InsertSubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferInsert;
+
+export const SUBSCRIPTION_LIFECYCLE_EVENT_TYPES = [
+  "trial_started",
+  "trial_extended",
+  "trial_grace_started",
+  "converted",
+  "renewed",
+  "recovered",
+  "expired",
+  "cancelled",
+  "downgraded",
+  "plan_assigned",
+  "sponsored_access_granted",
+  "sponsored_access_expired",
+  "exception_granted",
+  "exception_expired",
+  "manual_payment_recorded",
+] as const;
+export type SubscriptionLifecycleEventType = (typeof SUBSCRIPTION_LIFECYCLE_EVENT_TYPES)[number];
+
+export const SUBSCRIPTION_ACTOR_TYPES = [
+  "system",
+  "superadmin",
+  "clinic",
+  "provider",
+  "migration",
+  "support",
+] as const;
+export type SubscriptionActorType = (typeof SUBSCRIPTION_ACTOR_TYPES)[number];
+
+// ── SUBSCRIPTION LIFECYCLE AND ACCESS HISTORY ──────────────────────────────
+// These records are append-only. Current clinic columns remain a compatibility
+// snapshot; future lifecycle transitions must write history before changing it.
+export const subscriptionLifecycleEvents = pgTable("subscription_lifecycle_events", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  fromPlan: varchar("from_plan", { length: 20 }),
+  toPlan: varchar("to_plan", { length: 20 }),
+  fromStatus: varchar("from_status", { length: 30 }),
+  toStatus: varchar("to_status", { length: 30 }),
+  policyVersion: varchar("policy_version", { length: 40 }),
+  transitionId: varchar("transition_id", { length: 120 }).notNull(),
+  actorType: varchar("actor_type", { length: 30 }).notNull().default("system"),
+  actorId: varchar("actor_id", { length: 255 }),
+  reason: text("reason"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  effectiveAt: timestamp("effective_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicEffectiveIdx: index("subscription_lifecycle_events_clinic_effective_idx").on(table.clinicId, table.effectiveAt),
+  clinicTransitionUnique: uniqueIndex("subscription_lifecycle_events_clinic_transition_uidx").on(table.clinicId, table.transitionId),
+}));
+
+export const insertSubscriptionLifecycleEventSchema = createInsertSchema(subscriptionLifecycleEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type SubscriptionLifecycleEvent = typeof subscriptionLifecycleEvents.$inferSelect;
+export type InsertSubscriptionLifecycleEvent = z.infer<typeof insertSubscriptionLifecycleEventSchema>;
+
+export const subscriptionPlanAssignments = pgTable("subscription_plan_assignments", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  plan: varchar("plan", { length: 20 }).notNull(),
+  billingCycle: varchar("billing_cycle", { length: 10 }).notNull().default("monthly"),
+  source: varchar("source", { length: 30 }).notNull(),
+  policyVersion: varchar("policy_version", { length: 40 }),
+  transitionId: varchar("transition_id", { length: 120 }).notNull(),
+  assignedByType: varchar("assigned_by_type", { length: 30 }),
+  assignedById: varchar("assigned_by_id", { length: 255 }),
+  reason: text("reason"),
+  startsAt: timestamp("starts_at").defaultNow().notNull(),
+  endsAt: timestamp("ends_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicStartsIdx: index("subscription_plan_assignments_clinic_starts_idx").on(table.clinicId, table.startsAt),
+  clinicTransitionUnique: uniqueIndex("subscription_plan_assignments_clinic_transition_uidx").on(table.clinicId, table.transitionId),
+}));
+
+export const insertSubscriptionPlanAssignmentSchema = createInsertSchema(subscriptionPlanAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+export type SubscriptionPlanAssignment = typeof subscriptionPlanAssignments.$inferSelect;
+export type InsertSubscriptionPlanAssignment = z.infer<typeof insertSubscriptionPlanAssignmentSchema>;
+
+export const subscriptionAccessGrants = pgTable("subscription_access_grants", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  grantId: varchar("grant_id", { length: 120 }).notNull(),
+  plan: varchar("plan", { length: 20 }).notNull(),
+  policyVersion: varchar("policy_version", { length: 40 }),
+  listPriceMinor: integer("list_price_minor"),
+  currency: varchar("currency", { length: 3 }).notNull().default("INR"),
+  reason: text("reason").notNull(),
+  grantedByType: varchar("granted_by_type", { length: 30 }).notNull(),
+  grantedById: varchar("granted_by_id", { length: 255 }),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicDatesIdx: index("subscription_access_grants_clinic_dates_idx").on(table.clinicId, table.startsAt, table.endsAt),
+  grantUnique: uniqueIndex("subscription_access_grants_grant_uidx").on(table.grantId),
+}));
+
+export const insertSubscriptionAccessGrantSchema = createInsertSchema(subscriptionAccessGrants).omit({
+  id: true,
+  createdAt: true,
+});
+export type SubscriptionAccessGrant = typeof subscriptionAccessGrants.$inferSelect;
+export type InsertSubscriptionAccessGrant = z.infer<typeof insertSubscriptionAccessGrantSchema>;
+
+export const subscriptionAccessExceptions = pgTable("subscription_access_exceptions", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  exceptionId: varchar("exception_id", { length: 120 }).notNull(),
+  entitlementKey: varchar("entitlement_key", { length: 100 }).notNull(),
+  overrideValue: jsonb("override_value").$type<unknown>(),
+  policyVersion: varchar("policy_version", { length: 40 }),
+  reason: text("reason").notNull(),
+  grantedByType: varchar("granted_by_type", { length: 30 }).notNull(),
+  grantedById: varchar("granted_by_id", { length: 255 }),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicDatesIdx: index("subscription_access_exceptions_clinic_dates_idx").on(table.clinicId, table.startsAt, table.endsAt),
+  exceptionUnique: uniqueIndex("subscription_access_exceptions_exception_uidx").on(table.exceptionId),
+}));
+
+export const insertSubscriptionAccessExceptionSchema = createInsertSchema(subscriptionAccessExceptions).omit({
+  id: true,
+  createdAt: true,
+});
+export type SubscriptionAccessException = typeof subscriptionAccessExceptions.$inferSelect;
+export type InsertSubscriptionAccessException = z.infer<typeof insertSubscriptionAccessExceptionSchema>;
 
 // ── PII AUDIT LOGS ───────────────────────────────────────────────────────────
 // Append-only log of every access or mutation of patient PII data.
