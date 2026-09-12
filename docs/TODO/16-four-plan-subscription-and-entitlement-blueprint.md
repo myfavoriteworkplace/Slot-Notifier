@@ -38,7 +38,7 @@ This document is a policy and implementation blueprint. The commercial policy in
 
 ## Implementation plan at a glance
 
-This table is the approved execution order. It separates the completed commercial decision gate from implementation work so that the application does not start blocking clinics before the rules are measured and the policy is versioned.
+This table is the approved high-level execution order. The individually executable tracking ledger follows it. The high-level rows separate the completed commercial decision gate from implementation work so that the application does not start blocking clinics before the rules are measured and the policy is versioned.
 
 | Step | Purpose in common words | Main implementation work | Progress today | Done when |
 |---|---|---|---|---|
@@ -57,6 +57,30 @@ This table is the approved execution order. It separates the completed commercia
 | **12. Turn on warnings before restrictions** | Give people time to act instead of suddenly stopping work. | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, warning audit records, and upgrade/support guidance. | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and audit events do not. | Warnings are accurate, explainable, timezone-aware, and do not consume the clinic’s own allowance. |
 | **13. Enforce limits on the server** | Actually apply the plan rules securely; hiding a button is not enough. | Enforce doctor, booking, deal, storage, analytics, export, and messaging rules in backend routes/services; protect essential clinical/security messages; return structured errors. | **Not started.** Current dashboard modules are generally available independently of plan. | Every restricted operation is checked server-side and gives a clear reason when denied; existing data remains visible. |
 | **14. Release gradually, monitor, and refine** | Learn from real usage before making the limits permanent. | Run policy tests, authorization tests, counting/privacy tests, Build Check, reporting comparison, warning rollout, controlled optional-message enforcement, monitoring, and versioned allowance changes. | **Not started.** The blueprint defines tests and rollout stages, but no four-plan rollout has begun. | At least one or two complete usage periods are reviewed; release gates pass; support and provider reconciliation procedures exist. |
+
+### Individually executable progress ledger
+
+The high-level table above is useful for communicating the roadmap, but it is too broad for execution tracking. The following ledger was revalidated against the repository on **2026-09-12 (Asia/Calcutta)**. Each row is an independently executable step. A later step must not be reported complete because an earlier step in the same group is only partially complete.
+
+| Group | Step | Independently executable work | Dependency | Current status | Completion evidence |
+|---|---|---|---|---|---|
+| Policy and verification | **0. Approve the rules** | Confirm the four-plan matrix, Trial duration and grace, message categories, counting rules, WhatsApp packaging, Pro fair use, payment grace, sponsored access, platform-revenue definitions, and explicit deferrals. | None | **Complete for implementation planning.** Section 19 records the approved contract. Transaction-fee calculation and exact inventory/pharmacy item-count thresholds remain deferred. | Every policy item is marked Approved or Explicitly deferred in Section 19. |
+| Policy and verification | **1. Repair and run policy-impact verification** | Repair the baseline-policy fixture test, run the catalog and fixture suites, and record the result. Do not connect to or mutate production data. | Step 0 | **Blocked.** Catalog tests and TypeScript checking pass, but `shared/subscription-baseline-policy.test.ts` has a missing `);` at the end of its first test. | `npm run test:subscription-baseline`, catalog tests, `npm run check`, and Build Check pass; results are recorded in Section 22. |
+| Policy and verification | **2. Validate representative development data** | Exercise Trial, Starter, Growth, Pro, legacy `unpaid`, unknown-plan, below/at/above-limit, and unavailable-data cases using fixtures or populated development data. | Step 1 | **Partial.** The generator and fixtures exist, but the first development database run contained zero clinics and was not a populated-clinic baseline. | Fixtures or development data cover every required boundary, and missing data is not treated as zero. |
+| Policy and verification | **3. Complete the production baseline gate** | Run the read-only baseline against Render PostgreSQL or an approved populated snapshot, then record each clinic’s plan, state, usage, and migration/exception decision. | Steps 1–2; before production rollout or enforcement only | **Deferred by design.** Not required for development catalog work, mandatory before production enforcement. | Every production clinic has a migration decision and the report contains no credentials, patient data, or unnecessary PII. |
+| Shared policy foundation | **4. Publish the shared plan catalog** | Maintain stable plan keys, versioned policy metadata, limits, feature levels, allowances, annual savings, explicit deferrals, and unknown-plan handling. | Step 0 | **Complete for the current development stage.** `shared/plan-catalog.ts` contains Trial, Starter, Growth, and Pro. | Catalog tests pass and unknown plans do not silently become Starter. |
+| Shared policy foundation | **5. Migrate plan-value consumers** | Make pricing, registration, landing-page copy, activation labels/prices, storage quota resolution, and Admin storage reporting consume the catalog. | Step 4 | **Complete for the current development stage.** Deferred transaction-fee percentages were removed from public comparison. | Consumer migration and focused build evidence are recorded in Section 22. |
+| Subscription lifecycle | **6. Add lifecycle and history data** | Add Trial dates, Trial origin, previous paid plan, paid-expiry time, conversion/assignment history, policy references, transition identity, sponsored-access grants, and time-limited exceptions while keeping legacy `unpaid` readable. | Steps 1–5 | **Not started.** The clinic model still mainly contains plan, billing cycle, subscription status, and Razorpay subscription ID. | Schema, idempotent migration, storage contract, audit model, and Render SQL exist; historical transitions are explainable. |
+| Subscription lifecycle | **7. Build the Trial and recovery state machine** | Implement initial Trial, seven-day read-only grace, confirmed paid-expiry recovery Trial, conversion, expiry, origin, previous-plan preservation, timezone boundaries, and provider-expiry idempotency. | Step 6 | **Not started.** Catalog values exist, but Trial records, transitions, expiry processing, and recovery flow do not. | Boundary and provider-race tests pass; data is preserved and no endless free loop is possible. |
+| Entitlement foundation | **8. Build the effective-entitlement service** | Resolve clinic → plan → subscription/Trial state → policy → exception → emergency disablement, returning capability, value, source, usage, limit, freshness, and stable reason/error code. | Steps 6–7 | **Not started.** Subscription-state normalization exists but does not calculate effective permissions or limits. | One server-side service is used by reporting and future authorization; unknown state and unavailable usage are explicit. |
+| Reporting | **9. Add reporting-only usage and entitlement views** | Calculate booking, doctor, Smile Deal, storage, messaging, and feature usage; expose used, limit, remaining, period, timezone, freshness, and above-limit status without blocking actions. | Step 8 | **Partial.** Storage and messaging reports exist, but there is no complete cross-capability entitlement report. | Clinic and Super Admin reports agree with the entitlement service and remain non-enforcing. |
+| Super Admin operations | **10. Add dedicated plan policy and assignment operations** | Add policy configuration, Start Trial, Extend Trial, Assign Paid Plan after expiry, Sponsored Access, mandatory reasons, confirmation, role checks, one-active-grant rules, stale-state protection, audit events, and provider-aware activation. Remove unrestricted plan mutation from generic clinic editing. | Steps 6–9 | **Partial foundation.** Approval supports Starter/Growth/Pro and “Mark Paid” exists, but dedicated Trial, recovery, sponsored-access, and audited assignment workflows do not. | Every action has a dedicated validated route, authorization, audit record, confirmation, race protection, and provider-state behavior. |
+| Provider and finance | **11. Align provider lifecycle and subscription finance** | Complete Trial conversion, recovery-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation/idempotency, policy references, and the restricted captured/refunded/chargeback/settlement/manual-payment ledger. | Steps 6–10 | **Partial foundation.** Razorpay mapping, subscription creation, activation handling, and provider-event history exist; lifecycle reconciliation and financial ledger do not. | Provider and database states reconcile; complimentary access is separate from captured cash and clinic treatment revenue. |
+| Product visibility | **12. Add clinic and Admin access visibility** | Show plan, effective state, usage, Trial/recovery dates, expiry, upgrade/support paths, above-limit warnings, active exceptions, and Super Admin attention filters/details. | Steps 8–10 | **Partial foundation.** Storage, messaging, plan, status, and provider history are visible, but there is no complete Trial/entitlement view. | Clinic users can explain their access; Super Admin can find every attention state. |
+| Warning mode | **13. Add pre-enforcement warnings** | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, upgrade/support guidance, warning audit records, timezone-aware copy, and unavailable-data handling. | Steps 9 and 12 | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and warning records do not. | Warning tests pass and warnings do not consume the clinic’s own allowance. |
+| Enforcement | **14. Enforce limits selectively on the server** | Enforce doctor, booking, Smile Deal, storage, analytics, export, and optional/promotional messaging rules; protect essential messages; return structured errors; preserve existing data and approved exceptions. | Steps 3, 8, 9, 13 | **Not started.** Dashboard modules remain generally available independently of plan. | Direct API calls receive the same authorization result as the UI; protected clinical/security workflows remain available. |
+| Release and refinement | **15. Release gradually and monitor** | Compare reporting with current behavior, run policy/authorization/counting/privacy tests, deploy warning mode, enable selected enforcement, monitor support/provider reconciliation, and version allowance changes. | Steps 3, 9, 11, 13, 14 | **Not started.** No four-plan enforcement rollout has begun. | One or two complete usage periods are reviewed and all release gates pass. |
+| Release and refinement | **16. Commercial refinement** | After real usage, review conversion, support burden, quota failures, messaging cost, and provider behavior; change allowances only through a versioned policy decision. | Step 15 | **Deferred.** This cannot begin before real usage periods are available. | Any change has measured evidence, an approved policy version, migration handling, and updated public copy/tests. |
 
 ### What this means in common-man terms
 
@@ -1839,11 +1863,11 @@ This is valid evidence that the configured Replit development database is empty,
 The development catalog stage now includes the shared policy source, representative resolution tests, and consumer migration:
 
 1. Keep the current Replit and Render development environments non-enforcing.
-2. Add representative development fixtures or a populated development snapshot covering Trial, Starter, Growth, Pro, legacy `unpaid`, unknown states, usage below/at/above limits, and unavailable usage data. **Complete with read-only policy-impact fixtures and tests.**
+2. Add representative development fixtures or a populated development snapshot covering Trial, Starter, Growth, Pro, legacy `unpaid`, unknown states, usage below/at/above limits, and unavailable usage data. **Fixtures exist; execution is blocked until the baseline-policy test syntax error is repaired.**
 3. Create the versioned shared catalog from the approved Section 19 matrix. **Complete for the code-level published catalog.**
 4. Add resolution tests for plan limits, annual savings, feature levels, messaging allowances, Trial rules, explicit deferrals, and unknown values. **Complete.**
 5. Migrate public pricing, registration, landing-page pricing copy, activation pricing/labels, and storage quota resolution to the catalog without enabling enforcement. **Complete.**
-6. Run the read-only baseline generator against representative development data and confirm it never treats unavailable data as zero. **Complete for the representative fixture suite; the configured development database remains empty.**
+6. Run the read-only baseline generator against representative development data and confirm it never treats unavailable data as zero. **Partial: the generator and fixture definitions exist, but the fixture test currently fails during parsing and the configured development database remains empty.**
 7. Keep the full Render-clinic migration baseline as a pre-production gate.
 8. Do not assign plans, change subscription state, create Trial records, or enforce limits during this development stage.
 
@@ -1905,7 +1929,7 @@ Transaction-fee percentages were removed from public plan comparison and registr
 
 The baseline generator no longer carries a second hardcoded copy of the plan limits. Its impact calculations now derive booking, doctor, Smile Deal, storage, and messaging values from `shared/plan-catalog.ts` through `shared/subscription-baseline-policy.ts`.
 
-Representative read-only fixtures are defined in `shared/subscription-baseline-fixtures.ts` and verified by `shared/subscription-baseline-policy.test.ts`. They cover:
+Representative read-only fixtures are defined in `shared/subscription-baseline-fixtures.ts`. The intended verification file is `shared/subscription-baseline-policy.test.ts`, but the current suite is blocked by a syntax error in its first test: the closing `assert.equal(getBaselinePlanLimits("unpaid"), null);` is followed by `}` instead of `});`. The fixtures cover:
 
 - Trial at its lifetime boundaries, including lifetime messaging
 - Starter above booking, doctor, Smile Deal, storage, and messaging limits
@@ -1919,10 +1943,28 @@ Validation:
 
 ```text
 npm run test:subscription-baseline
-  passed
+  blocked during parsing:
+  shared/subscription-baseline-policy.test.ts:36
+  Expected ")" but found "for"
 
 npm run audit:subscription-baseline
   passed; configured development database contains no clinic rows
 ```
 
-The remaining catalog-related gates are draft/published persistence, immutable database policy history, Trial lifecycle fields, reporting-only entitlement endpoints, and the Render production baseline.
+`npm run check` passes, the focused shared catalog suite passes, and Build Check completed successfully. The baseline fixture suite is not yet valid evidence until the syntax error is repaired and the tests pass. The remaining catalog-related gates are draft/published persistence, immutable database policy history, Trial lifecycle fields, reporting-only entitlement endpoints, and the Render production baseline.
+
+### 22.6 Recommended next executable step
+
+**Next step: repair and re-run the baseline policy-impact verification gate.**
+
+This is the smallest blocking step before starting the first subscription feature. It should:
+
+1. Correct the missing closing parenthesis in `shared/subscription-baseline-policy.test.ts`.
+2. Run `npm run test:subscription-baseline`.
+3. Run the focused catalog tests and `npm run check`.
+4. Run Build Check after the repository change.
+5. Record the passing result here, including the fact that the configured development database is still empty.
+
+This step must remain read-only. It must not assign plans, create Trial rows, change subscription state, call payment-provider mutations, or enable entitlement enforcement.
+
+After this verification gate passes, the next feature step is **Step 6 — Add lifecycle and history data** in the individually executable progress ledger. That step should be implemented before Trial behavior, effective entitlements, or new Super Admin assignment actions because those features need durable Trial origin, expiry, previous-plan, assignment, exception, policy-version, and audit history.
