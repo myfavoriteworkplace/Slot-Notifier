@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./models/auth";
 import { relations, sql } from "drizzle-orm";
+import type { PlanPolicyDocument } from "./plan-catalog";
 
 // Export auth models so they are picked up
 export * from "./models/auth";
@@ -809,6 +810,32 @@ export const subscriptionProviderEvents = pgTable("subscription_provider_events"
 
 export type SubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferSelect;
 export type InsertSubscriptionProviderEvent = typeof subscriptionProviderEvents.$inferInsert;
+
+// ── PLAN POLICY VERSIONS ────────────────────────────────────────────────────
+// Policy editing is intentionally separate from clinic subscription state and
+// provider event history. Published documents are immutable once superseded.
+export const planPolicyVersions = pgTable("plan_policy_versions", {
+  id: serial("id").primaryKey(),
+  version: varchar("version", { length: 60 }).notNull().unique(),
+  status: varchar("status", { length: 20 }).notNull().default("draft"), // draft, published, superseded, reverted
+  document: jsonb("document").$type<PlanPolicyDocument>().notNull(),
+  reason: text("reason").notNull(),
+  createdBy: varchar("created_by", { length: 255 }).notNull(),
+  previousVersion: varchar("previous_version", { length: 60 }),
+  publishedBy: varchar("published_by", { length: 255 }),
+  effectiveAt: timestamp("effective_at"),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  statusEffectiveIdx: index("plan_policy_versions_status_effective_idx").on(table.status, table.effectiveAt),
+}));
+
+export const insertPlanPolicyVersionSchema = createInsertSchema(planPolicyVersions).omit({
+  id: true,
+  createdAt: true,
+});
+export type PlanPolicyVersion = typeof planPolicyVersions.$inferSelect;
+export type InsertPlanPolicyVersion = z.infer<typeof insertPlanPolicyVersionSchema>;
 
 export const SUBSCRIPTION_LIFECYCLE_EVENT_TYPES = [
   "trial_started",

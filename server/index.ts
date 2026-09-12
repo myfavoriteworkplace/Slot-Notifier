@@ -420,8 +420,26 @@ app.use((req, res, next) => {
         );
         CREATE INDEX IF NOT EXISTS subscription_access_exceptions_clinic_dates_idx
           ON subscription_access_exceptions (clinic_id, starts_at, ends_at);
+
+        CREATE TABLE IF NOT EXISTS plan_policy_versions (
+          id              serial PRIMARY KEY,
+          version         varchar(60) NOT NULL UNIQUE,
+          status          varchar(20) NOT NULL DEFAULT 'draft',
+          document        jsonb NOT NULL,
+          reason          text NOT NULL,
+          created_by      varchar(255) NOT NULL,
+          previous_version varchar(60),
+          published_by    varchar(255),
+          effective_at    timestamp,
+          published_at    timestamp,
+          created_at      timestamp NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS plan_policy_versions_status_effective_idx
+          ON plan_policy_versions (status, effective_at);
+        ALTER TABLE plan_policy_versions
+          ADD COLUMN IF NOT EXISTS previous_version varchar(60);
       `);
-      log("subscription lifecycle/history tables verified/created", "system");
+      log("subscription lifecycle/history and plan policy tables verified/created", "system");
 
       // Add missing columns to bookings table
       await db.execute(sql`

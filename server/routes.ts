@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and, gte, lte, lt, desc, ne } from "drizzle-orm";
+import { sql, eq, and, gte, lte, lt, desc, ne, inArray } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions, planPolicyVersions } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -41,6 +41,7 @@ import { trackCommunication, type CommunicationSendResult } from "./communicatio
 import { getUtcInstantForCalendarDate } from "@shared/booking-status";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
 import { isBillingCycle, resolvePlanPolicy, PAID_PLAN_KEYS, PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
+import { validatePlanPolicyDocument } from "@shared/plan-policy-validation";
 import { buildInitialTrialTransition, buildPaidExpiryRecoveryTransition } from "@shared/trial-lifecycle";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
@@ -1658,6 +1659,277 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[ADMIN SUBSCRIPTION EVENTS]", err.message);
       res.status(500).json({ message: "Unable to load subscription provider history" });
+    }
+  });
+
+  // Plan policy registry. This is intentionally a configuration workflow only:
+  // live pricing and entitlement consumers remain on the reviewed static catalog
+  // until a separate cutover is approved.
+  const ensurePlanPolicySeed = async () => {
+    const [published] = await db.select()
+      .from(planPolicyVersions)
+      .where(eq(planPolicyVersions.status, "published"))
+      .orderBy(desc(planPolicyVersions.effectiveAt), desc(planPolicyVersions.id))
+      .limit(1);
+    if (published) return published;
+
+    const [seeded] = await db.insert(planPolicyVersions).values({
+      version: PUBLISHED_PLAN_POLICY.version,
+      status: "published",
+      document: PUBLISHED_PLAN_POLICY,
+      reason: "Initial reviewed catalog snapshot",
+      createdBy: "system",
+      publishedBy: "system",
+      effectiveAt: new Date(`${PUBLISHED_PLAN_POLICY.effectiveDate}T00:00:00.000Z`),
+      publishedAt: new Date(`${PUBLISHED_PLAN_POLICY.effectiveDate}T00:00:00.000Z`),
+    }).onConflictDoNothing({ target: planPolicyVersions.version }).returning();
+    if (seeded) return seeded;
+    const [existing] = await db.select()
+      .from(planPolicyVersions)
+      .where(eq(planPolicyVersions.version, PUBLISHED_PLAN_POLICY.version))
+      .limit(1);
+    return existing;
+  };
+
+  const providerMappingStatus = () => Object.fromEntries(
+    PAID_PLAN_KEYS.flatMap(plan => (["monthly", "annual"] as const).map(cycle => [
+      `${plan}.${cycle}`,
+      Boolean(RAZORPAY_PLAN_IDS[plan]?.[cycle]),
+    ])),
+  );
+
+  const getPolicyImpact = async (nextDocument: any, publishedDocument: any) => {
+    const planKeys = ["trial", "starter", "growth", "pro"] as const;
+    const planChanges = planKeys.map(key => {
+      const before = publishedDocument.plans?.[key];
+      const after = nextDocument.plans?.[key];
+      const changes: string[] = [];
+      if (before?.pricing?.monthly !== after?.pricing?.monthly) changes.push("monthly price");
+      if (before?.pricing?.annual !== after?.pricing?.annual) changes.push("annual price");
+      for (const limitKey of ["bookings", "activeDoctors", "smileDeals", "storageBytes", "messaging"] as const) {
+        if (JSON.stringify(before?.limits?.[limitKey]) !== JSON.stringify(after?.limits?.[limitKey])) changes.push(`${limitKey} limit`);
+      }
+      if (JSON.stringify(before?.features) !== JSON.stringify(after?.features)) changes.push("feature entitlements");
+      if (before?.summary !== after?.summary) changes.push("public description");
+      return { plan: key, changes };
+    }).filter(change => change.changes.length > 0);
+
+    const clinicsWithPlan = await db.select({
+      plan: clinics.plan,
+      subscriptionStatus: clinics.subscriptionStatus,
+      isArchived: clinics.isArchived,
+    }).from(clinics).where(ne(clinics.isArchived, true));
+    const activeStatuses = new Set(["active", "trialing", "manual_override", "past_due", "pending_payment"]);
+    const affectedActiveSubscriptions = Object.fromEntries(planKeys.map(plan => [
+      plan,
+      clinicsWithPlan.filter(clinic => clinic.plan === plan && activeStatuses.has(String(clinic.subscriptionStatus || "").toLowerCase())).length,
+    ]));
+    return {
+      changedPlans: planChanges,
+      affectedActiveSubscriptions,
+      existingSubscriptionsRepriced: false,
+      enforcementChanged: false,
+    };
+  };
+
+  app.post("/api/admin/plan-policies/validate", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    const parsed = z.object({ document: z.unknown() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A policy document is required" });
+    const validation = validatePlanPolicyDocument(parsed.data.document);
+    const missingProviderMappings = Object.entries(providerMappingStatus())
+      .filter(([, configured]) => !configured)
+      .map(([key]) => key);
+    res.json({
+      valid: validation.errors.length === 0,
+      publishable: validation.errors.length === 0 && missingProviderMappings.length === 0,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      missingProviderMappings,
+    });
+  });
+
+  app.post("/api/admin/plan-policies/preview", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    const parsed = z.object({ document: z.unknown() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A policy document is required" });
+    try {
+      const published = await ensurePlanPolicySeed();
+      const validation = validatePlanPolicyDocument(parsed.data.document);
+      const impact = await getPolicyImpact(parsed.data.document, published.document);
+      res.json({
+        valid: validation.errors.length === 0,
+        errors: validation.errors,
+        warnings: validation.warnings,
+        impact,
+        providerMappingStatus: providerMappingStatus(),
+      });
+    } catch (err: any) {
+      console.error("[ADMIN PLAN POLICY PREVIEW]", err.message);
+      res.status(500).json({ message: "Unable to preview policy impact" });
+    }
+  });
+
+  app.get("/api/admin/plan-policies", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const published = await ensurePlanPolicySeed();
+      const versions = await db.select()
+        .from(planPolicyVersions)
+        .orderBy(desc(planPolicyVersions.createdAt), desc(planPolicyVersions.id))
+        .limit(50);
+      res.json({
+        published,
+        versions,
+        providerMappingStatus: providerMappingStatus(),
+        liveCatalogVersion: PUBLISHED_PLAN_POLICY.version,
+        liveConsumersUsePublishedRegistry: false,
+      });
+    } catch (err: any) {
+      console.error("[ADMIN PLAN POLICIES]", err.message);
+      res.status(500).json({ message: "Unable to load plan policy registry" });
+    }
+  });
+
+  app.get("/api/admin/plan-policies/history", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    try {
+      await ensurePlanPolicySeed();
+      const history = await db.select()
+        .from(planPolicyVersions)
+        .where(ne(planPolicyVersions.status, "draft"))
+        .orderBy(desc(planPolicyVersions.publishedAt), desc(planPolicyVersions.id))
+        .limit(100);
+      res.json({ history });
+    } catch (err: any) {
+      console.error("[ADMIN PLAN POLICY HISTORY]", err.message);
+      res.status(500).json({ message: "Unable to load plan policy history" });
+    }
+  });
+
+  app.post("/api/admin/plan-policies/drafts", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can create plan policy drafts" });
+    const parsed = z.object({
+      document: z.unknown(),
+      reason: z.string().trim().min(10).max(500),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A valid policy document and reason of at least 10 characters are required" });
+
+    const validation = validatePlanPolicyDocument(parsed.data.document);
+    if (validation.errors.length) {
+      return res.status(400).json({ message: "Policy validation failed", errors: validation.errors, warnings: validation.warnings });
+    }
+
+    try {
+      const published = await ensurePlanPolicySeed();
+      const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+      const version = `${new Date().toISOString().slice(0, 10)}.draft-${crypto.randomUUID().slice(0, 8)}`;
+      const document = {
+        ...(parsed.data.document as Record<string, unknown>),
+        version,
+        status: "draft",
+      };
+      const [draft] = await db.insert(planPolicyVersions).values({
+        version,
+        status: "draft",
+        document: document as any,
+        reason: parsed.data.reason,
+        createdBy: actorId,
+        previousVersion: published?.version ?? null,
+      }).returning();
+      res.status(201).json({ draft, warnings: validation.warnings });
+    } catch (err: any) {
+      console.error("[ADMIN PLAN POLICY DRAFT]", err.message);
+      res.status(500).json({ message: "Unable to save plan policy draft" });
+    }
+  });
+
+  app.patch("/api/admin/plan-policies/drafts/:id", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can update plan policy drafts" });
+    const parsed = z.object({
+      document: z.unknown(),
+      reason: z.string().trim().min(10).max(500),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A valid policy document and reason of at least 10 characters are required" });
+    const policyId = Number(req.params.id);
+    if (!Number.isInteger(policyId) || policyId <= 0) return res.status(400).json({ message: "Invalid policy ID" });
+    const validation = validatePlanPolicyDocument(parsed.data.document);
+    if (validation.errors.length) {
+      return res.status(400).json({ message: "Policy validation failed", errors: validation.errors, warnings: validation.warnings });
+    }
+    try {
+      const [existing] = await db.select().from(planPolicyVersions).where(eq(planPolicyVersions.id, policyId)).limit(1);
+      if (!existing) return res.status(404).json({ message: "Policy draft not found" });
+      if (existing.status !== "draft") return res.status(409).json({ message: "Only a draft policy can be updated" });
+      const [updated] = await db.update(planPolicyVersions)
+        .set({
+          document: { ...(parsed.data.document as Record<string, unknown>), version: existing.version, status: "draft" } as any,
+          reason: parsed.data.reason,
+        })
+        .where(and(eq(planPolicyVersions.id, policyId), eq(planPolicyVersions.status, "draft")))
+        .returning();
+      res.json({ draft: updated, warnings: validation.warnings });
+    } catch (err: any) {
+      console.error("[ADMIN PLAN POLICY UPDATE]", err.message);
+      res.status(500).json({ message: "Unable to update plan policy draft" });
+    }
+  });
+
+  app.post("/api/admin/plan-policies/:id/publish", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can publish plan policies" });
+    const parsed = z.object({
+      reason: z.string().trim().min(10).max(500),
+      confirm: z.literal(true),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A reason and explicit publish confirmation are required" });
+
+    const policyId = Number(req.params.id);
+    if (!Number.isInteger(policyId) || policyId <= 0) return res.status(400).json({ message: "Invalid policy ID" });
+
+    try {
+      const [draft] = await db.select().from(planPolicyVersions).where(eq(planPolicyVersions.id, policyId)).limit(1);
+      if (!draft) return res.status(404).json({ message: "Policy draft not found" });
+      if (draft.status !== "draft") return res.status(409).json({ message: "Only a draft policy can be published" });
+
+      const validation = validatePlanPolicyDocument(draft.document);
+      if (validation.errors.length) {
+        return res.status(400).json({ message: "Policy validation failed", errors: validation.errors, warnings: validation.warnings });
+      }
+      const missingProviderMappings = Object.entries(providerMappingStatus())
+        .filter(([, configured]) => !configured)
+        .map(([key]) => key);
+      if (missingProviderMappings.length) {
+        return res.status(400).json({
+          message: "Paid plans must have provider mappings before publication",
+          errors: [`Missing provider mappings: ${missingProviderMappings.join(", ")}`],
+          warnings: validation.warnings,
+        });
+      }
+
+      const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+      const now = new Date();
+      const result = await db.transaction(async (tx) => {
+        await tx.update(planPolicyVersions)
+          .set({ status: "superseded" })
+          .where(eq(planPolicyVersions.status, "published"));
+        const [published] = await tx.update(planPolicyVersions)
+          .set({
+            status: "published",
+            reason: parsed.data.reason,
+            publishedBy: actorId,
+            effectiveAt: now,
+            publishedAt: now,
+            document: { ...draft.document, status: "published" } as any,
+          })
+          .where(and(eq(planPolicyVersions.id, policyId), eq(planPolicyVersions.status, "draft")))
+          .returning();
+        return published;
+      });
+      if (!result) return res.status(409).json({ message: "Policy changed before it could be published" });
+      res.json({ published: result, warnings: validation.warnings, liveConsumersUsePublishedRegistry: false });
+    } catch (err: any) {
+      console.error("[ADMIN PLAN POLICY PUBLISH]", err.message);
+      res.status(500).json({ message: "Unable to publish plan policy" });
     }
   });
 
