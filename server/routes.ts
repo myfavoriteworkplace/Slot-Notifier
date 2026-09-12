@@ -41,6 +41,7 @@ import { trackCommunication, type CommunicationSendResult } from "./communicatio
 import { getUtcInstantForCalendarDate } from "@shared/booking-status";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
 import { isBillingCycle, resolvePlanPolicy, PAID_PLAN_KEYS, PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
+import { buildInitialTrialTransition, buildPaidExpiryRecoveryTransition } from "@shared/trial-lifecycle";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
@@ -1335,10 +1336,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const clinicId = parseInt(req.params.id);
       const existing = await storage.getClinic(clinicId);
       if (!existing) return res.status(404).json({ message: "Clinic not found" });
+      if (existing.status !== "pending") {
+        return res.status(409).json({ message: "Only pending clinics can be approved" });
+      }
 
-      // Resolve plan and billing cycle — admin can override, otherwise use registration choice
-      const plan: string = req.body.plan || existing.plan || "starter";
-      const billingCycle: string = req.body.billingCycle || existing.billingCycle || "monthly";
+      const now = new Date();
+      const trialPolicy = resolvePlanPolicy("trial", PUBLISHED_PLAN_POLICY).policy;
+      const trial = buildInitialTrialTransition(
+        now,
+        trialPolicy?.trial.durationDays ?? 14,
+        trialPolicy?.trial.graceDays ?? 7,
+      );
+      const transitionId = `initial-trial:${clinicId}`;
 
       // Generate a meaningful username from the clinic name
       const base = existing.name
@@ -1366,70 +1375,60 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const passwordHash = await bcrypt.hash(plainPassword, 10);
       await storage.updateClinicCredentials(clinicId, username, passwordHash);
 
-      // Create Razorpay Subscription if plan IDs are configured
-      let razorpaySubId: string | undefined;
-      let shortUrl: string | undefined;
-      const planId = RAZORPAY_PLAN_IDS[plan]?.[billingCycle];
-
-      if (razorpay && planId) {
-        try {
-          const sub = await (razorpay as any).subscriptions.create({
-            plan_id: planId,
-            quantity: 1,
-            total_count: billingCycle === "annual" ? 1 : 12,
-            customer_notify: 0,
-            notes: {
-              clinicId: clinicId.toString(),
-              clinicName: existing.name,
-              plan,
-              billingCycle,
-            },
-          });
-          razorpaySubId = sub.id;
-          shortUrl = sub.short_url;
-          console.log(`[RAZORPAY] Subscription created: ${sub.id} for clinic ${clinicId}`);
-        } catch (err: any) {
-          console.error("[RAZORPAY] Failed to create subscription:", err?.error?.description || err?.message);
-        }
-      } else {
-        if (!razorpay) console.log("[RAZORPAY] Not configured — skipping subscription creation");
-        else console.log(`[RAZORPAY] No plan ID for ${plan}/${billingCycle} — skipping subscription`);
-      }
-
-      // Generate an activation token (7-day expiry)
-      const token = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await db.insert(activationTokens).values({
-        token,
-        clinicId,
-        plan,
-        billingCycle,
-        razorpaySubscriptionId: razorpaySubId || null,
-        shortUrl: shortUrl || null,
-        expiresAt,
-        used: false,
-      });
-
-      // Update clinic: status, plan, billingCycle, subscriptionStatus, razorpaySubscriptionId
+      // Approval starts the catalog-defined Trial. Paid plans are assigned through
+      // the dedicated audited Admin workflow, never through clinic approval.
       const clinic = await storage.updateClinic(clinicId, {
         status: "approved",
-        plan,
-        billingCycle,
-        subscriptionStatus: "unpaid",
-        razorpaySubscriptionId: razorpaySubId || null,
+        plan: "trial",
+        subscriptionStatus: "trialing",
+        trialStartedAt: trial.trialStartedAt,
+        trialEndsAt: trial.trialEndsAt,
+        trialGraceEndsAt: trial.trialGraceEndsAt,
+        trialOrigin: trial.origin,
+        previousPaidPlan: null,
+        subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
       } as any);
 
-      // Send approval email with credentials and activation link
-      const frontendBase = process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in';
-      const activationUrl = `${frontendBase}/activate/${token}`;
-      const cycleLabels: Record<string, string> = { monthly: "Monthly", annual: "Annual" };
-      const planLabel = `${resolvePlanPolicy(plan).policy?.displayName || plan} — ${cycleLabels[billingCycle] || billingCycle}`;
+      await db.insert(subscriptionPlanAssignments).values({
+        clinicId,
+        plan: "trial",
+        billingCycle: existing.billingCycle || "monthly",
+        source: "initial_trial",
+        policyVersion: PUBLISHED_PLAN_POLICY.version,
+        transitionId,
+        assignedByType: "system",
+        assignedById: "clinic_approval",
+        reason: "Initial Trial started on clinic approval",
+        startsAt: now,
+        endsAt: trial.trialGraceEndsAt,
+      });
+      await db.insert(subscriptionLifecycleEvents).values({
+        clinicId,
+        eventType: "trial_started",
+        fromPlan: existing.plan,
+        toPlan: "trial",
+        fromStatus: existing.subscriptionStatus,
+        toStatus: "trialing",
+        policyVersion: PUBLISHED_PLAN_POLICY.version,
+        transitionId,
+        actorType: "system",
+        actorId: "clinic_approval",
+        reason: "Initial Trial started on clinic approval",
+        metadata: {
+          trialOrigin: trial.origin,
+          trialStartedAt: trial.trialStartedAt.toISOString(),
+          trialEndsAt: trial.trialEndsAt.toISOString(),
+          trialGraceEndsAt: trial.trialGraceEndsAt.toISOString(),
+        },
+        effectiveAt: now,
+      });
 
+      // Send approval email with credentials and activation link
       if (existing.email) {
-        await sendClinicApprovalEmail(existing.name, existing.email, username, plainPassword, activationUrl, planLabel);
+        await sendClinicApprovalEmail(existing.name, existing.email, username, plainPassword);
       }
 
-      res.json({ ...clinic, activationToken: token });
+      res.json({ ...clinic, trial: trial });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -1481,17 +1480,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const event = req.body?.event as string;
       const subscriptionEntity = req.body?.payload?.subscription?.entity;
       const subscriptionId = subscriptionEntity?.id as string | undefined;
+      const eventId = req.body?.id as string | undefined;
       console.log(`[WEBHOOK] Razorpay event: ${event}, subscriptionId: ${subscriptionId}`);
       const [clinic] = subscriptionId
         ? await db.select().from(clinics)
           .where(eq(clinics.razorpaySubscriptionId, subscriptionId))
           .limit(1)
         : [];
+      const [duplicateProviderEvent] = eventId
+        ? await db.select({ id: subscriptionProviderEvents.id })
+          .from(subscriptionProviderEvents)
+          .where(and(
+            eq(subscriptionProviderEvents.provider, "razorpay"),
+            eq(subscriptionProviderEvents.eventId, eventId),
+          ))
+          .limit(1)
+        : [];
+      if (duplicateProviderEvent) {
+        return res.json({ received: true, duplicate: true });
+      }
+
       const [providerEvent] = await db.insert(subscriptionProviderEvents).values({
         clinicId: clinic?.id ?? null,
         provider: "razorpay",
         subscriptionId: subscriptionId ?? null,
-        eventId: req.body?.id ?? null,
+        eventId: eventId ?? null,
         eventType: event || "unknown",
         processingStatus: clinic ? "received" : "unmatched",
         details: {
@@ -1514,6 +1527,103 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         } else {
           console.warn(`[WEBHOOK] No clinic found for subscription ${subscriptionId}`);
         }
+      }
+
+      const isPaidExpiryEvent = ["subscription.completed", "subscription.expired"].includes(event);
+      if (isPaidExpiryEvent && clinic) {
+        const now = new Date();
+        const trialPolicy = resolvePlanPolicy("trial", PUBLISHED_PLAN_POLICY).policy;
+        const transitionId = `razorpay:${eventId || subscriptionId || "unknown"}:${event}`;
+        const recovery = buildPaidExpiryRecoveryTransition(
+          clinic,
+          now,
+          trialPolicy?.trial.durationDays ?? 14,
+          trialPolicy?.trial.graceDays ?? 7,
+        );
+
+        if (recovery) {
+          const [existingTransition] = await db.select({ id: subscriptionLifecycleEvents.id })
+            .from(subscriptionLifecycleEvents)
+            .where(and(
+              eq(subscriptionLifecycleEvents.clinicId, clinic.id),
+              eq(subscriptionLifecycleEvents.transitionId, transitionId),
+            ))
+            .limit(1);
+
+          if (!existingTransition) {
+            await db.transaction(async (tx) => {
+              const [current] = await tx.select().from(clinics).where(eq(clinics.id, clinic.id)).limit(1);
+              if (!current) return;
+              const currentRecovery = buildPaidExpiryRecoveryTransition(
+                current,
+                now,
+                trialPolicy?.trial.durationDays ?? 14,
+                trialPolicy?.trial.graceDays ?? 7,
+              );
+              if (!currentRecovery) return;
+
+              const [updatedClinic] = await tx.update(clinics)
+                .set({
+                  plan: "trial",
+                  subscriptionStatus: "trialing",
+                  trialStartedAt: currentRecovery.trialStartedAt,
+                  trialEndsAt: currentRecovery.trialEndsAt,
+                  trialGraceEndsAt: currentRecovery.trialGraceEndsAt,
+                  trialOrigin: currentRecovery.origin,
+                  previousPaidPlan: currentRecovery.previousPaidPlan,
+                  paidAccessExpiresAt: subscriptionEntity?.current_end
+                    ? new Date(Number(subscriptionEntity.current_end) * 1000)
+                    : current.paidAccessExpiresAt,
+                  subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
+                })
+                .where(eq(clinics.id, clinic.id))
+                .returning();
+
+              await tx.insert(subscriptionPlanAssignments).values({
+                clinicId: clinic.id,
+                plan: "trial",
+                billingCycle: current.billingCycle || "monthly",
+                source: "paid_expiry_recovery",
+                policyVersion: PUBLISHED_PLAN_POLICY.version,
+                transitionId,
+                assignedByType: "provider",
+                assignedById: "razorpay",
+                reason: "Paid subscription expiry recovery Trial",
+                startsAt: now,
+                endsAt: currentRecovery.trialGraceEndsAt,
+              });
+              await tx.insert(subscriptionLifecycleEvents).values({
+                clinicId: clinic.id,
+                eventType: "recovered",
+                fromPlan: current.plan,
+                toPlan: "trial",
+                fromStatus: current.subscriptionStatus,
+                toStatus: "trialing",
+                policyVersion: PUBLISHED_PLAN_POLICY.version,
+                transitionId,
+                actorType: "provider",
+                actorId: "razorpay",
+                reason: "Paid subscription expiry recovery Trial",
+                metadata: {
+                  providerEventId: eventId ?? null,
+                  providerSubscriptionId: subscriptionId ?? null,
+                  trialOrigin: currentRecovery.origin,
+                  trialStartedAt: currentRecovery.trialStartedAt.toISOString(),
+                  trialEndsAt: currentRecovery.trialEndsAt.toISOString(),
+                  trialGraceEndsAt: currentRecovery.trialGraceEndsAt.toISOString(),
+                  previousPaidPlan: currentRecovery.previousPaidPlan,
+                  updatedClinicId: updatedClinic?.id ?? null,
+                },
+                effectiveAt: now,
+              });
+            });
+            console.log(`[WEBHOOK] Clinic ${clinic.id} recovered into Trial after ${event}`);
+          }
+        }
+
+        await db.update(subscriptionProviderEvents)
+          .set({ processingStatus: recovery ? "applied" : "ignored" })
+          .where(eq(subscriptionProviderEvents.id, providerEvent.id));
       }
       res.json({ received: true });
     } catch (err: any) {
