@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte, lt, desc, ne } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -41,6 +41,7 @@ import { trackCommunication, type CommunicationSendResult } from "./communicatio
 import { getUtcInstantForCalendarDate } from "@shared/booking-status";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
 import { isBillingCycle, resolvePlanPolicy, PAID_PLAN_KEYS, PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
+import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
@@ -1723,6 +1724,324 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(statusCode).json({
         message: statusCode === 500 ? "Unable to update the clinic Trial" : error.message,
       });
+    }
+  });
+
+  app.get("/api/admin/clinics/:id/subscription-history", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    const clinicId = Number(req.params.id);
+    if (!Number.isInteger(clinicId) || clinicId <= 0) {
+      return res.status(400).json({ message: "Invalid clinic ID" });
+    }
+    try {
+      const clinic = await storage.getClinic(clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const [lifecycleEvents, assignments, grants, exceptions] = await Promise.all([
+        storage.getSubscriptionLifecycleEvents(clinicId, 100),
+        storage.getSubscriptionPlanAssignments(clinicId),
+        storage.getSubscriptionAccessGrants(clinicId),
+        storage.getSubscriptionAccessExceptions(clinicId),
+      ]);
+      res.json({ lifecycleEvents, assignments, grants, exceptions });
+    } catch (error: any) {
+      console.error("[ADMIN SUBSCRIPTION HISTORY]", error?.message || error);
+      res.status(500).json({ message: "Unable to load subscription history" });
+    }
+  });
+
+  app.post("/api/admin/clinics/:id/paid-plan", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can assign paid plans" });
+
+    const parsed = z.object({
+      plan: z.enum(["starter", "growth", "pro"]),
+      billingCycle: z.enum(["monthly", "annual"]),
+      reason: z.string().trim().min(10).max(500),
+      transitionId: z.string().uuid().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Paid plan, billing cycle, and a reason are required" });
+
+    const clinicId = Number(req.params.id);
+    if (!Number.isInteger(clinicId) || clinicId <= 0) return res.status(400).json({ message: "Invalid clinic ID" });
+
+    const transitionId = parsed.data.transitionId || crypto.randomUUID();
+    const now = new Date();
+    const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+
+    try {
+      const current = await storage.getClinic(clinicId);
+      if (!current) return res.status(404).json({ message: "Clinic not found" });
+
+      const currentStatus = (current.subscriptionStatus || "").toLowerCase();
+      const activePaidPlan = PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number]) &&
+        ["active", "manual_override"].includes(currentStatus);
+      if (activePaidPlan) {
+        return res.status(409).json({ message: "An active paid plan must be changed through a provider-aware upgrade or downgrade workflow." });
+      }
+      const activeTrial = current.plan === "trial" && current.trialEndsAt && new Date(current.trialEndsAt) > now;
+      if (activeTrial) return res.status(409).json({ message: "An active Trial must expire or be explicitly handled before assigning a paid plan." });
+
+      const [existingEvent] = await db.select()
+        .from(subscriptionLifecycleEvents)
+        .where(and(
+          eq(subscriptionLifecycleEvents.clinicId, clinicId),
+          eq(subscriptionLifecycleEvents.transitionId, transitionId),
+        ))
+        .limit(1);
+      if (existingEvent) {
+        return res.json({ clinic: current, event: existingEvent, idempotent: true, activationUrl: null, providerConfigured: Boolean(razorpay) });
+      }
+
+      let razorpaySubId: string | undefined;
+      let shortUrl: string | undefined;
+      const planId = RAZORPAY_PLAN_IDS[parsed.data.plan]?.[parsed.data.billingCycle];
+      if (razorpay && planId) {
+        try {
+          const subscription = await (razorpay as any).subscriptions.create({
+            plan_id: planId,
+            quantity: 1,
+            total_count: parsed.data.billingCycle === "annual" ? 1 : 12,
+            customer_notify: 0,
+            notes: {
+              clinicId: clinicId.toString(),
+              clinicName: current.name,
+              plan: parsed.data.plan,
+              billingCycle: parsed.data.billingCycle,
+              transitionId,
+            },
+          });
+          razorpaySubId = subscription.id;
+          shortUrl = subscription.short_url;
+        } catch (error: any) {
+          console.error("[RAZORPAY] Paid-plan assignment failed:", error?.error?.description || error?.message);
+          return res.status(502).json({ message: "The payment provider could not prepare this subscription. The clinic was not changed." });
+        }
+      }
+
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const result = await db.transaction(async (tx) => {
+        const [raceEvent] = await tx.select()
+          .from(subscriptionLifecycleEvents)
+          .where(and(
+            eq(subscriptionLifecycleEvents.clinicId, clinicId),
+            eq(subscriptionLifecycleEvents.transitionId, transitionId),
+          ))
+          .limit(1);
+        if (raceEvent) return { clinic: current, event: raceEvent, idempotent: true };
+
+        await tx.insert(activationTokens).values({
+          token,
+          clinicId,
+          plan: parsed.data.plan,
+          billingCycle: parsed.data.billingCycle,
+          razorpaySubscriptionId: razorpaySubId || null,
+          shortUrl: shortUrl || null,
+          expiresAt,
+          used: false,
+        });
+
+        const [updatedClinic] = await tx.update(clinics)
+          .set({
+            status: "approved",
+            plan: parsed.data.plan,
+            billingCycle: parsed.data.billingCycle,
+            subscriptionStatus: "pending_payment",
+            razorpaySubscriptionId: razorpaySubId || null,
+            trialStartedAt: null,
+            trialEndsAt: null,
+            trialGraceEndsAt: null,
+            trialOrigin: null,
+            paidAccessExpiresAt: null,
+            subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
+          })
+          .where(eq(clinics.id, clinicId))
+          .returning();
+
+        const [assignment] = await tx.insert(subscriptionPlanAssignments).values({
+          clinicId,
+          plan: parsed.data.plan,
+          billingCycle: parsed.data.billingCycle,
+          source: "admin_paid_assignment",
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          transitionId,
+          assignedByType: "superuser",
+          assignedById: actorId,
+          reason: parsed.data.reason,
+          startsAt: now,
+        }).returning();
+
+        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
+          clinicId,
+          eventType: "plan_assigned",
+          fromPlan: current.plan,
+          toPlan: parsed.data.plan,
+          fromStatus: current.subscriptionStatus,
+          toStatus: "pending_payment",
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          transitionId,
+          actorType: "superuser",
+          actorId,
+          reason: parsed.data.reason,
+          metadata: {
+            billingCycle: parsed.data.billingCycle,
+            provider: razorpaySubId ? "razorpay" : "not_configured",
+            providerSubscriptionId: razorpaySubId || null,
+            activationTokenId: token,
+            assignmentId: assignment.id,
+          },
+          effectiveAt: now,
+        }).returning();
+
+        return { clinic: updatedClinic, event, idempotent: false };
+      });
+
+      const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";
+      res.status(result.idempotent ? 200 : 201).json({
+        ...result,
+        activationUrl: result.idempotent ? null : `${frontendBase}/activate/${token}`,
+        providerConfigured: Boolean(razorpay && planId),
+      });
+    } catch (error: any) {
+      const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
+      console.error("[ADMIN PAID PLAN]", error?.message || error);
+      res.status(statusCode).json({ message: statusCode === 500 ? "Unable to assign the paid plan" : error.message });
+    }
+  });
+
+  app.post("/api/admin/clinics/:id/sponsored-access", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can grant sponsored access" });
+    const parsed = z.object({
+      plan: z.enum(["starter", "growth", "pro"]),
+      startsAt: z.string().datetime().optional(),
+      endsAt: z.string().datetime(),
+      reason: z.string().trim().min(10).max(500),
+      grantId: z.string().uuid().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Sponsored plan, dates, and a reason are required" });
+
+    const clinicId = Number(req.params.id);
+    if (!Number.isInteger(clinicId) || clinicId <= 0) return res.status(400).json({ message: "Invalid clinic ID" });
+    const grantId = parsed.data.grantId || crypto.randomUUID();
+    const startsAt = parsed.data.startsAt ? new Date(parsed.data.startsAt) : new Date();
+    const endsAt = new Date(parsed.data.endsAt);
+    if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) {
+      return res.status(400).json({ message: "Sponsored access must have a valid end date after its start date" });
+    }
+    const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+    try {
+      const clinic = await storage.getClinic(clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const existing = await storage.getSubscriptionAccessGrants(clinicId);
+      if (existing.some(grant => !grant.revokedAt && new Date(grant.endsAt) > new Date())) {
+        return res.status(409).json({ message: "This clinic already has active sponsored access. End it before creating another grant." });
+      }
+      const policy = resolvePlanPolicy(parsed.data.plan).policy;
+      const result = await db.transaction(async (tx) => {
+        const [grant] = await tx.insert(subscriptionAccessGrants).values({
+          clinicId,
+          grantId,
+          plan: parsed.data.plan,
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          listPriceMinor: policy?.pricing.monthly ?? null,
+          currency: "INR",
+          reason: parsed.data.reason,
+          grantedByType: "superuser",
+          grantedById: actorId,
+          startsAt,
+          endsAt,
+        }).returning();
+        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
+          clinicId,
+          eventType: "sponsored_access_granted",
+          fromPlan: clinic.plan,
+          toPlan: parsed.data.plan,
+          fromStatus: clinic.subscriptionStatus,
+          toStatus: clinic.subscriptionStatus,
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          transitionId: grantId,
+          actorType: "superuser",
+          actorId,
+          reason: parsed.data.reason,
+          metadata: { grantId, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() },
+          effectiveAt: startsAt,
+        }).returning();
+        return { grant, event };
+      });
+      res.status(201).json(result);
+    } catch (error: any) {
+      const statusCode = error?.code === "23505" ? 409 : 500;
+      console.error("[ADMIN SPONSORED ACCESS]", error?.message || error);
+      res.status(statusCode).json({ message: statusCode === 500 ? "Unable to grant sponsored access" : "This grant ID has already been used" });
+    }
+  });
+
+  app.post("/api/admin/clinics/:id/entitlement-exceptions", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can grant entitlement exceptions" });
+    const parsed = z.object({
+      entitlementKey: z.enum(ENTITLEMENT_CAPABILITIES),
+      overrideValue: z.union([z.string(), z.number(), z.boolean()]),
+      startsAt: z.string().datetime().optional(),
+      endsAt: z.string().datetime(),
+      reason: z.string().trim().min(10).max(500),
+      exceptionId: z.string().uuid().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Entitlement, override, dates, and a reason are required" });
+
+    const clinicId = Number(req.params.id);
+    if (!Number.isInteger(clinicId) || clinicId <= 0) return res.status(400).json({ message: "Invalid clinic ID" });
+    const exceptionId = parsed.data.exceptionId || crypto.randomUUID();
+    const startsAt = parsed.data.startsAt ? new Date(parsed.data.startsAt) : new Date();
+    const endsAt = new Date(parsed.data.endsAt);
+    if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) {
+      return res.status(400).json({ message: "An exception must have a valid end date after its start date" });
+    }
+    const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+    try {
+      const clinic = await storage.getClinic(clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const existing = await storage.getSubscriptionAccessExceptions(clinicId);
+      if (existing.some(exception =>
+        exception.entitlementKey === parsed.data.entitlementKey &&
+        !exception.revokedAt &&
+        new Date(exception.endsAt) > new Date(),
+      )) {
+        return res.status(409).json({ message: "This clinic already has an active exception for that entitlement." });
+      }
+      const result = await db.transaction(async (tx) => {
+        const [exception] = await tx.insert(subscriptionAccessExceptions).values({
+          clinicId,
+          exceptionId,
+          entitlementKey: parsed.data.entitlementKey,
+          overrideValue: parsed.data.overrideValue,
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          reason: parsed.data.reason,
+          grantedByType: "superuser",
+          grantedById: actorId,
+          startsAt,
+          endsAt,
+        }).returning();
+        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
+          clinicId,
+          eventType: "exception_granted",
+          fromPlan: clinic.plan,
+          toPlan: clinic.plan,
+          fromStatus: clinic.subscriptionStatus,
+          toStatus: clinic.subscriptionStatus,
+          policyVersion: PUBLISHED_PLAN_POLICY.version,
+          transitionId: exceptionId,
+          actorType: "superuser",
+          actorId,
+          reason: parsed.data.reason,
+          metadata: { exceptionId, entitlementKey: parsed.data.entitlementKey, overrideValue: parsed.data.overrideValue, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() },
+          effectiveAt: startsAt,
+        }).returning();
+        return { exception, event };
+      });
+      res.status(201).json(result);
+    } catch (error: any) {
+      const statusCode = error?.code === "23505" ? 409 : 500;
+      console.error("[ADMIN ENTITLEMENT EXCEPTION]", error?.message || error);
+      res.status(statusCode).json({ message: statusCode === 500 ? "Unable to grant entitlement exception" : "This exception ID has already been used" });
     }
   });
 

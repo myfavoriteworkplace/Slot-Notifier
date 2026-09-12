@@ -6,12 +6,16 @@ import {
   CheckCircle2,
   Clock3,
   Database,
+  CreditCard,
+  Gift,
+  History,
   Play,
   Plus,
   RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Users,
   XCircle,
@@ -60,6 +64,25 @@ const USAGE_CAPABILITIES = new Set([
   "messaging_whatsapp",
   "messaging_email",
 ]);
+
+type ClinicFilter = "all" | "attention" | "trial" | "paid";
+type AccessAction = "sponsored" | "exception";
+type SubscriptionHistory = {
+  lifecycleEvents: Array<{
+    id: number;
+    eventType: string;
+    fromPlan: string | null;
+    toPlan: string | null;
+    fromStatus: string | null;
+    toStatus: string | null;
+    actorType: string;
+    reason: string | null;
+    effectiveAt: string;
+  }>;
+  assignments: Array<{ id: number; plan: string; billingCycle: string; source: string; startsAt: string; endsAt: string | null }>;
+  grants: Array<{ id: number; plan: string; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
+  exceptions: Array<{ id: number; entitlementKey: string; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
+};
 
 const formatBytes = (value: number | null) => {
   if (value === null) return "—";
@@ -112,11 +135,24 @@ function UsageValue({ item }: { item: EffectiveEntitlementItem }) {
 
 export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] }) {
   const [search, setSearch] = useState("");
+  const [clinicFilter, setClinicFilter] = useState<ClinicFilter>("all");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [trialAction, setTrialAction] = useState<"start" | "extend">("start");
   const [trialReason, setTrialReason] = useState("");
   const [extensionDays, setExtensionDays] = useState("7");
+  const [paidDialogOpen, setPaidDialogOpen] = useState(false);
+  const [paidPlan, setPaidPlan] = useState<"starter" | "growth" | "pro">("starter");
+  const [paidBillingCycle, setPaidBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [paidReason, setPaidReason] = useState("");
+  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
+  const [accessAction, setAccessAction] = useState<AccessAction>("sponsored");
+  const [accessPlan, setAccessPlan] = useState<"starter" | "growth" | "pro">("growth");
+  const [accessEntitlement, setAccessEntitlement] = useState("bookings");
+  const [accessOverrideValue, setAccessOverrideValue] = useState("true");
+  const [accessStartsAt, setAccessStartsAt] = useState("");
+  const [accessEndsAt, setAccessEndsAt] = useState("");
+  const [accessReason, setAccessReason] = useState("");
   const queryClient = useQueryClient();
   const selectedClinic = clinics.find(clinic => clinic.id === selectedClinicId) ?? null;
 
@@ -128,20 +164,41 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
     retry: 1,
   });
 
+  const historyQuery = useQuery<SubscriptionHistory>({
+    queryKey: ["/api/admin/clinics", selectedClinicId, "subscription-history"],
+    queryFn: async () => (await apiRequest("GET", `/api/admin/clinics/${selectedClinicId}/subscription-history`)).json(),
+    enabled: selectedClinicId !== null,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
   const filteredClinics = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return clinics
       .filter(clinic => !clinic.isArchived)
+      .filter(clinic => {
+        const plan = String(clinic.plan || "").toLowerCase();
+        const status = String(clinic.subscriptionStatus || "").toLowerCase();
+        if (clinicFilter === "trial") return plan === "trial" || status === "trialing" || status === "trial";
+        if (clinicFilter === "paid") return ["starter", "growth", "pro"].includes(plan) && ["active", "manual_override"].includes(status);
+        if (clinicFilter === "attention") return !["active", "trialing", "trial"].includes(status);
+        return true;
+      })
       .filter(clinic => !needle || [clinic.name, clinic.city, clinic.email, clinic.plan]
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(needle)));
-  }, [clinics, search]);
+  }, [clinicFilter, clinics, search]);
 
   const numericCapabilities = reportQuery.data?.capabilities.filter(item => USAGE_CAPABILITIES.has(item.capability)) ?? [];
   const featureCapabilities = reportQuery.data?.capabilities.filter(item => !USAGE_CAPABILITIES.has(item.capability)) ?? [];
   const attentionCount = reportQuery.data?.capabilities.filter(item => item.overLimit === true).length ?? 0;
   const report = reportQuery.data;
   const hasTrialHistory = Boolean(report?.access.trialStartedAt && report.plan.effective === "trial");
+
+  const refreshSubscriptionQueries = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+    await Promise.all([reportQuery.refetch(), historyQuery.refetch()]);
+  };
 
   const trialMutation = useMutation({
     mutationFn: async () => {
@@ -166,6 +223,59 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
     onError: (error: Error) => notify.error(error.message || "Could not update Trial"),
   });
 
+  const paidPlanMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedClinicId === null) throw new Error("Select a clinic first");
+      const response = await apiRequest("POST", `/api/admin/clinics/${selectedClinicId}/paid-plan`, {
+        plan: paidPlan,
+        billingCycle: paidBillingCycle,
+        reason: paidReason.trim(),
+        transitionId: crypto.randomUUID(),
+      });
+      return response.json();
+    },
+    onSuccess: async (result) => {
+      setPaidDialogOpen(false);
+      setPaidReason("");
+      notify.success("Paid plan assignment prepared", {
+        description: result.activationUrl
+          ? `The clinic is pending payment. Activation link: ${result.activationUrl}`
+          : "The clinic is pending payment and the provider activation link is not available.",
+      });
+      await refreshSubscriptionQueries();
+    },
+    onError: (error: Error) => notify.error(error.message || "Could not assign paid plan"),
+  });
+
+  const accessMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedClinicId === null) throw new Error("Select a clinic first");
+      if (!accessEndsAt) throw new Error("Choose an end date");
+      const payload = {
+        startsAt: accessStartsAt ? new Date(accessStartsAt).toISOString() : undefined,
+        endsAt: new Date(accessEndsAt).toISOString(),
+        reason: accessReason.trim(),
+      };
+      const path = accessAction === "sponsored"
+        ? `/api/admin/clinics/${selectedClinicId}/sponsored-access`
+        : `/api/admin/clinics/${selectedClinicId}/entitlement-exceptions`;
+      const body = accessAction === "sponsored"
+        ? { ...payload, plan: accessPlan, grantId: crypto.randomUUID() }
+        : { ...payload, entitlementKey: accessEntitlement, overrideValue: accessOverrideValue === "true" ? true : accessOverrideValue === "false" ? false : Number(accessOverrideValue) || accessOverrideValue, exceptionId: crypto.randomUUID() };
+      const response = await apiRequest("POST", path, body);
+      return response.json();
+    },
+    onSuccess: async () => {
+      setAccessDialogOpen(false);
+      setAccessReason("");
+      setAccessStartsAt("");
+      setAccessEndsAt("");
+      notify.success(accessAction === "sponsored" ? "Sponsored access granted" : "Entitlement exception granted");
+      await refreshSubscriptionQueries();
+    },
+    onError: (error: Error) => notify.error(error.message || "Could not grant access"),
+  });
+
   const openTrialDialog = (action: "start" | "extend") => {
     setTrialAction(action);
     setTrialReason("");
@@ -173,12 +283,20 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
     setTrialDialogOpen(true);
   };
 
+  const openAccessDialog = (action: AccessAction) => {
+    setAccessAction(action);
+    setAccessReason("");
+    setAccessStartsAt("");
+    setAccessEndsAt("");
+    setAccessDialogOpen(true);
+  };
+
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-bold tracking-tight">Subscription plans & entitlements</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review effective plan access, usage, limits, and exceptions without changing clinic or provider state.
+          Review and manage audited plan access without enabling commercial enforcement.
         </p>
       </div>
 
@@ -196,6 +314,20 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                 className="h-8 pl-8 text-xs"
                 aria-label="Search clinics for entitlement review"
               />
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <select
+                value={clinicFilter}
+                onChange={event => setClinicFilter(event.target.value as ClinicFilter)}
+                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                aria-label="Filter subscription clinics"
+              >
+                <option value="all">All clinics</option>
+                <option value="attention">Needs attention</option>
+                <option value="trial">Trial</option>
+                <option value="paid">Active paid</option>
+              </select>
             </div>
           </CardHeader>
           <CardContent className="max-h-[620px] space-y-2 overflow-y-auto pt-0">
@@ -279,6 +411,15 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                           {hasTrialHistory ? <Plus className="mr-1.5 h-3.5 w-3.5" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
                           {hasTrialHistory ? "Extend Trial" : "Start Trial"}
                         </Button>
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => setPaidDialogOpen(true)}>
+                          <CreditCard className="mr-1.5 h-3.5 w-3.5" />Assign paid plan
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => openAccessDialog("sponsored")}>
+                          <Gift className="mr-1.5 h-3.5 w-3.5" />Sponsored access
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => openAccessDialog("exception")}>
+                          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Exception
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
@@ -317,6 +458,35 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                     </CardContent>
                   </Card>
                 )}
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm"><History className="h-4 w-4" />Subscription history</CardTitle>
+                    <CardDescription>Append-only plan assignments and access decisions for this clinic.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {historyQuery.isLoading && <p className="text-xs text-muted-foreground">Loading history…</p>}
+                    {historyQuery.isError && <p className="text-xs text-red-600">Subscription history is unavailable.</p>}
+                    {historyQuery.data && !historyQuery.data.lifecycleEvents.length && <p className="text-xs text-muted-foreground">No lifecycle events recorded yet.</p>}
+                    {historyQuery.data && historyQuery.data.lifecycleEvents.length > 0 && (
+                      <div className="space-y-2">
+                        {historyQuery.data.lifecycleEvents.slice(0, 8).map(event => (
+                          <div key={event.id} className="rounded-lg border px-3 py-2.5 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-semibold">{labelFor(event.eventType)}</span>
+                              <span className="text-muted-foreground">{formatDate(event.effectiveAt)}</span>
+                            </div>
+                            <p className="mt-1 text-muted-foreground">
+                              {[event.fromPlan && `${labelFor(event.fromPlan)} →`, event.toPlan && labelFor(event.toPlan), event.toStatus && `(${labelFor(event.toStatus)})`].filter(Boolean).join(" ")}
+                              {" · "}{labelFor(event.actorType)}
+                            </p>
+                            {event.reason && <p className="mt-1 leading-5">{event.reason}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 <Card>
                   <CardHeader className="pb-3">
@@ -359,7 +529,7 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                 </Card>
 
                 <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-                  Trial actions are limited to authorized Super Admins, require a reason, and write an append-only lifecycle record. Paid activation, policy editing, provider mutations, and entitlement enforcement remain separate workflows.
+                  Every Admin action requires a reason and writes an append-only lifecycle record. Paid assignment remains pending payment until provider activation. These controls do not enforce limits.
                 </div>
               </>
             )}
@@ -417,6 +587,103 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
               disabled={trialMutation.isPending || trialReason.trim().length < 10 || (trialAction === "extend" && (!Number.isInteger(Number(extensionDays)) || Number(extensionDays) < 1 || Number(extensionDays) > 30))}
             >
               {trialMutation.isPending ? "Saving…" : trialAction === "start" ? "Start Trial" : "Extend Trial"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={paidDialogOpen} onOpenChange={setPaidDialogOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" />Assign paid plan</DialogTitle>
+            <DialogDescription>
+              This prepares a provider activation and records the assignment as pending payment. It does not mark the clinic as paid.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="paid-plan" className="text-sm font-semibold">Plan</label>
+              <select id="paid-plan" value={paidPlan} onChange={event => setPaidPlan(event.target.value as typeof paidPlan)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                <option value="starter">Starter</option>
+                <option value="growth">Growth</option>
+                <option value="pro">Pro</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="paid-cycle" className="text-sm font-semibold">Billing cycle</label>
+              <select id="paid-cycle" value={paidBillingCycle} onChange={event => setPaidBillingCycle(event.target.value as typeof paidBillingCycle)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                <option value="monthly">Monthly</option>
+                <option value="annual">Annual</option>
+              </select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label htmlFor="paid-reason" className="text-sm font-semibold">Reason <span className="text-destructive">*</span></label>
+              <Textarea id="paid-reason" value={paidReason} onChange={event => setPaidReason(event.target.value)} placeholder="Record why this paid plan is being assigned." maxLength={500} className="min-h-[100px] text-sm" />
+              <p className="text-xs text-muted-foreground">{paidReason.trim().length}/10 minimum characters · {paidReason.length}/500</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaidDialogOpen(false)} disabled={paidPlanMutation.isPending}>Cancel</Button>
+            <Button onClick={() => paidPlanMutation.mutate()} disabled={paidPlanMutation.isPending || paidReason.trim().length < 10}>
+              {paidPlanMutation.isPending ? "Preparing…" : "Assign and prepare payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={accessDialogOpen} onOpenChange={setAccessDialogOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {accessAction === "sponsored" ? <Gift className="h-5 w-5 text-primary" /> : <SlidersHorizontal className="h-5 w-5 text-primary" />}
+              {accessAction === "sponsored" ? "Grant sponsored access" : "Grant entitlement exception"}
+            </DialogTitle>
+            <DialogDescription>
+              This is temporary complimentary access and is kept separate from paid subscription status.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            {accessAction === "sponsored" ? (
+              <div className="space-y-2 sm:col-span-2">
+                <label htmlFor="sponsored-plan" className="text-sm font-semibold">Effective plan</label>
+                <select id="sponsored-plan" value={accessPlan} onChange={event => setAccessPlan(event.target.value as typeof accessPlan)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                  <option value="starter">Starter</option>
+                  <option value="growth">Growth</option>
+                  <option value="pro">Pro</option>
+                </select>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 sm:col-span-2">
+                  <label htmlFor="exception-key" className="text-sm font-semibold">Entitlement</label>
+                  <select id="exception-key" value={accessEntitlement} onChange={event => setAccessEntitlement(event.target.value)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                    {["bookings", "active_doctors", "smile_deals", "storage", "messaging_sms", "messaging_whatsapp", "messaging_email", "analytics", "export"].map(key => <option key={key} value={key}>{labelFor(key)}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <label htmlFor="exception-value" className="text-sm font-semibold">Override value</label>
+                  <Input id="exception-value" value={accessOverrideValue} onChange={event => setAccessOverrideValue(event.target.value)} placeholder="true, false, or a number" />
+                </div>
+              </>
+            )}
+            <div className="space-y-2">
+              <label htmlFor="access-start" className="text-sm font-semibold">Starts</label>
+              <Input id="access-start" type="datetime-local" value={accessStartsAt} onChange={event => setAccessStartsAt(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="access-end" className="text-sm font-semibold">Ends <span className="text-destructive">*</span></label>
+              <Input id="access-end" type="datetime-local" value={accessEndsAt} onChange={event => setAccessEndsAt(event.target.value)} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label htmlFor="access-reason" className="text-sm font-semibold">Reason <span className="text-destructive">*</span></label>
+              <Textarea id="access-reason" value={accessReason} onChange={event => setAccessReason(event.target.value)} placeholder="Record why this temporary access is being granted." maxLength={500} className="min-h-[100px] text-sm" />
+              <p className="text-xs text-muted-foreground">{accessReason.trim().length}/10 minimum characters · {accessReason.length}/500</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAccessDialogOpen(false)} disabled={accessMutation.isPending}>Cancel</Button>
+            <Button onClick={() => accessMutation.mutate()} disabled={accessMutation.isPending || accessReason.trim().length < 10 || !accessEndsAt}>
+              {accessMutation.isPending ? "Saving…" : accessAction === "sponsored" ? "Grant sponsored access" : "Grant exception"}
             </Button>
           </DialogFooter>
         </DialogContent>
