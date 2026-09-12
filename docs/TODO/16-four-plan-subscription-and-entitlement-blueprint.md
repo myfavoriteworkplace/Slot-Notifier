@@ -1,6 +1,6 @@
 # Four-Plan Subscription and Entitlement Blueprint
 
-**Status:** Commercial policy approved for implementation planning; Trial conversion and post-grace expiry processing are implemented with provider-safe lifecycle history; clinic-facing notices, automatic access enforcement, and production rollout remain deferred
+**Status:** Commercial policy approved for implementation planning; Trial conversion and post-grace expiry processing are implemented with provider-safe lifecycle history; clinic-facing Settings entitlement visibility is scoped but not yet implemented; automatic access enforcement and production rollout remain deferred
 **Related blueprints:** [Super Admin Platform Operations](14-super-admin-platform-operations-blueprint.md), [Messaging Allowance and Plan Policy](15-messaging-allowance-and-plan-policy-blueprint.md)  
 **Audience:** Product, operations, support, finance, frontend, backend, database, QA, security, and platform teams  
 **Application:** BookMySlot dental clinic platform  
@@ -53,7 +53,7 @@ This table is the approved high-level execution order. The individually executab
 | **8. Implement Trial creation, conversion, expiry, and recovery** | Give new clinics a safe trial and give expired paid clinics a short, controlled chance to recover. | Start Trial once, calculate expiry/grace dates, convert through the provider path, process post-grace expiry, warn before expiry, move confirmed paid expiry to recovery Trial, preserve old plan/provider history, and make the transition idempotent. | **Lifecycle transition slice complete; presentation remains deferred.** Clinic approval starts the catalog-defined Trial, paid assignment can convert an active/grace Trial into provider-pending access, provider activation records the paid transition, post-grace expiry is idempotently reconciled, and Razorpay completed/expired events move eligible paid clinics into recovery Trial. Clinic-facing lifecycle notices remain outstanding. | Repeated provider events cannot restart a Trial, post-grace processing cannot repeat an expiry transition, and expiry never deletes data or silently leaves paid access active. |
 | **9. Add safe Super Admin plan operations** | Let authorized staff manage plans safely without editing clinic rows directly. | Add Start Trial, Extend Trial, Assign Paid Plan after expiry or during approved Trial conversion, Grant Sponsored Access, reasons, confirmation, role checks, audit events, stale-state protection, and provider-aware activation. | **Partial, upgraded.** Super Admin can Start or Extend Trial, assign paid plans through a provider-aware pending-payment workflow including Trial conversion, grant sponsored access, and add entitlement exceptions through audited dedicated routes. The broad Mark Paid mutation and Admin button are disabled. | Every manual plan or access change is authorized, confirmed, explainable, audited, time-bounded where applicable, and safe against provider/admin races. |
 | **10. Complete provider lifecycle and commercial alignment** | Ensure the screen, database, and payment provider never disagree. | Verify plan/cycle mapping, Trial-to-paid conversion, recovery-Trial-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation, idempotency, historical policy references, and payment/refund/chargeback reconciliation. | **Partial, upgraded.** Razorpay plan mapping, provider activation, Trial/recovery conversion history, duplicate-event retry handling, paid-expiry recovery, and provider-event history are present; upgrades/downgrades, full webhook reconciliation, and a financial ledger do not. | A paid plan is activated only through the approved provider/payment path, expired provider subscriptions are never reused accidentally, and platform-revenue reports distinguish captured, refunded, settled, and complimentary amounts. |
-| **11. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial foundation.** Super Admin entitlement visibility now includes Start/Extend Trial controls and Trial dates; clinic-facing entitlement visibility, upgrade/support paths, warning records, and full Trial/recovery presentation remain. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
+| **11. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial foundation; clinic Settings slice now scoped.** Super Admin entitlement visibility includes Start/Extend Trial controls and Trial dates. The clinic endpoint exists and returns the shared reporting-only entitlement response, but `ClinicDashboard.tsx` still renders only Storage, Messaging, and Reminder Digest panels. The separate clinic-facing Plan & access panel, warnings, upgrade/support guidance, and full Trial/recovery presentation are not implemented. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
 | **12. Turn on warnings before restrictions** | Give people time to act instead of suddenly stopping work. | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, warning audit records, and upgrade/support guidance. | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and audit events do not. | Warnings are accurate, explainable, timezone-aware, and do not consume the clinic’s own allowance. |
 | **13. Enforce limits on the server** | Actually apply the plan rules securely; hiding a button is not enough. | Enforce doctor, booking, deal, storage, analytics, export, and messaging rules in backend routes/services; protect essential clinical/security messages; return structured errors. | **Not started.** Current dashboard modules are generally available independently of plan. | Every restricted operation is checked server-side and gives a clear reason when denied; existing data remains visible. |
 | **14. Release gradually, monitor, and refine** | Learn from real usage before making the limits permanent. | Run policy tests, authorization tests, counting/privacy tests, Build Check, reporting comparison, warning rollout, controlled optional-message enforcement, monitoring, and versioned allowance changes. | **Not started.** The blueprint defines tests and rollout stages, but no four-plan rollout has begun. | At least one or two complete usage periods are reviewed; release gates pass; support and provider reconciliation procedures exist. |
@@ -2240,4 +2240,247 @@ git diff --check
   passed
 ```
 
-This slice intentionally does not implement clinic-facing Trial/recovery notices, warning mode, server-side entitlement enforcement, provider-aware upgrades/downgrades, or the subscription finance ledger. The production baseline remains a release gate before live lifecycle automation or enforcement.
+This slice intentionally does not implement clinic-facing Trial/recovery notices, warning mode, server-side entitlement enforcement, provider-aware upgrades/downgrades, or the subscription finance ledger. The clinic-facing Settings implementation is scoped in Section 22.14 but remains a separate read-only presentation slice. The production baseline remains a release gate before live lifecycle automation or enforcement.
+
+### 22.14 Clinic Admin Settings — Plan & access panel
+
+#### 22.14.1 Current status
+
+The attached Settings snapshot defines the next clinic-facing subscription presentation slice. The scope is approved for implementation planning, but no application code for this panel has been added yet.
+
+The verified current state is:
+
+- `client/src/pages/ClinicDashboard.tsx` currently renders the Settings area in this order:
+  1. `ClinicStorageSettingsPanel`
+  2. `ClinicMessagingUsagePanel`
+  3. `ClinicReminderDigestPanel`
+- The Settings navigation wording still describes the area primarily as **Storage & file settings**, which is too narrow once plan visibility is added.
+- A clinic-scoped endpoint already exists at `GET /api/auth/clinic/settings/entitlements`.
+- The endpoint requires an authenticated clinic session and rejects doctor sessions.
+- The endpoint calls the shared `getEffectiveEntitlementReport` resolver rather than calculating plan limits in the browser.
+- The shared resolver is explicitly **reporting-only**. It does not authorize, block, assign, extend, or change a provider subscription.
+- The existing detailed Storage, Messaging, and Reminder Digest panels remain valid and should stay below the new panel.
+- No `ClinicEntitlementSettingsPanel.tsx` component currently exists.
+- The Super Admin `AdminEntitlementReview.tsx` component must not be reused for the clinic UI because it contains operational actions such as Trial assignment, sponsored access, and entitlement exceptions.
+
+This status means the backend/reporting foundation is available, while the clinic-facing presentation layer is still outstanding. This work belongs to the visibility stage of the roadmap; it must not be treated as the beginning of server-side enforcement.
+
+#### 22.14.2 Approved user experience
+
+Add a new read-only **Plan & access** card as the first card inside clinic Settings:
+
+```text
+Settings
+├── Plan & access
+├── Storage & file usage
+├── Messaging usage
+└── Doctor reminder digest
+```
+
+The top card should explain the clinic’s current commercial and access position in plain language:
+
+- Current plan: Trial, Starter, Growth, or Pro.
+- Current access state:
+  - Trial active.
+  - Trial grace period.
+  - Active paid.
+  - Payment pending.
+  - Expired.
+  - Requires attention.
+- Trial start date and Trial expiry date where available.
+- Grace-period end date where available.
+- Recovery Trial origin where applicable, such as paid expiry.
+- Paid renewal or paid-access expiry date where available.
+- A short explanation of what happens next.
+- A read-only upgrade, view-plans, or contact-support action where appropriate.
+- Compact warnings inside the card rather than disruptive popups.
+
+The card must not expose controls for:
+
+- Assigning or changing a plan.
+- Extending or starting a Trial.
+- Changing payment state.
+- Granting sponsored access.
+- Adding entitlement exceptions.
+- Retrying provider events.
+
+Those remain protected Super Admin, delegated operator, scheduled-job, or provider workflows.
+
+#### 22.14.3 Shared response contract
+
+The clinic panel must consume the existing entitlement response. It must not create a second plan or usage calculation in React.
+
+The response contract used by the clinic panel and the Admin entitlement view should have one shared type covering:
+
+- `mode` and report freshness.
+- Requested plan, effective plan, display name, policy version, and plan source.
+- Normalized subscription state and raw legacy value when useful for Admin diagnostics.
+- Access state and stable reason code.
+- Trial start, Trial end, Trial grace end, and paid-access expiry dates.
+- Trial origin and previous paid plan when the clinic is in recovery or has a historical paid transition.
+- Sponsored-access state and expiry, without presenting sponsored access as provider-paid activation.
+- Active exception keys and effective scope, without exposing unnecessary internal operator data.
+- Per-capability usage, limit, remaining value, period, percentage where meaningful, fair-use marker, data source, and unavailable state.
+- Clinic timezone and `measuredAt` timestamp.
+
+Before the component is implemented, verify two response gaps:
+
+1. The current report shape visibly returns the Trial and paid dates, but the clinic presentation needs an explicit recovery-origin value and a stable human-readable next-step explanation. These should be added to the shared response contract or mapped from stable reason codes without duplicating lifecycle rules in the browser.
+2. The current endpoint invokes `expireTrialIfDue` before returning the report. That operation is idempotent lifecycle reconciliation inside a transaction, not plan enforcement, but it means the GET route is not strictly observational. The implementation must document this boundary and decide whether to retain this read-triggered reconciliation or separate it from the clinic read endpoint before enforcement work begins.
+
+Unknown plans, unknown subscription states, missing dates, unavailable usage, and provider-reconciliation states must remain visible as attention or unavailable states. They must not silently become Starter, zero usage, or active access.
+
+#### 22.14.4 Implementation phases
+
+The implementation should proceed in the following order.
+
+##### Phase A — Contract and state-mapping preparation
+
+1. Confirm the shared response fields listed above.
+2. Define one frontend-readable state map for Trial, grace, paid, pending, expired, unknown, and attention states.
+3. Define the plain-language explanation for each state and the supported action:
+   - View plans.
+   - Contact support.
+   - Wait for provider confirmation.
+   - Review the recovery Trial.
+   - Reconcile an unknown or provider-error state.
+4. Confirm that unavailable usage is represented as unavailable, not as zero.
+5. Decide and document the `expireTrialIfDue` GET-side-effect boundary.
+
+##### Phase B — Separate clinic-facing component
+
+Create `client/src/components/ClinicEntitlementSettingsPanel.tsx` as a read-only clinic component.
+
+The component should:
+
+- Query `/api/auth/clinic/settings/entitlements` using the existing `apiRequest` and React Query conventions.
+- Use the shared entitlement response type used by the Admin report.
+- Provide intentional loading, error, empty, unknown-state, and unavailable-data presentations.
+- Render a compact plan header, access-state badge, relevant dates, next-step explanation, and warnings.
+- Keep action buttons informational/navigation-only.
+- Avoid Admin-only copy and operations.
+
+##### Phase C — Compact usage overview
+
+Inside the same top panel, show compact usage rows or cards for:
+
+- Bookings.
+- Active doctors.
+- Smile Deals.
+- Storage.
+- SMS.
+- WhatsApp.
+- Email.
+
+Each resource should show:
+
+- Used.
+- Limit or fair-use label.
+- Remaining where a numeric limit exists.
+- Period, such as Trial lifetime, calendar month, ongoing, or fair use.
+- Percentage where meaningful.
+- An explicit unavailable state when measurement is incomplete.
+
+The compact view should link conceptually to the detailed Storage and Messaging panels below without duplicating their charts, file scans, message-purpose breakdown, or monthly history.
+
+##### Phase D — Warning and guidance presentation
+
+Warnings belong inside the Plan & access card:
+
+- Trial ending soon.
+- Trial grace period.
+- Payment pending.
+- Recovery Trial active.
+- Access expired or requiring support.
+- Usage at the approved warning levels, initially 80% and 95%, when the response has reliable numeric usage.
+- Usage already above a lower plan limit after downgrade or recovery.
+- Unknown subscription or provider-reconciliation state.
+
+Use:
+
+- Neutral informational styling for ordinary notices.
+- Amber for attention and impending action.
+- Red only for an actual access-risk or expired state.
+
+The first UI slice remains non-blocking. Warning audit records and automated warning delivery belong to the separate warning-mode work and must not be implied by this panel alone.
+
+##### Phase E — Settings integration
+
+Update the clinic Settings render order to:
+
+1. `ClinicEntitlementSettingsPanel`.
+2. `ClinicStorageSettingsPanel`.
+3. `ClinicMessagingUsagePanel`.
+4. `ClinicReminderDigestPanel`.
+
+Update the Settings navigation description so it covers plan, access, usage, storage, messaging, and reminders rather than storage alone. Do not remove or replace the existing detailed panels.
+
+##### Phase F — Accessibility and responsive behavior
+
+The panel must:
+
+- Work on narrow mobile widths without requiring horizontal scrolling for the core state.
+- Keep plan, state, and next action visible before the usage details.
+- Use semantic headings and labelled progress indicators.
+- Provide text equivalents for percentages, limits, and unavailable values.
+- Meet the project’s form-label, focus, contrast, and interactive-element conventions.
+- Add `data-testid` attributes to navigation/action controls according to the project convention.
+- Avoid relying on color alone for Trial, paid, pending, expired, or warning states.
+
+##### Phase G — Verification
+
+Verify at minimum:
+
+- Active Trial.
+- Trial grace.
+- Active paid Starter, Growth, and Pro.
+- Pending payment.
+- Expired or recovery Trial.
+- Unknown plan.
+- Unknown subscription state.
+- Missing Trial dates.
+- Missing or unavailable usage.
+- Sponsored access without presenting it as payment.
+- Entitlement exception without exposing Admin mutation controls.
+- Clinic authorization failure.
+- Endpoint error and retry.
+- Responsive desktop and mobile layouts.
+- Existing Storage, Messaging, and Reminder panels still render below the new card.
+
+The tests must confirm that the browser never sends plan-assignment, Trial-extension, payment-state, sponsored-access, or entitlement-exception mutations from this panel.
+
+#### 22.14.5 Scope boundaries
+
+This Settings UI slice does not:
+
+- Enforce booking, doctor, deal, storage, messaging, analytics, or export limits.
+- Change clinic plan rows.
+- Start, extend, expire, or recover a Trial.
+- Create or update provider subscriptions.
+- Add Razorpay plans or change prices.
+- Replace the Super Admin entitlement review.
+- Implement provider-aware upgrades or downgrades.
+- Create the subscription finance ledger.
+- Treat the development baseline as a production migration decision.
+
+The panel may explain that an action is unavailable or requires support, but the actual restriction and state mutation must continue to be enforced in the server/provider workflows planned later in the roadmap.
+
+#### 22.14.6 Completion criteria
+
+The clinic Settings implementation is complete only when:
+
+- The new Plan & access panel is the first Settings card.
+- The panel uses the shared entitlement endpoint and shared response type.
+- No entitlement or usage calculation is duplicated in the frontend.
+- Every required access state has a clear plain-language presentation.
+- Trial, recovery, payment, renewal, expiry, support, and upgrade dates are shown only when known.
+- Usage cards distinguish zero from unavailable and show the correct period.
+- Warnings are visible inside the panel and remain non-blocking.
+- View-plans/support actions do not mutate subscription state.
+- Existing detailed Storage, Messaging, and Reminder panels remain unchanged below it.
+- Clinic authorization and error states are handled explicitly.
+- Responsive and accessibility checks pass.
+- Focused component/contract tests, `npm run check`, Build Check, and the relevant application tests pass.
+- The production baseline gate remains unchanged: this UI work must not be used as evidence that production clinics are within limits.
+
+**Current implementation status:** Ready for the contract decision and frontend implementation. The endpoint and reporting service exist; the clinic-facing component, Settings integration, state presentation, warning presentation, and component verification remain outstanding. No application code or database state was changed while recording this plan.
