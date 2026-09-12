@@ -33,7 +33,7 @@ test("derives baseline limits from the published catalog", () => {
   });
   assert.equal(getBaselinePlanLimits("future_plan"), null);
   assert.equal(getBaselinePlanLimits("unpaid"), null);
-}
+});
 
 for (const fixture of SUBSCRIPTION_BASELINE_FIXTURES) {
   test(`baseline fixture: ${fixture.name}`, () => {
