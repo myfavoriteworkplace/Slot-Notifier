@@ -122,7 +122,7 @@ export type EffectiveEntitlementReport = {
   };
   subscription: SubscriptionStatusInfo;
   access: {
-    state: "trial" | "active_paid" | "attention" | "unknown";
+    state: "trial" | "active_paid" | "sponsored" | "attention" | "unknown";
     trialStartedAt: string | null;
     trialEndsAt: string | null;
     trialGraceEndsAt: string | null;
@@ -324,7 +324,7 @@ export function resolveEffectiveEntitlements(input: EffectiveEntitlementInput): 
     input.trialEndsAt > now;
   const accessState: EffectiveEntitlementReport["access"]["state"] =
     trialIsActive ? "trial" :
-    sponsoredGrant ? "active_paid" :
+    sponsoredGrant ? "sponsored" :
     subscription.state === "active" || subscription.state === "manual_override" ? "active_paid" :
     subscription.state === "unknown" ? "unknown" : "attention";
   const accessReason: EntitlementReasonCode =

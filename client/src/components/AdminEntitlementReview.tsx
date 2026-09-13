@@ -105,12 +105,19 @@ const formatDate = (value: string | null) => {
   return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 };
 
-const labelFor = (value: string | null | undefined) =>
-  value ? value.replace(/_/g, " ").replace(/\b\w/g, character => character.toUpperCase()) : "—";
+const labelFor = (value: string | null | undefined) => {
+  if (!value) return "—";
+  if (value === "active_paid") return "Active Paid";
+  if (value === "sponsored") return "Sponsored Access";
+  return value.replace(/_/g, " ").replace(/\b\w/g, character => character.toUpperCase());
+};
 
 const statusClass = (state: EffectiveEntitlementReport["access"]["state"]) => {
   if (state === "active_paid" || state === "trial") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300";
+  }
+  if (state === "sponsored") {
+    return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300";
   }
   if (state === "unknown") {
     return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300";

@@ -94,6 +94,7 @@ test("uses a current sponsored plan and explicit exception without mutating stat
   const bookings = report.capabilities.find((item) => item.capability === "bookings");
   assert.equal(report.plan.effective, "growth");
   assert.equal(report.plan.source, "sponsored_access");
+  assert.equal(report.access.state, "sponsored");
   assert.equal(bookings?.limit, 40);
   assert.equal(bookings?.source, "exception");
   assert.equal(report.grants.active, 1);
