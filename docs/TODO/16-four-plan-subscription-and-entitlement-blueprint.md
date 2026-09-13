@@ -53,7 +53,7 @@ This table is the approved high-level execution order. The individually executab
 | **8. Implement Trial creation, conversion, expiry, and recovery** | Give new clinics a safe trial and give expired paid clinics a short, controlled chance to recover. | Start Trial once, calculate expiry/grace dates, convert through the provider path, process post-grace expiry, warn before expiry, move confirmed paid expiry to recovery Trial, preserve old plan/provider history, and make the transition idempotent. | **Lifecycle transition slice complete; presentation remains deferred.** Clinic approval starts the catalog-defined Trial, paid assignment can convert an active/grace Trial into provider-pending access, provider activation records the paid transition, post-grace expiry is idempotently reconciled, and Razorpay completed/expired events move eligible paid clinics into recovery Trial. Clinic-facing lifecycle notices remain outstanding. | Repeated provider events cannot restart a Trial, post-grace processing cannot repeat an expiry transition, and expiry never deletes data or silently leaves paid access active. |
 | **9. Add safe Super Admin plan operations** | Let authorized staff manage plans safely without editing clinic rows directly. | Add Start Trial, Extend Trial, Assign Paid Plan after expiry or during approved Trial conversion, Grant Sponsored Access, reasons, confirmation, role checks, audit events, stale-state protection, and provider-aware activation. | **Partial, upgraded.** Super Admin can Start or Extend Trial, assign paid plans through a provider-aware pending-payment workflow including Trial conversion, grant sponsored access, and add entitlement exceptions through audited dedicated routes. The broad Mark Paid mutation and Admin button are disabled. | Every manual plan or access change is authorized, confirmed, explainable, audited, time-bounded where applicable, and safe against provider/admin races. |
 | **10. Complete provider lifecycle and commercial alignment** | Ensure the screen, database, and payment provider never disagree. | Verify plan/cycle mapping, Trial-to-paid conversion, recovery-Trial-to-paid assignment, upgrades, downgrades, payment grace, webhook reconciliation, idempotency, historical policy references, and payment/refund/chargeback reconciliation. | **Partial, upgraded.** Razorpay plan mapping, provider activation, Trial/recovery conversion history, duplicate-event retry handling, paid-expiry recovery, and provider-event history are present; upgrades/downgrades, full webhook reconciliation, and a financial ledger do not. | A paid plan is activated only through the approved provider/payment path, expired provider subscriptions are never reused accidentally, and platform-revenue reports distinguish captured, refunded, settled, and complimentary amounts. |
-| **11. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial foundation; clinic Settings slice now scoped.** Super Admin entitlement visibility includes Start/Extend Trial controls and Trial dates. The clinic endpoint exists and returns the shared reporting-only entitlement response, but `ClinicDashboard.tsx` still renders only Storage, Messaging, and Reminder Digest panels. The separate clinic-facing Plan & access panel, warnings, upgrade/support guidance, and full Trial/recovery presentation are not implemented. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
+| **11. Add clinic and Admin visibility** | Make it obvious why a clinic has access, what it has used, and what happens next. | Add plan/state/usage panels, Trial and recovery notices, expiry dates, upgrade/support paths, above-limit warnings, and Super Admin filters/details. | **Partial, upgraded.** Super Admin entitlement visibility is complete for the reporting/operations stage. The clinic Settings area now renders a read-only Plan & access panel first, using the shared entitlement response with plain-language next steps, Trial/grace/recovery dates, support/view-plan actions, and compact usage. Unified 80%/95% warning mode and broader clinic-facing lifecycle guidance remain outstanding. | A clinic can understand its plan without technical terms, and Super Admin can find attention cases quickly. |
 | **12. Turn on warnings before restrictions** | Give people time to act instead of suddenly stopping work. | Add 80% and 95% warnings, Trial expiry reminders, operational alerts, warning audit records, and upgrade/support guidance. | **Not started as a unified system.** Individual usage displays exist, but shared thresholds and audit events do not. | Warnings are accurate, explainable, timezone-aware, and do not consume the clinic’s own allowance. |
 | **13. Enforce limits on the server** | Actually apply the plan rules securely; hiding a button is not enough. | Enforce doctor, booking, deal, storage, analytics, export, and messaging rules in backend routes/services; protect essential clinical/security messages; return structured errors. | **Not started.** Current dashboard modules are generally available independently of plan. | Every restricted operation is checked server-side and gives a clear reason when denied; existing data remains visible. |
 | **14. Release gradually, monitor, and refine** | Learn from real usage before making the limits permanent. | Run policy tests, authorization tests, counting/privacy tests, Build Check, reporting comparison, warning rollout, controlled optional-message enforcement, monitoring, and versioned allowance changes. | **Not started.** The blueprint defines tests and rollout stages, but no four-plan rollout has begun. | At least one or two complete usage periods are reviewed; release gates pass; support and provider reconciliation procedures exist. |
@@ -2246,24 +2246,25 @@ This slice intentionally does not implement clinic-facing Trial/recovery notices
 
 #### 22.14.1 Current status
 
-The attached Settings snapshot defines the next clinic-facing subscription presentation slice. The scope is approved for implementation planning, but no application code for this panel has been added yet.
+The attached Settings snapshot defined the clinic-facing subscription presentation slice. The first read-only implementation is now complete; the broader warning and lifecycle-guidance scope remains staged separately.
 
 The verified current state is:
 
 - `client/src/pages/ClinicDashboard.tsx` currently renders the Settings area in this order:
-  1. `ClinicStorageSettingsPanel`
-  2. `ClinicMessagingUsagePanel`
-  3. `ClinicReminderDigestPanel`
-- The Settings navigation wording still describes the area primarily as **Storage & file settings**, which is too narrow once plan visibility is added.
+  1. `ClinicEntitlementSettingsPanel`
+  2. `ClinicStorageSettingsPanel`
+  3. `ClinicMessagingUsagePanel`
+  4. `ClinicReminderDigestPanel`
+- The Settings navigation wording now describes the area as **Plan, access & usage**.
 - A clinic-scoped endpoint already exists at `GET /api/auth/clinic/settings/entitlements`.
 - The endpoint requires an authenticated clinic session and rejects doctor sessions.
 - The endpoint calls the shared `getEffectiveEntitlementReport` resolver rather than calculating plan limits in the browser.
 - The shared resolver is explicitly **reporting-only**. It does not authorize, block, assign, extend, or change a provider subscription.
 - The existing detailed Storage, Messaging, and Reminder Digest panels remain valid and should stay below the new panel.
-- No `ClinicEntitlementSettingsPanel.tsx` component currently exists.
+- `client/src/components/ClinicEntitlementSettingsPanel.tsx` now provides the clinic-facing read-only presentation.
 - The Super Admin `AdminEntitlementReview.tsx` component must not be reused for the clinic UI because it contains operational actions such as Trial assignment, sponsored access, and entitlement exceptions.
 
-This status means the backend/reporting foundation is available, while the clinic-facing presentation layer is still outstanding. This work belongs to the visibility stage of the roadmap; it must not be treated as the beginning of server-side enforcement.
+This status means the backend/reporting foundation and the initial clinic-facing presentation are available. The panel belongs to the visibility stage of the roadmap; it must not be treated as the beginning of server-side enforcement.
 
 #### 22.14.2 Approved user experience
 
@@ -2323,10 +2324,10 @@ The response contract used by the clinic panel and the Admin entitlement view sh
 - Per-capability usage, limit, remaining value, period, percentage where meaningful, fair-use marker, data source, and unavailable state.
 - Clinic timezone and `measuredAt` timestamp.
 
-Before the component is implemented, verify two response gaps:
+The response gaps were addressed for this first UI slice:
 
-1. The current report shape visibly returns the Trial and paid dates, but the clinic presentation needs an explicit recovery-origin value and a stable human-readable next-step explanation. These should be added to the shared response contract or mapped from stable reason codes without duplicating lifecycle rules in the browser.
-2. The current endpoint invokes `expireTrialIfDue` before returning the report. That operation is idempotent lifecycle reconciliation inside a transaction, not plan enforcement, but it means the GET route is not strictly observational. The implementation must document this boundary and decide whether to retain this read-triggered reconciliation or separate it from the clinic read endpoint before enforcement work begins.
+1. The shared response now returns `trialOrigin`, `previousPaidPlan`, a distinct `trial_grace` access state, and a stable `nextStep` object with plain-language label, explanation, and navigation/support action.
+2. The clinic endpoint still invokes `expireTrialIfDue` before returning the report. This is intentionally retained as idempotent lifecycle reconciliation inside a transaction, not plan enforcement. The boundary is documented here and must be revisited before server-side enforcement or a strictly observational reporting contract is introduced.
 
 Unknown plans, unknown subscription states, missing dates, unavailable usage, and provider-reconciliation states must remain visible as attention or unavailable states. They must not silently become Starter, zero usage, or active access.
 
@@ -2335,6 +2336,8 @@ Unknown plans, unknown subscription states, missing dates, unavailable usage, an
 The implementation should proceed in the following order.
 
 ##### Phase A — Contract and state-mapping preparation
+
+**Status: Complete for the initial panel.**
 
 1. Confirm the shared response fields listed above.
 2. Define one frontend-readable state map for Trial, grace, paid, pending, expired, unknown, and attention states.
@@ -2349,7 +2352,9 @@ The implementation should proceed in the following order.
 
 ##### Phase B — Separate clinic-facing component
 
-Create `client/src/components/ClinicEntitlementSettingsPanel.tsx` as a read-only clinic component.
+**Status: Complete for the initial panel.**
+
+`client/src/components/ClinicEntitlementSettingsPanel.tsx` is now the read-only clinic component.
 
 The component should:
 
@@ -2361,6 +2366,8 @@ The component should:
 - Avoid Admin-only copy and operations.
 
 ##### Phase C — Compact usage overview
+
+**Status: Complete for the initial panel.**
 
 Inside the same top panel, show compact usage rows or cards for:
 
@@ -2385,6 +2392,8 @@ The compact view should link conceptually to the detailed Storage and Messaging 
 
 ##### Phase D — Warning and guidance presentation
 
+**Status: Partial.** The panel includes non-blocking Trial, grace, recovery, payment-pending, attention, unknown-state, and usage-over-limit guidance. Unified 80%/95% warning thresholds, warning audit records, and automated delivery remain part of the separate warning-mode step.
+
 Warnings belong inside the Plan & access card:
 
 - Trial ending soon.
@@ -2406,6 +2415,8 @@ The first UI slice remains non-blocking. Warning audit records and automated war
 
 ##### Phase E — Settings integration
 
+**Status: Complete.**
+
 Update the clinic Settings render order to:
 
 1. `ClinicEntitlementSettingsPanel`.
@@ -2416,6 +2427,8 @@ Update the clinic Settings render order to:
 Update the Settings navigation description so it covers plan, access, usage, storage, messaging, and reminders rather than storage alone. Do not remove or replace the existing detailed panels.
 
 ##### Phase F — Accessibility and responsive behavior
+
+**Status: Implemented in the component structure; final authenticated viewport verification remains.**
 
 The panel must:
 
@@ -2428,6 +2441,8 @@ The panel must:
 - Avoid relying on color alone for Trial, paid, pending, expired, or warning states.
 
 ##### Phase G — Verification
+
+**Status: Initial verification complete; full authenticated state-matrix and responsive verification remain.**
 
 Verify at minimum:
 
@@ -2483,7 +2498,48 @@ The clinic Settings implementation is complete only when:
 - Focused component/contract tests, `npm run check`, Build Check, and the relevant application tests pass.
 - The production baseline gate remains unchanged: this UI work must not be used as evidence that production clinics are within limits.
 
-**Current implementation status:** Ready for the contract decision and frontend implementation. The endpoint and reporting service exist; the clinic-facing component, Settings integration, state presentation, warning presentation, and component verification remain outstanding. No application code or database state was changed while recording this plan.
+**Current implementation status:** The initial clinic-facing read-only slice is implemented. The shared contract, state mapping, `ClinicEntitlementSettingsPanel`, Settings integration, compact usage overview, retry/error states, view-plans/support actions, and non-blocking state guidance are complete. The remaining work is unified warning mode, authenticated desktop/mobile state-matrix verification, and any follow-up refinements discovered during real clinic review. No subscription mutation or enforcement was added.
+
+### 22.14.7 Clinic Plan & access implementation evidence
+
+Implemented on **2026-09-13 (Asia/Calcutta)**:
+
+- Added `client/src/components/ClinicEntitlementSettingsPanel.tsx`.
+- Added the panel as the first clinic Settings card.
+- Updated Settings navigation copy from storage-only wording to **Plan, access & usage**.
+- Reused `GET /api/auth/clinic/settings/entitlements` and the shared `EffectiveEntitlementReport` type; no browser-side plan or usage calculations were duplicated.
+- Added shared response fields for:
+  - `trial_grace` access state.
+  - Trial origin and previous paid plan.
+  - Stable next-step code, label, description, and action.
+- Added plain-language presentation for active Trial, grace period, active paid, sponsored access, pending payment, attention, unknown state, and recovery Trial.
+- Added compact usage cards for bookings, active doctors, Smile Deals, storage, SMS, WhatsApp, and email.
+- Added explicit loading, retry/error, unavailable-measurement, over-limit, and freshness presentations.
+- Kept actions informational/navigation-only: View plans and Contact support.
+- Preserved the existing Storage, Messaging, and Reminder Digest panels below the new card.
+- Retained the endpoint’s idempotent `expireTrialIfDue` reconciliation boundary and documented that it must be revisited before enforcement.
+
+Verification:
+
+```text
+node --import tsx --test \
+  shared/effective-entitlement.test.ts \
+  shared/plan-catalog.test.ts \
+  shared/subscription-status.test.ts \
+  shared/subscription-baseline-policy.test.ts
+  25 passed, 0 failed
+
+npm run check
+  passed
+
+Build Check
+  finished successfully
+
+git diff --check
+  passed
+```
+
+The available preview verified the application shell and login route. An authenticated clinic session was not available for direct screenshot verification of the clinic-only Settings panel. The production baseline gate and server-side enforcement status are unchanged.
 
 ### 22.15 Super Admin temporary-access revocation evidence
 

@@ -52,7 +52,7 @@ test("keeps pending payment visible without silently denying reporting output", 
   assert.equal(report.capabilities.find((item) => item.capability === "bookings")?.enabled, true);
 });
 
-test("does not treat an expired Trial as active access", () => {
+test("labels a post-Trial clinic inside grace as Trial grace period", () => {
   const report = resolveEffectiveEntitlements({
     clinicId: 5,
     rawPlan: "trial",
@@ -66,8 +66,31 @@ test("does not treat an expired Trial as active access", () => {
   });
 
   assert.equal(report.subscription.state, "trialing");
-  assert.equal(report.access.state, "attention");
-  assert.equal(report.access.reasonCode, "SUBSCRIPTION_STATE_REQUIRES_RECONCILIATION");
+  assert.equal(report.access.state, "trial_grace");
+  assert.equal(report.nextStep.code, "CONTINUE_TRIAL");
+  assert.equal(report.nextStep.action, "view_plans");
+});
+
+test("explains recovery Trial origin and directs the clinic to review plans", () => {
+  const report = resolveEffectiveEntitlements({
+    clinicId: 6,
+    rawPlan: "trial",
+    rawSubscriptionStatus: "trialing",
+    timezone: "Asia/Kolkata",
+    trialStartedAt: new Date("2026-09-01T08:00:00.000Z"),
+    trialEndsAt: new Date("2026-09-15T08:00:00.000Z"),
+    trialGraceEndsAt: new Date("2026-09-22T08:00:00.000Z"),
+    trialOrigin: "paid_expiry",
+    previousPaidPlan: "growth",
+    usage,
+    now,
+  });
+
+  assert.equal(report.access.state, "trial");
+  assert.equal(report.access.trialOrigin, "paid_expiry");
+  assert.equal(report.access.previousPaidPlan, "growth");
+  assert.equal(report.nextStep.code, "REVIEW_RECOVERY_TRIAL");
+  assert.equal(report.nextStep.action, "view_plans");
 });
 
 test("uses a current sponsored plan and explicit exception without mutating state", () => {

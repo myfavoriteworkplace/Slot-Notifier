@@ -13,6 +13,7 @@ import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import ClinicStorageSettingsPanel from "@/components/ClinicStorageSettingsPanel";
 import ClinicMessagingUsagePanel from "@/components/ClinicMessagingUsagePanel";
 import ClinicReminderDigestPanel from "@/components/ClinicReminderDigestPanel";
+import ClinicEntitlementSettingsPanel from "@/components/ClinicEntitlementSettingsPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import ConsentFormPanel from "@/components/ConsentFormPanel";
@@ -1476,7 +1477,7 @@ export default function ClinicDashboard() {
             </div>
             <div className="min-w-0 flex-1">
               <p className={`text-sm font-semibold leading-tight ${activePanel === 'settings' ? 'text-slate-700 dark:text-slate-300' : 'text-foreground'}`}>Settings</p>
-              <p className="text-xs text-muted-foreground">Storage &amp; file settings</p>
+              <p className="text-xs text-muted-foreground">Plan, access &amp; usage</p>
             </div>
             {activePanel === 'settings' && <div className="h-1.5 w-1.5 rounded-full bg-slate-500 shrink-0" />}
           </button>
@@ -1593,6 +1594,7 @@ export default function ClinicDashboard() {
 
           {activePanel === 'settings' && (
             <div className="space-y-4">
+              <ClinicEntitlementSettingsPanel />
               <ClinicStorageSettingsPanel />
               <ClinicMessagingUsagePanel />
               <ClinicReminderDigestPanel />
@@ -2097,7 +2099,7 @@ export default function ClinicDashboard() {
               data-testid="drawer-nav-settings"
             >
               <Settings className={`h-4 w-4 ${activePanel === 'settings' ? 'text-slate-600' : 'text-muted-foreground'}`} />
-              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Settings</p><p className="text-xs text-muted-foreground">Storage &amp; file settings</p></div>
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Settings</p><p className="text-xs text-muted-foreground">Plan, access &amp; usage</p></div>
             </button>
           </div>
           <div className="px-3 pb-5 pt-2">

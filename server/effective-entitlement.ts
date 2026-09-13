@@ -119,6 +119,8 @@ export async function getEffectiveEntitlementReport(
     trialStartedAt: clinic.trialStartedAt,
     trialEndsAt: clinic.trialEndsAt,
     trialGraceEndsAt: clinic.trialGraceEndsAt,
+    trialOrigin: clinic.trialOrigin,
+    previousPaidPlan: clinic.previousPaidPlan,
     paidAccessExpiresAt: clinic.paidAccessExpiresAt,
     usage,
     activeGrants: grants,

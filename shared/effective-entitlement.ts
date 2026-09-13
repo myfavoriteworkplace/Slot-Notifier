@@ -88,6 +88,8 @@ export type EffectiveEntitlementInput = {
   trialStartedAt?: Date | null;
   trialEndsAt?: Date | null;
   trialGraceEndsAt?: Date | null;
+  trialOrigin?: string | null;
+  previousPaidPlan?: string | null;
   paidAccessExpiresAt?: Date | null;
   usage?: EffectiveEntitlementUsage;
   activeGrants?: EffectiveEntitlementGrant[];
@@ -122,12 +124,20 @@ export type EffectiveEntitlementReport = {
   };
   subscription: SubscriptionStatusInfo;
   access: {
-    state: "trial" | "active_paid" | "sponsored" | "attention" | "unknown";
+    state: "trial" | "trial_grace" | "active_paid" | "sponsored" | "attention" | "unknown";
     trialStartedAt: string | null;
     trialEndsAt: string | null;
     trialGraceEndsAt: string | null;
+    trialOrigin: string | null;
+    previousPaidPlan: string | null;
     paidAccessExpiresAt: string | null;
     reasonCode: EntitlementReasonCode;
+  };
+  nextStep: {
+    code: "CONTINUE_TRIAL" | "REVIEW_RECOVERY_TRIAL" | "WAIT_FOR_PAYMENT" | "ACTIVE_PAID" | "REVIEW_SPONSORED_ACCESS" | "VIEW_PLANS" | "CONTACT_SUPPORT";
+    label: string;
+    description: string;
+    action: "none" | "view_plans" | "contact_support";
   };
   grants: { active: number; plan: string | null; endsAt: string | null };
   exceptions: { active: number; keys: string[] };
@@ -322,8 +332,15 @@ export function resolveEffectiveEntitlements(input: EffectiveEntitlementInput): 
     effectiveResolution.planKey === "trial" &&
     !!input.trialEndsAt &&
     input.trialEndsAt > now;
+  const trialIsInGrace =
+    effectiveResolution.planKey === "trial" &&
+    !!input.trialEndsAt &&
+    input.trialEndsAt <= now &&
+    !!input.trialGraceEndsAt &&
+    input.trialGraceEndsAt > now;
   const accessState: EffectiveEntitlementReport["access"]["state"] =
     trialIsActive ? "trial" :
+    trialIsInGrace ? "trial_grace" :
     sponsoredGrant ? "sponsored" :
     subscription.state === "active" || subscription.state === "manual_override" ? "active_paid" :
     subscription.state === "unknown" ? "unknown" : "attention";
@@ -331,6 +348,59 @@ export function resolveEffectiveEntitlements(input: EffectiveEntitlementInput): 
     !policy ? "UNKNOWN_PLAN" :
     accessState === "attention" ? "SUBSCRIPTION_STATE_REQUIRES_RECONCILIATION" :
     policy.kind === "trial" ? "POLICY_LIMIT" : "FEATURE_INCLUDED";
+  const isRecoveryTrial = Boolean(input.trialOrigin && /expiry|recovery/i.test(input.trialOrigin))
+    || Boolean(input.previousPaidPlan && effectiveResolution.planKey === "trial");
+  const nextStep: EffectiveEntitlementReport["nextStep"] =
+    (trialIsActive || trialIsInGrace) && isRecoveryTrial
+      ? {
+          code: "REVIEW_RECOVERY_TRIAL",
+          label: "Review your recovery Trial",
+          description: "Your previous paid access ended. Review the Trial dates below and choose a plan before the grace period ends.",
+          action: "view_plans",
+        }
+      : (trialIsActive || trialIsInGrace)
+        ? {
+            code: "CONTINUE_TRIAL",
+            label: trialIsInGrace ? "Choose a plan before grace ends" : "Continue your Trial",
+            description: trialIsInGrace
+              ? "Your Trial period has ended, but access remains available during the grace period."
+              : "Your clinic is using the catalog-defined Trial allowances.",
+            action: "view_plans",
+          }
+        : accessState === "active_paid"
+          ? {
+              code: "ACTIVE_PAID",
+              label: "Your paid plan is active",
+              description: "Your clinic has active paid access. The renewal or paid-access expiry date is shown below when available.",
+              action: "none",
+            }
+          : accessState === "sponsored"
+            ? {
+                code: "REVIEW_SPONSORED_ACCESS",
+                label: "Sponsored access is active",
+                description: "This access was granted separately from a paid provider subscription and has its own expiry date.",
+                action: "none",
+              }
+            : subscription.state === "pending_payment"
+              ? {
+                  code: "WAIT_FOR_PAYMENT",
+                  label: "Payment confirmation is pending",
+                  description: "Complete the activation payment and wait for provider confirmation before paid access begins.",
+                  action: "none",
+                }
+              : subscription.state === "unknown" || subscription.state === "provider_error"
+                ? {
+                    code: "CONTACT_SUPPORT",
+                    label: "Subscription review is needed",
+                    description: "The subscription state could not be confirmed. Contact support before relying on plan limits.",
+                    action: "contact_support",
+                  }
+                : {
+                    code: "VIEW_PLANS",
+                    label: "Review plan options",
+                    description: "Choose a plan to keep your clinic access aligned with your needs.",
+                    action: "view_plans",
+                  };
 
   return {
     mode: "reporting_only",
@@ -348,9 +418,12 @@ export function resolveEffectiveEntitlements(input: EffectiveEntitlementInput): 
       trialStartedAt: input.trialStartedAt?.toISOString() ?? null,
       trialEndsAt: input.trialEndsAt?.toISOString() ?? null,
       trialGraceEndsAt: input.trialGraceEndsAt?.toISOString() ?? null,
+      trialOrigin: input.trialOrigin ?? null,
+      previousPaidPlan: input.previousPaidPlan ?? null,
       paidAccessExpiresAt: input.paidAccessExpiresAt?.toISOString() ?? null,
       reasonCode: accessReason,
     },
+    nextStep,
     grants: {
       active: grants.length,
       plan: sponsoredGrant?.plan ?? null,
