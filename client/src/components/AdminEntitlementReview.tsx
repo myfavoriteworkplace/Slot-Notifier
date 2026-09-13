@@ -80,8 +80,14 @@ type SubscriptionHistory = {
     effectiveAt: string;
   }>;
   assignments: Array<{ id: number; plan: string; billingCycle: string; source: string; startsAt: string; endsAt: string | null }>;
-  grants: Array<{ id: number; plan: string; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
-  exceptions: Array<{ id: number; entitlementKey: string; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
+  grants: Array<{ id: number; grantId: string; plan: string; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
+  exceptions: Array<{ id: number; exceptionId: string; entitlementKey: string; overrideValue: unknown; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
+};
+
+type RevokeTarget = {
+  kind: "sponsored_access" | "entitlement_exception";
+  id: string;
+  label: string;
 };
 
 const formatBytes = (value: number | null) => {
@@ -153,6 +159,8 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
   const [accessStartsAt, setAccessStartsAt] = useState("");
   const [accessEndsAt, setAccessEndsAt] = useState("");
   const [accessReason, setAccessReason] = useState("");
+  const [revokeTarget, setRevokeTarget] = useState<RevokeTarget | null>(null);
+  const [revokeReason, setRevokeReason] = useState("");
   const queryClient = useQueryClient();
   const selectedClinic = clinics.find(clinic => clinic.id === selectedClinicId) ?? null;
 
@@ -274,6 +282,29 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
       await refreshSubscriptionQueries();
     },
     onError: (error: Error) => notify.error(error.message || "Could not grant access"),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedClinicId === null || !revokeTarget) throw new Error("Select an access record first");
+      const path = revokeTarget.kind === "sponsored_access"
+        ? `/api/admin/clinics/${selectedClinicId}/sponsored-access/${revokeTarget.id}/revoke`
+        : `/api/admin/clinics/${selectedClinicId}/entitlement-exceptions/${revokeTarget.id}/revoke`;
+      const response = await apiRequest("POST", path, {
+        reason: revokeReason.trim(),
+        transitionId: crypto.randomUUID(),
+      });
+      return response.json();
+    },
+    onSuccess: async () => {
+      setRevokeTarget(null);
+      setRevokeReason("");
+      notify.success("Temporary access revoked", {
+        description: "The revocation was recorded in subscription history.",
+      });
+      await refreshSubscriptionQueries();
+    },
+    onError: (error: Error) => notify.error(error.message || "Could not revoke temporary access"),
   });
 
   const openTrialDialog = (action: "start" | "extend") => {
@@ -488,6 +519,69 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                   </CardContent>
                 </Card>
 
+                {historyQuery.data && (historyQuery.data.grants.length > 0 || historyQuery.data.exceptions.length > 0) && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4" />Temporary access records</CardTitle>
+                      <CardDescription>Sponsored access and exceptions are time-limited, separately audited, and do not change paid subscription state.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {historyQuery.data.grants.map(grant => {
+                        const active = !grant.revokedAt && new Date(grant.endsAt) > new Date();
+                        return (
+                          <div key={`grant-${grant.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-semibold">Sponsored {labelFor(grant.plan)}</span>
+                                <Badge variant="outline" className={grant.revokedAt ? "text-muted-foreground" : active ? "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300" : "text-muted-foreground"}>
+                                  {grant.revokedAt ? "Revoked" : active ? "Active" : "Ended"}
+                                </Badge>
+                              </div>
+                              <p className="mt-1 text-muted-foreground">Ends {formatDate(grant.endsAt)} · {grant.reason}</p>
+                            </div>
+                            {active && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 shrink-0 text-[11px]"
+                                onClick={() => { setRevokeTarget({ kind: "sponsored_access", id: grant.grantId, label: `Sponsored ${labelFor(grant.plan)}` }); setRevokeReason(""); }}
+                              >
+                                <XCircle className="mr-1 h-3 w-3" />Revoke
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {historyQuery.data.exceptions.map(exception => {
+                        const active = !exception.revokedAt && new Date(exception.endsAt) > new Date();
+                        return (
+                          <div key={`exception-${exception.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-semibold">Exception · {labelFor(exception.entitlementKey)}</span>
+                                <Badge variant="outline" className={exception.revokedAt ? "text-muted-foreground" : active ? "border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300" : "text-muted-foreground"}>
+                                  {exception.revokedAt ? "Revoked" : active ? "Active" : "Ended"}
+                                </Badge>
+                              </div>
+                              <p className="mt-1 text-muted-foreground">Ends {formatDate(exception.endsAt)} · {exception.reason}</p>
+                            </div>
+                            {active && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 shrink-0 text-[11px]"
+                                onClick={() => { setRevokeTarget({ kind: "entitlement_exception", id: exception.exceptionId, label: `Exception · ${labelFor(exception.entitlementKey)}` }); setRevokeReason(""); }}
+                              >
+                                <XCircle className="mr-1 h-3 w-3" />Revoke
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-sm"><Users className="h-4 w-4" />Usage and limits</CardTitle>
@@ -684,6 +778,35 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
             <Button variant="outline" onClick={() => setAccessDialogOpen(false)} disabled={accessMutation.isPending}>Cancel</Button>
             <Button onClick={() => accessMutation.mutate()} disabled={accessMutation.isPending || accessReason.trim().length < 10 || !accessEndsAt}>
               {accessMutation.isPending ? "Saving…" : accessAction === "sponsored" ? "Grant sponsored access" : "Grant exception"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(revokeTarget)} onOpenChange={open => { if (!open && !revokeMutation.isPending) { setRevokeTarget(null); setRevokeReason(""); } }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><XCircle className="h-5 w-5 text-destructive" />Revoke temporary access</DialogTitle>
+            <DialogDescription>
+              Revoke {revokeTarget?.label || "this access record"} for {selectedClinic?.name || "this clinic"}. The paid subscription and clinic data will not be changed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label htmlFor="revoke-reason" className="text-sm font-semibold">Reason <span className="text-destructive">*</span></label>
+            <Textarea
+              id="revoke-reason"
+              value={revokeReason}
+              onChange={event => setRevokeReason(event.target.value)}
+              placeholder="Record why this temporary access is being revoked."
+              maxLength={500}
+              className="min-h-[100px] text-sm"
+            />
+            <p className="text-xs text-muted-foreground">{revokeReason.trim().length}/10 minimum characters · {revokeReason.length}/500</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRevokeTarget(null); setRevokeReason(""); }} disabled={revokeMutation.isPending}>Cancel</Button>
+            <Button variant="destructive" onClick={() => revokeMutation.mutate()} disabled={revokeMutation.isPending || revokeReason.trim().length < 10}>
+              {revokeMutation.isPending ? "Revoking…" : "Revoke access"}
             </Button>
           </DialogFooter>
         </DialogContent>

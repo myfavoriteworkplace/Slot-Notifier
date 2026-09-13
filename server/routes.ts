@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and, gte, lte, lt, desc, ne, inArray } from "drizzle-orm";
+import { sql, eq, and, gte, lte, lt, desc, ne, inArray, isNull } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
 import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions, planPolicyVersions } from "@shared/schema";
 import { z } from "zod";
@@ -47,6 +47,7 @@ import {
   buildPaidExpiryRecoveryTransition,
   isTrialExpiredAfterGrace,
 } from "@shared/trial-lifecycle";
+import { getAccessRevocationEventType, isAccessRevocable } from "@shared/subscription-access-revocation";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
@@ -2547,6 +2548,81 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/admin/clinics/:id/sponsored-access/:grantId/revoke", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can revoke sponsored access" });
+    const parsed = z.object({
+      reason: z.string().trim().min(10).max(500),
+      transitionId: z.string().uuid().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A revocation reason is required" });
+
+    const clinicId = Number(req.params.id);
+    const grantId = String(req.params.grantId || "").trim();
+    if (!Number.isInteger(clinicId) || clinicId <= 0 || !grantId) {
+      return res.status(400).json({ message: "Invalid clinic or sponsored-access grant ID" });
+    }
+
+    const transitionId = parsed.data.transitionId || crypto.randomUUID();
+    const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+    const now = new Date();
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [existingEvent] = await tx.select()
+          .from(subscriptionLifecycleEvents)
+          .where(and(eq(subscriptionLifecycleEvents.clinicId, clinicId), eq(subscriptionLifecycleEvents.transitionId, transitionId)))
+          .limit(1);
+        const [grant] = await tx.select()
+          .from(subscriptionAccessGrants)
+          .where(and(eq(subscriptionAccessGrants.clinicId, clinicId), eq(subscriptionAccessGrants.grantId, grantId)))
+          .limit(1);
+        if (!grant) return null;
+        if (existingEvent || grant.revokedAt) return { grant, event: existingEvent ?? null, idempotent: true };
+        if (!isAccessRevocable(grant, now)) {
+          const error = new Error("Sponsored access has already ended and cannot be revoked");
+          (error as any).statusCode = 409;
+          throw error;
+        }
+
+        const [revokedGrant] = await tx.update(subscriptionAccessGrants)
+          .set({ revokedAt: now })
+          .where(and(
+            eq(subscriptionAccessGrants.clinicId, clinicId),
+            eq(subscriptionAccessGrants.grantId, grantId),
+            isNull(subscriptionAccessGrants.revokedAt),
+          ))
+          .returning();
+        if (!revokedGrant) return { grant, event: null, idempotent: true };
+
+        const clinic = await storage.getClinic(clinicId);
+        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
+          clinicId,
+          eventType: getAccessRevocationEventType("sponsored_access"),
+          fromPlan: clinic?.plan ?? grant.plan,
+          toPlan: clinic?.plan ?? grant.plan,
+          fromStatus: clinic?.subscriptionStatus ?? null,
+          toStatus: clinic?.subscriptionStatus ?? null,
+          policyVersion: grant.policyVersion ?? PUBLISHED_PLAN_POLICY.version,
+          transitionId,
+          actorType: "superuser",
+          actorId,
+          reason: parsed.data.reason,
+          metadata: { grantId, revokedAt: now.toISOString() },
+          effectiveAt: now,
+        }).returning();
+        return { grant: revokedGrant, event, idempotent: false };
+      });
+
+      if (!result) return res.status(404).json({ message: "Sponsored access grant not found" });
+      res.status(result.idempotent ? 200 : 201).json(result);
+    } catch (error: any) {
+      const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
+      console.error("[ADMIN SPONSORED ACCESS REVOCATION]", error?.message || error);
+      res.status(statusCode).json({
+        message: statusCode === 500 ? "Unable to revoke sponsored access" : error.message,
+      });
+    }
+  });
+
   app.post("/api/admin/clinics/:id/entitlement-exceptions", isAuthenticated, async (req, res) => {
     if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can grant entitlement exceptions" });
     const parsed = z.object({
@@ -2614,6 +2690,85 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const statusCode = error?.code === "23505" ? 409 : 500;
       console.error("[ADMIN ENTITLEMENT EXCEPTION]", error?.message || error);
       res.status(statusCode).json({ message: statusCode === 500 ? "Unable to grant entitlement exception" : "This exception ID has already been used" });
+    }
+  });
+
+  app.post("/api/admin/clinics/:id/entitlement-exceptions/:exceptionId/revoke", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can revoke entitlement exceptions" });
+    const parsed = z.object({
+      reason: z.string().trim().min(10).max(500),
+      transitionId: z.string().uuid().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A revocation reason is required" });
+
+    const clinicId = Number(req.params.id);
+    const exceptionId = String(req.params.exceptionId || "").trim();
+    if (!Number.isInteger(clinicId) || clinicId <= 0 || !exceptionId) {
+      return res.status(400).json({ message: "Invalid clinic or entitlement-exception ID" });
+    }
+
+    const transitionId = parsed.data.transitionId || crypto.randomUUID();
+    const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+    const now = new Date();
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [existingEvent] = await tx.select()
+          .from(subscriptionLifecycleEvents)
+          .where(and(eq(subscriptionLifecycleEvents.clinicId, clinicId), eq(subscriptionLifecycleEvents.transitionId, transitionId)))
+          .limit(1);
+        const [exception] = await tx.select()
+          .from(subscriptionAccessExceptions)
+          .where(and(eq(subscriptionAccessExceptions.clinicId, clinicId), eq(subscriptionAccessExceptions.exceptionId, exceptionId)))
+          .limit(1);
+        if (!exception) return null;
+        if (existingEvent || exception.revokedAt) return { exception, event: existingEvent ?? null, idempotent: true };
+        if (!isAccessRevocable(exception, now)) {
+          const error = new Error("The entitlement exception has already ended and cannot be revoked");
+          (error as any).statusCode = 409;
+          throw error;
+        }
+
+        const [revokedException] = await tx.update(subscriptionAccessExceptions)
+          .set({ revokedAt: now })
+          .where(and(
+            eq(subscriptionAccessExceptions.clinicId, clinicId),
+            eq(subscriptionAccessExceptions.exceptionId, exceptionId),
+            isNull(subscriptionAccessExceptions.revokedAt),
+          ))
+          .returning();
+        if (!revokedException) return { exception, event: null, idempotent: true };
+
+        const clinic = await storage.getClinic(clinicId);
+        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
+          clinicId,
+          eventType: getAccessRevocationEventType("entitlement_exception"),
+          fromPlan: clinic?.plan ?? null,
+          toPlan: clinic?.plan ?? null,
+          fromStatus: clinic?.subscriptionStatus ?? null,
+          toStatus: clinic?.subscriptionStatus ?? null,
+          policyVersion: exception.policyVersion ?? PUBLISHED_PLAN_POLICY.version,
+          transitionId,
+          actorType: "superuser",
+          actorId,
+          reason: parsed.data.reason,
+          metadata: {
+            exceptionId,
+            entitlementKey: exception.entitlementKey,
+            revokedAt: now.toISOString(),
+          },
+          effectiveAt: now,
+        }).returning();
+        return { exception: revokedException, event, idempotent: false };
+      });
+
+      if (!result) return res.status(404).json({ message: "Entitlement exception not found" });
+      res.status(result.idempotent ? 200 : 201).json(result);
+    } catch (error: any) {
+      const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
+      console.error("[ADMIN ENTITLEMENT EXCEPTION REVOCATION]", error?.message || error);
+      res.status(statusCode).json({
+        message: statusCode === 500 ? "Unable to revoke entitlement exception" : error.message,
+      });
     }
   });
 
