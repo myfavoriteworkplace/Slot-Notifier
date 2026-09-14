@@ -969,7 +969,15 @@ export default function Admin() {
         </div>
       )}
 
-      <Tabs defaultValue="operations" className="space-y-6">
+      <Tabs
+        defaultValue="operations"
+        onValueChange={(value) => {
+          if (value !== "operations") {
+            setAdminSelectedClinicId(null);
+          }
+        }}
+        className="space-y-6"
+      >
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-9">
           <TabsTrigger value="operations" className="flex items-center gap-2" data-testid="tab-operations">
             <Server className="h-4 w-4" />
