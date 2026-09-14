@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Archive,
+  ArchiveRestore,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -158,11 +160,21 @@ export default function AdminEntitlementReview({
   clinicsLoading = false,
   clinicsError = false,
   onRetryClinics,
+  onEditClinic,
+  onManageCredentials,
+  onCopyClinicUrl,
+  onArchiveClinic,
+  onRestoreClinic,
 }: {
   clinics: Clinic[];
   clinicsLoading?: boolean;
   clinicsError?: boolean;
   onRetryClinics?: () => void;
+  onEditClinic?: (clinic: Clinic) => void;
+  onManageCredentials?: (clinic: Clinic) => void;
+  onCopyClinicUrl?: (clinic: Clinic, kind: "book" | "about") => void;
+  onArchiveClinic?: (clinic: Clinic) => void;
+  onRestoreClinic?: (clinic: Clinic) => void;
 }) {
   const [search, setSearch] = useState("");
   const [clinicFilter, setClinicFilter] = useState<AdminClinicDirectoryFilter>("all");
@@ -419,6 +431,58 @@ export default function AdminEntitlementReview({
 
         {selectedClinic && (
           <div className="min-w-0 space-y-4">
+             <Card data-testid={`clinic-profile-actions-${selectedClinic.id}`}>
+               <CardHeader className="pb-3">
+                 <CardTitle className="text-sm">Clinic profile actions</CardTitle>
+                 <CardDescription>Manage profile details and access links without leaving Clinics & Access.</CardDescription>
+               </CardHeader>
+               <CardContent className="flex flex-wrap gap-2 pt-0">
+                 {onCopyClinicUrl && (
+                   <>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className="h-8 text-xs"
+                       onClick={() => onCopyClinicUrl(selectedClinic, "book")}
+                     >
+                       <Database className="mr-1.5 h-3.5 w-3.5" />Book URL
+                     </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className="h-8 text-xs"
+                       onClick={() => onCopyClinicUrl(selectedClinic, "about")}
+                     >
+                       <Database className="mr-1.5 h-3.5 w-3.5" />About URL
+                     </Button>
+                   </>
+                 )}
+                 {onEditClinic && (
+                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onEditClinic(selectedClinic)}>
+                     <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Edit clinic
+                   </Button>
+                 )}
+                 {onManageCredentials && (
+                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onManageCredentials(selectedClinic)}>
+                     <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />Credentials
+                   </Button>
+                 )}
+                 {selectedClinic.isArchived ? (
+                   onRestoreClinic && (
+                     <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onRestoreClinic(selectedClinic)}>
+                       <ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />Restore clinic
+                     </Button>
+                   )
+                 ) : (
+                   onArchiveClinic && (
+                     <Button variant="outline" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={() => onArchiveClinic(selectedClinic)}>
+                       <Archive className="mr-1.5 h-3.5 w-3.5" />Archive clinic
+                     </Button>
+                   )
+                 )}
+               </CardContent>
+             </Card>
+
             {reportQuery.isLoading && (
               <Card><CardContent className="flex min-h-[180px] items-center justify-center text-sm text-muted-foreground">Loading entitlement report…</CardContent></Card>
             )}

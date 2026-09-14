@@ -518,6 +518,37 @@ export default function Admin() {
     notify.info("Flagged for manual review", { description: `${clinicName} has been flagged — it will remain in the pending queue for further review.` });
   };
 
+  const openEditClinic = (clinic: Clinic) => {
+    setSelectedClinic(clinic);
+    setEditName(clinic.name);
+    setEditAddress(clinic.address || "");
+    setEditCity((clinic as any).city || "");
+    setEditPincode((clinic as any).pincode || "");
+    setEditEmail(clinic.email || "");
+    setEditPhone(clinic.phone || "");
+    setEditWebsite(clinic.website || "");
+    setEditDoctors(clinic.doctors || []);
+    setEditStorageLimitMb((clinic as any).storageLimitBytes
+      ? (Number((clinic as any).storageLimitBytes) / (1024 * 1024)).toString().replace(/\.0$/, "")
+      : "");
+    setEditClinicDialogOpen(true);
+  };
+
+  const openClinicCredentials = (clinic: Clinic) => {
+    setSelectedClinic(clinic);
+    setEditUsername("");
+    setEditPassword("");
+    setCredentialsDialogOpen(true);
+  };
+
+  const copyClinicUrl = (clinic: Clinic, kind: "book" | "about") => {
+    const url = kind === "book"
+      ? `${window.location.origin}/book/${clinic.id}`
+      : `${window.location.origin}/about?clinicId=${clinic.id}`;
+    void navigator.clipboard.writeText(url);
+    notify.success(`${kind === "book" ? "Book" : "About"} URL copied`);
+  };
+
   const handleAdminLogout = () => {
     logout();
   };
@@ -1037,7 +1068,17 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="clinics-access">
-           <AdminEntitlementReview clinics={clinics} clinicsLoading={clinicsLoading} clinicsError={clinicsError} onRetryClinics={() => refetchClinics()} />
+           <AdminEntitlementReview
+             clinics={clinics}
+             clinicsLoading={clinicsLoading}
+             clinicsError={clinicsError}
+             onRetryClinics={() => refetchClinics()}
+             onEditClinic={openEditClinic}
+             onManageCredentials={openClinicCredentials}
+             onCopyClinicUrl={copyClinicUrl}
+             onArchiveClinic={clinic => archiveClinicMutation.mutate(clinic.id)}
+             onRestoreClinic={clinic => unarchiveClinicMutation.mutate(clinic.id)}
+           />
         </TabsContent>
 
         <TabsContent value="active">
