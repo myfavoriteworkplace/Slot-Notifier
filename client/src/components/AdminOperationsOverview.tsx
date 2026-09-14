@@ -33,6 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiRequest } from "@/lib/queryClient";
+import AdminMessagingUsagePanel from "@/components/AdminMessagingUsagePanel";
 
 type SubscriptionProviderEvent = {
   id: number;
@@ -335,6 +336,13 @@ export default function AdminOperationsOverview({
         <MetricCard label="Tracked storage" value={storageTotals && storagePercent !== undefined ? formatPercent(storagePercent) : storageQuery.data ? "Unavailable" : storageQuery.isError ? "Unavailable" : "Loading…"} detail={storageTotals ? `${formatBytes(storageTotals.usedBytes)} of ${formatBytes(storageTotals.limitBytes)} · measured ${storageQuery.data?.measuredAt ? new Date(storageQuery.data.measuredAt).toISOString() : "time unavailable"}` : storageQuery.isError ? "Storage summary unavailable" : "Loading usage summary"} icon={Database} tone={storageQuery.isError ? "danger" : storagePercent !== undefined && storagePercent >= 95 ? "danger" : storagePercent !== undefined && storagePercent >= 80 ? "warning" : "primary"} />
         <MetricCard label="Reporting period" value={month} detail={`Messaging timezone: ${messagingTimezone}`} icon={Server} />
       </div>
+
+      <AdminMessagingUsagePanel
+        month={month}
+        onMonthChange={onMonthChange}
+        onRefreshOperations={onRefreshOperations}
+        embedded
+      />
 
       {attentionClinics.length > 0 && (
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900/60 dark:bg-amber-950/10">

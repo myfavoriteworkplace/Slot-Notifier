@@ -18,10 +18,12 @@ export default function AdminMessagingUsagePanel({
   month,
   onMonthChange,
   onRefreshOperations,
+  embedded = false,
 }: {
   month: string;
   onMonthChange: (month: string) => void;
   onRefreshOperations: () => void;
+  embedded?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
@@ -57,18 +59,20 @@ export default function AdminMessagingUsagePanel({
   ];
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Messaging usage</h2>
-          <p className="text-sm text-muted-foreground">Compare SMS, WhatsApp, and email usage across every clinic.</p>
+    <div className={embedded ? "space-y-4" : "space-y-5"} data-testid={embedded ? "operations-messaging-summary" : "messaging-usage-panel"}>
+      {!embedded && (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Messaging usage</h2>
+            <p className="text-sm text-muted-foreground">Compare SMS, WhatsApp, and email usage across every clinic.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="admin-messaging-usage-month" className="sr-only">Usage month</label>
+            <input id="admin-messaging-usage-month" type="month" value={month} max={getAdminCurrentMonth()} onChange={event => onMonthChange(event.target.value)} className="h-8 rounded-md border bg-background px-2 text-xs" />
+            <Button variant="outline" size="sm" onClick={onRefreshOperations} disabled={query.isFetching} className="h-8"><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />Refresh usage</Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="admin-messaging-usage-month" className="sr-only">Usage month</label>
-          <input id="admin-messaging-usage-month" type="month" value={month} max={getAdminCurrentMonth()} onChange={event => onMonthChange(event.target.value)} className="h-8 rounded-md border bg-background px-2 text-xs" />
-          <Button variant="outline" size="sm" onClick={onRefreshOperations} disabled={query.isFetching} className="h-8"><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />Refresh usage</Button>
-        </div>
-      </div>
+      )}
 
       {query.error && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/15 dark:text-red-300" role="alert">
@@ -81,56 +85,75 @@ export default function AdminMessagingUsagePanel({
           Refreshing messaging usage; the displayed values are from the previous successful report until the refresh completes.
         </div>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {[
-          ["Total messages", query.data?.totals.total, "text-blue-700", "bg-blue-50 dark:bg-blue-950/20"],
-          ["Billable units", query.data?.totals.billable, "text-amber-700", "bg-amber-50 dark:bg-amber-950/20"],
-          ["Accepted", query.data?.totals.accepted, "text-emerald-700", "bg-emerald-50 dark:bg-emerald-950/20"],
-          ["Failed", query.data?.totals.failed, "text-red-700", "bg-red-50 dark:bg-red-950/20"],
-          ["Clinics with usage", totalClinicsWithUsage, "text-violet-700", "bg-violet-50 dark:bg-violet-950/20"],
-        ].map(([label, value, text, bg]) => <Card key={String(label)} className={String(bg)}><CardContent className="p-4"><p className="text-xs font-semibold text-muted-foreground">{label}</p><p className={`mt-1 text-2xl font-extrabold ${text}`}>{metricValue(value as number | null | undefined)}</p></CardContent></Card>)}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wide"><MessageSquare className="h-4 w-4 text-blue-600" />Six-month usage trend</CardTitle></CardHeader>
-          <CardContent><div className="h-64">
-            {query.data ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={query.data.trend} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip labelFormatter={value => formatMonth(String(value))} formatter={(value: number, name: string) => [value, name === "sms" ? "SMS" : name === "whatsapp" ? "WhatsApp" : "Email"]} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="sms" stackId="messages" fill="#0284c7" />
-                  <Bar dataKey="whatsapp" stackId="messages" fill="#059669" />
-                  <Bar dataKey="email" stackId="messages" fill="#7c3aed" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground" role="status">
-                {query.isLoading ? "Loading usage trend…" : "Usage trend unavailable"}
-              </div>
-            )}
-          </div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-wide">Channel mix · {query.data?.period.month || "period unavailable"}</CardTitle></CardHeader>
-          <CardContent className="space-y-3 p-4">
-            {channelMix.map(({ label, value, Icon, bar, text }) => {
-              const total = query.data?.totals.total;
-              const percent = query.data && value !== null && value !== undefined && total !== null && total !== undefined && total > 0
-                ? Math.round(value / total * 100)
-                : null;
-              return <div key={label}><div className="mb-1 flex items-center justify-between text-xs"><span className="flex items-center gap-1.5 font-medium"><Icon className={`h-3.5 w-3.5 ${text}`} />{label}</span><span className="font-semibold">{percent === null ? metricValue(value) : `${number(value!)} · ${percent}%`}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${bar}`} style={{ width: `${percent ?? 0}%` }} /></div></div>;
-            })}
-            <p className="border-t pt-3 text-[11px] text-muted-foreground">Reporting period timezone: {query.data?.period.timezone || (query.isLoading ? "Loading" : "Unavailable")}.</p>
-          </CardContent>
-        </Card>
-      </div>
+      {!embedded && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            ["Total messages", query.data?.totals.total, "text-blue-700", "bg-blue-50 dark:bg-blue-950/20"],
+            ["Billable units", query.data?.totals.billable, "text-amber-700", "bg-amber-50 dark:bg-amber-950/20"],
+            ["Accepted", query.data?.totals.accepted, "text-emerald-700", "bg-emerald-50 dark:bg-emerald-950/20"],
+            ["Failed", query.data?.totals.failed, "text-red-700", "bg-red-50 dark:bg-red-950/20"],
+            ["Clinics with usage", totalClinicsWithUsage, "text-violet-700", "bg-violet-50 dark:bg-violet-950/20"],
+          ].map(([label, value, text, bg]) => <Card key={String(label)} className={String(bg)}><CardContent className="p-4"><p className="text-xs font-semibold text-muted-foreground">{label}</p><p className={`mt-1 text-2xl font-extrabold ${text}`}>{metricValue(value as number | null | undefined)}</p></CardContent></Card>)}
+        </div>
+      )}
 
       <Card>
+        {embedded && (
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wide"><MessageSquare className="h-4 w-4 text-blue-600" />Messaging and service usage</CardTitle>
+            <p className="text-xs text-muted-foreground">Communication totals, channel mix, delivery outcome, and recent trend for the selected reporting period.</p>
+          </CardHeader>
+        )}
+        <CardContent className={embedded ? "pt-0" : "p-0"}>
+          <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wide"><MessageSquare className="h-4 w-4 text-blue-600" />Six-month usage trend</CardTitle></CardHeader>
+              <CardContent><div className="h-64">
+                {query.data ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={query.data.trend} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <Tooltip labelFormatter={value => formatMonth(String(value))} formatter={(value: number, name: string) => [value, name === "sms" ? "SMS" : name === "whatsapp" ? "WhatsApp" : "Email"]} />
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="sms" stackId="messages" fill="#0284c7" />
+                      <Bar dataKey="whatsapp" stackId="messages" fill="#059669" />
+                      <Bar dataKey="email" stackId="messages" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground" role="status">
+                    {query.isLoading ? "Loading usage trend…" : "Usage trend unavailable"}
+                  </div>
+                )}
+              </div></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-wide">Channel mix · {query.data?.period.month || "period unavailable"}</CardTitle></CardHeader>
+              <CardContent className="space-y-3 p-4">
+                {channelMix.map(({ label, value, Icon, bar, text }) => {
+                  const total = query.data?.totals.total;
+                  const percent = query.data && value !== null && value !== undefined && total !== null && total !== undefined && total > 0
+                    ? Math.round(value / total * 100)
+                    : null;
+                  return <div key={label}><div className="mb-1 flex items-center justify-between text-xs"><span className="flex items-center gap-1.5 font-medium"><Icon className={`h-3.5 w-3.5 ${text}`} />{label}</span><span className="font-semibold">{percent === null ? metricValue(value) : `${number(value!)} · ${percent}%`}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${bar}`} style={{ width: `${percent ?? 0}%` }} /></div></div>;
+                })}
+                {embedded && (
+                  <div className="grid grid-cols-3 gap-2 border-t pt-3 text-center text-[11px]">
+                    <div className="rounded-md bg-emerald-50 p-2 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">Accepted<br /><strong>{metricValue(query.data?.totals.accepted)}</strong></div>
+                    <div className="rounded-md bg-amber-50 p-2 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">Skipped<br /><strong>{metricValue(query.data?.totals.skipped)}</strong></div>
+                    <div className="rounded-md bg-red-50 p-2 text-red-700 dark:bg-red-950/20 dark:text-red-300">Failed<br /><strong>{metricValue(query.data?.totals.failed)}</strong></div>
+                  </div>
+                )}
+                <p className="border-t pt-3 text-[11px] text-muted-foreground">Reporting period timezone: {query.data?.period.timezone || (query.isLoading ? "Loading" : "Unavailable")}.</p>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+
+      {!embedded && <Card>
         <CardHeader className="border-b pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wide"><Building2 className="h-4 w-4 text-violet-600" />Clinic comparison</CardTitle><p className="mt-1 text-xs text-muted-foreground">Select a clinic to inspect its monthly event breakdown.</p></div>
@@ -161,9 +184,9 @@ export default function AdminMessagingUsagePanel({
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
-      <Sheet open={selectedClinicId !== null} onOpenChange={open => !open && setSelectedClinicId(null)}>
+      {!embedded && <Sheet open={selectedClinicId !== null} onOpenChange={open => !open && setSelectedClinicId(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader><SheetTitle>{selectedClinic?.clinicName || "Clinic messaging usage"}</SheetTitle><SheetDescription>{query.data?.period.month || month} · detailed communication usage and event breakdown</SheetDescription></SheetHeader>
             {detailQuery.isLoading ? <div className="py-12 text-center text-sm text-muted-foreground">Loading clinic usage…</div> : detailQuery.isError ? (
@@ -186,7 +209,7 @@ export default function AdminMessagingUsagePanel({
             </div>
            ) : <div className="py-12 text-center text-sm text-muted-foreground">Clinic usage unavailable.</div>}
         </SheetContent>
-      </Sheet>
+      </Sheet>}
     </div>
   );
 }
