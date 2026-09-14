@@ -3,25 +3,11 @@
 **Status:** Proposed blueprint — analysis and planning only  
 **Date:** 2026-09-14  
 **Related blueprint:** [16-four-plan-subscription-and-entitlement-blueprint.md](./16-four-plan-subscription-and-entitlement-blueprint.md)
+**Source comparison:** Market-standard review supplied for this analysis
 
-## 1. Purpose
+## 1. Executive decision
 
-This document defines the recommended operating model for:
-
-- Plan selection during clinic registration.
-- Trial-first clinic approval.
-- Manual plan assignment by Super Admin.
-- Complimentary access without payment.
-- Verified offline payment, if the business accepts it later.
-- Monthly and annual billing cycles.
-- Manual and automatic upgrades.
-- Manual and automatic downgrades.
-- Scheduled subscription changes.
-- Provider reconciliation and audit history.
-
-This is a design and implementation blueprint. It does not authorize changing application code, database schema, payment-provider configuration, clinic access, or enforcement behavior by itself.
-
-The four-plan catalog remains the source of truth:
+The registration page should show all four plans:
 
 ```text
 Trial
@@ -30,180 +16,219 @@ Growth
 Pro
 ```
 
-The current application remains reporting-only until the release gates in the main subscription blueprint are completed.
+A clinic may select Trial during registration. That selection creates an **initial Trial request**, not an unlimited right to receive another Trial.
+
+The Super Admin approval step must explicitly choose the assignment mode:
+
+```text
+1. Trial approval
+   No payment; starts the one-time initial Trial.
+
+2. Paid plan through Razorpay
+   Creates an online payment/subscription activation flow.
+   Access becomes paid only after Razorpay confirmation.
+
+3. Complimentary offline plan
+   No payment is taken. Super Admin grants fixed-term access with
+   a reason and audit history.
+
+4. Verified offline payment
+   Payment was received outside Razorpay. Access requires evidence
+   and authorized verification; it must never fabricate a Razorpay event.
+```
+
+This gives the clinic the choice it expects while keeping the business in control of activation and preventing repeated self-selected Trials.
+
+The recommended lifecycle is:
+
+```text
+Registration
+  → Clinic selects Trial or a paid plan
+  → Server checks Trial eligibility
+  → Registration remains pending
+  → Super Admin reviews the selected plan
+  → Super Admin chooses assignment mode
+  → Approval creates the selected auditable access state
+  → Provider or manual reconciliation completes the lifecycle
+```
+
+No plan should be activated only because a clinic selected it in the public registration form.
 
 ---
 
-## 2. Current application analysis
+## 2. What the current application does
 
-### 2.1 Clinic registration
+### 2.1 Registration
 
-The registration page currently:
+The current registration screen:
 
-- Requires a clinic to select Starter, Growth, or Pro.
-- Displays monthly and annual pricing.
-- Sends the selected plan to the registration endpoint.
-- Does not provide a complete monthly/annual selection workflow.
-- Uses wording that suggests payment will happen after approval.
+- Shows Starter, Growth, and Pro.
+- Does not show Trial as a selectable plan.
+- Displays monthly and annual paid pricing.
+- Sends the selected paid plan to registration.
+- Does not provide a complete billing-cycle selection flow.
 
-The server does not activate the selected paid plan during registration. Clinic approval starts the catalog-defined 14-day Trial instead.
+The current server approval flow then starts Trial for every approved clinic. This creates a mismatch:
 
-The current behavior is therefore conceptually close to a Trial-first model, but the UI and stored state can make the selected paid plan appear more authoritative than it is.
+```text
+Public UI:
+  Clinic selected a paid plan.
 
-### 2.2 Clinic approval
+Approval result:
+  Clinic receives Trial.
+```
 
-Approval currently:
+The application should make the intended behavior explicit instead of silently replacing the registration choice.
 
-1. Verifies that the clinic is pending.
-2. Creates clinic credentials.
-3. Changes the clinic to approved.
-4. Starts the 14-day Trial.
-5. Applies the seven-day Trial grace period.
-6. Does not create a Razorpay subscription.
-7. Does not take payment.
+### 2.2 Approval
 
-This should remain the default approval behavior.
+Current approval:
 
-### 2.3 Super Admin subscription operations
+- Verifies that the clinic is pending.
+- Creates credentials.
+- Starts the catalog-defined 14-day Trial.
+- Applies the seven-day Trial grace period.
+- Does not create a Razorpay subscription.
+- Does not take payment.
 
-The current Admin subscription area supports:
+This is safe, but the approval dialog needs an explicit assignment decision.
+
+### 2.3 Existing Super Admin operations
+
+The current Admin area supports:
 
 - Starting a Trial.
 - Extending a Trial.
-- Assigning a paid plan.
+- Assigning a paid plan through a provider-aware pending-payment flow.
 - Selecting monthly or annual billing for paid assignment.
-- Granting sponsored access.
-- Granting temporary entitlement exceptions.
+- Sponsored access.
+- Temporary entitlement exceptions.
 - Revoking temporary access.
-- Viewing subscription history.
-- Filtering clinics by subscription attention, Trial, and active paid state.
+- Subscription history and entitlement reporting.
 
-The current paid-plan flow is provider-aware:
+The old broad “Mark Paid” operation is disabled, which should remain the case.
 
-- It creates a Razorpay subscription when configured.
-- It moves the clinic to `pending_payment`.
-- It does not mark the clinic paid before provider confirmation.
-- It records lifecycle and assignment history.
-- It blocks changing an already-active paid plan through the initial assignment route.
+### 2.4 Existing lifecycle foundation
 
-The old broad “Mark Paid” mutation is disabled, which is correct.
+The application already contains:
 
-### 2.4 Provider lifecycle
-
-The application currently records:
-
-- Razorpay provider events.
-- Duplicate provider events.
-- Provider activation.
-- Trial-to-paid lifecycle transitions.
-- Paid-expiry recovery Trial transitions.
-- Post-grace Trial expiry reconciliation.
+- Shared Trial, Starter, Growth, and Pro catalog data.
+- Trial dates and grace dates.
+- Subscription state normalization.
+- Provider event history.
 - Append-only lifecycle history.
+- Plan assignment history.
+- Sponsored access records.
+- Temporary entitlement exceptions.
+- Provider activation handling.
+- Paid-expiry recovery Trial.
+- Post-grace Trial expiry reconciliation.
 
-The main remaining commercial-management gaps are:
+The main missing pieces are:
 
-- Registration preference storage separate from effective subscription state.
-- A clear complimentary-access assignment mode.
-- A verified manual-payment mode if offline payment is accepted.
-- Upgrade and downgrade scheduling.
-- Billing-cycle changes.
-- Automatic scheduled-change processing.
-- Full provider and finance reconciliation.
+- Trial as a registration-time choice.
+- Server-side prevention of repeated acquisition Trials.
+- Approval-time selection of assignment mode.
+- Offline complimentary assignment for every plan.
+- Verified offline-payment assignment, if required.
+- Scheduled upgrade and downgrade records.
+- Renewal reminder tracking and delivery.
+- Clear Admin visibility of requested plan versus active access.
 
 ---
 
-## 3. Core design principle
+## 3. Terms and state separation
 
-The application must keep these concepts separate:
+The system must keep these concepts separate:
 
 ```text
-Plan preference
-  What the clinic requested or prefers.
+Requested plan
+  What the clinic selected during registration.
 
-Effective access
-  The plan and temporary access the clinic may use now.
+Assignment decision
+  What the Super Admin approved and by which mode.
+
+Effective plan
+  The plan whose entitlements apply now.
+
+Subscription state
+  Trialing, pending payment, active, expired, and so on.
 
 Payment state
-  Whether payment has been confirmed, is pending, has failed, or was verified manually.
+  Provider-confirmed, pending, complimentary, or manually verified.
+
+Access source
+  System Trial, Razorpay, complimentary, or manual payment.
 ```
 
-The following must never be treated as equivalent:
+These statements are not equivalent:
 
 ```text
-Clinic requested Growth
-Clinic currently has Growth access
-Clinic paid for Growth
-Clinic has complimentary Growth access
+The clinic requested Growth.
+The clinic was approved for Growth.
+The clinic has Growth access.
+The clinic paid for Growth.
+The clinic has complimentary Growth access.
 ```
+
+The existing `clinics.plan` and `clinics.subscriptionStatus` fields remain compatibility snapshots. New workflows must write append-only history before changing snapshots.
 
 ---
 
-## 4. Recommended registration model
+## 4. Registration plan selection
 
-### 4.1 Trial-first registration
+### 4.1 All four plans must be visible
 
-The registration flow should make the Trial the primary entry point:
+The registration UI should present Trial alongside the paid plans.
 
-```text
-Clinic submits registration
-        ↓
-Clinic chooses Trial-first registration
-        ↓
-Clinic may optionally choose a preferred paid plan
-        ↓
-Super Admin reviews the registration
-        ↓
-Approval starts the 14-day Trial
-        ↓
-Clinic later converts to paid or receives complimentary access
-```
+| Plan | Registration meaning | Payment at registration |
+|---|---|---|
+| Trial | Request the initial no-payment Trial | None |
+| Starter | Request Starter for approval | None |
+| Growth | Request Growth for approval | None |
+| Pro | Request Pro for approval | None |
 
-The registration page should state:
+The selected plan is a request. It does not itself create access or payment.
 
-> Your clinic starts with a 14-day Trial after approval. You may choose a preferred paid plan for later conversion. No payment is taken during registration.
+### 4.2 Trial selection
 
-The registration page must not create a paid provider subscription.
-
-### 4.2 Registration selections
-
-The recommended registration controls are:
-
-#### Required or default selection
+Trial should be clearly presented as:
 
 ```text
-Start with the 14-day Trial
+14-day Trial
 No card required
+Available once for the clinic registration lifecycle
 ```
 
-This should be selected by default.
+The UI should explain:
 
-#### Optional paid preference
+> Trial can be selected during registration once. Additional Trial access can only be granted by an authorized Super Admin and is recorded as a separate exception or recovery decision.
+
+### 4.3 Paid plan selection
+
+For Starter, Growth, and Pro, the clinic should select:
 
 ```text
-Preferred plan after Trial:
-  Starter
-  Growth
-  Pro
-
-Preferred billing cycle:
+Plan
+Billing cycle:
   Monthly
   Annual
 ```
 
-The preference should be optional. If the clinic does not select one, the Super Admin can choose later.
+The billing cycle is a request until the Super Admin approves the assignment mode.
 
-### 4.3 Monthly and annual presentation
-
-The registration and pricing screens should show:
+The UI must show:
 
 - Monthly price.
 - Annual price.
-- Monthly equivalent of annual pricing.
+- Annual monthly equivalent.
 - Annual savings.
-- Whether the annual price is billed upfront.
-- A clear statement that selecting a plan does not take payment.
+- Whether annual billing is paid upfront.
+- “No payment is taken during registration.”
 
-The current catalog values are:
+The catalog remains the only source for prices and entitlements.
+
+Current catalog values:
 
 | Plan | Monthly | Annual | Annual saving |
 |---|---:|---:|---:|
@@ -211,168 +236,246 @@ The current catalog values are:
 | Growth | ₹1,599/month | ₹15,990/year | ₹3,198 |
 | Pro | ₹2,999/month | ₹29,990/year | ₹5,998 |
 
-All displayed values must continue to come from the shared plan catalog.
+---
+
+## 5. Preventing repeated Trial registration
+
+The no-repeat rule must be enforced on the server. Hiding Trial in the UI is not sufficient.
+
+### 5.1 Initial Trial eligibility
+
+A clinic is eligible for the initial self-selected Trial only when all of the following are true:
+
+- It has no previous initial Trial transition.
+- It has no previous paid-expiry recovery Trial that makes it ineligible for a new acquisition Trial.
+- It has no active or recently completed duplicate registration for the same clinic identity.
+- The registration identity has not already consumed the acquisition Trial.
+
+The server must check before accepting the registration:
+
+```text
+Verified email
+Normalized phone
+Normalized clinic name
+GST number, when supplied
+Medical license number or document identity, when available
+Clinic registration certificate identity, when available
+Existing clinic and archived-clinic records
+Existing Trial lifecycle history
+```
+
+The exact identity-matching policy should be approved before production rollout. It should be strict enough to prevent repeated Trial abuse without rejecting legitimate multi-branch or ownership cases.
+
+### 5.2 Registration-time duplicate behavior
+
+If the clinic has already used the initial Trial, the server should reject a new Trial request with a clear message:
+
+> This clinic has already used its registration Trial. Please choose a paid plan or contact Super Admin support.
+
+The UI may still display Trial as part of the catalog, but it must show it as unavailable for that clinic once the server reports ineligibility.
+
+### 5.3 Idempotent first Trial
+
+Approval must use a deterministic transition identity:
+
+```text
+initial-trial:{clinicId}
+```
+
+Repeated approval requests must not:
+
+- Restart the Trial.
+- Extend the Trial.
+- Create a second Trial assignment.
+- Create a second lifecycle event.
+- Reset Trial usage.
+
+The server must also protect this transition with a database uniqueness rule or an equivalent transaction check.
+
+### 5.4 Admin-granted Trial is different
+
+The Super Admin may grant Trial access offline, but this is not a new acquisition Trial.
+
+It must be recorded as:
+
+```text
+trialOrigin = admin_granted
+```
+
+or:
+
+```text
+trialOrigin = recovery
+```
+
+It must not reset the initial registration eligibility.
+
+Recommended controls:
+
+- Fixed duration from the published Trial policy.
+- Mandatory reason.
+- Start and end dates.
+- Actor identity.
+- Transition ID.
+- Policy version.
+- Optional second approval for repeated or long extensions.
+- A configurable limit on repeated admin grants.
+
+Recommended default policy:
+
+```text
+One initial registration Trial.
+One controlled Admin-granted Trial or extension within a rolling period.
+Recovery Trial only after confirmed paid expiry.
+Any further exception requires elevated approval and a separate reason.
+```
+
+The final allowance for Admin-granted Trials should be a business-policy decision, but unlimited repeated Admin Trials must not be allowed.
 
 ---
 
-## 5. Registration preference data model
+## 6. Approval workflow
 
-The selected plan during registration should not be stored as the clinic’s effective subscription state.
+Approval should show the clinic’s registration selection and require the Super Admin to choose the outcome.
 
-### 5.1 Recommended approach: separate preference table
+### 6.1 Approval dialog
 
-Use an append-only or supersedable preference record:
+The dialog should show:
 
 ```text
-clinic_plan_preferences
------------------------
-id
-clinicId
-plan
-billingCycle
-policyVersion
-source
-selectedAt
-supersededAt
+Clinic: Green Dental Clinic
+Registration selection: Growth · Annual
+Trial eligibility: Eligible / Already used / Requires review
 ```
 
-Recommended `source` values:
+Then require:
 
 ```text
-registration
-admin
-clinic_conversion
+Approval outcome:
+  Use selected plan
+  Choose another plan
+
+Assignment mode:
+  Trial
+  Complimentary offline
+  Razorpay online payment
+  Verified offline payment
+
+Reason:
+  Required
 ```
 
-This allows the Admin to see:
+The selected plan and assignment mode must be confirmed together.
+
+### 6.2 Approval with Trial
+
+Allowed when:
+
+- The registration selected Trial, or
+- The Super Admin explicitly overrides the requested paid plan to Trial, and
+- The clinic is eligible for the initial Trial or the operation is an authorized Admin-granted Trial.
+
+Result:
 
 ```text
-Requested at registration:
-Growth · Annual
-
-Policy version:
-2026-09-11.v1
-
-Selected:
-14 Sep 2026
+plan = trial
+subscriptionStatus = trialing
+accessSource = system_trial or admin_granted
+paymentState = no_payment_required
 ```
 
-### 5.2 Why the preference should be separate
+No Razorpay subscription is created.
 
-This prevents the following problems:
+### 6.3 Approval with paid plan through Razorpay
 
-- A pending clinic appearing to have an active paid plan.
-- A registration preference being mistaken for a payment commitment.
-- A later preference change overwriting historical intent.
-- A policy-price change making the original selection unclear.
-- The effective entitlement resolver using an unapproved plan.
+Allowed for Starter, Growth, or Pro.
 
-The existing `clinics.plan` field should remain the compatibility snapshot of current effective plan state, not the registration preference.
-
----
-
-## 6. Super Admin assignment modes
-
-The Admin should provide separate workflows rather than one generic “Assign Plan” operation.
-
-### 6.1 Provider-billed paid plan
-
-Use this when the clinic should pay through Razorpay:
+Flow:
 
 ```text
-Assign paid plan
+Registration selection
   ↓
-Choose Starter, Growth, or Pro
+Super Admin confirms plan and billing cycle
   ↓
-Choose Monthly or Annual
+Razorpay subscription/activation flow is created
   ↓
-Create provider subscription
+Clinic is pending payment
   ↓
-Send activation link
+Clinic pays online
   ↓
-pending_payment
+Razorpay webhook confirms activation
   ↓
-Provider confirms payment
+Clinic becomes active paid
+```
+
+Before confirmation:
+
+```text
+subscriptionStatus = pending_payment
+accessSource = provider
+```
+
+After confirmation:
+
+```text
+subscriptionStatus = active
+accessSource = provider
+paidAccessExpiresAt = provider current period end
+```
+
+The Admin UI must never mark the clinic active just because the paid plan was selected.
+
+### 6.4 Approval with complimentary offline access
+
+Allowed for Trial, Starter, Growth, or Pro when the business is granting access without payment.
+
+Flow:
+
+```text
+Super Admin selects plan
   ↓
-active
+Selects complimentary offline
+  ↓
+Provides dates and reason
+  ↓
+System records fixed-term access
+  ↓
+Clinic receives access without provider payment
 ```
 
 Rules:
 
-- Do not grant paid access before provider confirmation.
-- Do not mark the clinic active from the Admin interface alone.
-- Do not fabricate provider events.
-- Preserve the provider subscription ID.
-- Store plan, cycle, policy version, transition ID, and reason.
-- Record provider activation separately from the Admin assignment.
-- Preserve provider-event history even after later plan changes.
+- No Razorpay subscription.
+- No payment record.
+- No fake provider event.
+- Fixed start and end dates.
+- Mandatory reason.
+- Actor and policy version.
+- Optional campaign or partner reference.
+- Waived list value reported separately from revenue.
+- Expiry returns to the underlying state.
 
-This is the current paid-assignment direction and should be retained.
+This is the correct way to assign a plan offline without taking payment.
 
-### 6.2 Complimentary access without payment
+The application should not label complimentary access as provider-paid `active`.
 
-When the Super Admin wants to give a clinic access without taking payment, use:
+### 6.5 Approval with verified offline payment
 
-```text
-Complimentary access
-```
+This mode is only for cases where payment was actually received outside Razorpay.
 
-or the existing term:
-
-```text
-Sponsored access
-```
-
-Example:
-
-```text
-Grant complimentary access
-  Plan: Growth
-  Billing-cycle reference: Annual
-  Starts: 15 Sep 2026
-  Ends: 15 Dec 2026
-  Reason: Partner clinic onboarding
-```
-
-Rules:
-
-- No payment is recorded.
-- No Razorpay subscription is created.
-- No provider event is fabricated.
-- The selected plan becomes the effective temporary entitlement.
-- The underlying paid subscription remains separate.
-- Access has a fixed end date.
-- Expiry returns the clinic to the underlying Trial, expired, or paid state.
-- The waived list value is reported separately from captured revenue.
-
-The existing sponsored-access tables and effective-entitlement resolver are suitable for this mode.
-
-This is the recommended solution for:
-
-> Assigning a plan offline without taking payment.
-
-The system should not label this state as paid `active`.
-
-### 6.3 Verified offline payment
-
-Offline payment is a separate case from complimentary access.
-
-If the business accepts bank transfer, cheque, cash, or another offline method, it should use a dedicated verified-payment workflow.
-
-Required information should include:
+Required:
 
 ```text
 Payment method
 Amount
 Currency
 Payment date
-Coverage start date
-Coverage end date
-External reference number
-Payment evidence
-Notes
+Coverage period
+Reference number
+Evidence attachment or reference
 Verified by
-Verified at
+Verification timestamp
+Reason
 ```
 
 Recommended state:
@@ -382,238 +485,122 @@ subscriptionStatus = manual_override
 accessSource = manual_payment
 ```
 
-The workflow must:
+The system must:
 
-- Record an audited `manual_payment_recorded` lifecycle event.
-- Store the payment in a platform subscription money ledger.
-- Keep manual payment records separate from Razorpay provider events.
+- Record `manual_payment_recorded`.
+- Store the payment in a separate platform subscription money ledger.
+- Keep manual payments separate from Razorpay events.
 - Keep platform subscription money separate from clinic treatment billing.
-- Never create a fake Razorpay event.
+- Never fabricate a Razorpay confirmation.
 - Require authorized verification.
-- Require evidence for financial reconciliation.
-- Support a second-person approval rule for high-value or long-duration assignments.
-
-The current blueprint already requires evidence and authorization for manual/offline payments.
+- Support two-person approval for high-value or long-duration assignments.
 
 ---
 
-## 7. Recommended subscription state model
+## 7. Assignment modes by plan
 
-The application should continue separating plan from subscription state.
+All four plans can be assigned through the following controlled modes:
 
-### 7.1 Effective plan
+| Plan | Trial mode | Complimentary offline | Razorpay online | Verified offline payment |
+|---|---:|---:|---:|---:|
+| Trial | Yes | Yes, as Admin grant | No | No |
+| Starter | No acquisition Trial | Yes | Yes | Yes |
+| Growth | No acquisition Trial | Yes | Yes | Yes |
+| Pro | No acquisition Trial | Yes | Yes | Yes |
+
+Trial is not a Razorpay plan.
+
+The distinction is:
 
 ```text
-trial
-starter
-growth
-pro
+Trial:
+  No payment required and governed by Trial eligibility.
+
+Complimentary paid-plan access:
+  No payment taken; fixed-term Admin grant.
+
+Offline-paid plan:
+  Payment received and verified; manual-payment state.
+
+Razorpay-paid plan:
+  Provider confirms payment; provider-active state.
 ```
 
-### 7.2 Subscription state
+---
+
+## 8. Data model recommendation
+
+### 8.1 Registration plan requests
+
+Do not use the current effective plan columns to store registration intent.
+
+Recommended table:
 
 ```text
-trialing
-pending_payment
-active
-past_due
-expired
-cancelled
-manual_override
-provider_error
-unknown
+clinic_plan_requests
+--------------------
+id
+clinicId
+requestedPlan
+requestedBillingCycle
+policyVersion
+eligibilityStatus
+source
+selectedAt
+reviewedAt
+reviewedBy
+supersededAt
 ```
 
-### 7.3 Access source
-
-The system should add or derive an explicit access source:
+For Trial:
 
 ```text
-provider
-complimentary
-manual_payment
-temporary_exception
+requestedPlan = trial
+requestedBillingCycle = null
+```
+
+For paid plans:
+
+```text
+requestedPlan = starter | growth | pro
+requestedBillingCycle = monthly | annual
+```
+
+### 8.2 Assignment decisions
+
+Every approval or Admin assignment should preserve:
+
+```text
+clinicId
+plan
+billingCycle
+assignmentMode
+source
+policyVersion
+startsAt
+endsAt
+reason
+actorType
+actorId
+transitionId
+providerSubscriptionId
+paymentReference
+```
+
+Recommended assignment modes:
+
+```text
 system_trial
-unknown
+admin_trial
+provider_online
+complimentary_offline
+manual_payment_offline
+recovery_trial
 ```
 
-Examples:
+### 8.3 Scheduled changes
 
-| Situation | Plan | State | Source |
-|---|---|---|---|
-| Initial Trial | Trial | `trialing` | `system_trial` |
-| Razorpay paid access | Growth | `active` | `provider` |
-| Complimentary access | Growth | sponsored/effective grant | `complimentary` |
-| Verified offline payment | Growth | `manual_override` | `manual_payment` |
-| Payment not completed | Growth | `pending_payment` | `provider` |
-
-The effective entitlement service should remain the single reporting and future authorization decision point.
-
----
-
-## 8. Upgrade policy
-
-### 8.1 Do not upgrade purely by usage
-
-Usage should generate a recommendation, not an unexpected commercial commitment.
-
-Recommended behavior:
-
-```text
-Clinic approaches or exceeds Starter usage
-        ↓
-Show warning
-        ↓
-Recommend Growth
-        ↓
-Notify clinic or Super Admin
-        ↓
-Do not charge or change plan automatically
-```
-
-Automatic usage-based upgrades should only be enabled if the clinic explicitly opts into a documented rule.
-
-### 8.2 Manual upgrade
-
-The Admin upgrade dialog should include:
-
-```text
-Current plan
-Target plan
-Current billing cycle
-Target billing cycle
-Effective date
-Access/payment mode
-Reason
-Confirmation
-```
-
-Supported modes:
-
-```text
-Provider billed
-Complimentary
-Verified offline payment
-```
-
-Provider-billed upgrades should wait for provider confirmation.
-
-Complimentary upgrades should create a temporary sponsored grant.
-
-Offline-paid upgrades should require verified payment evidence before access is changed.
-
-### 8.3 Immediate versus next-renewal upgrade
-
-An upgrade may be immediate when:
-
-- The provider confirms the change.
-- Proration or credit is understood.
-- The Admin confirms the effective date.
-- The resulting lifecycle event is recorded.
-
-Otherwise, schedule the upgrade for the next renewal.
-
----
-
-## 9. Downgrade policy
-
-### 9.1 Default downgrade timing
-
-Downgrades should normally take effect at the next renewal:
-
-```text
-Growth Annual → Starter Annual
-        ↓
-Current Growth access remains until paid period ends
-        ↓
-Pending downgrade is displayed
-        ↓
-Starter becomes effective at renewal
-```
-
-This avoids removing paid features before the paid period has ended.
-
-### 9.2 Downgrade rules
-
-When a downgrade is scheduled:
-
-- Keep the current plan active until the effective date.
-- Warn about limits in the target plan.
-- Do not delete data.
-- Do not delete doctors, bookings, deals, documents, or messages.
-- Keep existing data readable.
-- Restrict only new activity after enforcement is enabled.
-- Make unsupported features read-only or unavailable after the effective date.
-- Preserve the old plan and policy version in history.
-
-### 9.3 Immediate downgrade
-
-An immediate downgrade should require explicit confirmation:
-
-> This will reduce access immediately. Existing data will not be deleted. New activity may be restricted once enforcement is enabled.
-
-Immediate downgrades should be reserved for:
-
-- Administrative correction.
-- Fraud or abuse.
-- Contractual termination.
-- Explicit clinic request.
-- Expiry of complimentary access.
-
----
-
-## 10. Monthly and annual billing rules
-
-Billing cycle is part of the subscription assignment:
-
-```text
-plan + billingCycle + source + effective dates
-```
-
-Examples:
-
-```text
-Starter · Monthly · Provider billed
-Growth · Annual · Complimentary
-Pro · Monthly · Manual payment
-```
-
-### 10.1 Monthly to annual
-
-- Usually effective at the next renewal.
-- Immediate changes require a defined credit or proration rule.
-- Provider must confirm the new billing schedule.
-- A clinic row must not be changed without provider reconciliation.
-
-### 10.2 Annual to monthly
-
-- Usually effective after the annual paid period ends.
-- Do not issue an automatic refund without an approved finance rule.
-- Store the scheduled change and show it to Admin.
-
-### 10.3 Annual renewal
-
-- Store `paidAccessExpiresAt`.
-- Update the next paid expiry from provider confirmation.
-- Preserve the annual cycle until an approved transition changes it.
-
-### 10.4 Complimentary access
-
-The billing cycle may be stored as a reporting reference:
-
-```text
-Complimentary Growth · Annual reference
-```
-
-It must not be reported as captured or settled revenue.
-
----
-
-## 11. Scheduled subscription changes
-
-Upgrades, downgrades, and billing-cycle changes need a first-class scheduled-change record.
-
-Recommended structure:
+Recommended table:
 
 ```text
 subscription_scheduled_changes
@@ -625,7 +612,8 @@ fromBillingCycle
 toPlan
 toBillingCycle
 effectiveAt
-mode
+changeType
+assignmentMode
 providerSubscriptionId
 status
 reason
@@ -647,110 +635,359 @@ failed
 superseded
 ```
 
-The scheduled-change process should:
+### 8.4 Renewal reminder records
 
-1. Validate the current clinic state.
-2. Create an idempotent transition.
-3. Store the requested future change.
-4. Notify the clinic or Admin.
-5. Wait for provider confirmation where required.
-6. Apply the change at the effective time.
-7. Write lifecycle history.
-8. Mark the schedule as applied.
-9. Reconcile provider and clinic state periodically.
+Add a delivery record so reminders are not sent repeatedly:
 
-Using a dedicated table is preferable to inferring future changes only from assignment dates.
+```text
+subscription_reminder_deliveries
+--------------------------------
+id
+clinicId
+reminderType
+scheduledFor
+sentAt
+channel
+deliveryStatus
+templateVersion
+transitionId
+providerMessageId
+errorCode
+```
+
+Recommended reminder types:
+
+```text
+trial_ending
+trial_grace_ending
+paid_expiring_30_days
+paid_expiring_7_days
+paid_expired
+complimentary_expiring
+manual_payment_expiring
+scheduled_change_pending
+```
 
 ---
 
-## 12. Super Admin UI recommendation
+## 9. Upgrade and downgrade policy
 
-### 12.1 Clinic list filters
+### 9.1 No surprise usage-based upgrade
 
-Add filters for:
-
-- Current plan.
-- Billing cycle.
-- Subscription state.
-- Access source.
-- Trial ending soon.
-- Paid access expiring soon.
-- Pending payment.
-- Scheduled change.
-- Complimentary access.
-- Manual payment.
-- Needs reconciliation.
-
-### 12.2 Clinic detail header
-
-Show:
+Usage should create a warning and recommendation, not a paid plan change.
 
 ```text
-Effective access: Growth
-Subscription state: Active
-Access source: Razorpay
-Billing cycle: Annual
-Paid access expires: 14 Sep 2027
-Requested at registration: Growth · Annual
-Pending change: Growth → Pro at renewal
+Clinic approaches limit
+  → Show warning
+  → Recommend upgrade
+  → Notify clinic and/or Admin
+  → Do not charge or upgrade automatically
 ```
 
-### 12.3 Main Admin actions
+Automatic upgrades are allowed only when the clinic has explicitly opted into a documented rule.
+
+### 9.2 Upgrade
+
+Admin upgrade controls should include:
+
+```text
+Current plan
+Target plan
+Current cycle
+Target cycle
+Effective date
+Assignment mode
+Reason
+Confirmation
+```
+
+Recommended behavior:
+
+- Provider-paid upgrade: apply only after provider confirmation.
+- Complimentary upgrade: create fixed-term complimentary access.
+- Verified offline upgrade: require payment verification.
+- Immediate upgrade: allowed when provider confirmation, proration, or complimentary terms are clear.
+- Otherwise: schedule at the next renewal.
+
+### 9.3 Downgrade
+
+Downgrades should default to the next renewal:
+
+```text
+Growth Annual → Starter Annual
+  Current Growth access continues until paid period ends
+  Pending downgrade is visible
+  Starter becomes effective at renewal
+```
+
+Rules:
+
+- Do not remove paid access early by default.
+- Do not delete existing data.
+- Do not delete doctors, bookings, deals, documents, or messages.
+- Keep existing data readable.
+- Warn about target-plan limits.
+- Restrict only new activity after enforcement is enabled.
+- Preserve old and new policy versions.
+
+Immediate downgrade requires explicit confirmation and should be limited to:
+
+- Fraud or abuse.
+- Contractual termination.
+- Explicit clinic request.
+- Administrative correction.
+- Complimentary access expiry.
+
+---
+
+## 10. Automatic lifecycle rules
+
+### 10.1 Allowed automatic transitions
+
+```text
+Eligible initial Trial on approval
+Trial expiry after grace
+Confirmed paid-expiry recovery Trial
+Razorpay-confirmed activation
+Razorpay-confirmed renewal
+Approved scheduled change at effective time
+Complimentary access expiry
+Manual-payment coverage expiry
+```
+
+### 10.2 Disallowed automatic transitions
+
+```text
+Upgrade solely because usage crossed a limit
+Downgrade solely because usage exceeded a limit
+Paid activation from Admin selection alone
+Paid activation from an unmatched webhook
+Paid activation from an unavailable provider
+Repeated acquisition Trial after Trial history exists
+Free paid access without a complimentary assignment record
+```
+
+All automatic processing must be idempotent at both levels:
+
+```text
+Provider event idempotency
+Lifecycle transition idempotency
+Reminder delivery idempotency
+Scheduled-change application idempotency
+```
+
+---
+
+## 11. Trial lifecycle and anti-abuse rules
+
+### 11.1 Initial Trial
+
+The initial Trial is:
+
+```text
+14 calendar days
+7 calendar days of read-only grace
+No payment details
+One acquisition transition per clinic lifecycle
+```
+
+The first Trial must be created only once.
+
+### 11.2 Recovery Trial
+
+Recovery Trial is allowed only after:
+
+- A paid subscription existed.
+- Razorpay confirmed expiry or completion.
+- Provider event processing succeeded.
+- The recovery transition has not already been applied.
+
+Recovery Trial must preserve:
+
+```text
+previousPaidPlan
+provider subscription history
+paid expiry timestamp
+recovery transition ID
+```
+
+Recovery Trial is not a new acquisition Trial.
+
+### 11.3 Admin Trial
+
+Admin Trial is a controlled exception:
+
+- Super Admin only.
+- Mandatory reason.
+- Fixed duration.
+- No Razorpay subscription.
+- No reset of acquisition eligibility.
+- Separate `admin_granted` origin.
+- Separate lifecycle event.
+- Configurable repetition limit.
+
+An Admin cannot repeatedly use Trial grants as an unbounded replacement for paid access.
+
+---
+
+## 12. Renewal reminders
+
+The market-standard comparison correctly identifies renewal reminders as an explicit missing workflow.
+
+### 12.1 Reminder schedule
+
+For paid, complimentary, and verified manual-payment access:
+
+```text
+30 days before expiry:
+  Standard renewal reminder.
+
+7 days before expiry:
+  Urgent renewal reminder.
+
+On expiry:
+  State-change notice and next-step instructions.
+```
+
+For Trial:
+
+```text
+7 days before Trial end:
+  Trial reminder.
+
+1 day before Trial grace end:
+  Final grace reminder.
+
+On grace expiry:
+  Expiry or recovery-state notice.
+```
+
+The exact Trial reminder schedule should be stored in the published policy or notification policy, not hardcoded in multiple routes.
+
+### 12.2 Reminder copy
+
+Example:
+
+> Your Growth Annual plan expires on 14 September 2027. Renew or contact Super Admin to avoid disruption.
+
+Reminder content must state:
+
+- Clinic name.
+- Plan.
+- Billing cycle.
+- Expiry date and timezone.
+- Whether access is provider-paid, complimentary, or manual-payment.
+- Renewal or support next step.
+
+### 12.3 Reminder channels
+
+Use configured email and SMS channels according to deployment policy.
+
+Rules:
+
+- Essential security and clinical messages remain protected.
+- Reminder sends are recorded.
+- Repeated scheduler runs do not resend the same reminder.
+- Failed sends remain visible for reconciliation.
+- Notification templates are versioned.
+
+### 12.4 Admin reminder visibility
+
+Admin lists should show:
+
+```text
+Next expiry
+Reminder stage
+Last reminder sent
+Last reminder status
+Delivery channel
+```
+
+---
+
+## 13. Super Admin UI
+
+### 13.1 Clinic list filters
+
+Add:
+
+- Requested plan.
+- Effective plan.
+- Billing cycle.
+- Subscription state.
+- Assignment mode.
+- Access source.
+- Trial ending soon.
+- Paid expiring soon.
+- Complimentary expiring soon.
+- Manual-payment expiring soon.
+- Pending payment.
+- Scheduled change.
+- Reminder failed.
+- Needs reconciliation.
+
+### 13.2 Clinic detail header
+
+Show the distinction clearly:
+
+```text
+Registration request: Growth · Annual
+Effective access: Growth
+Subscription state: Active
+Assignment mode: Razorpay online
+Access source: Provider
+Paid access expires: 14 Sep 2027
+Pending change: Growth → Pro at renewal
+Next reminder: 7-day reminder pending
+```
+
+### 13.3 Approval actions
+
+Use:
+
+```text
+Approve with selected plan
+Approve with another plan
+Approve as Trial
+Approve with complimentary offline access
+Approve with Razorpay online payment
+Approve with verified offline payment
+Reject registration
+```
+
+Each action must require confirmation and a reason where it changes the requested outcome.
+
+### 13.4 Subscription actions after approval
 
 Use separate actions:
 
 - Convert to paid plan.
+- Grant complimentary access.
+- Record verified offline payment.
 - Schedule upgrade.
 - Schedule downgrade.
 - Change billing cycle.
-- Grant complimentary access.
-- Record verified offline payment.
-- Extend Trial.
+- Extend controlled Admin Trial.
 - View provider events.
-- View complete subscription history.
-
-Every action should require:
-
-- Target plan.
-- Billing cycle where applicable.
-- Effective date.
-- Access or payment mode.
-- Reason.
-- Confirmation.
-- Optional evidence or reference.
-- Idempotency key.
-
-### 12.4 Approval screen
-
-The approval dialog should display:
-
-```text
-Registration preference:
-Growth · Annual
-
-Approval result:
-Starts 14-day Trial
-
-Next recommended action:
-Review preferred plan after Trial begins
-```
-
-Approval must not silently activate the requested paid plan.
+- View reminder history.
+- View complete lifecycle history.
 
 ---
 
-## 13. Data and audit requirements
+## 14. Audit and financial boundaries
 
-Every plan or access transition must preserve:
+Every transition must preserve:
 
 ```text
 Clinic
-Previous plan
-New plan
+Requested plan
+Previous effective plan
+New effective plan
 Previous billing cycle
 New billing cycle
 Previous state
 New state
+Assignment mode
 Access source
 Policy version
 Actor type
@@ -758,155 +995,179 @@ Actor identity
 Reason
 Effective time
 Transition ID
-Provider reference, when applicable
-Payment reference, when applicable
+Provider reference
+Payment reference
+Evidence reference
 ```
 
-The system must keep these records separate:
+Keep these records separate:
 
 ```text
 Provider event history
 Subscription lifecycle history
 Plan assignment history
-Complimentary access history
+Registration requests
+Complimentary access
 Manual payment ledger
+Reminder deliveries
 Clinic treatment billing
 ```
 
-No generic clinic-edit route should be allowed to mutate plan state.
-
----
-
-## 14. Automatic lifecycle processing
-
-Automatic behavior should be limited to explicit, auditable transitions.
-
-### Appropriate automatic transitions
-
-- Initial Trial start on clinic approval.
-- Trial expiry after the approved grace boundary.
-- Confirmed paid-expiry recovery Trial.
-- Provider-confirmed activation.
-- Provider-confirmed renewal.
-- Applying an already-approved scheduled plan change.
-- Expiring complimentary access.
-
-### Inappropriate automatic transitions
-
-- Upgrade solely because usage crossed a threshold.
-- Downgrade solely because a clinic exceeded a new limit.
-- Marking a clinic paid because a Super Admin selected a plan.
-- Treating an unavailable provider webhook as a confirmed payment.
-- Creating a free paid subscription without recording complimentary access.
-
-All automatic processing must be idempotent at both levels:
+Financial reporting must distinguish:
 
 ```text
-Provider event idempotency
-Lifecycle transition idempotency
+Captured provider payment
+Manual/offline verified payment
+Refund
+Chargeback
+Failed payment
+Complimentary waived value
+Unpaid pending assignment
 ```
+
+Complimentary list value is not revenue.
+
+No generic clinic-edit endpoint should be able to mutate plan or subscription state.
 
 ---
 
-## 15. Recommended implementation phases
+## 15. Implementation order
 
-### Phase A — Registration preference cleanup
+### Phase 1 — Registration and eligibility
 
-1. Add a separate registration plan-preference record.
-2. Add a real monthly/annual selector.
-3. Default the clinic to Trial.
-4. Change the copy to “preferred plan after Trial”.
-5. Show the preference in pending-clinic Admin review.
-6. Stop using registration plan data as current subscription state.
-7. Preserve policy version and selection timestamp.
+1. Add Trial to the registration plan cards.
+2. Add paid billing-cycle selection.
+3. Make Trial selection explicit and no-card.
+4. Add server-side Trial eligibility checks.
+5. Prevent duplicate clinic registration from consuming another Trial.
+6. Store registration plan requests separately from effective plan state.
+7. Show the requested plan in pending-clinic Admin review.
 
-### Phase B — Complimentary access
+### Phase 2 — Approval assignment modes
 
-1. Keep paid provider assignment separate.
-2. Use a clearly named complimentary or sponsored access flow.
-3. Reuse fixed-term sponsored access where appropriate.
-4. Add waived list-value reporting.
-5. Prevent complimentary access from creating provider events.
-6. Add explicit confirmation that no payment was taken.
-7. Expire access automatically back to the underlying state.
+1. Add approval-time plan confirmation.
+2. Add Trial approval mode.
+3. Add complimentary offline assignment.
+4. Keep Razorpay online assignment pending until provider confirmation.
+5. Add verified offline payment assignment only after the manual-payment ledger and evidence flow are approved.
+6. Preserve a lifecycle and assignment event for every outcome.
 
-### Phase C — Verified offline payment
+### Phase 3 — Admin Trial controls
 
-1. Add a platform subscription money ledger.
-2. Add payment evidence and external references.
-3. Add authorized verification.
-4. Use `manual_override` rather than provider `active`.
-5. Add finance-only visibility.
-6. Add reconciliation reporting.
+1. Keep initial Trial one-time and idempotent.
+2. Distinguish initial, recovery, and Admin-granted Trial origins.
+3. Add configurable Admin-grant repetition limits.
+4. Require reasons and fixed dates.
+5. Prevent Admin Trial from resetting acquisition eligibility.
 
-### Phase D — Upgrade and downgrade scheduling
+### Phase 4 — Upgrade, downgrade, and billing cycle
 
 1. Add scheduled subscription changes.
 2. Add provider-aware upgrade processing.
 3. Schedule downgrades for renewal by default.
 4. Add billing-cycle changes.
 5. Add stale-state protection.
-6. Add provider webhook reconciliation.
-7. Add cancellation and superseding rules.
+6. Add cancellation and superseding rules.
+7. Preserve old and new assignments and policy versions.
 
-### Phase E — Automatic lifecycle processing
+### Phase 5 — Renewal reminders
 
-1. Continue the Trial expiry reconciliation job.
-2. Add scheduled-change processing.
-3. Process paid expiry only from confirmed provider events.
-4. Keep repeated webhook and transition processing idempotent.
-5. Add Trial and paid-expiry warning notices.
-6. Keep enforcement disabled until the production baseline is complete.
+1. Add reminder delivery records.
+2. Add 30-day paid-expiry reminders.
+3. Add seven-day urgent reminders.
+4. Add Trial and grace reminders.
+5. Add complimentary and manual-payment expiry reminders.
+6. Add expiry notices.
+7. Add Admin reminder status and failed-delivery filters.
+8. Make scheduler execution idempotent.
+
+### Phase 6 — Reporting and enforcement gates
+
+1. Complete the production clinic baseline.
+2. Reconcile provider and manual-payment records.
+3. Validate reminder delivery.
+4. Run reporting-only periods.
+5. Add warnings before restrictions.
+6. Keep enforcement disabled until release gates pass.
 
 ---
 
 ## 16. Release gates
 
-Before enabling production enforcement or automatic commercial changes:
+Before production enforcement or automatic commercial changes:
 
-- The production clinic baseline is complete.
-- Every production clinic has a migration or exception decision.
-- Registration preferences are distinct from effective plan state.
-- Complimentary access is distinguishable from paid access.
-- Manual payment evidence and authorization are implemented if offline payment is accepted.
-- Upgrade and downgrade timing is tested.
+- Trial is selectable during registration.
+- Initial Trial eligibility is checked server-side.
+- A clinic cannot repeatedly self-select the acquisition Trial.
+- Approval explicitly records the selected plan and assignment mode.
+- Offline complimentary assignment is distinct from paid access.
+- Razorpay-paid assignment activates only after provider confirmation.
+- Manual offline payment requires evidence and authorization.
+- No workflow fabricates provider events.
+- Initial, recovery, and Admin-granted Trial origins are distinct.
+- Upgrades and downgrades are idempotent.
+- Downgrades default to the correct renewal date.
 - Monthly and annual provider mappings are verified.
-- Provider events and lifecycle transitions are independently idempotent.
-- Paid expiry and recovery Trial behavior is reconciled.
-- Existing data remains readable after expiry and downgrade.
-- Warnings are available before restrictions.
-- Super Admin actions are role-protected and reason-required.
-- Policy versions are preserved for historical explanation.
-- Build Check, type checking, subscription tests, and provider-race tests pass.
+- Renewal reminders are scheduled and deduplicated.
+- Reminder status is visible to Super Admin.
+- Expiry transitions preserve data and history.
+- Policy versions explain historical decisions.
+- All Admin mutations are role-protected and reason-required.
+- Build Check, type checking, lifecycle tests, provider-race tests, eligibility tests, and reminder tests pass.
 
 ---
 
-## 17. Recommended final operating model
+## 17. Final recommended operating model
 
 ```text
-Registration:
-  Trial-first + optional preferred paid plan and billing cycle
+At registration:
+  Clinic chooses Trial, Starter, Growth, or Pro.
+  Paid plans also require Monthly or Annual.
+  No payment is taken.
 
-Super Admin assignment without payment:
-  Fixed-term complimentary/sponsored access
+Before registration acceptance:
+  Server checks whether the clinic is eligible for the initial Trial.
+  A previous Trial cannot be consumed again by a new registration.
 
-Super Admin provider-paid assignment:
-  Razorpay subscription + provider confirmation
+At approval:
+  Super Admin confirms the selected plan or chooses another plan.
+  Super Admin selects Trial, Razorpay online, complimentary offline,
+  or verified offline payment.
 
-Super Admin offline-payment assignment:
-  Separate verified manual-payment workflow
+Trial:
+  One initial acquisition Trial.
+  Recovery Trial only after confirmed paid expiry.
+  Admin Trial only as a controlled, audited exception.
+
+Paid plan through Razorpay:
+  Pending payment until provider confirmation.
+  Active paid access only after confirmation.
+
+Paid plan without payment:
+  Fixed-term complimentary access.
+  Never label it as captured paid revenue.
+
+Paid plan through offline payment:
+  Manual override with evidence, verification, and financial ledger.
+  Never fabricate a Razorpay event.
 
 Upgrade:
-  Immediate only with provider confirmation or explicit complimentary/manual mode
+  Immediate after provider confirmation, or scheduled.
+  No usage-based surprise upgrade.
 
 Downgrade:
-  Scheduled for the next renewal by default
+  Next renewal by default.
+  Immediate only for explicit approved exceptions.
 
-Automatic changes:
-  Only scheduled or provider-confirmed transitions
+Renewal:
+  30-day and 7-day reminders.
+  Expiry notice.
+  Confirmed paid expiry enters recovery Trial.
 
-Usage thresholds:
-  Recommendations and warnings, not surprise automatic upgrades
+Audit:
+  Requested plan, effective plan, payment state, access source,
+  assignment mode, provider history, manual payment history,
+  reminder history, and lifecycle events remain separate and explainable.
 ```
 
-This model matches the existing four-plan blueprint, preserves the current Trial lifecycle, gives Super Admin a safe no-payment assignment option, and avoids corrupting provider or financial state.
+This model aligns with the supplied market-standard comparison while preserving the stronger controls already designed for this application. It gives clinics a clean Trial choice, prevents repeated self-selected Trials, gives Super Admin full offline control, supports Razorpay confirmation, and keeps payment, access, and audit history separate.

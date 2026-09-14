@@ -20,6 +20,6 @@
 - [Public clinic SEO safety gate](public-clinic-seo-safety.md) — canonical `/clinic/:slug` and explicit DTO/content/upload controls must precede indexing work.
 - [Drizzle legacy-table guard](drizzle-schema-push.md) — declare legacy raw-SQL tables in Drizzle before schema pushes, or new tables may be offered as destructive renames.
 - [Super Admin platform scope](super-admin-platform-scope.md) — Super Admin operates subscriptions and platform services; clinic-private treatment revenue stays out of normal admin views.
-- [Subscription policy gate](subscription-policy-gate.md) — four-plan commercial policy is approved; implementation must start with baseline/catalog work and preserve explicit deferrals.
+- [Subscription registration policy](subscription-registration-policy.md) — Trial is selectable once at registration; approval explicitly chooses Trial, Razorpay, complimentary, or verified offline assignment.
 - [Subscription lifecycle history](subscription-lifecycle-history.md) — current subscription fields are snapshots; transitions, assignments, sponsored access, and exceptions stay append-only and separate.
 - [Trial lifecycle idempotency](trial-lifecycle-idempotency.md) — provider expiry recovery must dedupe both provider events and lifecycle transition IDs before changing clinic state.
