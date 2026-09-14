@@ -415,6 +415,11 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                 </CardContent>
               </Card>
             )}
+            {reportQuery.isFetching && report && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+                Refreshing the entitlement report; the displayed values are from the previous successful report until the refresh completes.
+              </div>
+            )}
             {report && (
               <>
                 <Card>

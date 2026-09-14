@@ -61,6 +61,21 @@ const formatBytes = (bytes: number) => {
 
 const formatPercent = (value: number) => `${Math.round(value * 10) / 10}%`;
 
+const queryMetricValue = (
+  value: number | null | undefined,
+  query: { data?: unknown; isLoading: boolean; isError: boolean },
+) => {
+  if (!query.data) return query.isLoading ? "Loading…" : "Unavailable";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  return formatNumber(value);
+};
+
+const clinicCountValue = (value: number, loading: boolean, error: boolean) => {
+  if (loading) return "Loading…";
+  if (error) return "Unavailable";
+  return formatNumber(value);
+};
+
 const subscriptionLabel = (status: string | null | undefined) => {
   return getSubscriptionStatusInfo(status).label;
 };
@@ -80,7 +95,10 @@ const storageTone = (percent: number | null | undefined, available = true) => {
   return "bg-emerald-500";
 };
 
-const messageTone = (failed: number) => failed > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400";
+const messageTone = (failed: number | null | undefined) => {
+  if (failed === null || failed === undefined) return "text-muted-foreground";
+  return failed > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400";
+};
 
 function MetricCard({
   label,
@@ -206,15 +224,20 @@ export default function AdminOperationsOverview({
         .some(value => String(value).toLowerCase().includes(needle));
     });
 
-  const totalMessages = messagingQuery.data?.totals.total ?? 0;
-  const failedMessages = messagingQuery.data?.totals.failed ?? 0;
+  const totalMessages = messagingQuery.data?.totals.total;
+  const failedMessages = messagingQuery.data?.totals.failed;
   const storageTotals = storageQuery.data?.totals;
-  const storagePercent = storageTotals?.usagePercent ?? 0;
+  const storagePercent = storageTotals?.usagePercent;
   const activeSubscriptions = activeClinics.filter(clinic => getSubscriptionStatusInfo(clinic.subscriptionStatus).isActive).length;
   const hasOperationsError = clinicsError || messagingQuery.isError || storageQuery.isError;
-  const platformSignalsHealthy = !hasOperationsError && failedMessages === 0 && attentionClinics.length === 0;
+  const clinicDataAvailable = !clinicsLoading && !clinicsError;
+  const platformSignalsAvailable = clinicDataAvailable && Boolean(messagingQuery.data) && Boolean(storageQuery.data);
+  const platformSignalsHealthy = platformSignalsAvailable && !hasOperationsError && failedMessages === 0 && attentionClinics.length === 0;
   const selectedMessaging = selectedClinic ? messagingByClinic.get(selectedClinic.id) : undefined;
   const selectedStorage = selectedClinic ? storageByClinic.get(selectedClinic.id) : undefined;
+  const messagingTimezone = messagingQuery.data?.period.timezone
+    ?? (messagingQuery.isLoading ? "Loading…" : "Unavailable");
+  const clinicFilterCount = (count: number) => clinicDataAvailable ? String(count) : "—";
 
   return (
     <div className="space-y-5">
@@ -251,7 +274,11 @@ export default function AdminOperationsOverview({
               : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
           }`}>
             {platformSignalsHealthy ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-            {platformSignalsHealthy ? "Service signals healthy" : `${attentionClinics.length} tenant${attentionClinics.length === 1 ? "" : "s"} need attention`}
+            {!platformSignalsAvailable
+              ? "Signals unavailable"
+              : platformSignalsHealthy
+                ? "Service signals healthy"
+                : `${attentionClinics.length} tenant${attentionClinics.length === 1 ? "" : "s"} need attention`}
           </div>
         </div>
       </div>
@@ -282,14 +309,19 @@ export default function AdminOperationsOverview({
           </CardContent>
         </Card>
       )}
+      {messagingQuery.isFetching && messagingQuery.data && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+          Refreshing messaging usage; the displayed values are from the previous successful report until the refresh completes.
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <MetricCard label="Active tenants" value={formatNumber(activeClinics.length)} detail={`${formatNumber(pendingClinics.length)} pending registration${pendingClinics.length === 1 ? "" : "s"}`} icon={Building2} />
-        <MetricCard label="Subscriptions" value={`${formatNumber(activeSubscriptions)} / ${formatNumber(activeClinics.length)}`} detail="Active subscription coverage · legacy states normalized" icon={CreditCard} tone={activeSubscriptions === activeClinics.length ? "good" : "warning"} />
-        <MetricCard label="Needs attention" value={formatNumber(attentionClinics.length)} detail="Subscription, storage, or message signals" icon={ShieldAlert} tone={attentionClinics.length ? "warning" : "good"} />
-        <MetricCard label="Messages this month" value={messagingQuery.data ? formatNumber(totalMessages) : "—"} detail={messagingQuery.data ? `${formatNumber(messagingQuery.data.totals.accepted)} accepted · ${formatNumber(failedMessages)} failed` : messagingQuery.isError ? "Messaging summary unavailable" : "Loading usage summary"} icon={MessageSquare} tone={messagingQuery.isError ? "danger" : failedMessages ? "danger" : "good"} />
-        <MetricCard label="Tracked storage" value={storageTotals ? `${formatPercent(storagePercent)}` : "—"} detail={storageTotals ? `${formatBytes(storageTotals.usedBytes)} of ${formatBytes(storageTotals.limitBytes)} · measured ${storageQuery.data?.measuredAt ? new Date(storageQuery.data.measuredAt).toISOString() : "time unavailable"}` : storageQuery.isError ? "Storage summary unavailable" : "Loading usage summary"} icon={Database} tone={storageQuery.isError ? "danger" : storagePercent >= 95 ? "danger" : storagePercent >= 80 ? "warning" : "primary"} />
-        <MetricCard label="Reporting period" value={month} detail={`Messaging timezone: ${messagingQuery.data?.period.timezone ?? "UTC"}`} icon={Server} />
+        <MetricCard label="Active tenants" value={clinicCountValue(activeClinics.length, clinicsLoading, clinicsError)} detail={clinicDataAvailable ? `${formatNumber(pendingClinics.length)} pending registration${pendingClinics.length === 1 ? "" : "s"}` : "Tenant count unavailable"} icon={Building2} />
+        <MetricCard label="Subscriptions" value={clinicDataAvailable ? `${formatNumber(activeSubscriptions)} / ${formatNumber(activeClinics.length)}` : clinicCountValue(activeClinics.length, clinicsLoading, clinicsError)} detail="Active subscription coverage · legacy states normalized" icon={CreditCard} tone={clinicDataAvailable && activeSubscriptions === activeClinics.length ? "good" : "warning"} />
+        <MetricCard label="Needs attention" value={clinicDataAvailable ? formatNumber(attentionClinics.length) : clinicCountValue(attentionClinics.length, clinicsLoading, clinicsError)} detail="Subscription, storage, or message signals" icon={ShieldAlert} tone={clinicDataAvailable && attentionClinics.length ? "warning" : "good"} />
+        <MetricCard label="Messages this month" value={queryMetricValue(totalMessages, messagingQuery)} detail={messagingQuery.data ? `${formatNumber(messagingQuery.data.totals.accepted)} accepted · ${formatNumber(messagingQuery.data.totals.failed)} failed` : messagingQuery.isError ? "Messaging summary unavailable" : "Loading usage summary"} icon={MessageSquare} tone={messagingQuery.isError ? "danger" : messagingQuery.data && messagingQuery.data.totals.failed > 0 ? "danger" : "good"} />
+        <MetricCard label="Tracked storage" value={storageTotals && storagePercent !== undefined ? formatPercent(storagePercent) : storageQuery.data ? "Unavailable" : storageQuery.isError ? "Unavailable" : "Loading…"} detail={storageTotals ? `${formatBytes(storageTotals.usedBytes)} of ${formatBytes(storageTotals.limitBytes)} · measured ${storageQuery.data?.measuredAt ? new Date(storageQuery.data.measuredAt).toISOString() : "time unavailable"}` : storageQuery.isError ? "Storage summary unavailable" : "Loading usage summary"} icon={Database} tone={storageQuery.isError ? "danger" : storagePercent !== undefined && storagePercent >= 95 ? "danger" : storagePercent !== undefined && storagePercent >= 80 ? "warning" : "primary"} />
+        <MetricCard label="Reporting period" value={month} detail={`Messaging timezone: ${messagingTimezone}`} icon={Server} />
       </div>
 
       {attentionClinics.length > 0 && (
@@ -304,7 +336,7 @@ export default function AdminOperationsOverview({
           <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {attentionClinics.slice(0, 6).map(clinic => {
               const storage = storageByClinic.get(clinic.id);
-              const messaging = messagingByClinic.get(clinic.id);
+                      const messaging = messagingByClinic.get(clinic.id);
               const reasons = getAdminClinicAttentionReasons({
                 subscriptionStatus: clinic.subscriptionStatus,
                 storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
@@ -347,10 +379,10 @@ export default function AdminOperationsOverview({
           </div>
           <div className="flex flex-wrap gap-2 pt-3">
             {([
-              ["all", `All (${clinics.filter(clinic => !clinic.isArchived).length})`],
-              ["attention", `Needs attention (${attentionClinics.length})`],
-              ["active", `Active (${activeClinics.length})`],
-              ["pending", `Pending (${pendingClinics.length})`],
+              ["all", `All (${clinicFilterCount(clinics.filter(clinic => !clinic.isArchived).length)})`],
+              ["attention", `Needs attention (${clinicFilterCount(attentionClinics.length)})`],
+              ["active", `Active (${clinicFilterCount(activeClinics.length)})`],
+              ["pending", `Pending (${clinicFilterCount(pendingClinics.length)})`],
             ] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -381,6 +413,7 @@ export default function AdminOperationsOverview({
                 {filteredClinics.map(clinic => {
                   const messaging = messagingByClinic.get(clinic.id);
                   const storage = storageByClinic.get(clinic.id);
+                  const serviceDataAvailable = Boolean(messagingQuery.data && storageQuery.data && messaging && storage);
                   const signalCount = getAdminClinicAttentionReasons({
                     subscriptionStatus: clinic.subscriptionStatus,
                     storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
@@ -406,12 +439,12 @@ export default function AdminOperationsOverview({
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`font-semibold ${messageTone(messaging?.failed ?? 0)}`}>{formatNumber(messaging?.total ?? 0)}</span>
-                        <span className="ml-1 text-[11px] text-muted-foreground">this month</span>
+                        <span className={`font-semibold ${messageTone(messaging?.failed)}`}>{messaging ? formatNumber(messaging.total) : messagingQuery.data ? "Unavailable" : messagingQuery.isLoading ? "Loading…" : "Unavailable"}</span>
+                        <span className="ml-1 text-[11px] text-muted-foreground">{messaging ? "this month" : "usage"}</span>
                         {messaging && <p className="text-[11px] text-muted-foreground">{formatNumber(messaging.sms)} SMS · {formatNumber(messaging.whatsapp)} WA · {formatNumber(messaging.email)} email</p>}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-semibold">{storage ? formatBytes(storage.usedBytes) : "—"}</span>
+                        <span className="font-semibold">{storage ? formatBytes(storage.usedBytes) : storageQuery.isLoading ? "Loading…" : "Unavailable"}</span>
                         <span className="text-[11px] text-muted-foreground"> {storage ? `/ ${formatBytes(storage.limitBytes)}` : ""}</span>
                         {storage && (
                           <div className="mt-1 h-1.5 w-32 overflow-hidden rounded-full bg-muted">
@@ -420,7 +453,9 @@ export default function AdminOperationsOverview({
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {signalCount === 0 ? (
+                        {!serviceDataAvailable ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Data unavailable</span>
+                        ) : signalCount === 0 ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" /> None</span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400"><AlertTriangle className="h-3.5 w-3.5" /> {signalCount} warning{signalCount === 1 ? "" : "s"}</span>
@@ -510,25 +545,25 @@ export default function AdminOperationsOverview({
                 <CardHeader className="pb-3"><CardTitle className="text-sm">Platform service usage</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: "SMS", value: selectedMessaging?.sms ?? 0, Icon: Smartphone, color: "text-sky-600" },
-                      { label: "WhatsApp", value: selectedMessaging?.whatsapp ?? 0, Icon: MessageSquare, color: "text-emerald-600" },
-                      { label: "Email", value: selectedMessaging?.email ?? 0, Icon: Mail, color: "text-violet-600" },
+                      {[
+                       { label: "SMS", value: selectedMessaging?.sms, Icon: Smartphone, color: "text-sky-600" },
+                       { label: "WhatsApp", value: selectedMessaging?.whatsapp, Icon: MessageSquare, color: "text-emerald-600" },
+                       { label: "Email", value: selectedMessaging?.email, Icon: Mail, color: "text-violet-600" },
                     ].map(({ label, value, Icon: ServiceIcon, color }) => (
                       <div key={label} className="rounded-lg border bg-muted/20 p-3">
                         <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><ServiceIcon className={`h-3.5 w-3.5 ${color}`} />{label}</p>
-                        <p className="mt-1 text-xl font-bold">{formatNumber(Number(value))}</p>
+                         <p className="mt-1 text-xl font-bold">{selectedMessaging ? formatNumber(value!) : messagingQuery.isLoading ? "Loading…" : "Unavailable"}</p>
                       </div>
                     ))}
                   </div>
                   <div className="rounded-lg border p-3">
-                    <div className="flex items-center justify-between text-xs"><span className="font-medium">Message delivery</span><span className={messageTone(selectedMessaging?.failed ?? 0)}>{selectedMessaging?.failed ? `${formatNumber(selectedMessaging.failed)} failed` : "No failed messages"}</span></div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{month} · {messagingQuery.data?.period.timezone ?? "UTC"}</p>
+                     <div className="flex items-center justify-between text-xs"><span className="font-medium">Message delivery</span><span className={messageTone(selectedMessaging?.failed)}>{selectedMessaging ? (selectedMessaging.failed > 0 ? `${formatNumber(selectedMessaging.failed)} failed` : "No failed messages") : messagingQuery.isLoading ? "Loading…" : "Unavailable"}</span></div>
+                     <p className="mt-1 text-[11px] text-muted-foreground">{month} · {messagingTimezone}</p>
                   </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="flex items-center justify-between text-xs"><span className="font-medium">Tracked storage</span><span className="font-semibold">{selectedStorage ? formatPercent(selectedStorage.usagePercent) : "—"}</span></div>
-                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${storageTone(selectedStorage?.usagePercent, Boolean(selectedStorage))}`} style={{ width: `${Math.min(100, selectedStorage?.usagePercent ?? 0)}%` }} /></div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{selectedStorage ? `${formatBytes(selectedStorage.usedBytes)} of ${formatBytes(selectedStorage.limitBytes)} · ${formatNumber(selectedStorage.fileCount)} files` : "Storage summary unavailable"}</p>
+                    <div className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between text-xs"><span className="font-medium">Tracked storage</span><span className="font-semibold">{selectedStorage ? formatPercent(selectedStorage.usagePercent) : storageQuery.isLoading ? "Loading…" : "Unavailable"}</span></div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${storageTone(selectedStorage?.usagePercent, Boolean(selectedStorage))}`} style={{ width: `${selectedStorage ? Math.min(100, selectedStorage.usagePercent) : 0}%` }} /></div>
+                     <p className="mt-1 text-[11px] text-muted-foreground">{selectedStorage ? `${formatBytes(selectedStorage.usedBytes)} of ${formatBytes(selectedStorage.limitBytes)} · ${formatNumber(selectedStorage.fileCount)} files` : storageQuery.isLoading ? "Loading storage summary…" : "Storage summary unavailable"}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -537,8 +572,8 @@ export default function AdminOperationsOverview({
                 <CardHeader className="pb-3"><CardTitle className="text-sm">Operational context</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-xs">
                   <div className="flex items-center justify-between rounded-lg border p-3"><span className="text-muted-foreground">Clinic status</span><span className="font-semibold capitalize">{selectedClinic.status}</span></div>
-                  <div className="flex items-center justify-between rounded-lg border p-3"><span className="text-muted-foreground">Configured doctors</span><span className="font-semibold">{selectedClinic.doctors?.length ?? 0}</span></div>
-                  <div className="flex items-center justify-between rounded-lg border p-3"><span className="text-muted-foreground">Storage source</span><span className="font-semibold capitalize">{selectedStorage?.source?.replace("_", " ") || "—"}</span></div>
+                  <div className="flex items-center justify-between rounded-lg border p-3"><span className="text-muted-foreground">Configured doctors</span><span className="font-semibold">{selectedClinic.doctors ? selectedClinic.doctors.length : "Unavailable"}</span></div>
+                  <div className="flex items-center justify-between rounded-lg border p-3"><span className="text-muted-foreground">Storage source</span><span className="font-semibold capitalize">{selectedStorage?.source?.replace("_", " ") || (storageQuery.isLoading ? "Loading…" : "Unavailable")}</span></div>
                 </CardContent>
               </Card>
 
