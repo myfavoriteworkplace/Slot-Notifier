@@ -14,9 +14,10 @@ safe and auditable.
 1. **The clinic chooses a plan.** During registration, the clinic selects
    Trial, Starter, Growth, or Pro. Paid plans also require Monthly or Annual
    billing. Choosing a plan does not activate access or take payment.
-2. **Super Admin approves the clinic.** Super Admin decides whether the clinic
-   receives Trial, pays through Razorpay, receives complimentary access, or
-   provides verified offline-payment evidence.
+2. **Super Admin approves the clinic.** Super Admin must explicitly decide
+   whether the clinic receives Trial, pays through Razorpay, receives
+   complimentary access, or provides verified offline-payment evidence. A paid
+   plan selection does not automatically become Trial or complimentary access.
 3. **The system records the real access source.** Trial, Razorpay, complimentary
    access, and verified offline payment are separate states. A plan name alone
    does not prove payment or entitlement.
@@ -160,6 +161,39 @@ The Super Admin approval step must explicitly choose the assignment mode:
 ```
 
 This gives the clinic the choice it expects while keeping the business in control of activation and preventing repeated self-selected Trials.
+
+### 1.1 Paid-plan selection is not automatic Trial approval
+
+When a clinic selects Starter, Growth, or Pro during registration, the
+selection is stored as a requested plan and requested billing cycle. It does
+not automatically grant:
+
+- A Trial.
+- Complimentary access.
+- Paid access.
+- A Razorpay subscription.
+
+At approval, Super Admin must explicitly select one assignment mode:
+
+```text
+Initial Trial:
+  Use only when the clinic is eligible, or when an authorized Admin Trial is
+  explicitly approved.
+
+Razorpay online payment:
+  Create the payment/subscription flow and keep the clinic pending payment
+  until provider confirmation.
+
+Complimentary offline:
+  Grant a fixed-term, non-revenue access period with exact dates and a reason.
+
+Verified offline payment:
+  Grant access only after payment evidence and authorized verification.
+```
+
+The approval screen may preselect the recommended outcome for convenience, but
+the Super Admin must confirm the outcome. The server must reject an approval
+that leaves the assignment mode implicit.
 
 The recommended lifecycle is:
 
@@ -489,6 +523,23 @@ Reason:
 
 The selected plan and assignment mode must be confirmed together.
 
+For a paid-plan registration, the dialog must make the distinction visible:
+
+```text
+Requested plan: Growth · Annual
+Current status: Awaiting assignment decision
+
+This selection does not start a Trial, take payment, or activate paid access.
+Choose how this clinic should receive access:
+  Start eligible Trial
+  Send Razorpay payment flow
+  Grant fixed-term complimentary access
+  Verify offline payment
+```
+
+The approval cannot silently fall back to Trial merely because payment has not
+yet been completed.
+
 ### 6.2 Approval with Trial
 
 Allowed when:
@@ -534,7 +585,8 @@ Before confirmation:
 
 ```text
 subscriptionStatus = pending_payment
-accessSource = provider
+accessSource = provider_pending
+effectivePlan = no paid plan
 ```
 
 After confirmation:
@@ -546,6 +598,11 @@ paidAccessExpiresAt = provider current period end
 ```
 
 The Admin UI must never mark the clinic active just because the paid plan was selected.
+
+Pending payment is not paid access. If the business wants the clinic to have
+access while deciding or completing payment, Super Admin must explicitly
+approve the eligible initial Trial or a fixed-term complimentary assignment.
+The system must not grant both automatically.
 
 ### 6.4 Approval with complimentary offline access
 
@@ -596,6 +653,19 @@ This is the correct way to assign a plan offline without taking payment.
 
 The application should not label complimentary access as provider-paid
 `active`. It should show the access source and exact end timestamp clearly.
+
+Complimentary access is not a fallback for an unpaid paid-plan selection. It
+must be an explicit Super Admin business decision with:
+
+- A fixed exact start and end timestamp.
+- A mandatory reason and actor.
+- A separate complimentary access source.
+- No Razorpay payment record.
+- No automatic renewal or automatic conversion to paid access.
+
+If the clinic only needs time to evaluate the product, use the eligible Trial
+workflow instead. If payment was actually received, use verified offline
+payment instead.
 
 ### 6.5 Approval with verified offline payment
 
@@ -1465,20 +1535,25 @@ Before registration acceptance:
 
 At approval:
   Super Admin confirms the selected plan or chooses another plan.
-  Super Admin selects Trial, Razorpay online, complimentary offline,
+  Super Admin explicitly selects Trial, Razorpay online, complimentary offline,
   or verified offline payment.
+  A paid-plan selection does not default to Trial or complimentary access.
 
 Trial:
   One initial acquisition Trial.
+  The current published duration is 14 days, followed by the configured Trial
+  grace period when applicable.
   Recovery Trial only after confirmed paid expiry.
   Admin Trial only as a controlled, audited exception.
 
 Paid plan through Razorpay:
-  Pending payment until provider confirmation.
+  Pending payment until provider confirmation; no paid entitlements are active.
   Active paid access only after confirmation.
 
 Paid plan without payment:
   Fixed-term complimentary access for Starter, Growth, or Pro.
+  Explicit Super Admin decision only; never an automatic fallback for pending
+  payment.
   It replaces current paid/manual coverage or starts after it ends.
   Unused time is lost if it is revoked or replaced.
   Only a Super Admin can revoke it early.
@@ -1507,6 +1582,14 @@ Renewal:
   30-day and 7-day reminders.
   Expiry notice.
   Confirmed paid expiry enters recovery Trial.
+
+If an initial Trial ends without payment:
+  Do not convert the clinic to paid access.
+  Do not create complimentary access automatically.
+  Require an explicit Razorpay, verified offline, or Super Admin-approved
+  complimentary decision.
+  Recovery Trial is not available because an initial Trial ending is not paid
+  expiry.
 
 Audit:
   Requested plan, effective plan, payment state, access source,
@@ -3399,6 +3482,63 @@ Do not apply an event that cannot be matched to the current request,
 subscription instance, target plan, billing cycle, and transition.
 Preserve the event, keep the last authoritative access state where safe,
 and mark reconciliation_required.
+```
+
+### 29.24 Paid plan selected at registration but payment is not completed
+
+This is the expected path when a clinic selects Starter, Growth, or Pro but
+does not pay during registration:
+
+```text
+Clinic selects a paid plan and billing cycle
+  ↓
+Registration stores the requested plan only
+  ↓
+Super Admin explicitly chooses the assignment mode
+```
+
+The possible outcomes are:
+
+```text
+Razorpay:
+  Create the payment flow.
+  Keep the clinic in pending_payment.
+  Do not activate paid entitlements until the provider confirms payment.
+
+Initial Trial:
+  Use only when the clinic is eligible and Super Admin confirms Trial.
+  Apply the published Trial duration and configured grace rules.
+  Record the requested paid plan separately from the effective Trial.
+
+Complimentary access:
+  Use only for an explicit Super Admin business decision.
+  Set exact start and end timestamps, reason, actor, and access source.
+  Do not treat it as Trial, paid revenue, or automatic payment.
+
+Verified offline payment:
+  Use only when payment was actually received and evidence is verified.
+  Record it as manual payment, never as a fabricated Razorpay event.
+```
+
+The system must not:
+
+- Automatically convert every approved paid-plan registration into Trial.
+- Automatically grant complimentary access because payment is pending.
+- Activate paid access before Razorpay confirmation.
+- Create both Trial and complimentary access for the same uncovered period.
+- Convert an expired initial Trial into paid access without a new payment or
+  approved offline assignment.
+- Create a Recovery Trial merely because the initial Trial expired.
+
+If the initial Trial expires without payment:
+
+```text
+Requested plan remains in history.
+Paid access was never created.
+Trial and grace access end according to the published timing rules.
+No complimentary access is created automatically.
+The clinic must start a new approved payment or offline assignment.
+Recovery Trial is not available because there was no confirmed paid expiry.
 ```
 
 ## 30. Known implementation mismatches to fix before rollout
