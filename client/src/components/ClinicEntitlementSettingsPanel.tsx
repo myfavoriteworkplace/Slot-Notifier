@@ -66,6 +66,14 @@ const formatBytes = (value: number | null) => {
   return `${(value / Math.pow(1024, index)).toFixed(index ? 1 : 0)} ${units[index]}`;
 };
 
+const formatRemaining = (item: EffectiveEntitlementItem) => (
+  item.remaining === null
+    ? null
+    : item.capability === "storage"
+      ? `${formatBytes(item.remaining)} remaining`
+      : `${formatNumber(item.remaining)} remaining`
+);
+
 const formatPlan = (plan: string | null) => {
   if (!plan) return "Plan not resolved";
   if (plan === "trial") return "Trial";
@@ -110,6 +118,38 @@ const periodLabel = (period: string | null | undefined) => {
   return period.replace(/_/g, " ").replace(/\b\w/g, character => character.toUpperCase());
 };
 
+const getUsageStatus = (
+  item: EffectiveEntitlementItem,
+  percent: number | null,
+) => {
+  if (!item.usage?.available) {
+    return {
+      label: "Measurement unavailable",
+      className: "text-muted-foreground",
+      dotClassName: "bg-slate-400",
+    };
+  }
+  if (item.overLimit === true) {
+    return {
+      label: "Over limit",
+      className: "text-amber-700 dark:text-amber-300",
+      dotClassName: "bg-amber-500",
+    };
+  }
+  if (percent !== null && percent >= 80) {
+    return {
+      label: "Requires attention",
+      className: "text-amber-700 dark:text-amber-300",
+      dotClassName: "bg-amber-500",
+    };
+  }
+  return {
+    label: "On track",
+    className: "text-emerald-700 dark:text-emerald-300",
+    dotClassName: "bg-emerald-500",
+  };
+};
+
 function UsageCard({ item }: { item: EffectiveEntitlementItem }) {
   const Icon = CAPABILITY_ICONS[item.capability] ?? Database;
   const used = item.usage?.value;
@@ -117,6 +157,8 @@ function UsageCard({ item }: { item: EffectiveEntitlementItem }) {
     ? Math.min(100, (used / item.limit) * 100)
     : null;
   const isUnavailable = !item.usage?.available;
+  const status = getUsageStatus(item, percent);
+  const remaining = formatRemaining(item);
 
   return (
     <div className="rounded-xl border border-border/60 bg-background/70 p-3">
@@ -138,17 +180,45 @@ function UsageCard({ item }: { item: EffectiveEntitlementItem }) {
         </span>
       </div>
       {percent !== null && (
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-label={`${CAPABILITY_LABELS[item.capability] ?? item.capability} usage`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(percent)}
+        >
           <div
             className={`h-full rounded-full ${percent >= 95 ? "bg-red-500" : percent >= 80 ? "bg-amber-500" : "bg-emerald-500"}`}
             style={{ width: `${percent}%` }}
           />
         </div>
       )}
-      <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-        <span>{periodLabel(item.usage?.period) ?? "Period unavailable"}</span>
-        {item.remaining !== null && <span>{formatNumber(item.remaining)} remaining</span>}
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px]">
+        <span className="text-muted-foreground">{periodLabel(item.usage?.period) ?? "Period unavailable"}</span>
+        {remaining && <span className="text-muted-foreground">{remaining}</span>}
       </div>
+      <div className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold ${status.className}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} aria-hidden="true" />
+        <span>{status.label}</span>
+      </div>
+    </div>
+  );
+}
+
+function DateSummary({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null;
+}) {
+  if (!value) return null;
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/60 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xs font-medium">{formatDate(value)}</p>
     </div>
   );
 }
@@ -195,7 +265,13 @@ export default function ClinicEntitlementSettingsPanel() {
   const usageItems = data.capabilities.filter(item => CAPABILITY_LABELS[item.capability]);
   const isAttention = data.access.state === "attention" || data.access.state === "unknown";
   const isTrial = data.access.state === "trial" || data.access.state === "trial_grace";
+  const isRecoveryTrial = isTrial && Boolean(data.access.previousPaidPlan || data.access.trialOrigin?.match(/expiry|recovery/i));
   const action = data.nextStep.action;
+  const sourceLabel = data.plan.source === "sponsored_access"
+    ? "Provided through sponsored access"
+    : data.plan.source === "plan"
+      ? "Based on your clinic plan"
+      : "Plan source needs review";
 
   return (
     <Card className="overflow-hidden">
@@ -216,7 +292,7 @@ export default function ClinicEntitlementSettingsPanel() {
       </CardHeader>
 
       <CardContent className="space-y-4 pt-4">
-        <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-background/70 p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-4 rounded-xl border border-border/60 bg-background/70 p-4 lg:flex-row lg:items-center">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current plan</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -227,11 +303,11 @@ export default function ClinicEntitlementSettingsPanel() {
               </Badge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {data.plan.source === "sponsored_access" ? "Provided through sponsored access" : data.plan.source === "plan" ? "Based on your clinic plan" : "Plan source needs review"}
+              {sourceLabel}
               {data.plan.policyVersion ? ` · Policy ${data.plan.policyVersion}` : ""}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
             <PlanComparisonDialog currentPlan={data.plan.effective} />
             {action === "view_plans" && (
               <Button size="sm" onClick={() => setLocation("/pricing")} className="bg-emerald-600 text-white hover:bg-emerald-700">
@@ -246,7 +322,10 @@ export default function ClinicEntitlementSettingsPanel() {
           </div>
         </div>
 
-        <div className={`rounded-xl border p-3 ${isAttention ? "border-amber-200 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/20" : "border-border/60 bg-background/50"}`}>
+        <div
+          className={`rounded-xl border p-3 ${isAttention ? "border-amber-200 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/20" : "border-border/60 bg-background/50"}`}
+          aria-live="polite"
+        >
           <div className="flex items-start gap-2.5">
             {isAttention ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" /> : <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />}
             <div>
@@ -257,20 +336,17 @@ export default function ClinicEntitlementSettingsPanel() {
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Trial started</p>
-            <p className="mt-1 text-xs font-medium">{formatDate(data.access.trialStartedAt)}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{isTrial ? "Trial ends" : "Paid access ends"}</p>
-            <p className="mt-1 text-xs font-medium">{formatDate(isTrial ? data.access.trialEndsAt : data.access.paidAccessExpiresAt)}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Grace period ends</p>
-            <p className="mt-1 text-xs font-medium">{formatDate(data.access.trialGraceEndsAt)}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Measured</p>
+          {isTrial && <DateSummary label="Trial started" value={data.access.trialStartedAt} />}
+          {isTrial && <DateSummary label={isRecoveryTrial ? "Recovery Trial ends" : "Trial ends"} value={data.access.trialEndsAt} />}
+          {isTrial && <DateSummary label="Grace period ends" value={data.access.trialGraceEndsAt} />}
+          {!isTrial && data.access.paidAccessExpiresAt && (
+            <DateSummary
+              label={data.access.state === "attention" ? "Paid access ended" : "Paid access ends"}
+              value={data.access.paidAccessExpiresAt}
+            />
+          )}
+          <div className="rounded-xl border border-border/60 bg-background/60 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last measured</p>
             <p className="mt-1 text-xs font-medium">{formatDate(data.measuredAt)}</p>
             <p className="mt-0.5 text-[10px] text-muted-foreground">{data.timezone}</p>
           </div>

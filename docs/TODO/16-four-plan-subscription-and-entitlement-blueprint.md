@@ -1,6 +1,6 @@
 # Four-Plan Subscription and Entitlement Blueprint
 
-**Status:** Commercial policy approved for implementation planning; Trial conversion and post-grace expiry processing are implemented with provider-safe lifecycle history; clinic-facing Settings entitlement visibility is scoped but not yet implemented; automatic access enforcement and production rollout remain deferred
+**Status:** Commercial policy approved for implementation planning; Trial conversion and post-grace expiry processing are implemented with provider-safe lifecycle history; the initial clinic-facing Settings entitlement panel and first visual optimization pass are implemented in reporting-only mode; authenticated state-matrix verification, unified warnings, automatic access enforcement, and production rollout remain deferred
 **Related blueprints:** [Super Admin Platform Operations](14-super-admin-platform-operations-blueprint.md), [Messaging Allowance and Plan Policy](15-messaging-allowance-and-plan-policy-blueprint.md)  
 **Audience:** Product, operations, support, finance, frontend, backend, database, QA, security, and platform teams  
 **Application:** BookMySlot dental clinic platform  
@@ -2498,7 +2498,7 @@ The clinic Settings implementation is complete only when:
 - Focused component/contract tests, `npm run check`, Build Check, and the relevant application tests pass.
 - The production baseline gate remains unchanged: this UI work must not be used as evidence that production clinics are within limits.
 
-**Current implementation status:** The initial clinic-facing read-only slice is implemented. The shared contract, state mapping, `ClinicEntitlementSettingsPanel`, Settings integration, compact usage overview, retry/error states, view-plans/support actions, and non-blocking state guidance are complete. The remaining work is unified warning mode, authenticated desktop/mobile state-matrix verification, and any follow-up refinements discovered during real clinic review. No subscription mutation or enforcement was added.
+**Current implementation status:** The initial clinic-facing read-only slice and the first visual optimization pass are implemented. The shared contract, state mapping, `ClinicEntitlementSettingsPanel`, Settings integration, compact usage overview, state-specific date presentation, explicit usage statuses, accessible progress indicators, retry/error states, view-plans/support actions, and non-blocking state guidance are complete. The remaining work is unified warning mode, authenticated desktop/mobile state-matrix verification, and any follow-up refinements discovered during real clinic review. No subscription mutation or enforcement was added.
 
 ### 22.14.7 Clinic Plan & access implementation evidence
 
@@ -2744,4 +2744,4 @@ The optimized clinic Settings experience is complete only when:
 - Focused component/contract tests, `npm run check`, Build Check, `git diff --check`, and authenticated responsive verification pass.
 - The production baseline, warning-mode, policy cutover, and enforcement gates remain unchanged.
 
-**Planning status:** This is the approved design and implementation plan for the next clinic Settings optimization stage. The initial reporting-only panel and read-only plan comparison popup are already implemented; the visual reorganization, authenticated responsive verification, and any new backend-backed reporting metrics remain separate follow-up work.
+**Planning status:** The first visual optimization pass is implemented: state-specific dates, explicit usage status labels, readable storage remaining values, accessible progress indicators, and a tighter responsive summary hierarchy are now in place. The read-only plan comparison popup remains catalog-driven. Authenticated responsive verification, any additional backend-backed reporting metrics, and warning-mode work remain separate follow-up work.
