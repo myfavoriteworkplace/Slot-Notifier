@@ -72,6 +72,7 @@ export default function Admin() {
   const [loginStep, setLoginStep] = useState<"credentials" | "otp">("credentials");
   const [loginOtp, setLoginOtp] = useState("");
   const [adminMessagingMonth, setAdminMessagingMonth] = useState(getAdminCurrentMonth);
+  const [adminSelectedClinicId, setAdminSelectedClinicId] = useState<number | null>(null);
   
   // Create clinic state
   const [newClinicName, setNewClinicName] = useState("");
@@ -1008,12 +1009,14 @@ export default function Admin() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="operations">
+        <TabsContent value="operations" forceMount>
           <AdminOperationsOverview
             clinics={clinics}
             month={adminMessagingMonth}
             onMonthChange={setAdminMessagingMonth}
             onRefreshOperations={refreshAdminOperations}
+            selectedClinicId={adminSelectedClinicId}
+            onSelectClinic={setAdminSelectedClinicId}
             clinicsLoading={clinicsLoading}
             clinicsFetching={clinicsFetching}
             clinicsError={clinicsError}
@@ -1236,6 +1239,7 @@ export default function Admin() {
             month={adminMessagingMonth}
             onMonthChange={setAdminMessagingMonth}
             onRefreshOperations={refreshAdminOperations}
+            onSelectClinic={clinicId => setAdminSelectedClinicId(clinicId)}
           />
         </TabsContent>
 

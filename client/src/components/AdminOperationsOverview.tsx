@@ -144,6 +144,8 @@ export default function AdminOperationsOverview({
   month,
   onMonthChange,
   onRefreshOperations,
+  selectedClinicId,
+  onSelectClinic,
   clinicsLoading = false,
   clinicsFetching = false,
   clinicsError = false,
@@ -153,6 +155,8 @@ export default function AdminOperationsOverview({
   month: string;
   onMonthChange: (month: string) => void;
   onRefreshOperations: () => void;
+  selectedClinicId: number | null;
+  onSelectClinic: (clinicId: number | null) => void;
   clinicsLoading?: boolean;
   clinicsFetching?: boolean;
   clinicsError?: boolean;
@@ -160,7 +164,7 @@ export default function AdminOperationsOverview({
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<TenantFilter>("all");
-  const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
+  const selectedClinic = clinics.find(clinic => clinic.id === selectedClinicId) ?? null;
 
   const messagingQuery = useQuery<AdminMessagingUsageSummary>({
     queryKey: ["/api/admin/messaging-usage", month],
@@ -177,9 +181,9 @@ export default function AdminOperationsOverview({
   });
 
   const subscriptionEventsQuery = useQuery<{ events: SubscriptionProviderEvent[] }>({
-    queryKey: ["/api/admin/subscription-events", selectedClinic?.id],
-    queryFn: async () => (await apiRequest("GET", `/api/admin/subscription-events?clinicId=${selectedClinic!.id}`)).json(),
-    enabled: Boolean(selectedClinic),
+    queryKey: ["/api/admin/subscription-events", selectedClinicId],
+    queryFn: async () => (await apiRequest("GET", `/api/admin/subscription-events?clinicId=${selectedClinicId}`)).json(),
+    enabled: selectedClinicId !== null,
     staleTime: 30_000,
     retry: 1,
   });
@@ -240,8 +244,8 @@ export default function AdminOperationsOverview({
   const clinicDataAvailable = !clinicsLoading && !clinicsError;
   const platformSignalsAvailable = clinicDataAvailable && Boolean(messagingQuery.data) && Boolean(storageQuery.data);
   const platformSignalsHealthy = platformSignalsAvailable && !hasOperationsError && failedMessages === 0 && attentionClinics.length === 0;
-  const selectedMessaging = selectedClinic ? messagingByClinic.get(selectedClinic.id) : undefined;
-  const selectedStorage = selectedClinic ? storageByClinic.get(selectedClinic.id) : undefined;
+  const selectedMessaging = selectedClinicId !== null ? messagingByClinic.get(selectedClinicId) : undefined;
+  const selectedStorage = selectedClinicId !== null ? storageByClinic.get(selectedClinicId) : undefined;
   const messagingTimezone = messagingQuery.data?.period.timezone
     ?? (messagingQuery.isLoading ? "Loading…" : "Unavailable");
   const clinicFilterCount = (count: number) => clinicDataAvailable ? String(count) : "—";
@@ -341,6 +345,7 @@ export default function AdminOperationsOverview({
         month={month}
         onMonthChange={onMonthChange}
         onRefreshOperations={onRefreshOperations}
+        onSelectClinic={onSelectClinic}
         embedded
       />
 
@@ -367,7 +372,7 @@ export default function AdminOperationsOverview({
                   key={clinic.id}
                   type="button"
                   className="rounded-lg border border-amber-200 bg-background/80 p-3 text-left transition-colors hover:border-amber-400 dark:border-amber-900/60"
-                  onClick={() => setSelectedClinic(clinic)}
+                  onClick={() => onSelectClinic(clinic.id)}
                   data-testid={`button-operations-alert-${clinic.id}`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -486,7 +491,7 @@ export default function AdminOperationsOverview({
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelectedClinic(clinic)} data-testid={`button-open-operations-tenant-${clinic.id}`}>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => onSelectClinic(clinic.id)} data-testid={`button-open-operations-tenant-${clinic.id}`}>
                           Open <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
                         </Button>
                       </td>
@@ -506,7 +511,7 @@ export default function AdminOperationsOverview({
         </CardContent>
       </Card>
 
-      <Sheet open={selectedClinic !== null} onOpenChange={open => !open && setSelectedClinic(null)}>
+      <Sheet open={selectedClinicId !== null} onOpenChange={open => !open && onSelectClinic(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">

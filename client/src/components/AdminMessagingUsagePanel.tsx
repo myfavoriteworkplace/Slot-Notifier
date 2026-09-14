@@ -18,11 +18,13 @@ export default function AdminMessagingUsagePanel({
   month,
   onMonthChange,
   onRefreshOperations,
+  onSelectClinic,
   embedded = false,
 }: {
   month: string;
   onMonthChange: (month: string) => void;
   onRefreshOperations: () => void;
+  onSelectClinic?: (clinicId: number) => void;
   embedded?: boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -36,7 +38,7 @@ export default function AdminMessagingUsagePanel({
   const detailQuery = useQuery<AdminMessagingUsageSummary>({
     queryKey: ["/api/admin/messaging-usage", month, selectedClinicId],
     queryFn: async () => (await apiRequest("GET", `/api/admin/messaging-usage?month=${encodeURIComponent(month)}&clinicId=${selectedClinicId}`)).json(),
-    enabled: selectedClinicId !== null,
+    enabled: selectedClinicId !== null && !onSelectClinic,
     staleTime: 60_000,
     retry: 1,
   });
@@ -172,7 +174,7 @@ export default function AdminMessagingUsagePanel({
                  </p>
                )}
                {query.data && filteredClinics.map(clinic => (
-                <button key={clinic.clinicId} type="button" onClick={() => setSelectedClinicId(clinic.clinicId)} className="grid w-full grid-cols-[minmax(210px,1.5fr)_80px_80px_repeat(5,75px)_32px] items-center gap-2 border-b px-4 py-3 text-left text-xs transition-colors hover:bg-muted/30">
+                <button key={clinic.clinicId} type="button" onClick={() => onSelectClinic ? onSelectClinic(clinic.clinicId) : setSelectedClinicId(clinic.clinicId)} className="grid w-full grid-cols-[minmax(210px,1.5fr)_80px_80px_repeat(5,75px)_32px] items-center gap-2 border-b px-4 py-3 text-left text-xs transition-colors hover:bg-muted/30">
                   <span className="flex min-w-0 items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${clinic.isArchived ? "bg-slate-400" : clinic.status === "approved" ? "bg-emerald-500" : "bg-amber-500"}`} /><span className="truncate font-semibold">{clinic.clinicName}</span></span>
                   <span className="capitalize text-muted-foreground">{clinic.plan || "—"}</span><span className="capitalize text-muted-foreground">{clinic.subscriptionStatus === "active" ? "Paid" : clinic.subscriptionStatus || "—"}</span>
                   <span className="font-medium text-sky-700">{number(clinic.sms)}</span><span className="font-medium text-emerald-700">{number(clinic.whatsapp)}</span><span className="font-medium text-violet-700">{number(clinic.email)}</span><span className="font-bold">{number(clinic.total)}</span><span className={clinic.failed ? "font-bold text-red-600" : "text-muted-foreground"}>{number(clinic.failed)}</span><ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -186,7 +188,7 @@ export default function AdminMessagingUsagePanel({
         </CardContent>
       </Card>}
 
-      {!embedded && <Sheet open={selectedClinicId !== null} onOpenChange={open => !open && setSelectedClinicId(null)}>
+      {!embedded && !onSelectClinic && <Sheet open={selectedClinicId !== null} onOpenChange={open => !open && setSelectedClinicId(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader><SheetTitle>{selectedClinic?.clinicName || "Clinic messaging usage"}</SheetTitle><SheetDescription>{query.data?.period.month || month} · detailed communication usage and event breakdown</SheetDescription></SheetHeader>
             {detailQuery.isLoading ? <div className="py-12 text-center text-sm text-muted-foreground">Loading clinic usage…</div> : detailQuery.isError ? (
