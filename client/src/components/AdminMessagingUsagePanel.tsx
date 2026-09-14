@@ -3,39 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Building2, ChevronRight, Mail, MessageSquare, RefreshCw, Search, Smartphone } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { AdminMessagingUsageSummary } from "@shared/admin-operations";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-
-type UsageEvent = { eventType: string; sms: number; whatsapp: number; email: number; total: number };
-type UsageTrend = { month: string; sms: number; whatsapp: number; email: number; total: number; billable: number };
-type ClinicUsage = {
-  clinicId: number;
-  clinicName: string;
-  plan: string | null;
-  subscriptionStatus: string | null;
-  status: string | null;
-  isArchived: boolean | null;
-  sms: number;
-  whatsapp: number;
-  email: number;
-  total: number;
-  billable: number;
-  accepted: number;
-  failed: number;
-  skipped: number;
-  lastSentAt: string | null;
-  byEvent: UsageEvent[];
-};
-type AdminMessagingUsage = {
-  period: { month: string; timezone: string; from: string; to: string };
-  totals: { sms: number; whatsapp: number; email: number; total: number; billable: number; accepted: number; failed: number; skipped: number };
-  trend: UsageTrend[];
-  byEvent: UsageEvent[];
-  clinics: ClinicUsage[];
-};
 
 const currentMonth = () => {
   const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit" }).formatToParts(new Date());
@@ -49,12 +22,12 @@ export default function AdminMessagingUsagePanel() {
   const [month, setMonth] = useState(currentMonth);
   const [search, setSearch] = useState("");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
-  const query = useQuery<AdminMessagingUsage>({
+  const query = useQuery<AdminMessagingUsageSummary>({
     queryKey: ["/api/admin/messaging-usage", month],
     queryFn: async () => (await apiRequest("GET", `/api/admin/messaging-usage?month=${encodeURIComponent(month)}`)).json(),
     staleTime: 60_000,
   });
-  const detailQuery = useQuery<AdminMessagingUsage>({
+  const detailQuery = useQuery<AdminMessagingUsageSummary>({
     queryKey: ["/api/admin/messaging-usage", month, selectedClinicId],
     queryFn: async () => (await apiRequest("GET", `/api/admin/messaging-usage?month=${encodeURIComponent(month)}&clinicId=${selectedClinicId}`)).json(),
     enabled: selectedClinicId !== null,

@@ -17,6 +17,12 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
+import {
+  getAdminClinicAttentionReasons,
+  getAdminStorageUsageLevel,
+  type AdminMessagingUsageSummary,
+  type AdminStorageUsageSummary,
+} from "@shared/admin-operations";
 import { getSubscriptionStatusInfo } from "@shared/subscription-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,67 +30,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiRequest } from "@/lib/queryClient";
-
-type ClinicMessagingUsage = {
-  clinicId: number;
-  clinicName: string;
-  plan: string | null;
-  subscriptionStatus: string | null;
-  status: string | null;
-  isArchived: boolean | null;
-  sms: number;
-  whatsapp: number;
-  email: number;
-  total: number;
-  billable: number;
-  accepted: number;
-  failed: number;
-  skipped: number;
-  lastSentAt: string | null;
-};
-
-type AdminMessagingUsageSummary = {
-  period: { month: string; timezone: string; from: string; to: string };
-  totals: {
-    sms: number;
-    whatsapp: number;
-    email: number;
-    total: number;
-    billable: number;
-    accepted: number;
-    failed: number;
-    skipped: number;
-  };
-  clinics: ClinicMessagingUsage[];
-};
-
-type ClinicStorageUsage = {
-  clinicId: number;
-  clinicName: string;
-  plan: string | null;
-  subscriptionStatus: string | null;
-  status: string | null;
-  isArchived: boolean;
-  usedBytes: number;
-  limitBytes: number;
-  remainingBytes: number;
-  usagePercent: number;
-  fileCount: number;
-  source: "plan" | "clinic_override" | "default";
-};
-
-type AdminStorageUsageSummary = {
-  measuredAt?: string;
-  timezone?: string;
-  totals: {
-    usedBytes: number;
-    limitBytes: number;
-    remainingBytes: number;
-    usagePercent: number;
-    fileCount: number;
-  };
-  clinics: ClinicStorageUsage[];
-};
 
 type SubscriptionProviderEvent = {
   id: number;
@@ -129,11 +74,11 @@ const subscriptionClass = (status: string | null | undefined) => {
   return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300";
 };
 
-const isSubscriptionAttention = (status: string | null | undefined) => getSubscriptionStatusInfo(status).needsAttention;
-
-const storageTone = (percent: number) => {
-  if (percent >= 95) return "bg-red-500";
-  if (percent >= 80) return "bg-amber-500";
+const storageTone = (percent: number | null | undefined, available = true) => {
+  const level = getAdminStorageUsageLevel(percent, available);
+  if (level === "critical") return "bg-red-500";
+  if (level === "warning") return "bg-amber-500";
+  if (level === "unavailable") return "bg-muted";
   return "bg-emerald-500";
 };
 
@@ -229,9 +174,11 @@ export default function AdminOperationsOverview({
   const attentionClinics = activeClinics.filter(clinic => {
     const storage = storageByClinic.get(clinic.id);
     const messaging = messagingByClinic.get(clinic.id);
-    return isSubscriptionAttention(clinic.subscriptionStatus) ||
-      (storage?.usagePercent ?? 0) >= 80 ||
-      (messaging?.failed ?? 0) > 0;
+    return getAdminClinicAttentionReasons({
+      subscriptionStatus: clinic.subscriptionStatus,
+      storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
+      messaging: messaging ? { available: true, failed: messaging.failed } : { available: false },
+    }).length > 0;
   });
 
   const filteredClinics = clinics
@@ -328,11 +275,11 @@ export default function AdminOperationsOverview({
             {attentionClinics.slice(0, 6).map(clinic => {
               const storage = storageByClinic.get(clinic.id);
               const messaging = messagingByClinic.get(clinic.id);
-              const reasons = [
-                isSubscriptionAttention(clinic.subscriptionStatus) ? `Subscription ${subscriptionLabel(clinic.subscriptionStatus).toLowerCase()}` : null,
-                storage && storage.usagePercent >= 80 ? `Storage ${formatPercent(storage.usagePercent)}` : null,
-                messaging && messaging.failed > 0 ? `${formatNumber(messaging.failed)} failed messages` : null,
-              ].filter(Boolean);
+              const reasons = getAdminClinicAttentionReasons({
+                subscriptionStatus: clinic.subscriptionStatus,
+                storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
+                messaging: messaging ? { available: true, failed: messaging.failed } : { available: false },
+              }).map(reason => reason.label);
               return (
                 <button
                   key={clinic.id}
@@ -404,11 +351,11 @@ export default function AdminOperationsOverview({
                 {filteredClinics.map(clinic => {
                   const messaging = messagingByClinic.get(clinic.id);
                   const storage = storageByClinic.get(clinic.id);
-                  const signalCount = [
-                    isSubscriptionAttention(clinic.subscriptionStatus),
-                    (storage?.usagePercent ?? 0) >= 80,
-                    (messaging?.failed ?? 0) > 0,
-                  ].filter(Boolean).length;
+                  const signalCount = getAdminClinicAttentionReasons({
+                    subscriptionStatus: clinic.subscriptionStatus,
+                    storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
+                    messaging: messaging ? { available: true, failed: messaging.failed } : { available: false },
+                  }).length;
                   return (
                     <tr key={clinic.id} className="border-b border-border/30 transition-colors hover:bg-muted/20" data-testid={`row-operations-tenant-${clinic.id}`}>
                       <th className="px-4 py-3 text-left">
@@ -550,7 +497,7 @@ export default function AdminOperationsOverview({
                   </div>
                   <div className="rounded-lg border p-3">
                     <div className="flex items-center justify-between text-xs"><span className="font-medium">Tracked storage</span><span className="font-semibold">{selectedStorage ? formatPercent(selectedStorage.usagePercent) : "—"}</span></div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${storageTone(selectedStorage?.usagePercent ?? 0)}`} style={{ width: `${Math.min(100, selectedStorage?.usagePercent ?? 0)}%` }} /></div>
+                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${storageTone(selectedStorage?.usagePercent, Boolean(selectedStorage))}`} style={{ width: `${Math.min(100, selectedStorage?.usagePercent ?? 0)}%` }} /></div>
                     <p className="mt-1 text-[11px] text-muted-foreground">{selectedStorage ? `${formatBytes(selectedStorage.usedBytes)} of ${formatBytes(selectedStorage.limitBytes)} · ${formatNumber(selectedStorage.fileCount)} files` : "Storage summary unavailable"}</p>
                   </div>
                 </CardContent>

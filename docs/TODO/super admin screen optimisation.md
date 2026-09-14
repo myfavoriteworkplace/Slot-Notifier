@@ -1,6 +1,6 @@
 # Super Admin Screen Optimisation
 
-**Status:** Planning document — no application UI or behaviour is changed by this document  
+**Status:** Implementation in progress — foundation work completed; UI consolidation remains  
 **Audience:** Product, design, frontend, backend, database, QA, support, and operations teams  
 **Application:** BookMySlot dental clinic platform  
 **Primary goal:** Make the Super Admin area easier to understand and faster to operate without removing existing administrative capabilities or exposing clinic-private treatment revenue.
@@ -32,6 +32,20 @@ This document breaks the optimisation into small implementation steps. Each step
 - Whether the step can be worked on independently or has a dependency.
 
 The document is intended to be used as an implementation reference. It is not a request to complete every step immediately.
+
+### Implementation progress
+
+The first foundation step has now been completed without changing the visible Super Admin layout:
+
+- Added shared admin operations contracts for messaging and storage summaries.
+- Added shared data-state interpretation for loading, available, empty, error, and unavailable data.
+- Added shared storage warning thresholds.
+- Added shared clinic attention reasons for subscription, storage, messaging, and entitlement signals.
+- Updated the Operations Overview to use the shared attention and storage policies.
+- Updated the Messaging Usage panel to use the shared messaging response types.
+- Added pure tests for the shared policies.
+
+The next UI step is still pending: combine Overview and Messaging Usage into one Operations workspace. The Active Clinics and Entitlements consolidation has not started.
 
 ---
 
@@ -238,8 +252,8 @@ The following workstreams are deliberately separated so they can be planned, rev
 | ID | Workstream | Plain-language change | Technical work required | Likely files or areas | Dependency | Completion criteria |
 |---|---|---|---|---|---|---|
 | SA-01 | Confirm the target navigation | Agree on the new names and section order before changing layout. | Record the final navigation map and which current tab moves into which workspace. Keep existing route and permission behaviour unchanged. | `client/src/pages/Admin.tsx`, this document, product/design review | Independent | A signed-off map exists for Operations, Clinics & Access, Plans & Policies, Pending Review, Smile Deals, and Security & Audit. |
-| SA-02 | Create shared admin display policies | Make status, attention, freshness, and availability labels consistent. | Extract pure helpers or shared modules for subscription status, operational attention reasons, data availability, and display labels. Do not move authorization into the browser. | Existing shared subscription policy; `AdminOperationsOverview.tsx`; `AdminEntitlementReview.tsx`; shared types | Independent; recommended prerequisite | The same clinic receives the same subscription and attention label in Operations, Clinics & Access, and detail views. Pure unit tests cover supported, legacy, unknown, and unavailable states. |
-| SA-03 | Define shared admin data contracts | Give the frontend one predictable shape for shared clinic operations data. | Document or type the combined clinic summary fields: clinic identity, lifecycle status, subscription state, plan, messaging summary, storage summary, attention reasons, and data freshness. Preserve existing endpoint compatibility unless a deliberate API change is approved. | Shared TypeScript types; existing admin route DTOs; `AdminOperationsOverview.tsx` | Independent; can run in parallel with SA-02 | The required fields and unavailable states are explicit. No component relies on undocumented `any` fields for the shared workspace. |
+| SA-02 | Create shared admin display policies | Make status, attention, freshness, and availability labels consistent. | Extract pure helpers or shared modules for subscription status, operational attention reasons, data availability, and display labels. Do not move authorization into the browser. | `shared/admin-operations.ts`; `shared/admin-operations.test.ts`; `AdminOperationsOverview.tsx`; shared subscription policy | **Completed foundation** | Shared policy helpers now cover subscription, storage, messaging, entitlement, and data-state interpretation. Pure tests cover supported, legacy, unknown, healthy, warning, critical, and unavailable states. |
+| SA-03 | Define shared admin data contracts | Give the frontend one predictable shape for shared clinic operations data. | Document or type the combined clinic summary fields: clinic identity, lifecycle status, subscription state, plan, messaging summary, storage summary, attention reasons, and data freshness. Preserve existing endpoint compatibility unless a deliberate API change is approved. | `shared/admin-operations.ts`; `AdminOperationsOverview.tsx`; `AdminMessagingUsagePanel.tsx` | **Completed foundation** | Messaging and storage response types are shared by the current Operations and Messaging Usage components. Existing endpoint shapes remain unchanged. |
 | SA-04 | Share the messaging period and query state | Ensure Operations and detailed messaging information use the same month and timezone. | Create a shared hook or parent-owned state for selected month, refresh state, query key, period label, and freshness. Reuse the existing React Query key shape where possible. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `Admin.tsx` | SA-03 recommended | Changing the month updates all messaging sections in the workspace. There is one clear reporting-period label and no contradictory UTC/clinic-timezone copy. |
 | SA-05 | Build the Operations shell | Rename and restructure Overview as the main platform operations workspace. | Add a workspace header, period control, refresh action, KPI area, attention area, usage area, and tenant operations area. Keep loading, retry, empty, and unavailable states. | `AdminOperationsOverview.tsx`, `Admin.tsx` | SA-01; SA-02 and SA-04 recommended | The workspace answers: what is healthy, what needs attention, how much service usage exists, and which clinic should be opened next. |
 | SA-06 | Add the compact messaging section to Operations | Bring the useful parts of Messaging Usage into Operations without duplicating the entire page. | Reuse or extract channel mix, six-month trend, outcome totals, and period context. Keep a detailed clinic comparison available through the Operations tenant table or an explicit detail mode. | `AdminMessagingUsagePanel.tsx`, `AdminOperationsOverview.tsx` | SA-04; can start independently as a component extraction | Operations shows messaging totals and trends once. The detailed messaging view remains available and uses the same month and selected clinic. |
