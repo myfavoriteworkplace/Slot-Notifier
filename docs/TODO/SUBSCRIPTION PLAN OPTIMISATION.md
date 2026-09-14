@@ -14,10 +14,11 @@ safe and auditable.
 1. **The clinic chooses a plan.** During registration, the clinic selects
    Trial, Starter, Growth, or Pro. Paid plans also require Monthly or Annual
    billing. Choosing a plan does not activate access or take payment.
-2. **Super Admin approves the clinic.** Super Admin must explicitly decide
-   whether the clinic receives Trial, pays through Razorpay, receives
-   complimentary access, or provides verified offline-payment evidence. A paid
-   plan selection does not automatically become Trial or complimentary access.
+2. **Super Admin approves the clinic.** For an eligible paid-plan registration,
+   the normal online-payment path starts the initial Trial while Razorpay
+   confirmation is pending. Super Admin can instead approve verified offline
+   payment or a fixed-term complimentary assignment. A paid plan is never
+   considered active until the matching payment route is confirmed.
 3. **The system records the real access source.** Trial, Razorpay, complimentary
    access, and verified offline payment are separate states. A plan name alone
    does not prove payment or entitlement.
@@ -162,38 +163,42 @@ The Super Admin approval step must explicitly choose the assignment mode:
 
 This gives the clinic the choice it expects while keeping the business in control of activation and preventing repeated self-selected Trials.
 
-### 1.1 Paid-plan selection is not automatic Trial approval
+### 1.1 Paid-plan selection starts the initial Trial for online payment
 
 When a clinic selects Starter, Growth, or Pro during registration, the
 selection is stored as a requested plan and requested billing cycle. It does
-not automatically grant:
-
-- A Trial.
-- Complimentary access.
-- Paid access.
-- A Razorpay subscription.
-
-At approval, Super Admin must explicitly select one assignment mode:
+not itself activate paid access. When the clinic is eligible and Super Admin
+approves the normal Razorpay path, the system starts the initial Trial as a
+temporary onboarding bridge while payment is completed:
 
 ```text
-Initial Trial:
-  Use only when the clinic is eligible, or when an authorized Admin Trial is
-  explicitly approved.
-
-Razorpay online payment:
-  Create the payment/subscription flow and keep the clinic pending payment
-  until provider confirmation.
-
-Complimentary offline:
-  Grant a fixed-term, non-revenue access period with exact dates and a reason.
-
-Verified offline payment:
-  Grant access only after payment evidence and authorized verification.
+Requested plan: Growth Annual
+Effective plan during payment: Trial
+Access source: system_trial
+Payment state: pending
+Target paid plan: Growth Annual
 ```
 
-The approval screen may preselect the recommended outcome for convenience, but
-the Super Admin must confirm the outcome. The server must reject an approval
-that leaves the assignment mode implicit.
+The approval outcome is therefore:
+
+```text
+Razorpay online:
+  Initial Trial while payment is pending.
+  Active paid access after Razorpay confirmation.
+
+Verified offline:
+  No Trial after payment evidence is verified.
+  Activate the assigned paid plan as manual payment.
+
+Complimentary offline:
+  No Trial unless separately approved.
+  Activate a fixed-term complimentary assignment.
+```
+
+The approval screen may preselect **Razorpay online with initial Trial** for an
+eligible paid-plan registration. Super Admin must confirm the payment route.
+The server must reject an approval that leaves the payment/assignment mode
+implicit.
 
 The recommended lifecycle is:
 
