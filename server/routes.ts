@@ -2310,13 +2310,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const clinic = await storage.getClinic(clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
-      const [lifecycleEvents, assignments, grants, exceptions] = await Promise.all([
+      const [lifecycleEvents, assignments, grants, exceptions, providerEvents] = await Promise.all([
         storage.getSubscriptionLifecycleEvents(clinicId, 100),
         storage.getSubscriptionPlanAssignments(clinicId),
         storage.getSubscriptionAccessGrants(clinicId),
         storage.getSubscriptionAccessExceptions(clinicId),
+        db.select({
+          id: subscriptionProviderEvents.id,
+          clinicId: subscriptionProviderEvents.clinicId,
+          provider: subscriptionProviderEvents.provider,
+          subscriptionId: subscriptionProviderEvents.subscriptionId,
+          eventId: subscriptionProviderEvents.eventId,
+          eventType: subscriptionProviderEvents.eventType,
+          processingStatus: subscriptionProviderEvents.processingStatus,
+          details: subscriptionProviderEvents.details,
+          occurredAt: subscriptionProviderEvents.occurredAt,
+          receivedAt: subscriptionProviderEvents.receivedAt,
+        })
+          .from(subscriptionProviderEvents)
+          .where(eq(subscriptionProviderEvents.clinicId, clinicId))
+          .orderBy(desc(subscriptionProviderEvents.receivedAt), desc(subscriptionProviderEvents.id))
+          .limit(100),
       ]);
-      res.json({ lifecycleEvents, assignments, grants, exceptions });
+      res.json({ lifecycleEvents, assignments, grants, exceptions, providerEvents });
     } catch (error: any) {
       console.error("[ADMIN SUBSCRIPTION HISTORY]", error?.message || error);
       res.status(500).json({ message: "Unable to load subscription history" });

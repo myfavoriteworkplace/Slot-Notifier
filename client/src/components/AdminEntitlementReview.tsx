@@ -88,15 +88,38 @@ type SubscriptionHistory = {
     reason: string | null;
     effectiveAt: string;
   }>;
-  assignments: Array<{ id: number; plan: string; billingCycle: string; source: string; startsAt: string; endsAt: string | null }>;
+  assignments: Array<{ id: number; plan: string; billingCycle: string; source: string; reason: string | null; startsAt: string; endsAt: string | null }>;
   grants: Array<{ id: number; grantId: string; plan: string; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
   exceptions: Array<{ id: number; exceptionId: string; entitlementKey: string; overrideValue: unknown; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
+  providerEvents?: Array<{
+    id: number;
+    clinicId: number | null;
+    provider: string;
+    subscriptionId: string | null;
+    eventId: string | null;
+    eventType: string;
+    processingStatus: string;
+    details: Record<string, unknown> | null;
+    occurredAt: string | null;
+    receivedAt: string | null;
+  }>;
 };
 
 type RevokeTarget = {
   kind: "sponsored_access" | "entitlement_exception";
   id: string;
   label: string;
+};
+
+type AccessHistoryEntry = {
+  id: string;
+  kind: "lifecycle" | "assignment" | "sponsored" | "exception" | "provider";
+  title: string;
+  occurredAt: string | null;
+  detail: string;
+  reason: string | null;
+  status: string | null;
+  revokeTarget?: RevokeTarget;
 };
 
 const formatBytes = (value: number | null) => {
@@ -150,6 +173,29 @@ const sourceLabel = (source: EffectiveEntitlementItem["source"]) => ({
   exception: "Temporary exception",
   unknown: "Unknown",
 }[source]);
+
+const historyDateValue = (value: string | null) => value ? new Date(value).getTime() : 0;
+
+const temporalHistoryStatus = (startsAt: string, endsAt: string | null, revokedAt: string | null) => {
+  if (revokedAt) return "Revoked";
+  const now = Date.now();
+  if (historyDateValue(startsAt) > now) return "Scheduled";
+  if (endsAt && historyDateValue(endsAt) <= now) return "Ended";
+  return "Active";
+};
+
+const formatOverrideValue = (value: unknown) => {
+  if (typeof value === "boolean") return value ? "Enabled" : "Disabled";
+  if (typeof value === "number" || typeof value === "string") return String(value);
+  return "Recorded";
+};
+
+const historyStatusClass = (status: string | null) => {
+  if (status === "Active" || status === "Applied") return "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300";
+  if (status === "Scheduled" || status === "Received") return "border-sky-300 text-sky-700 dark:border-sky-800 dark:text-sky-300";
+  if (status === "Revoked" || status === "Failed" || status === "Unmatched") return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-300";
+  return "text-muted-foreground";
+};
 
 function CapabilityValue({ item }: { item: EffectiveEntitlementItem }) {
   if (item.capability === "storage") return <>{formatBytes(item.value as number | null)}</>;
@@ -238,6 +284,90 @@ export default function AdminEntitlementReview({
   const attentionCount = reportQuery.data?.capabilities.filter(item => item.overLimit === true).length ?? 0;
   const report = reportQuery.data;
   const hasTrialHistory = Boolean(report?.access.trialStartedAt && report.plan.effective === "trial");
+  const historyEntries = useMemo<AccessHistoryEntry[]>(() => {
+    const data = historyQuery.data;
+    if (!data) return [];
+
+    const entries: AccessHistoryEntry[] = [
+      ...data.lifecycleEvents.map(event => ({
+        id: `lifecycle-${event.id}`,
+        kind: "lifecycle" as const,
+        title: labelFor(event.eventType),
+        occurredAt: event.effectiveAt,
+        detail: [
+          [event.fromPlan && `${labelFor(event.fromPlan)} →`, event.toPlan && labelFor(event.toPlan)].filter(Boolean).join(" "),
+          event.toStatus && `Status: ${labelFor(event.toStatus)}`,
+          `Actor: ${labelFor(event.actorType)}`,
+        ].filter(Boolean).join(" · "),
+        reason: event.reason,
+        status: "Recorded",
+      })),
+      ...data.assignments.map(assignment => ({
+        id: `assignment-${assignment.id}`,
+        kind: "assignment" as const,
+        title: `Plan assignment · ${labelFor(assignment.plan)}`,
+        occurredAt: assignment.startsAt,
+        detail: [
+          assignment.source && `Source: ${labelFor(assignment.source)}`,
+          assignment.billingCycle && `Billing: ${labelFor(assignment.billingCycle)}`,
+          assignment.endsAt && `Ends ${formatDate(assignment.endsAt)}`,
+        ].filter(Boolean).join(" · "),
+        reason: assignment.reason,
+        status: temporalHistoryStatus(assignment.startsAt, assignment.endsAt, null),
+      })),
+      ...data.grants.map(grant => ({
+        id: `grant-${grant.id}`,
+        kind: "sponsored" as const,
+        title: `Sponsored access · ${labelFor(grant.plan)}`,
+        occurredAt: grant.startsAt,
+        detail: grant.revokedAt
+          ? `Started ${formatDate(grant.startsAt)} · Revoked ${formatDate(grant.revokedAt)}`
+          : `Ends ${formatDate(grant.endsAt)}`,
+        reason: grant.reason,
+        status: temporalHistoryStatus(grant.startsAt, grant.endsAt, grant.revokedAt),
+        revokeTarget: {
+          kind: "sponsored_access" as const,
+          id: grant.grantId,
+          label: `Sponsored ${labelFor(grant.plan)}`,
+        },
+      })),
+      ...data.exceptions.map(exception => ({
+        id: `exception-${exception.id}`,
+        kind: "exception" as const,
+        title: `Entitlement exception · ${labelFor(exception.entitlementKey)}`,
+        occurredAt: exception.startsAt,
+        detail: exception.revokedAt
+          ? `Override: ${formatOverrideValue(exception.overrideValue)} · Started ${formatDate(exception.startsAt)} · Revoked ${formatDate(exception.revokedAt)}`
+          : `Override: ${formatOverrideValue(exception.overrideValue)} · Ends ${formatDate(exception.endsAt)}`,
+        reason: exception.reason,
+        status: temporalHistoryStatus(exception.startsAt, exception.endsAt, exception.revokedAt),
+        revokeTarget: {
+          kind: "entitlement_exception" as const,
+          id: exception.exceptionId,
+          label: `Exception · ${labelFor(exception.entitlementKey)}`,
+        },
+      })),
+      ...(data.providerEvents ?? []).map(event => ({
+        id: `provider-${event.id}`,
+        kind: "provider" as const,
+        title: `Provider event · ${event.eventType.replaceAll(".", " ")}`,
+        occurredAt: event.receivedAt ?? event.occurredAt,
+        detail: [
+          labelFor(event.provider),
+          event.subscriptionId && `Subscription: ${event.subscriptionId}`,
+          event.eventId && `Event: ${event.eventId}`,
+        ].filter(Boolean).join(" · "),
+        reason: event.details ? `Provider payload recorded (${Object.keys(event.details).length} fields)` : null,
+        status: event.processingStatus === "applied"
+          ? "Applied"
+          : event.processingStatus === "unmatched"
+            ? "Unmatched"
+            : labelFor(event.processingStatus),
+      })),
+    ];
+
+    return entries.sort((a, b) => historyDateValue(b.occurredAt) - historyDateValue(a.occurredAt) || b.id.localeCompare(a.id));
+  }, [historyQuery.data]);
 
   const refreshSubscriptionQueries = async () => {
     await queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
@@ -624,105 +754,55 @@ export default function AdminEntitlementReview({
 
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-sm"><History className="h-4 w-4" />Subscription history</CardTitle>
-                    <CardDescription>Append-only plan assignments and access decisions for this clinic.</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-sm"><History className="h-4 w-4" />Access history</CardTitle>
+                    <CardDescription>One chronological view of lifecycle, plan, temporary access, exception, and provider records. Records are append-only.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {historyQuery.isLoading && <p className="text-xs text-muted-foreground">Loading history…</p>}
+                    {historyQuery.isLoading && <p className="text-xs text-muted-foreground">Loading access history…</p>}
                     {historyQuery.isError && (
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-red-600 dark:text-red-400">
-                        <span>Subscription history is unavailable.</span>
+                        <span>Access history is unavailable.</span>
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => historyQuery.refetch()} disabled={historyQuery.isFetching}>Retry history</Button>
                       </div>
                     )}
                     {historyQuery.isFetching && historyQuery.data && (
                       <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
-                        Refreshing subscription history; the displayed events may be delayed.
+                        Refreshing access history; the displayed records may be delayed.
                       </p>
                     )}
-                    {historyQuery.data && !historyQuery.data.lifecycleEvents.length && <p className="text-xs text-muted-foreground">No lifecycle events recorded yet.</p>}
-                    {historyQuery.data && historyQuery.data.lifecycleEvents.length > 0 && (
-                      <div className="space-y-2">
-                        {historyQuery.data.lifecycleEvents.slice(0, 8).map(event => (
-                          <div key={event.id} className="rounded-lg border px-3 py-2.5 text-xs">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-semibold">{labelFor(event.eventType)}</span>
-                              <span className="text-muted-foreground">{formatDate(event.effectiveAt)}</span>
+                    {historyQuery.data && historyEntries.length === 0 && <p className="text-xs text-muted-foreground">No access history has been recorded for this clinic.</p>}
+                    {historyQuery.data && historyEntries.length > 0 && (
+                      <div className="space-y-2" data-testid={`admin-access-history-${selectedClinic.id}`}>
+                        {historyEntries.map(entry => (
+                          <div key={entry.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-semibold">{entry.title}</span>
+                                <Badge variant="outline" className={`text-[10px] ${historyStatusClass(entry.status)}`}>{entry.status || "Recorded"}</Badge>
+                                <Badge variant="secondary" className="text-[10px] capitalize">{entry.kind.replace("_", " ")}</Badge>
+                              </div>
+                              <p className="mt-1 text-muted-foreground">{entry.detail || "No additional details recorded."}</p>
+                              {entry.reason && <p className="mt-1 leading-5">{entry.reason}</p>}
                             </div>
-                            <p className="mt-1 text-muted-foreground">
-                              {[event.fromPlan && `${labelFor(event.fromPlan)} →`, event.toPlan && labelFor(event.toPlan), event.toStatus && `(${labelFor(event.toStatus)})`].filter(Boolean).join(" ")}
-                              {" · "}{labelFor(event.actorType)}
-                            </p>
-                            {event.reason && <p className="mt-1 leading-5">{event.reason}</p>}
+                            <div className="flex shrink-0 flex-col items-end gap-2">
+                              <time className="text-[10px] text-muted-foreground">{entry.occurredAt ? formatDate(entry.occurredAt) : "Date unavailable"}</time>
+                              {entry.revokeTarget && entry.status === "Active" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px]"
+                                  onClick={() => { setRevokeTarget(entry.revokeTarget!); setRevokeReason(""); }}
+                                >
+                                  <XCircle className="mr-1 h-3 w-3" />Revoke
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
                     )}
                   </CardContent>
                 </Card>
-
-                {historyQuery.data && (historyQuery.data.grants.length > 0 || historyQuery.data.exceptions.length > 0) && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4" />Temporary access records</CardTitle>
-                      <CardDescription>Sponsored access and exceptions are time-limited, separately audited, and do not change paid subscription state.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {historyQuery.data.grants.map(grant => {
-                        const active = !grant.revokedAt && new Date(grant.endsAt) > new Date();
-                        return (
-                          <div key={`grant-${grant.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-semibold">Sponsored {labelFor(grant.plan)}</span>
-                                <Badge variant="outline" className={grant.revokedAt ? "text-muted-foreground" : active ? "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300" : "text-muted-foreground"}>
-                                  {grant.revokedAt ? "Revoked" : active ? "Active" : "Ended"}
-                                </Badge>
-                              </div>
-                              <p className="mt-1 text-muted-foreground">Ends {formatDate(grant.endsAt)} · {grant.reason}</p>
-                            </div>
-                            {active && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 shrink-0 text-[11px]"
-                                onClick={() => { setRevokeTarget({ kind: "sponsored_access", id: grant.grantId, label: `Sponsored ${labelFor(grant.plan)}` }); setRevokeReason(""); }}
-                              >
-                                <XCircle className="mr-1 h-3 w-3" />Revoke
-                              </Button>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {historyQuery.data.exceptions.map(exception => {
-                        const active = !exception.revokedAt && new Date(exception.endsAt) > new Date();
-                        return (
-                          <div key={`exception-${exception.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-semibold">Exception · {labelFor(exception.entitlementKey)}</span>
-                                <Badge variant="outline" className={exception.revokedAt ? "text-muted-foreground" : active ? "border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300" : "text-muted-foreground"}>
-                                  {exception.revokedAt ? "Revoked" : active ? "Active" : "Ended"}
-                                </Badge>
-                              </div>
-                              <p className="mt-1 text-muted-foreground">Ends {formatDate(exception.endsAt)} · {exception.reason}</p>
-                            </div>
-                            {active && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 shrink-0 text-[11px]"
-                                onClick={() => { setRevokeTarget({ kind: "entitlement_exception", id: exception.exceptionId, label: `Exception · ${labelFor(exception.entitlementKey)}` }); setRevokeReason(""); }}
-                              >
-                                <XCircle className="mr-1 h-3 w-3" />Revoke
-                              </Button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-                )}
 
                 <Card>
                   <CardHeader className="pb-3">
