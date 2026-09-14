@@ -364,7 +364,7 @@ export default function Admin() {
     setEditSheetOpen(true);
   };
 
-  const { data: clinics = [], isLoading: clinicsLoading, isError: clinicsError, refetch: refetchClinics } = useQuery<Clinic[]>({
+  const { data: clinics = [], isLoading: clinicsLoading, isFetching: clinicsFetching, isError: clinicsError, refetch: refetchClinics } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
   });
 
@@ -951,6 +951,19 @@ export default function Admin() {
         </div>
       </div>
 
+      {clinicsError && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/15 dark:text-red-200" role="alert">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-semibold">Clinic directory could not be refreshed.</p>
+              <p className="mt-0.5 text-xs text-red-700 dark:text-red-300">Existing clinic data may be delayed. Counts and clinic actions should be verified after retrying.</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => refetchClinics()} disabled={clinicsFetching}>Retry clinics</Button>
+        </div>
+      )}
+
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-9">
           <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-operations-overview">
@@ -998,6 +1011,7 @@ export default function Admin() {
             onMonthChange={setAdminMessagingMonth}
             onRefreshMessaging={refreshAdminMessaging}
             clinicsLoading={clinicsLoading}
+            clinicsFetching={clinicsFetching}
             clinicsError={clinicsError}
             onRetryClinics={() => refetchClinics()}
           />
@@ -1008,7 +1022,7 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="subscription-plans">
-          <AdminEntitlementReview clinics={clinics} />
+           <AdminEntitlementReview clinics={clinics} clinicsLoading={clinicsLoading} clinicsError={clinicsError} onRetryClinics={() => refetchClinics()} />
         </TabsContent>
 
         <TabsContent value="active">

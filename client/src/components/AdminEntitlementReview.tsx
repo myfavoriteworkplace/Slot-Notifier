@@ -147,7 +147,17 @@ function UsageValue({ item }: { item: EffectiveEntitlementItem }) {
   return <>{formatNumber(item.usage.value)}</>;
 }
 
-export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] }) {
+export default function AdminEntitlementReview({
+  clinics,
+  clinicsLoading = false,
+  clinicsError = false,
+  onRetryClinics,
+}: {
+  clinics: Clinic[];
+  clinicsLoading?: boolean;
+  clinicsError?: boolean;
+  onRetryClinics?: () => void;
+}) {
   const [search, setSearch] = useState("");
   const [clinicFilter, setClinicFilter] = useState<ClinicFilter>("all");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
@@ -363,6 +373,13 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
             </div>
           </CardHeader>
           <CardContent className="max-h-[620px] space-y-2 overflow-y-auto pt-0">
+            {clinicsError && (
+              <div className="mb-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/15 dark:text-red-300" role="alert">
+                <p className="font-semibold">Clinic directory unavailable.</p>
+                {onRetryClinics && <Button variant="outline" size="sm" className="mt-2 h-7 text-xs" onClick={onRetryClinics} disabled={clinicsLoading}>Retry clinics</Button>}
+              </div>
+            )}
+            {clinicsLoading && <p className="py-8 text-center text-xs text-muted-foreground">Loading clinics…</p>}
             {filteredClinics.map(clinic => (
               <button
                 key={clinic.id}
@@ -503,7 +520,17 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
                   </CardHeader>
                   <CardContent>
                     {historyQuery.isLoading && <p className="text-xs text-muted-foreground">Loading history…</p>}
-                    {historyQuery.isError && <p className="text-xs text-red-600">Subscription history is unavailable.</p>}
+                    {historyQuery.isError && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-red-600 dark:text-red-400">
+                        <span>Subscription history is unavailable.</span>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => historyQuery.refetch()} disabled={historyQuery.isFetching}>Retry history</Button>
+                      </div>
+                    )}
+                    {historyQuery.isFetching && historyQuery.data && (
+                      <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+                        Refreshing subscription history; the displayed events may be delayed.
+                      </p>
+                    )}
                     {historyQuery.data && !historyQuery.data.lifecycleEvents.length && <p className="text-xs text-muted-foreground">No lifecycle events recorded yet.</p>}
                     {historyQuery.data && historyQuery.data.lifecycleEvents.length > 0 && (
                       <div className="space-y-2">

@@ -144,6 +144,7 @@ export default function AdminOperationsOverview({
   onMonthChange,
   onRefreshMessaging,
   clinicsLoading = false,
+  clinicsFetching = false,
   clinicsError = false,
   onRetryClinics,
 }: {
@@ -152,6 +153,7 @@ export default function AdminOperationsOverview({
   onMonthChange: (month: string) => void;
   onRefreshMessaging: () => void;
   clinicsLoading?: boolean;
+  clinicsFetching?: boolean;
   clinicsError?: boolean;
   onRetryClinics?: () => void;
 }) {
@@ -230,6 +232,9 @@ export default function AdminOperationsOverview({
   const storagePercent = storageTotals?.usagePercent;
   const activeSubscriptions = activeClinics.filter(clinic => getSubscriptionStatusInfo(clinic.subscriptionStatus).isActive).length;
   const hasOperationsError = clinicsError || messagingQuery.isError || storageQuery.isError;
+  const hasDelayedOperationsData = (clinicsFetching && clinics.length > 0) ||
+    (messagingQuery.isFetching && Boolean(messagingQuery.data)) ||
+    (storageQuery.isFetching && Boolean(storageQuery.data));
   const clinicDataAvailable = !clinicsLoading && !clinicsError;
   const platformSignalsAvailable = clinicDataAvailable && Boolean(messagingQuery.data) && Boolean(storageQuery.data);
   const platformSignalsHealthy = platformSignalsAvailable && !hasOperationsError && failedMessages === 0 && attentionClinics.length === 0;
@@ -312,6 +317,11 @@ export default function AdminOperationsOverview({
       {messagingQuery.isFetching && messagingQuery.data && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
           Refreshing messaging usage; the displayed values are from the previous successful report until the refresh completes.
+        </div>
+      )}
+      {hasDelayedOperationsData && !(messagingQuery.isFetching && messagingQuery.data) && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+          Refreshing platform operations data; displayed values may be delayed until the latest request completes.
         </div>
       )}
 
@@ -413,7 +423,9 @@ export default function AdminOperationsOverview({
                 {filteredClinics.map(clinic => {
                   const messaging = messagingByClinic.get(clinic.id);
                   const storage = storageByClinic.get(clinic.id);
-                  const serviceDataAvailable = Boolean(messagingQuery.data && storageQuery.data && messaging && storage);
+                   const serviceDataAvailable = Boolean(messagingQuery.data && storageQuery.data && messaging && storage);
+                   const serviceDataRefreshing = messagingQuery.isFetching || storageQuery.isFetching || clinicsFetching;
+                   const serviceDataDelayed = messagingQuery.isError || storageQuery.isError || clinicsError;
                   const signalCount = getAdminClinicAttentionReasons({
                     subscriptionStatus: clinic.subscriptionStatus,
                     storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
@@ -453,8 +465,10 @@ export default function AdminOperationsOverview({
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {!serviceDataAvailable ? (
+                         {!serviceDataAvailable ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Data unavailable</span>
+                         ) : serviceDataRefreshing || serviceDataDelayed ? (
+                           <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400"><RefreshCw className={`h-3.5 w-3.5 ${serviceDataRefreshing ? "animate-spin" : ""}`} /> {serviceDataRefreshing ? "Refreshing" : "Delayed"}</span>
                         ) : signalCount === 0 ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" /> None</span>
                         ) : (
@@ -517,8 +531,15 @@ export default function AdminOperationsOverview({
                 <CardContent>
                   {subscriptionEventsQuery.isLoading ? (
                     <p className="text-xs text-muted-foreground">Loading subscription history…</p>
-                  ) : subscriptionEventsQuery.isError ? (
-                    <p className="text-xs text-red-600 dark:text-red-400">Subscription history is unavailable.</p>
+                   ) : subscriptionEventsQuery.isError ? (
+                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-red-600 dark:text-red-400">
+                       <span>Subscription history is unavailable.</span>
+                       <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => subscriptionEventsQuery.refetch()} disabled={subscriptionEventsQuery.isFetching}>Retry history</Button>
+                     </div>
+                   ) : subscriptionEventsQuery.isFetching && subscriptionEventsQuery.data ? (
+                     <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+                       Refreshing provider history; the displayed events may be delayed.
+                     </div>
                   ) : subscriptionEventsQuery.data?.events.length ? (
                     <div className="space-y-2">
                       {subscriptionEventsQuery.data.events.slice(0, 8).map(event => (

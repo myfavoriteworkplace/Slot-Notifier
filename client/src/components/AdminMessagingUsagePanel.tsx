@@ -29,12 +29,14 @@ export default function AdminMessagingUsagePanel({
     queryKey: ["/api/admin/messaging-usage", month],
     queryFn: async () => (await apiRequest("GET", `/api/admin/messaging-usage?month=${encodeURIComponent(month)}`)).json(),
     staleTime: 60_000,
+    retry: 1,
   });
   const detailQuery = useQuery<AdminMessagingUsageSummary>({
     queryKey: ["/api/admin/messaging-usage", month, selectedClinicId],
     queryFn: async () => (await apiRequest("GET", `/api/admin/messaging-usage?month=${encodeURIComponent(month)}&clinicId=${selectedClinicId}`)).json(),
     enabled: selectedClinicId !== null,
     staleTime: 60_000,
+    retry: 1,
   });
   const filteredClinics = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -68,7 +70,12 @@ export default function AdminMessagingUsagePanel({
         </div>
       </div>
 
-      {query.error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">Unable to load application messaging usage. Retry to verify the period before relying on these values.</div>}
+      {query.error && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/15 dark:text-red-300" role="alert">
+          <span>Unable to load application messaging usage. Retry to verify the period before relying on these values.</span>
+          <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>Retry messaging</Button>
+        </div>
+      )}
       {query.isFetching && query.data && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
           Refreshing messaging usage; the displayed values are from the previous successful report until the refresh completes.
@@ -136,7 +143,12 @@ export default function AdminMessagingUsagePanel({
               <div className="grid grid-cols-[minmax(210px,1.5fr)_80px_80px_repeat(5,75px)_32px] gap-2 border-b bg-muted/30 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <span>Clinic</span><span>Plan</span><span>Status</span><span>SMS</span><span>WA</span><span>Email</span><span>Total</span><span>Failed</span><span />
               </div>
-              {query.data && filteredClinics.map(clinic => (
+               {query.data && query.isFetching && (
+                 <p className="border-b bg-amber-50/60 px-4 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+                   Refreshing clinic usage; the displayed rows may be delayed.
+                 </p>
+               )}
+               {query.data && filteredClinics.map(clinic => (
                 <button key={clinic.clinicId} type="button" onClick={() => setSelectedClinicId(clinic.clinicId)} className="grid w-full grid-cols-[minmax(210px,1.5fr)_80px_80px_repeat(5,75px)_32px] items-center gap-2 border-b px-4 py-3 text-left text-xs transition-colors hover:bg-muted/30">
                   <span className="flex min-w-0 items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${clinic.isArchived ? "bg-slate-400" : clinic.status === "approved" ? "bg-emerald-500" : "bg-amber-500"}`} /><span className="truncate font-semibold">{clinic.clinicName}</span></span>
                   <span className="capitalize text-muted-foreground">{clinic.plan || "—"}</span><span className="capitalize text-muted-foreground">{clinic.subscriptionStatus === "active" ? "Paid" : clinic.subscriptionStatus || "—"}</span>
@@ -154,7 +166,16 @@ export default function AdminMessagingUsagePanel({
       <Sheet open={selectedClinicId !== null} onOpenChange={open => !open && setSelectedClinicId(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader><SheetTitle>{selectedClinic?.clinicName || "Clinic messaging usage"}</SheetTitle><SheetDescription>{query.data?.period.month || month} · detailed communication usage and event breakdown</SheetDescription></SheetHeader>
-           {detailQuery.isLoading ? <div className="py-12 text-center text-sm text-muted-foreground">Loading clinic usage…</div> : detailQuery.isError ? <div className="py-12 text-center text-sm text-red-600">Clinic usage unavailable. Retry from the period panel.</div> : detailQuery.data ? (
+            {detailQuery.isLoading ? <div className="py-12 text-center text-sm text-muted-foreground">Loading clinic usage…</div> : detailQuery.isError ? (
+              <div className="flex flex-col items-center gap-3 py-12 text-center text-sm text-red-600 dark:text-red-400">
+                <p>Clinic usage unavailable.</p>
+                <Button variant="outline" size="sm" onClick={() => detailQuery.refetch()} disabled={detailQuery.isFetching}>Retry clinic usage</Button>
+              </div>
+            ) : detailQuery.isFetching && detailQuery.data ? (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+                Refreshing clinic usage; the displayed details may be delayed.
+              </div>
+            ) : detailQuery.data ? (
             <div className="mt-6 space-y-5">
               <div className="grid grid-cols-3 gap-2">
                 {[["SMS", detailQuery.data.totals.sms, "text-sky-700"], ["WhatsApp", detailQuery.data.totals.whatsapp, "text-emerald-700"], ["Email", detailQuery.data.totals.email, "text-violet-700"]].map(([label, value, text]) => <div key={String(label)} className="rounded-lg border bg-muted/20 p-3"><p className="text-[11px] text-muted-foreground">{label}</p><p className={`mt-1 text-xl font-bold ${text}`}>{number(Number(value))}</p></div>)}
