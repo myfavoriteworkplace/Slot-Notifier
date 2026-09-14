@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -9,8 +9,12 @@ import {
   Clock3,
   Database,
   CreditCard,
+  Globe,
   Gift,
   History,
+  Mail,
+  MapPin,
+  Phone,
   Play,
   Plus,
   RefreshCw,
@@ -19,12 +23,14 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Stethoscope,
   Users,
   XCircle,
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
 import type { EffectiveEntitlementItem, EffectiveEntitlementReport } from "@shared/effective-entitlement";
 import {
+  ADMIN_CLINIC_DIRECTORY_DEFAULT_FILTER,
   ADMIN_CLINIC_DIRECTORY_FILTER_OPTIONS,
   matchesAdminClinicDirectoryFilter,
   matchesAdminClinicDirectorySearch,
@@ -233,7 +239,7 @@ export default function AdminEntitlementReview({
   onRestoreClinic?: (clinic: Clinic) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [clinicFilter, setClinicFilter] = useState<AdminClinicDirectoryFilter>("all");
+  const [clinicFilter, setClinicFilter] = useState<AdminClinicDirectoryFilter>(ADMIN_CLINIC_DIRECTORY_DEFAULT_FILTER);
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [trialAction, setTrialAction] = useState<"start" | "extend">("start");
@@ -278,6 +284,13 @@ export default function AdminEntitlementReview({
       .filter(clinic => matchesAdminClinicDirectoryFilter(clinic, clinicFilter))
       .filter(clinic => matchesAdminClinicDirectorySearch(clinic as AdminClinicDirectoryRecord, needle));
   }, [clinicFilter, clinics, search]);
+
+  useEffect(() => {
+    setSelectedClinicId(currentId => {
+      if (filteredClinics.some(clinic => clinic.id === currentId)) return currentId;
+      return filteredClinics[0]?.id ?? null;
+    });
+  }, [filteredClinics]);
 
   const numericCapabilities = reportQuery.data?.capabilities.filter(item => USAGE_CAPABILITIES.has(item.capability)) ?? [];
   const featureCapabilities = reportQuery.data?.capabilities.filter(item => !USAGE_CAPABILITIES.has(item.capability)) ?? [];
@@ -622,6 +635,71 @@ export default function AdminEntitlementReview({
                  )}
                </CardContent>
              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Database className="h-4 w-4 text-primary" />Clinic profile
+                  </CardTitle>
+                  <CardDescription>Contact details and assigned doctors for the selected clinic.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 pt-0 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Contact & location</p>
+                    <div className="space-y-2 text-xs">
+                      {(selectedClinic.address || selectedClinic.city || (selectedClinic as any).pincode) && (
+                        <div className="flex items-start gap-2">
+                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span>{[selectedClinic.address, selectedClinic.city, (selectedClinic as any).pincode].filter(Boolean).join(", ")}</span>
+                        </div>
+                      )}
+                      {selectedClinic.email && (
+                        <a href={`mailto:${selectedClinic.email}`} className="flex items-center gap-2 text-foreground hover:text-primary">
+                          <Mail className="h-3.5 w-3.5 shrink-0 text-primary" />{selectedClinic.email}
+                        </a>
+                      )}
+                      {selectedClinic.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-primary" />{selectedClinic.phone}
+                        </div>
+                      )}
+                      {selectedClinic.website && (
+                        <a href={selectedClinic.website} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-primary hover:underline">
+                          <Globe className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{selectedClinic.website.replace(/^https?:\/\//, "")}</span>
+                        </a>
+                      )}
+                      {!selectedClinic.address && !selectedClinic.city && !selectedClinic.email && !selectedClinic.phone && !selectedClinic.website && (
+                        <p className="text-muted-foreground">No contact details recorded.</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <Stethoscope className="h-3.5 w-3.5" />Assigned doctors
+                    </p>
+                    {selectedClinic.doctors && selectedClinic.doctors.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedClinic.doctors.map((doctor, index) => (
+                          <div key={`${doctor.name}-${index}`} className="flex items-center gap-2.5 rounded-md border bg-muted/20 px-2.5 py-2">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold text-primary">
+                              {doctor.name.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium">Dr. {doctor.name}</p>
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {doctor.specialization}{doctor.degree ? ` · ${doctor.degree}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No doctors listed.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
             {reportQuery.isLoading && (
               <Card><CardContent className="flex min-h-[180px] items-center justify-center text-sm text-muted-foreground">Loading entitlement report…</CardContent></Card>

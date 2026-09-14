@@ -43,19 +43,19 @@ export type AdminClinicDirectorySearchField = (typeof ADMIN_CLINIC_DIRECTORY_SEA
 
 export const ADMIN_CLINIC_DIRECTORY_FILTERS = ADMIN_CLINIC_FILTERS;
 export type AdminClinicDirectoryFilter = AdminClinicFilter;
-export const ADMIN_CLINIC_DIRECTORY_DEFAULT_FILTER: AdminClinicDirectoryFilter = "all";
+export const ADMIN_CLINIC_DIRECTORY_DEFAULT_FILTER: AdminClinicDirectoryFilter = "active";
 
 export const ADMIN_CLINIC_DIRECTORY_FILTER_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
+  { value: "active", label: "Active Clinics" },
+  { value: "pending", label: "Pending Clinics" },
+  { value: "archived", label: "Archived / Inactive" },
+  { value: "all", label: "All Statuses" },
   { value: "attention", label: "Needs attention" },
-  { value: "trial", label: "Trial" },
-  { value: "paid", label: "Paid" },
-  { value: "pending", label: "Pending" },
-  { value: "archived", label: "Archived" },
-  { value: "sponsored", label: "Sponsored" },
-  { value: "exception", label: "Exception" },
-  { value: "unknown", label: "Unknown" },
+  { value: "trial", label: "Trial access" },
+  { value: "paid", label: "Paid access" },
+  { value: "sponsored", label: "Sponsored access" },
+  { value: "exception", label: "Access exceptions" },
+  { value: "unknown", label: "Unknown access" },
 ] as const satisfies readonly { value: AdminClinicDirectoryFilter; label: string }[];
 
 /**
