@@ -21,5 +21,6 @@
 - [Drizzle legacy-table guard](drizzle-schema-push.md) — declare legacy raw-SQL tables in Drizzle before schema pushes, or new tables may be offered as destructive renames.
 - [Super Admin platform scope](super-admin-platform-scope.md) — Super Admin operates subscriptions and platform services; clinic-private treatment revenue stays out of normal admin views.
 - [Subscription registration policy](subscription-registration-policy.md) — Trial is selectable once at registration; approval explicitly chooses Trial, Razorpay, complimentary, or verified offline assignment.
+- [Clinic plan-change workflow](clinic-plan-change-workflow.md) — Clinic Admin requests changes in Settings; Razorpay handles eligible provider changes and Super Admin handles audited fallbacks.
 - [Subscription lifecycle history](subscription-lifecycle-history.md) — current subscription fields are snapshots; transitions, assignments, sponsored access, and exceptions stay append-only and separate.
 - [Trial lifecycle idempotency](trial-lifecycle-idempotency.md) — provider expiry recovery must dedupe both provider events and lifecycle transition IDs before changing clinic state.

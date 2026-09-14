@@ -1171,3 +1171,1065 @@ Audit:
 ```
 
 This model aligns with the supplied market-standard comparison while preserving the stronger controls already designed for this application. It gives clinics a clean Trial choice, prevents repeated self-selected Trials, gives Super Admin full offline control, supports Razorpay confirmation, and keeps payment, access, and audit history separate.
+
+---
+
+## 18. Clinic Admin self-service plan changes
+
+The clinic must also be able to initiate a plan change from:
+
+```text
+Clinic Admin
+  → Settings
+  → Plan & access
+  → Manage plan
+```
+
+This is a request and payment-management surface, not a direct entitlement-editing surface.
+
+The Clinic Admin may:
+
+- View the current effective plan.
+- View the current billing cycle.
+- View the payment/access source.
+- Compare Starter, Growth, and Pro.
+- Request an upgrade.
+- Request a downgrade.
+- Request a monthly or annual billing-cycle change.
+- Start a Razorpay-managed online change when eligible.
+- Submit a request for Super Admin handling.
+- View pending, scheduled, applied, failed, rejected, and cancelled requests.
+- Cancel a pending or scheduled request when cancellation is still allowed.
+
+The Clinic Admin must not be able to:
+
+- Directly edit `clinics.plan`.
+- Directly edit `clinics.subscriptionStatus`.
+- Change the Razorpay subscription ID.
+- Select a provider plan ID supplied by the browser.
+- Mark a payment as captured.
+- Grant complimentary access to itself.
+- Record manual/offline payment verification.
+- Bypass a pending provider confirmation.
+- Start a second conflicting change while one is unresolved.
+
+The platform Super Admin or delegated billing operator remains responsible for offline approval, manual-payment verification, complimentary access, provider exceptions, and final reconciliation.
+
+### 18.1 Current UI baseline
+
+The existing `ClinicEntitlementSettingsPanel` is a read-only plan and usage panel. It already displays:
+
+- Current effective plan.
+- Effective access state.
+- Trial dates.
+- Paid expiry.
+- Access source information.
+- Usage measurements.
+- Plan comparison.
+
+The self-service work should extend this panel instead of creating a second unrelated billing page.
+
+The current read-only endpoint:
+
+```text
+GET /api/auth/clinic/settings/entitlements
+```
+
+should remain useful for entitlement reporting. A separate subscription-management response should provide actions and workflow state:
+
+```text
+GET /api/auth/clinic/settings/subscription
+```
+
+The response should include:
+
+```text
+current:
+  plan
+  billingCycle
+  subscriptionStatus
+  accessSource
+  providerSubscriptionIdPresent
+  paidAccessExpiresAt
+  renewalAt
+  policyVersion
+
+pendingChange:
+  requestId
+  requestType
+  fromPlan
+  toPlan
+  fromBillingCycle
+  toBillingCycle
+  status
+  effectiveTiming
+  effectiveAt
+  requestedMode
+  createdAt
+  cancellable
+
+actions:
+  canRequestUpgrade
+  canRequestDowngrade
+  canChangeBillingCycle
+  canUseRazorpay
+  canRequestSuperAdmin
+  canCancelPendingChange
+
+catalog:
+  availablePlans
+  availableBillingCycles
+  prices
+  policyVersion
+```
+
+The server must calculate all values. The browser may display a price preview, but the server remains the source of truth at submission time.
+
+### 18.2 Clinic Settings interaction
+
+The panel should show the current subscription in a clear summary:
+
+```text
+Current plan: Growth
+Billing cycle: Annual
+Status: Active paid
+Access source: Razorpay
+Renewal date: 14 September 2027
+
+[Compare plans] [Manage plan]
+```
+
+Selecting **Manage plan** opens a plan-change dialog with:
+
+1. Target plan.
+2. Target billing cycle.
+3. Effective timing.
+4. Payment/approval route.
+5. Price and entitlement impact.
+6. Confirmation.
+
+Target plan cards should show:
+
+- Plan name.
+- Monthly price.
+- Annual price.
+- Annual savings.
+- Included limits.
+- Relevant differences from the current plan.
+- Upgrade or downgrade label.
+
+The dialog must show the effective date before the final confirmation.
+
+Example upgrade confirmation:
+
+```text
+Growth Annual → Pro Annual
+
+Preferred effective timing:
+  Immediately, if Razorpay confirms the change
+  At the next renewal
+
+Payment route:
+  Change automatically with Razorpay
+  Request Super Admin assistance
+
+Your current Growth access will remain active until the change is confirmed.
+```
+
+Example downgrade confirmation:
+
+```text
+Pro Annual → Growth Annual
+
+Default effective date:
+  Next renewal: 14 September 2027
+
+Your current Pro access continues until that date.
+Existing clinic data will not be deleted.
+New activity may be limited by Growth rules after the downgrade becomes effective.
+```
+
+### 18.3 Trial restrictions in Clinic Settings
+
+Trial must not appear as a normal downgrade option.
+
+The panel may display Trial information, but a clinic cannot use self-service settings to:
+
+- Restart an expired initial Trial.
+- Convert a paid subscription into a new acquisition Trial.
+- Extend Trial indefinitely.
+- Replace a paid downgrade with Trial.
+
+The only allowed Trial-related self-service action is:
+
+```text
+Trial or recovery Trial clinic → request or start a paid-plan conversion
+```
+
+Admin-granted Trial, recovery Trial, and Trial extensions remain Super Admin actions.
+
+---
+
+## 19. Two self-service change routes
+
+Every Clinic Admin plan change must use one of two explicit routes.
+
+### Route A — Razorpay-managed online change
+
+Use this route when the current subscription is provider-managed and the requested operation is supported.
+
+```text
+Clinic selects a target plan
+  ↓
+Server validates the current subscription
+  ↓
+Server calculates the current price and target price
+  ↓
+Clinic confirms the effective timing and payment impact
+  ↓
+System creates an internal change request
+  ↓
+System calls the Razorpay provider adapter
+  ↓
+Provider operation is recorded
+  ↓
+Razorpay confirms or schedules the change
+  ↓
+Razorpay webhook is received
+  ↓
+Internal effective access is changed transactionally
+  ↓
+Clinic and Super Admin receive the result
+```
+
+Before provider confirmation:
+
+```text
+Current effective plan remains unchanged.
+Current entitlements remain unchanged.
+Target plan is stored as pending or scheduled.
+```
+
+The system must never treat a successful browser response from a provider preparation call as proof that access changed.
+
+### Route B — Super Admin request
+
+Use this route when the clinic wants offline handling or when the provider path is not eligible.
+
+```text
+Clinic selects a target plan
+  ↓
+Clinic chooses Request Super Admin
+  ↓
+Clinic provides a reason or optional context
+  ↓
+Server stores the request
+  ↓
+Authorized Super Admins receive a notification
+  ↓
+Request appears in the Admin subscription queue
+  ↓
+Super Admin approves, rejects, or requests information
+  ↓
+Approved change is applied or scheduled
+  ↓
+Clinic receives the result
+```
+
+This route is required for:
+
+- Complimentary access.
+- Verified offline payment.
+- Sponsored access.
+- Manual price negotiations.
+- Provider failures.
+- Unsupported provider operations.
+- Clinics without a valid Razorpay subscription.
+- Custom effective dates.
+- Immediate changes requiring human approval.
+- Trial exceptions.
+
+The clinic should not have to contact support by email for a normal plan request. The request should be visible, trackable, and auditable in the application.
+
+---
+
+## 20. Razorpay automation policy
+
+### 20.1 Provider eligibility
+
+The server may expose the Razorpay option only when:
+
+- The clinic has a valid provider subscription.
+- The current provider subscription is mapped to the clinic.
+- The provider subscription state is eligible for change.
+- The target plan and billing cycle have a configured provider mapping.
+- There is no unresolved provider operation.
+- There is no unresolved change request.
+- The requested transition is supported by the provider integration.
+- The local subscription data does not require reconciliation.
+
+If any condition fails, the UI should show:
+
+> Online plan change is not available for this subscription. You can request the change from Super Admin.
+
+The server must enforce the same rule even if the browser manually submits `requestedMode: "razorpay"`.
+
+### 20.2 Provider adapter
+
+Razorpay-specific behavior should be isolated behind a provider adapter with operations equivalent to:
+
+```text
+validateSubscriptionForChange()
+createPaidConversionSubscription()
+changePlanImmediately()
+schedulePlanChangeAtCycleEnd()
+cancelScheduledPlanChange()
+getSubscriptionStatus()
+```
+
+The route handler should not contain provider-specific plan-change logic.
+
+The adapter must verify the exact capability supported by the configured Razorpay account and subscription. The application must not assume that every Razorpay subscription supports immediate plan replacement, proration, or cycle changes.
+
+If the provider cannot safely perform the requested operation:
+
+```text
+Do not change local access.
+Mark the provider operation as unsupported or failed.
+Offer Super Admin request handling.
+Notify the clinic with a clear next step.
+```
+
+### 20.3 Upgrade timing
+
+An upgrade may be:
+
+```text
+Immediate
+Next renewal
+```
+
+Immediate upgrade is allowed only when:
+
+- The provider supports the change.
+- The amount due is known.
+- Proration or the first charge is understood.
+- The Clinic Admin confirms the displayed amount.
+- Provider confirmation is received.
+
+Next-renewal upgrade is the safer default when:
+
+- Proration is uncertain.
+- The current annual period should remain intact.
+- The provider only supports cycle-end changes.
+- The business does not want an immediate additional charge.
+
+The UI must not promise an immediate upgrade when the provider operation is only scheduled.
+
+### 20.4 Downgrade timing
+
+Downgrades default to the next renewal.
+
+```text
+Current access: Pro
+Requested target: Growth
+Current access remains Pro until renewal
+Growth becomes effective after renewal confirmation
+```
+
+Immediate downgrade requires:
+
+- Explicit Clinic Admin confirmation.
+- Clear financial and entitlement impact.
+- Provider confirmation or Super Admin approval.
+- Data-preservation validation.
+
+An immediate downgrade must not delete or silently hide:
+
+- Doctors.
+- Bookings.
+- Patients.
+- Documents.
+- Messages.
+- Clinical records.
+- Billing records.
+
+New activity may be restricted only after the effective downgrade and only after enforcement gates are enabled.
+
+### 20.5 Billing-cycle changes
+
+Treat monthly and annual changes as subscription changes.
+
+Recommended defaults:
+
+```text
+Monthly → Annual:
+  Next renewal unless an immediate charge and credit are explicit.
+
+Annual → Monthly:
+  End of current annual period.
+```
+
+The application must show:
+
+- Current period end.
+- New cycle.
+- New recurring amount.
+- Any immediate amount.
+- Any credit or adjustment.
+- The exact date when the new cycle begins.
+
+No cycle change should be inferred from a plan change without an explicit user selection.
+
+---
+
+## 21. Upgrade and downgrade state transitions
+
+### 21.1 Provider-paid upgrade
+
+Before the request:
+
+```text
+plan = starter
+subscriptionStatus = active
+pendingChange = null
+```
+
+After Clinic Admin submission:
+
+```text
+plan = starter
+subscriptionStatus = active
+pendingChange = starter → growth
+requestStatus = provider_pending
+```
+
+After Razorpay confirmation:
+
+```text
+plan = growth
+subscriptionStatus = active
+pendingChange = null
+requestStatus = applied
+```
+
+The lifecycle history should contain separate records for:
+
+```text
+upgrade_requested
+provider_change_confirmed
+upgrade_applied
+```
+
+### 21.2 Scheduled provider downgrade
+
+After the clinic submits:
+
+```text
+plan = pro
+subscriptionStatus = active
+pendingChange = pro → growth
+effectiveAt = current renewal date
+requestStatus = scheduled
+```
+
+At renewal confirmation:
+
+```text
+plan = growth
+subscriptionStatus = active
+pendingChange = null
+requestStatus = applied
+```
+
+If the provider fails to apply the scheduled change:
+
+```text
+plan remains pro
+requestStatus = failed
+provider reconciliation required
+clinic is notified
+Super Admin is notified
+```
+
+### 21.3 Paid conversion from Trial
+
+The clinic may choose a paid plan while Trial is active.
+
+Recommended transition:
+
+```text
+Trial access remains effective
+Paid conversion request becomes provider_pending
+Razorpay subscription is prepared
+Clinic completes payment
+Razorpay webhook confirms activation
+Paid plan becomes effective
+Trial dates are cleared
+```
+
+If the payment link expires or payment fails:
+
+```text
+Paid conversion request becomes failed or expired.
+The current Trial or grace state remains authoritative.
+No paid access is activated.
+```
+
+This prevents an abandoned upgrade from removing valid Trial access.
+
+### 21.4 Complimentary or manual-payment change
+
+A Super Admin-approved offline change must be represented separately:
+
+```text
+assignmentMode = complimentary_offline
+```
+
+or:
+
+```text
+assignmentMode = manual_payment_offline
+```
+
+It must not be reported as a Razorpay-paid subscription.
+
+---
+
+## 22. Super Admin request queue and notifications
+
+### 22.1 Request queue
+
+Add a Super Admin subscription-change queue with filters for:
+
+- Awaiting review.
+- Provider pending.
+- Scheduled.
+- Failed.
+- Upgrade.
+- Downgrade.
+- Billing-cycle change.
+- Complimentary.
+- Manual payment.
+- Immediate action.
+- Next-renewal action.
+- Trial conversion.
+- Reconciliation required.
+
+Each queue row should show:
+
+```text
+Clinic
+Current plan
+Target plan
+Current cycle
+Target cycle
+Requested by
+Requested at
+Requested timing
+Requested mode
+Current payment source
+Request status
+```
+
+### 22.2 Request detail
+
+The detail view should show:
+
+- Clinic identity.
+- Requesting Clinic Admin.
+- Current effective entitlement.
+- Current provider state.
+- Current billing cycle.
+- Target plan and cycle.
+- Price comparison.
+- Effective-date proposal.
+- Reason.
+- Usage impact.
+- Previous requests.
+- Provider operations.
+- Lifecycle history.
+- Existing pending changes.
+
+Super Admin actions:
+
+```text
+Approve with Razorpay
+Approve as complimentary offline
+Approve after verified offline payment
+Schedule at renewal
+Approve immediate change
+Reject
+Request more information
+Cancel provider operation
+Mark for reconciliation
+```
+
+The action must require a reason whenever it differs from the clinic’s requested route or timing.
+
+### 22.3 Notifications
+
+The existing notification table is currently centered on `userId`, `type`, message, and booking references. Subscription requests should use generic resource targeting rather than pretending to be booking notifications.
+
+Recommended notification fields:
+
+```text
+resourceType
+resourceId
+actionUrl
+```
+
+Recommended notification types:
+
+```text
+subscription_change_requested
+subscription_change_provider_pending
+subscription_change_scheduled
+subscription_change_approved
+subscription_change_rejected
+subscription_change_more_information
+subscription_change_applied
+subscription_change_failed
+subscription_change_cancelled
+subscription_reconciliation_required
+```
+
+Super Admin notification example:
+
+> Green Dental Clinic requested a change from Growth Annual to Pro Annual at the next renewal.
+
+Clinic notification example:
+
+> Your request to change from Growth Annual to Pro Annual was approved and scheduled for your next renewal.
+
+Every notification send must be deduplicated by request ID and notification type.
+
+---
+
+## 23. Data model for Clinic Admin changes
+
+### 23.1 Subscription change requests
+
+Create a dedicated table for intent and workflow state:
+
+```text
+subscription_change_requests
+----------------------------
+id
+clinicId
+requestedByUserId
+requestType
+currentPlan
+currentBillingCycle
+targetPlan
+targetBillingCycle
+requestedMode
+effectiveTiming
+requestedEffectiveAt
+status
+reason
+currentSubscriptionSnapshot
+policyVersion
+providerSubscriptionId
+providerOperationId
+transitionId
+reviewedBy
+reviewedAt
+resolutionReason
+resolvedAt
+createdAt
+updatedAt
+```
+
+Recommended values:
+
+```text
+requestType:
+  upgrade
+  downgrade
+  plan_change
+  billing_cycle_change
+  trial_conversion
+
+requestedMode:
+  razorpay
+  superadmin_offline
+
+effectiveTiming:
+  immediate
+  next_renewal
+  custom
+
+status:
+  submitted
+  validating
+  awaiting_admin
+  provider_pending
+  scheduled
+  awaiting_payment
+  approved
+  rejected
+  cancelled
+  applied
+  failed
+  expired
+  superseded
+```
+
+The request record must snapshot the current plan and billing cycle at submission time. This prevents an old request from silently applying against a different current subscription.
+
+### 23.2 Provider operations
+
+Inbound provider events are already stored in `subscription_provider_events`. Outbound change attempts should be recorded separately:
+
+```text
+subscription_provider_operations
+---------------------------------
+id
+clinicId
+requestId
+provider
+operationType
+providerSubscriptionId
+providerPlanId
+providerOperationReference
+idempotencyKey
+status
+requestSummary
+responseSummary
+failureCode
+failureMessage
+requestedAt
+completedAt
+```
+
+This distinguishes:
+
+```text
+Clinic requested a change.
+Application asked Razorpay to change it.
+Razorpay accepted or scheduled it.
+Razorpay later confirmed it by webhook.
+```
+
+### 23.3 Scheduled changes
+
+For renewal-based operations:
+
+```text
+subscription_scheduled_changes
+-------------------------------
+id
+clinicId
+requestId
+fromPlan
+fromBillingCycle
+toPlan
+toBillingCycle
+effectiveAt
+providerScheduleReference
+status
+createdBy
+appliedAt
+cancelledAt
+```
+
+The scheduled record should be cancelled or superseded when:
+
+- The clinic cancels the request.
+- A newer request replaces it.
+- The subscription is cancelled.
+- Provider state changes independently.
+- The Super Admin rejects the operation.
+
+---
+
+## 24. API blueprint
+
+### 24.1 Clinic endpoints
+
+```text
+GET /api/auth/clinic/settings/subscription
+```
+
+Returns the current subscription, allowed actions, catalog options, and any pending request.
+
+```text
+POST /api/auth/clinic/subscription-change-requests
+```
+
+Creates a request:
+
+```json
+{
+  "targetPlan": "growth",
+  "targetBillingCycle": "annual",
+  "requestedMode": "razorpay",
+  "effectiveTiming": "next_renewal",
+  "reason": "Need additional capacity for the new doctors"
+}
+```
+
+The server must derive:
+
+- Price.
+- Currency.
+- Provider plan ID.
+- Current effective plan.
+- Current billing cycle.
+- Current provider subscription.
+- Effective date.
+- Policy version.
+- Transition ID.
+
+The server must reject a request when:
+
+- The target plan is invalid.
+- The target plan is the same without a cycle change.
+- Another unresolved request exists.
+- The clinic is not authorized.
+- Provider state is inconsistent.
+- A downgrade would create an unsupported immediate entitlement state.
+
+```text
+GET /api/auth/clinic/subscription-change-requests
+```
+
+Returns the clinic’s request history.
+
+```text
+POST /api/auth/clinic/subscription-change-requests/:id/cancel
+```
+
+Cancels a request if it has not yet been applied and the provider operation can still be cancelled.
+
+### 24.2 Super Admin endpoints
+
+```text
+GET /api/admin/subscription-change-requests
+GET /api/admin/subscription-change-requests/:id
+POST /api/admin/subscription-change-requests/:id/approve
+POST /api/admin/subscription-change-requests/:id/reject
+POST /api/admin/subscription-change-requests/:id/request-information
+POST /api/admin/subscription-change-requests/:id/cancel
+```
+
+Approval should accept:
+
+```text
+assignmentMode:
+  provider_online
+  complimentary_offline
+  manual_payment_offline
+
+effectiveTiming:
+  immediate
+  next_renewal
+
+reason
+paymentReference
+evidenceReference
+startsAt
+endsAt
+```
+
+Payment references and evidence are required only for verified offline payment, but the exact requirements must be enforced server-side.
+
+---
+
+## 25. Idempotency and race protection
+
+The change workflow must be safe when:
+
+- The Clinic Admin double-clicks Submit.
+- The browser retries after a timeout.
+- Two Clinic Admin tabs submit at the same time.
+- Razorpay sends the same webhook more than once.
+- A webhook arrives while the Admin is reviewing the request.
+- A scheduled change job runs twice.
+- A Super Admin clicks Approve twice.
+- A newer request supersedes an older request.
+
+Use:
+
+```text
+Client request ID
+Clinic-scoped request uniqueness
+Clinic-scoped transition ID
+Provider operation idempotency key
+Provider event ID uniqueness
+Conditional status updates
+Transactional lifecycle writes
+```
+
+A repeated submission must return the existing request rather than create another request.
+
+A repeated provider event must not:
+
+- Apply the plan twice.
+- Create duplicate lifecycle events.
+- Send duplicate notifications.
+- Change the expiry date incorrectly.
+
+The provider operation must be created outside the database transaction that applies effective entitlements. The correct order is:
+
+```text
+Create internal request
+  → Call provider
+  → Store provider operation result
+  → Wait for webhook
+  → Apply effective state in a transaction
+```
+
+If the provider call fails, the clinic’s current access remains unchanged.
+
+---
+
+## 26. Data preservation and entitlement behavior
+
+The effective entitlement resolver must understand a pending change separately from the current plan.
+
+While an upgrade or downgrade is pending:
+
+```text
+effectivePlan = currentPlan
+pendingPlan = targetPlan
+```
+
+The target plan must not affect current entitlements before its effective time.
+
+At application time:
+
+1. Confirm the request is still valid.
+2. Confirm the current plan matches the request snapshot.
+3. Confirm provider or Super Admin approval.
+4. Write lifecycle history.
+5. Write plan assignment history.
+6. Update the clinic compatibility snapshot.
+7. Mark the request applied.
+8. Send clinic and Admin notifications.
+
+Downgrade behavior:
+
+- Do not delete data.
+- Do not delete doctors.
+- Do not delete patients.
+- Do not delete appointments.
+- Do not delete clinical records.
+- Do not delete billing history.
+- Keep existing data readable.
+- Apply new-plan limits only to new activity after enforcement is enabled.
+
+If existing usage exceeds the target plan, show a migration warning and prevent new over-limit activity only after the published enforcement gates are enabled.
+
+---
+
+## 27. Implementation phases for self-service changes
+
+### Phase 7 — Read-only plan-management readiness
+
+1. Extend Clinic Settings with current subscription metadata.
+2. Add pending-change display.
+3. Add plan and billing-cycle comparison.
+4. Show available actions based on server eligibility.
+5. Keep the existing effective-entitlement report read-only.
+
+### Phase 8 — Super Admin request workflow
+
+1. Add `subscription_change_requests`.
+2. Add Clinic Admin request submission.
+3. Add request history and cancellation.
+4. Add Super Admin request queue.
+5. Add generic subscription notification targeting.
+6. Add approve, reject, and request-information actions.
+7. Add offline complimentary approval.
+8. Add verified manual-payment approval through the separate ledger.
+
+### Phase 9 — Clinic-requested Razorpay conversion and upgrades
+
+1. Add outbound provider-operation tracking.
+2. Add a Razorpay provider adapter.
+3. Support Trial-to-paid conversion.
+4. Support eligible provider-paid upgrades.
+5. Keep current access until webhook confirmation.
+6. Add provider failure and fallback handling.
+7. Add duplicate operation protection.
+
+### Phase 10 — Scheduled downgrades and billing-cycle changes
+
+1. Add scheduled change storage.
+2. Add next-renewal downgrade requests.
+3. Add provider cycle-end scheduling where supported.
+4. Add monthly-to-annual handling.
+5. Add annual-to-monthly handling.
+6. Add cancellation and superseding behavior.
+7. Add renewal-time application jobs.
+
+### Phase 11 — Notifications and reconciliation
+
+1. Notify Super Admin when a request is submitted.
+2. Notify the clinic when a request is approved, rejected, scheduled, failed, or applied.
+3. Add failed-provider-operation alerts.
+4. Add reconciliation filters.
+5. Add pending-change reminders.
+6. Deduplicate all notification sends.
+
+### Phase 12 — Reporting-only validation
+
+1. Run provider test events against upgrade and downgrade scenarios.
+2. Verify repeated webhooks are harmless.
+3. Verify failed payments preserve current access.
+4. Verify scheduled downgrades apply only at the correct date.
+5. Verify manual and complimentary paths never appear as Razorpay revenue.
+6. Verify data remains intact after downgrade.
+7. Keep enforcement disabled until production baseline and reconciliation gates pass.
+
+---
+
+## 28. Additional release gates for Clinic Admin self-service
+
+Before enabling Clinic Admin plan changes:
+
+- Clinic Admin authorization is tenant-scoped.
+- Doctors and non-billing clinic users cannot submit changes.
+- Browser-submitted prices and provider plan IDs are ignored.
+- The current plan remains effective until confirmation or approved effective time.
+- Razorpay conversion does not remove valid Trial access before payment confirmation.
+- Immediate upgrades show the exact amount or use next-renewal timing.
+- Downgrades default to the next renewal.
+- Monthly and annual changes show the exact effective date.
+- Only one unresolved request can exist for a clinic and subscription scope.
+- Repeated submissions return the original request.
+- Provider operations are tracked separately from inbound events.
+- Provider webhooks are matched to the request and transition ID.
+- Duplicate webhooks are harmless.
+- Provider failure leaves current access unchanged.
+- Offline approval requires an authorized Super Admin.
+- Complimentary access is not reported as captured revenue.
+- Manual payment requires evidence and verification.
+- Existing data is never deleted by downgrade.
+- Pending changes are visible to the Clinic Admin and Super Admin.
+- Clinic and Super Admin notifications are deduplicated.
+- Cancellation of scheduled changes is audited.
+- Lifecycle history explains request, provider, approval, and application stages.
+- Type checking, Build Check, provider-race tests, request-idempotency tests, authorization tests, transition tests, and downgrade data-preservation tests pass.
+
+The final operating rule is:
+
+```text
+Clinic Admin:
+  May request and track plan changes from Settings.
+
+Razorpay:
+  May execute eligible provider-managed changes after explicit confirmation.
+
+Super Admin:
+  Handles offline, complimentary, manual-payment, unsupported,
+  exceptional, and failed-provider changes.
+
+Effective access:
+  Changes only after provider confirmation or authorized Admin approval.
+
+Downgrade:
+  Applies at renewal by default and never deletes existing data.
+```
