@@ -144,6 +144,7 @@ export default function AdminOperationsOverview({
   month,
   onMonthChange,
   onRefreshOperations,
+  view = "platform",
   selectedClinicId,
   onSelectClinic,
   clinicsLoading = false,
@@ -155,6 +156,7 @@ export default function AdminOperationsOverview({
   month: string;
   onMonthChange: (month: string) => void;
   onRefreshOperations: () => void;
+  view?: "platform" | "tenant";
   selectedClinicId: number | null;
   onSelectClinic: (clinicId: number | null) => void;
   clinicsLoading?: boolean;
@@ -252,6 +254,8 @@ export default function AdminOperationsOverview({
 
   return (
     <div className="space-y-5" data-testid="operations-workspace">
+      {view === "platform" && (
+        <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Operations</h2>
@@ -294,6 +298,8 @@ export default function AdminOperationsOverview({
           </div>
         </div>
       </div>
+        </>
+      )}
 
       {(clinicsLoading || messagingQuery.isLoading || storageQuery.isLoading) && (
         <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-700 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-300" role="status">
@@ -332,6 +338,8 @@ export default function AdminOperationsOverview({
         </div>
       )}
 
+      {view === "platform" && (
+        <>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <MetricCard label="Active tenants" value={clinicCountValue(activeClinics.length, clinicsLoading, clinicsError)} detail={clinicDataAvailable ? `${formatNumber(pendingClinics.length)} pending registration${pendingClinics.length === 1 ? "" : "s"}` : "Tenant count unavailable"} icon={Building2} />
         <MetricCard label="Subscriptions" value={clinicDataAvailable ? `${formatNumber(activeSubscriptions)} / ${formatNumber(activeClinics.length)}` : clinicCountValue(activeClinics.length, clinicsLoading, clinicsError)} detail="Active subscription coverage · legacy states normalized" icon={CreditCard} tone={clinicDataAvailable && activeSubscriptions === activeClinics.length ? "good" : "warning"} />
@@ -348,7 +356,32 @@ export default function AdminOperationsOverview({
         onSelectClinic={onSelectClinic}
         embedded
       />
+        </>
+      )}
 
+      {view === "tenant" && (
+        <>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Tenant Operations</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Subscription and platform-service status for each tenant. Clinic treatment revenue is not shown here.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="admin-tenant-operations-month" className="sr-only">Tenant operations reporting month</label>
+          <input
+            id="admin-tenant-operations-month"
+            type="month"
+            value={month}
+            max={getAdminCurrentMonth()}
+            onChange={event => onMonthChange(event.target.value)}
+            className="h-8 rounded-md border bg-background px-2 text-xs"
+          />
+          <Button variant="outline" size="sm" onClick={onRefreshOperations} disabled={isRefreshingOperations} className="h-8">
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshingOperations ? "animate-spin" : ""}`} />
+            Refresh tenant data
+          </Button>
+        </div>
+      </div>
       {attentionClinics.length > 0 && (
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900/60 dark:bg-amber-950/10">
           <CardHeader className="pb-2">
@@ -620,6 +653,8 @@ export default function AdminOperationsOverview({
           )}
         </SheetContent>
       </Sheet>
+        </>
+      )}
     </div>
   );
 }

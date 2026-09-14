@@ -25,6 +25,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import AdminMessagingUsagePanel from "@/components/AdminMessagingUsagePanel";
 import AdminOperationsOverview from "@/components/AdminOperationsOverview";
+import AdminTenantOperations from "@/components/AdminTenantOperations";
 import AdminEntitlementReview from "@/components/AdminEntitlementReview";
 import AdminPlanPolicies from "@/components/AdminPlanPolicies";
 function SiFacebook({ className }: { className?: string }) {
@@ -1002,7 +1003,7 @@ export default function Admin() {
       <Tabs
         defaultValue="operations"
         onValueChange={(value) => {
-          if (value !== "operations") {
+          if (value !== "operations" && value !== "tenant-operations") {
             setAdminSelectedClinicId(null);
           }
         }}
@@ -1011,7 +1012,11 @@ export default function Admin() {
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-9">
           <TabsTrigger value="operations" className="flex items-center gap-2" data-testid="tab-operations">
             <Server className="h-4 w-4" />
-            Operations
+            Platform Operations
+          </TabsTrigger>
+          <TabsTrigger value="tenant-operations" className="flex items-center gap-2" data-testid="tab-tenant-operations">
+            <Building2 className="h-4 w-4" />
+            Tenant Operations
           </TabsTrigger>
           <TabsTrigger value="plan-policies" className="flex items-center gap-2" data-testid="tab-plan-policies">
             <FileText className="h-4 w-4" />
@@ -1045,6 +1050,21 @@ export default function Admin() {
 
         <TabsContent value="operations">
           <AdminOperationsOverview
+            clinics={clinics}
+            month={adminMessagingMonth}
+            onMonthChange={setAdminMessagingMonth}
+            onRefreshOperations={refreshAdminOperations}
+            selectedClinicId={adminSelectedClinicId}
+            onSelectClinic={setAdminSelectedClinicId}
+            clinicsLoading={clinicsLoading}
+            clinicsFetching={clinicsFetching}
+            clinicsError={clinicsError}
+            onRetryClinics={() => refetchClinics()}
+          />
+        </TabsContent>
+
+        <TabsContent value="tenant-operations">
+          <AdminTenantOperations
             clinics={clinics}
             month={adminMessagingMonth}
             onMonthChange={setAdminMessagingMonth}
