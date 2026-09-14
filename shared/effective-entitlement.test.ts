@@ -31,6 +31,8 @@ test("resolves a known paid plan in reporting-only mode", () => {
   assert.equal(report.mode, "reporting_only");
   assert.equal(report.plan.effective, "starter");
   assert.equal(report.access.state, "active_paid");
+  assert.equal(report.nextStep.code, "ACTIVE_PAID");
+  assert.equal(report.nextStep.action, "none");
   assert.equal(bookings?.limit, 30);
   assert.equal(bookings?.remaining, 13);
   assert.equal(bookings?.overLimit, false);
@@ -49,6 +51,8 @@ test("keeps pending payment visible without silently denying reporting output", 
   assert.equal(report.subscription.state, "pending_payment");
   assert.equal(report.access.state, "attention");
   assert.equal(report.access.reasonCode, "SUBSCRIPTION_STATE_REQUIRES_RECONCILIATION");
+  assert.equal(report.nextStep.code, "WAIT_FOR_PAYMENT");
+  assert.equal(report.nextStep.action, "none");
   assert.equal(report.capabilities.find((item) => item.capability === "bookings")?.enabled, true);
 });
 
@@ -118,6 +122,8 @@ test("uses a current sponsored plan and explicit exception without mutating stat
   assert.equal(report.plan.effective, "growth");
   assert.equal(report.plan.source, "sponsored_access");
   assert.equal(report.access.state, "sponsored");
+  assert.equal(report.nextStep.code, "REVIEW_SPONSORED_ACCESS");
+  assert.equal(report.nextStep.action, "none");
   assert.equal(bookings?.limit, 40);
   assert.equal(bookings?.source, "exception");
   assert.equal(report.grants.active, 1);
@@ -137,5 +143,7 @@ test("does not silently fall back when the plan is unknown", () => {
   assert.equal(report.plan.effective, "unknown");
   assert.equal(report.plan.displayName, null);
   assert.equal(report.access.reasonCode, "UNKNOWN_PLAN");
+  assert.equal(report.nextStep.code, "CONTACT_SUPPORT");
+  assert.equal(report.nextStep.action, "contact_support");
   assert.equal(report.capabilities.every((item) => item.enabled === null), true);
 });

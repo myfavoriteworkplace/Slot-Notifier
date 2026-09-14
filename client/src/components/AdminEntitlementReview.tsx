@@ -134,6 +134,16 @@ const statusClass = (state: EffectiveEntitlementReport["access"]["state"]) => {
   return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300";
 };
 
+const guidanceClass = (action: EffectiveEntitlementReport["nextStep"]["action"]) => {
+  if (action === "contact_support") {
+    return "border-red-200 bg-red-50/70 dark:border-red-900/60 dark:bg-red-950/20";
+  }
+  if (action === "view_plans") {
+    return "border-amber-200 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/20";
+  }
+  return "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20";
+};
+
 const sourceLabel = (source: EffectiveEntitlementItem["source"]) => ({
   plan: "Published plan",
   sponsored_access: "Sponsored access",
@@ -566,6 +576,37 @@ export default function AdminEntitlementReview({
                       <p className={`mt-1 text-sm font-bold ${attentionCount ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>{attentionCount ? `${attentionCount} over limit` : "No over-limit usage"}</p>
                       <p className="mt-1 text-[11px] text-muted-foreground">{report.exceptions.active} exception{report.exceptions.active === 1 ? "" : "s"} · {report.grants.active} grant{report.grants.active === 1 ? "" : "s"}</p>
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card className={guidanceClass(report.nextStep.action)} data-testid={`admin-access-guidance-${selectedClinic.id}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      {report.nextStep.action === "contact_support"
+                        ? <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        : report.nextStep.action === "view_plans"
+                          ? <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+                      Access guidance
+                    </CardTitle>
+                    <CardDescription>Server-derived guidance for the clinic’s current access state.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 pt-0">
+                    <div>
+                      <p className="text-sm font-semibold">{report.nextStep.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{report.nextStep.description}</p>
+                    </div>
+                    {(report.access.trialOrigin || report.access.previousPaidPlan) && (
+                      <div className="rounded-md border border-current/10 bg-background/60 px-3 py-2 text-xs">
+                        <p className="font-semibold">Recovery context</p>
+                        <p className="mt-1 text-muted-foreground">
+                          {[
+                            report.access.trialOrigin && `Origin: ${labelFor(report.access.trialOrigin)}`,
+                            report.access.previousPaidPlan && `Previous paid plan: ${labelFor(report.access.previousPaidPlan)}`,
+                          ].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

@@ -342,6 +342,7 @@ export function resolveEffectiveEntitlements(input: EffectiveEntitlementInput): 
     trialIsActive ? "trial" :
     trialIsInGrace ? "trial_grace" :
     sponsoredGrant ? "sponsored" :
+    !policy ? "unknown" :
     subscription.state === "active" || subscription.state === "manual_override" ? "active_paid" :
     subscription.state === "unknown" ? "unknown" : "attention";
   const accessReason: EntitlementReasonCode =
@@ -388,7 +389,7 @@ export function resolveEffectiveEntitlements(input: EffectiveEntitlementInput): 
                   description: "Complete the activation payment and wait for provider confirmation before paid access begins.",
                   action: "none",
                 }
-              : subscription.state === "unknown" || subscription.state === "provider_error"
+              : accessState === "unknown" || subscription.state === "unknown" || subscription.state === "provider_error"
                 ? {
                     code: "CONTACT_SUPPORT",
                     label: "Subscription review is needed",
