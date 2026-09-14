@@ -22,6 +22,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import PlanComparisonDialog from "@/components/PlanComparisonDialog";
 
 const SUPPORT_EMAIL = "bookmyslot@mail.mossaic.in";
 
@@ -231,6 +232,7 @@ export default function ClinicEntitlementSettingsPanel() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
+            <PlanComparisonDialog currentPlan={data.plan.effective} />
             {action === "view_plans" && (
               <Button size="sm" onClick={() => setLocation("/pricing")} className="bg-emerald-600 text-white hover:bg-emerald-700">
                 View plans <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
