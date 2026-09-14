@@ -2555,3 +2555,193 @@ The Super Admin entitlement review now supports audited revocation of active tem
 - The effective-entitlement resolver already excludes revoked records, so the change removes temporary access from reporting without changing paid subscription state or enabling enforcement.
 
 Focused pure-policy tests cover event mapping and active/non-revoked eligibility. The subscription test suite now passes 32 tests, including the new revocation cases. Policy publishing remains review-only, live policy cutover remains deferred, and production enforcement remains blocked on the Render baseline gate.
+
+### 22.16 Clinic Settings Plan & Access optimization implementation plan
+
+This section records the agreed implementation plan for improving the clinic-facing Settings experience after reviewing the current Plan & access panel and the attached `plan-access-settings` visual reference. The goal is a modern, compact, first-look experience that helps a non-technical clinic administrator answer:
+
+1. What plan does the clinic have?
+2. Is access currently healthy or does it need attention?
+3. What has the clinic used?
+4. What should the clinic do next?
+5. What is included in the available plans?
+
+This is a presentation and information-architecture improvement. It must continue to use the reporting-only entitlement contract and must not be used to introduce subscription mutation, provider changes, or server-side enforcement early.
+
+#### 22.16.1 Design direction
+
+The attached reference provides a useful direction rather than a drop-in implementation:
+
+- Use a calm operational dashboard style with a light neutral background, white surfaces, restrained emerald accents, subtle borders, modest shadows, and consistent rounded corners.
+- Use a clear vertical hierarchy instead of giving every value the same visual weight.
+- Keep the content width controlled so cards do not become excessively wide on desktop.
+- Use compact section labels, short descriptions, status badges, icon containers, progress bars, and responsive grids.
+- Use the existing application typography and design tokens where possible instead of introducing a separate standalone font or CSS system.
+- Make the screen feel modern through spacing, hierarchy, and responsive behavior rather than heavy gradients, neon effects, excessive blur, or decorative animation.
+
+The reference HTML is static sample content. Its values, charts, delivery outcomes, payment details, and actions must not be copied as if they were live clinic data.
+
+#### 22.16.2 Information architecture
+
+The Settings experience should be organized in this order:
+
+1. **Plan & access header**
+   - Page title and plain-language description.
+   - Current plan name.
+   - Current access-state badge.
+   - A short source or policy line in secondary text.
+   - Last measured timestamp in a compact, human-readable form.
+   - Refresh as a secondary action.
+
+2. **Current access summary**
+   - Keep the current plan, state, and next action together.
+   - Place the most important state explanation immediately below the header.
+   - Use state-specific language for active access, payment pending, Trial, grace, recovery, attention, unknown, sponsored access, and unavailable state.
+   - Show only dates that are meaningful for the current state.
+   - Use context-specific empty values such as `Awaiting payment confirmation`, `Not applicable`, or `Not recorded` rather than implying that every date should exist.
+
+3. **Usage overview**
+   - Show bookings, active doctors, Smile Deals, storage, SMS, WhatsApp, and email as consistent usage cards.
+   - Each card should show current usage, limit, period, remaining value where known, and an understandable status such as `On track`, `Requires attention`, `Over limit`, or `Measurement unavailable`.
+   - Use progress bars only when numeric usage and limits are reliable.
+   - Keep the first four operational metrics visually prominent; messaging details may be grouped below.
+
+4. **Storage details**
+   - Retain the existing detailed Storage panel below the high-level usage summary.
+   - Avoid duplicating category counts unless the backend measures them reliably.
+   - Add file-review actions only where an existing safe clinic workflow already exists.
+
+5. **Communication details**
+   - Retain the existing detailed Messaging panel below the high-level messaging cards.
+   - Use a summary-first layout for SMS, WhatsApp, and email.
+   - Add delivery outcomes, purpose breakdowns, or historical charts only after the backend provides complete, timezone-aware reporting data.
+
+6. **Support and next steps**
+   - Keep one clear next action for attention states.
+   - Retain informational `View plans`, `Compare plans`, and `Contact support` actions.
+   - Avoid repeating upgrade or payment actions on every usage card.
+
+The current PlanComparisonDialog is the intended location for full Trial, Starter, Growth, and Pro plan comparison. The main Settings surface should remain focused on the clinic's current state and usage.
+
+#### 22.16.3 Current plan and access presentation
+
+The first-look header should be understandable without subscription terminology expertise:
+
+- `Starter · Payment confirmation pending`
+- `Growth · Active paid`
+- `Trial · Trial active`
+- `Recovery Trial · Requires attention`
+- `Plan information needs review · State unavailable`
+
+The next-step explanation should answer what the clinic administrator can do:
+
+- Payment pending: complete or confirm the payment process, without claiming paid access before provider confirmation.
+- Trial ending: review available plans.
+- Grace or recovery state: renew, choose a plan, or contact support.
+- Usage over limit: review the affected usage or contact support.
+- Unknown state: refresh or contact support.
+- Unavailable measurement: explain that the value could not be measured and must not be treated as zero.
+
+The screen must not display provider IDs, internal event IDs, platform subscription revenue, clinic-private treatment revenue, or other Super Admin-only information.
+
+#### 22.16.4 Plan comparison popup
+
+The full available-plan preview should remain in a user-invoked read-only dialog rather than expanding the main Settings page:
+
+- Trigger with `Compare plans`.
+- Highlight the clinic's current plan when the current plan resolves to Trial, Starter, Growth, or Pro.
+- Mark Growth as recommended according to the shared catalog.
+- Show monthly price, annual price, annual savings, summary, usage allowances, messaging allowances, feature packaging, Trial dates, and Pro fair-use wording.
+- Keep `View plans` as the navigation action for the existing pricing page where appropriate.
+- Keep plan comparison separate from actual plan assignment or payment activation.
+- Use the shared published catalog rather than copying prices or limits into the component.
+- Preserve explicit unknown-plan behavior; an unknown clinic plan must not be highlighted as Starter.
+
+The popup must never start a Trial, assign a plan, create a provider subscription, open a payment flow automatically, change subscription state, or enforce a limit.
+
+#### 22.16.5 Responsive and accessibility requirements
+
+The implementation should use the existing Settings layout and remain usable at clinic laptop, tablet, and mobile widths:
+
+- Large desktop: usage cards may use four columns, with detailed sections below.
+- Tablet: usage cards should reduce to two columns.
+- Mobile: cards should stack into one column with readable labels and no clipped values.
+- The plan comparison dialog should use two plan cards per row only where the viewport allows it; on narrow screens it should stack and scroll vertically.
+- Dialog content must have an internal scroll region, a visible close control, keyboard focus management, and focus return to the trigger.
+- Buttons and badges must have accessible names.
+- Status must never be communicated by colour alone.
+- Progress bars must have an adjacent text value and must not imply enforcement when the system is still reporting-only.
+- Text must remain readable when browser font size is increased.
+- Loading, retry, authorization failure, unavailable measurement, and unknown-plan states must each have an explicit presentation.
+
+#### 22.16.6 Data and contract boundaries
+
+The first visual optimization slice should use existing data only:
+
+- `GET /api/auth/clinic/settings/entitlements` remains the source for current clinic plan, access state, usage, dates, exceptions, sponsored access, freshness, and next-step guidance.
+- `EffectiveEntitlementReport` remains the shared response type.
+- `shared/plan-catalog.ts` remains the source for available-plan comparison.
+- No browser-side entitlement or usage calculations should be introduced.
+- Missing values must remain unavailable or unknown; they must not be converted to zero.
+- The current development baseline must not be presented as a production eligibility decision.
+
+Potential future data additions require separate validation before UI work:
+
+- Confirmed billing cycle and renewal date.
+- Historical monthly communication usage.
+- Accepted, failed, and skipped delivery outcomes.
+- Message-purpose breakdown.
+- Storage category breakdown.
+- Clinic-visible subscription history.
+
+The sample's charts and statistics must not be implemented with hardcoded demonstration values.
+
+#### 22.16.7 Staged implementation sequence
+
+**Stage A — Visual and layout optimization**
+
+- Refine the existing `ClinicEntitlementSettingsPanel` hierarchy.
+- Improve plan header, alert copy, date presentation, usage-card density, and responsive spacing.
+- Reuse existing Storage and Messaging panels without duplicating measurements.
+- Keep the plan comparison popup read-only and catalog-driven.
+- Preserve all existing reporting-only boundaries.
+
+**Stage B — Authenticated UI verification**
+
+- Verify the clinic Settings surface in an authenticated clinic session.
+- Test active paid, Trial, grace, recovery, payment pending, attention, unknown, unavailable, and over-limit presentations.
+- Verify desktop, tablet, and mobile widths.
+- Verify popup opening, current-plan highlighting, internal scrolling, keyboard close, focus return, and no unintended mutation request.
+
+**Stage C — Reporting data improvements**
+
+- Add only backend-backed billing, history, delivery, chart, or storage details.
+- Define period, timezone, freshness, unavailable-data, and privacy behavior before exposing each new metric.
+- Add focused contract and privacy tests for every new response field.
+
+**Stage D — Warning mode alignment**
+
+- After the production baseline gate, add shared 80% and 95% warning thresholds, Trial expiry reminders, warning audit records, and operational delivery.
+- Keep warnings non-blocking and ensure warning messages do not consume clinic allowances.
+
+Server-side entitlement enforcement remains a later stage and must not be bundled into the visual optimization work.
+
+#### 22.16.8 Acceptance criteria
+
+The optimized clinic Settings experience is complete only when:
+
+- A clinic administrator can identify the current plan, access state, and next action at first glance.
+- Usage cards show used, limit, remaining, period, and status without presenting unavailable data as zero.
+- The page uses space efficiently across desktop, tablet, and mobile widths.
+- The main surface remains concise while full plan details are available through the read-only comparison popup.
+- Trial, Starter, Growth, and Pro details come from the shared catalog.
+- Current plan state and available-plan policy remain visibly separate.
+- Payment, provider, Trial, and access actions remain protected by existing server workflows.
+- No provider IDs, internal identifiers, or private financial information are exposed.
+- No static sample values are presented as live clinic measurements.
+- Loading, retry, unauthorized, unknown, and unavailable states are understandable to common users.
+- Keyboard and screen-reader navigation work for the dialog and all primary actions.
+- Focused component/contract tests, `npm run check`, Build Check, `git diff --check`, and authenticated responsive verification pass.
+- The production baseline, warning-mode, policy cutover, and enforcement gates remain unchanged.
+
+**Planning status:** This is the approved design and implementation plan for the next clinic Settings optimization stage. The initial reporting-only panel and read-only plan comparison popup are already implemented; the visual reorganization, authenticated responsive verification, and any new backend-backed reporting metrics remain separate follow-up work.
