@@ -39,7 +39,24 @@ grep -n "SymbolName" path/to/file.tsx
 # Must not appear outside the import line
 ```
 
-### Step E — Lockfile hygiene (if any package was installed)
+### Step E — External dependency and lockfile hygiene (if any package was installed)
+Before adding a package, check where it is published and whether the external
+deployment needs it. **Do not add or push Replit-only, Replit-internal, or
+development-environment-specific libraries in the deployment dependency
+manifests.** A package that only exists inside Replit can make a clean Render
+install fail, and a package that is only local tooling must not become a
+production runtime dependency.
+
+If Replit-only tooling is intentionally retained for local development:
+- Keep it in `devDependencies`, never `dependencies`.
+- Load it only behind a development/Replit guard.
+- Confirm it is available from the public npm registry before pushing
+  `package.json` or `package-lock.json`.
+- Verify an external clean checkout can run `npm ci` without Replit services.
+
+Never commit a lockfile resolved to an internal Replit host or registry. Never
+commit `.env`, `.env.local`, or other development-machine environment files.
+
 ```bash
 npm run fix-lockfile
 grep "package-firewall.replit.local" package-lock.json   # must return nothing
@@ -67,6 +84,8 @@ grep -rn "new_field" shared/schema.ts server/index.ts   # must appear in both
 [ ] No duplicate exports for any new type/const
 [ ] No bare fetch('/api/...') or localhost in client/src/
 [ ] No deleted import symbol still used in JSX
+[ ] No Replit-only or development-environment-specific package was added to deployment manifests
+[ ] External install does not depend on Replit services or internal registries
 [ ] fix-lockfile run if any package was installed this session
 [ ] No console.log or debug statements left in committed code
 [ ] (backend) Every new route has correct auth guard
@@ -106,6 +125,14 @@ Before installing any new npm package, check if it is CJS-only (no `"module"` or
 - PDF utilities: `client/src/lib/clinic-pdf.ts`
 
 **Lockfile contamination:** After any `npm install` inside Replit, run `npm run fix-lockfile`. Replit writes `package-firewall.replit.local` as the resolved URL — that host is unreachable on Render.
+
+**External deployment dependency rule:** Render installs from the committed
+repository, not from the Replit workspace. Do not push Replit-only packages,
+internal registry URLs, or development-machine-only libraries in
+`package.json`/`package-lock.json`. Keep optional local tooling isolated in
+guarded `devDependencies`, or remove it before an external deployment. Test
+the dependency tree from a clean environment that can reach the public npm
+registry.
 
 **Memory budget:** If Render build OOMs, add `NODE_OPTIONS=--max-old-space-size=4096` to Render environment. The `manualChunks` config in `vite.config.ts` must remain intact.
 

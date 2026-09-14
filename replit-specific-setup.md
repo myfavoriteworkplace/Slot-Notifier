@@ -6,6 +6,28 @@ platform. Use it as a reference when deploying or running the app outside Replit
 
 ---
 
+## Repository rule for external deployment
+
+Render and other external hosts install dependencies from the committed
+repository, not from the Replit workspace. **Do not push Replit-only,
+Replit-internal, or development-environment-specific libraries in
+`package.json` or `package-lock.json`.** They may depend on services that do
+not exist outside Replit or may resolve to an internal registry hostname.
+
+For tooling that is genuinely needed only in Replit:
+
+- Keep it in `devDependencies`, never production `dependencies`.
+- Load it only behind a development/Replit condition.
+- Verify it is published on and installable from the public npm registry.
+- Check the lockfile after every Replit-side install and remove any
+  `package-firewall.replit.local` URL before pushing.
+- Do not commit `.env`, `.env.local`, or other development-machine settings.
+
+An external clean checkout must be able to run `npm ci` without Replit
+services, credentials, or registry access.
+
+---
+
 ## 1. Vite Plugins — `vite.config.ts`
 
 ### What it does
@@ -41,7 +63,10 @@ plugins: [
   in `package.json` and are not included in the production bundle.
 
 ### Action required for Render
-None. These plugins are inert outside Replit.
+They are inert outside Replit, but do not add additional Replit-only plugins to
+the deployment dependency tree. Any retained local tooling must remain in
+`devDependencies`, be guarded from production, and be installable from the
+public npm registry.
 
 ---
 
