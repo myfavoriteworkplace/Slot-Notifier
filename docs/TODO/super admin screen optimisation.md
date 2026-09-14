@@ -61,7 +61,7 @@ The shared reporting-period step is now complete:
 - Replaced the Messaging Usage panel’s hardcoded UTC copy with the API-reported period timezone.
 - Added a reporting-month test and verified the shared period behavior through type-checking and Build Check.
 
-**SA-05 is now complete:** the Super Admin surfaces explicitly distinguish loading, unavailable, failed, refreshing, and delayed data for clinic directories, messaging usage, storage usage, entitlement history, and provider history. Real measured zero values remain visible as zero. The Operations and Messaging Usage consolidation, shared clinic directory, and Active Clinics/Entitlements consolidation have not started. The next independent implementation step is **SA-06: Build the Operations workspace shell**.
+**SA-05 and SA-06 are now complete:** the Super Admin surfaces explicitly distinguish loading, unavailable, failed, refreshing, and delayed data for clinic directories, messaging usage, storage usage, entitlement history, and provider history. Real measured zero values remain visible as zero. The former Overview tab is now the Operations workspace with a single header, KPI area, attention area, tenant operations area, reporting-period control, and full operations refresh action. The Messaging Usage tab remains temporarily available for staged parity review. The shared clinic directory and Active Clinics/Entitlements consolidation have not started. The next independent implementation step is **SA-07: Move messaging summary into Operations**.
 
 ---
 
@@ -103,7 +103,7 @@ The goal is not to hide functionality. The goal is to put related work together 
 
 The current page contains these top-level tabs:
 
-1. Overview
+1. Operations
 2. Plan Policies
 3. Entitlements
 4. Active Clinics
@@ -117,7 +117,7 @@ The current page contains these top-level tabs:
 
 | Area | Current implementation | Main responsibility |
 |---|---|---|
-| Overview | `client/src/components/AdminOperationsOverview.tsx` | Platform KPIs, attention signals, tenant operations table, operations detail sheet |
+| Operations | `client/src/components/AdminOperationsOverview.tsx` | Platform KPIs, attention signals, tenant operations table, operations detail sheet |
 | Messaging Usage | `client/src/components/AdminMessagingUsagePanel.tsx` | Monthly messaging totals, trend, channel mix, clinic comparison, messaging detail sheet |
 | Entitlements | `client/src/components/AdminEntitlementReview.tsx` | Plan access, Trial, paid-plan assignment, sponsored access, exceptions, limits, features, subscription history |
 | Plan Policies | `client/src/components/AdminPlanPolicies.tsx` | Versioned plan catalog editing, validation, draft, impact preview, publishing |
@@ -135,7 +135,7 @@ The main Admin page loads clinics through:
 GET /api/clinics
 ```
 
-The Operations Overview loads:
+The Operations workspace loads:
 
 ```text
 GET /api/admin/messaging-usage?month=YYYY-MM
@@ -268,7 +268,7 @@ Each row is one reviewable implementation step. The step should be kept small en
 | SA-03 | **Completed:** Define one clinic filter contract | Document and implement the inclusion rules for active, pending, archived, Trial, paid, sponsored, exception, attention, and unknown clinics. | `shared/admin-operations.ts`, `shared/admin-operations.test.ts`, `AdminOperationsOverview.tsx`, `AdminEntitlementReview.tsx`, `Admin.tsx` | SA-02 | Operations, Entitlements, and the main Admin lifecycle counts use the shared filter contract; sponsored and exception filters do not guess without server-backed access context. |
 | SA-04 | **Completed:** Define the shared reporting-period state | Establish one owner for month, API timezone, refresh, query keys, and freshness. Preserve existing endpoint shapes. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `Admin.tsx`, `shared/admin-operations.ts` | SA-02 | Admin owns one month and refresh action; both messaging panels, trends, comparisons, and selected-clinic details use that period and display the API-reported timezone. |
 | SA-05 | **Completed:** Add explicit unavailable and delayed rendering | Replace remaining zero fallbacks for missing messaging, storage, entitlement, and provider data with unavailable, delayed, or error states. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `AdminEntitlementReview.tsx`, `Admin.tsx` | SA-02 | A real measured zero is displayed as zero; missing or failed data never appears as a successful zero; failed reads offer retry and previous successful data is identified as delayed while refreshing. |
-| SA-06 | Build the Operations workspace shell | Rename Overview as Operations and provide one header, KPI area, attention area, usage area, tenant area, period control, and refresh action. | `AdminOperationsOverview.tsx`, `Admin.tsx` | SA-01, SA-04, SA-05 | Operations clearly answers what is healthy, what needs attention, and which clinic should be opened next. |
+| SA-06 | **Completed:** Build the Operations workspace shell | Rename Overview as Operations and provide one header, KPI area, attention area, usage area, tenant area, period control, and refresh action. | `AdminOperationsOverview.tsx`, `Admin.tsx` | SA-01, SA-04, SA-05 | Operations clearly answers what is healthy, what needs attention, and which clinic should be opened next; the default Admin workspace is Operations and its refresh action covers clinic, messaging, and storage data. |
 | SA-07 | Move messaging summary into Operations | Bring messaging totals, trend, channel mix, and failure information into Operations. Remove duplicate KPI groups while preserving useful detail. | `AdminMessagingUsagePanel.tsx`, `AdminOperationsOverview.tsx` | SA-04, SA-06 | Messaging information appears once at the correct level and all sections update to the shared reporting period. |
 | SA-08 | Create one Operations clinic detail surface | Replace separate Operations and Messaging Usage clinic sheets with one selected-clinic context containing operational, messaging, storage, and provider information. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx` | SA-04, SA-07 | A clinic opened from an attention card, table, or messaging comparison uses the same detail surface and preserves the list state. |
 | SA-09 | Define the Clinics & Access directory contract | Specify the directory columns, search fields, selection model, URL/state behavior, filters, archived handling, and mobile representation. | `Admin.tsx`, `AdminEntitlementReview.tsx`, `AdminOperationsOverview.tsx`, new shared directory types | SA-01, SA-03 | One clinic can be searched and selected without silently excluding a valid lifecycle or access state. |

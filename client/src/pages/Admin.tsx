@@ -374,8 +374,12 @@ export default function Admin() {
     refetchInterval: false,
   });
 
-  const refreshAdminMessaging = () => {
-    void queryClient.invalidateQueries({ queryKey: ["/api/admin/messaging-usage"] });
+  const refreshAdminOperations = () => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/messaging-usage"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/storage-usage"] }),
+    ]);
   };
 
   const createClinicMutation = useMutation({
@@ -964,11 +968,11 @@ export default function Admin() {
         </div>
       )}
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="operations" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-9">
-          <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-operations-overview">
+          <TabsTrigger value="operations" className="flex items-center gap-2" data-testid="tab-operations">
             <Server className="h-4 w-4" />
-            Overview
+            Operations
           </TabsTrigger>
           <TabsTrigger value="plan-policies" className="flex items-center gap-2" data-testid="tab-plan-policies">
             <FileText className="h-4 w-4" />
@@ -1004,12 +1008,12 @@ export default function Admin() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
+        <TabsContent value="operations">
           <AdminOperationsOverview
             clinics={clinics}
             month={adminMessagingMonth}
             onMonthChange={setAdminMessagingMonth}
-            onRefreshMessaging={refreshAdminMessaging}
+            onRefreshOperations={refreshAdminOperations}
             clinicsLoading={clinicsLoading}
             clinicsFetching={clinicsFetching}
             clinicsError={clinicsError}
@@ -1231,7 +1235,7 @@ export default function Admin() {
           <AdminMessagingUsagePanel
             month={adminMessagingMonth}
             onMonthChange={setAdminMessagingMonth}
-            onRefreshMessaging={refreshAdminMessaging}
+            onRefreshOperations={refreshAdminOperations}
           />
         </TabsContent>
 

@@ -17,11 +17,11 @@ const number = (value: number) => value.toLocaleString("en-IN");
 export default function AdminMessagingUsagePanel({
   month,
   onMonthChange,
-  onRefreshMessaging,
+  onRefreshOperations,
 }: {
   month: string;
   onMonthChange: (month: string) => void;
-  onRefreshMessaging: () => void;
+  onRefreshOperations: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
@@ -66,7 +66,7 @@ export default function AdminMessagingUsagePanel({
         <div className="flex items-center gap-2">
           <label htmlFor="admin-messaging-usage-month" className="sr-only">Usage month</label>
           <input id="admin-messaging-usage-month" type="month" value={month} max={getAdminCurrentMonth()} onChange={event => onMonthChange(event.target.value)} className="h-8 rounded-md border bg-background px-2 text-xs" />
-          <Button variant="outline" size="sm" onClick={onRefreshMessaging} disabled={query.isFetching} className="h-8"><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />Refresh usage</Button>
+          <Button variant="outline" size="sm" onClick={onRefreshOperations} disabled={query.isFetching} className="h-8"><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />Refresh usage</Button>
         </div>
       </div>
 

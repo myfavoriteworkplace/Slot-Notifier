@@ -142,7 +142,7 @@ export default function AdminOperationsOverview({
   clinics,
   month,
   onMonthChange,
-  onRefreshMessaging,
+  onRefreshOperations,
   clinicsLoading = false,
   clinicsFetching = false,
   clinicsError = false,
@@ -151,7 +151,7 @@ export default function AdminOperationsOverview({
   clinics: Clinic[];
   month: string;
   onMonthChange: (month: string) => void;
-  onRefreshMessaging: () => void;
+  onRefreshOperations: () => void;
   clinicsLoading?: boolean;
   clinicsFetching?: boolean;
   clinicsError?: boolean;
@@ -235,6 +235,7 @@ export default function AdminOperationsOverview({
   const hasDelayedOperationsData = (clinicsFetching && clinics.length > 0) ||
     (messagingQuery.isFetching && Boolean(messagingQuery.data)) ||
     (storageQuery.isFetching && Boolean(storageQuery.data));
+  const isRefreshingOperations = messagingQuery.isFetching || storageQuery.isFetching || clinicsFetching;
   const clinicDataAvailable = !clinicsLoading && !clinicsError;
   const platformSignalsAvailable = clinicDataAvailable && Boolean(messagingQuery.data) && Boolean(storageQuery.data);
   const platformSignalsHealthy = platformSignalsAvailable && !hasOperationsError && failedMessages === 0 && attentionClinics.length === 0;
@@ -245,12 +246,12 @@ export default function AdminOperationsOverview({
   const clinicFilterCount = (count: number) => clinicDataAvailable ? String(count) : "—";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-testid="operations-workspace">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Platform operations</h2>
+          <h2 className="text-xl font-bold tracking-tight">Operations</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Subscription access and BookMySlot service consumption. Clinic treatment revenue is not shown here.
+            Platform health, subscription access, and BookMySlot service consumption. Clinic treatment revenue is not shown here.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -266,12 +267,13 @@ export default function AdminOperationsOverview({
           <Button
             variant="outline"
             size="sm"
-            onClick={onRefreshMessaging}
-            disabled={messagingQuery.isFetching}
+            onClick={onRefreshOperations}
+            disabled={isRefreshingOperations}
             className="h-8"
+            data-testid="button-refresh-operations"
           >
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${messagingQuery.isFetching ? "animate-spin" : ""}`} />
-            Refresh usage
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshingOperations ? "animate-spin" : ""}`} />
+            Refresh operations
           </Button>
           <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
             platformSignalsHealthy
