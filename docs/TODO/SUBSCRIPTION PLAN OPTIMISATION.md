@@ -1,6 +1,6 @@
 # Subscription Plan Optimisation
 
-**Status:** Proposed blueprint — analysis and planning only  
+**Status:** Proposed blueprint — edge-case review incorporated; implementation not started
 **Date:** 2026-09-14  
 **Related blueprint:** [16-four-plan-subscription-and-entitlement-blueprint.md](./16-four-plan-subscription-and-entitlement-blueprint.md)
 **Source comparison:** Market-standard review supplied for this analysis
@@ -21,6 +21,25 @@ This table records the next independently executable work packages. Each row has
 | 8 | Scheduled upgrades, downgrades, and renewal application | **Not implemented.** The policy defines next-renewal downgrades, but scheduled-change storage and renewal application are absent. | Add scheduled-change records, superseding/cancellation rules, provider schedule references, and an idempotent renewal application job. | Downgrades and uncertain upgrades apply on the correct date while current paid access and existing data remain protected. |
 | 9 | Renewal reminders and pending-change notifications | **Not implemented.** Reminder policy is documented, but delivery records, templates, and scheduler integration are absent. | Add reminder-delivery tracking for 30-day, 7-day, expiry, Trial, manual-payment, complimentary, and pending-change events. | Clinics and Super Admins receive timely, deduplicated warnings about renewal, expiry, failed changes, and pending decisions. |
 | 10 | End-to-end verification and reporting-only rollout | **Baseline only.** Existing type checking, subscription tests, diff checks, and Build Check have passed; the new workflows do not yet have complete race, authorization, provider, or downgrade tests. | Add contract, authorization, idempotency, provider-race, notification, scheduled-change, and data-preservation tests before enabling enforcement. | The subscription system can be validated safely while remaining reporting-only until provider reconciliation and release gates pass. |
+
+### Edge-case review status
+
+The edge cases in this document have now been added to the blueprint. They are
+not optional polish. They protect clinic access, payment records, and audit
+history.
+
+Before coding starts, the team must still make a final business decision on:
+
+1. Whether Trial and grace periods use exact timestamps or clinic-local calendar
+   days.
+2. Which capabilities are blocked when a clinic is already over a lower plan’s
+   limit after a downgrade.
+3. How unused manual-payment or complimentary time is handled when a clinic
+   changes to another access source.
+4. The exact identity-matching rules for detecting repeated Trial registrations.
+
+Until these choices are approved, the affected workflow must remain reporting
+only. It must not silently guess.
 
 ### Tracker status definitions
 
@@ -458,7 +477,13 @@ The Admin UI must never mark the clinic active just because the paid plan was se
 
 ### 6.4 Approval with complimentary offline access
 
-Allowed for Trial, Starter, Growth, or Pro when the business is granting access without payment.
+Allowed for Starter, Growth, or Pro when the business is granting access
+without payment.
+
+Trial is not a normal complimentary grant. If a Super Admin wants to give a
+clinic extra Trial access, use the separate Admin Trial workflow in §11.3.
+This keeps initial Trial, Recovery Trial, and Admin-granted Trial easy to
+understand and prevents a complimentary grant from resetting Trial eligibility.
 
 Flow:
 
@@ -484,7 +509,9 @@ Rules:
 - Actor and policy version.
 - Optional campaign or partner reference.
 - Waived list value reported separately from revenue.
-- Expiry returns to the underlying state.
+- Expiry returns to the clearly defined underlying state. The precedence rules
+  in §8.4 must be applied; the system must not guess from the current
+  `clinics.plan` snapshot.
 
 This is the correct way to assign a plan offline without taking payment.
 
@@ -530,16 +557,21 @@ The system must:
 
 ## 7. Assignment modes by plan
 
-All four plans can be assigned through the following controlled modes:
+The paid plans can be assigned through the following controlled modes. Trial
+uses its own Trial lifecycle, not the paid-plan assignment modes:
 
 | Plan | Trial mode | Complimentary offline | Razorpay online | Verified offline payment |
 |---|---:|---:|---:|---:|
-| Trial | Yes | Yes, as Admin grant | No | No |
+| Trial | Yes | No generic grant; use Admin Trial | No | No |
 | Starter | No acquisition Trial | Yes | Yes | Yes |
 | Growth | No acquisition Trial | Yes | Yes | Yes |
 | Pro | No acquisition Trial | Yes | Yes | Yes |
 
 Trial is not a Razorpay plan.
+
+Trial is also not an ordinary sponsored plan. An Admin-granted Trial must use
+the Trial lifecycle route, have its own origin, reason, dates, actor, and
+transition record.
 
 The distinction is:
 
@@ -666,7 +698,50 @@ failed
 superseded
 ```
 
-### 8.4 Renewal reminder records
+### 8.4 Temporary access and underlying-state rules
+
+When a temporary grant ends, the application must decide what access remains.
+It must not simply look at the latest value in `clinics.plan`, because that
+field is only a compatibility snapshot.
+
+Use this order when more than one record exists:
+
+```text
+1. Active provider-paid subscription
+2. Active verified manual-payment assignment
+3. Active complimentary paid-plan grant
+4. Active initial or Admin Trial
+5. Trial grace period
+6. Expired or read-only state
+7. Reconciliation required
+```
+
+The exact precedence between an active provider-paid subscription and an
+active manual or complimentary record must be resolved before overlapping
+records are allowed. The safe default is to reject overlapping effective
+access unless the transition explicitly closes the old source.
+
+Examples:
+
+```text
+Complimentary Growth ends
+  → Restore the valid underlying paid, manual, Trial, or expired state
+  → Do not restore a stale or superseded plan
+
+Manual-payment Growth ends
+  → Do not create a Razorpay-paid state automatically
+  → Return to the recorded underlying state or reconciliation
+
+Trial conversion is pending
+  → Keep Trial effective
+  → Store the paid target separately
+```
+
+Each access source must have its own assignment, start/end dates, reason,
+origin, policy version, and transition ID. Expiring one source must not delete
+the history of another source.
+
+### 8.5 Renewal reminder records
 
 Add a delivery record so reminders are not sent repeatedly:
 
@@ -739,6 +814,12 @@ Recommended behavior:
 - Verified offline upgrade: require payment verification.
 - Immediate upgrade: allowed when provider confirmation, proration, or complimentary terms are clear.
 - Otherwise: schedule at the next renewal.
+- If the clinic already has an active paid plan, never replace it in place.
+  Keep the old assignment, create a new request, and wait for confirmation or
+  an approved effective date.
+- If a complimentary or manual-payment period is being replaced, explicitly
+  close or schedule the old period. Do not create overlapping effective access
+  by accident.
 
 ### 9.3 Downgrade
 
@@ -760,6 +841,8 @@ Rules:
 - Warn about target-plan limits.
 - Restrict only new activity after enforcement is enabled.
 - Preserve old and new policy versions.
+- Use a capability-specific enforcement table. “Read-only” alone is not
+  specific enough for clinical software.
 
 Immediate downgrade requires explicit confirmation and should be limited to:
 
@@ -768,6 +851,10 @@ Immediate downgrade requires explicit confirmation and should be limited to:
 - Explicit clinic request.
 - Administrative correction.
 - Complimentary access expiry.
+
+An explicit request does not by itself authorize an immediate downgrade. The
+request still needs the required provider confirmation or authorized
+Super Admin approval, plus a clear effective time.
 
 ---
 
@@ -816,20 +903,36 @@ Scheduled-change application idempotency
 The initial Trial is:
 
 ```text
-14 calendar days
-7 calendar days of read-only grace
+14 days from the exact start timestamp
+7 days of read-only grace from the Trial end timestamp
 No payment details
 One acquisition transition per clinic lifecycle
 ```
 
 The first Trial must be created only once.
 
+The application must use one timing rule everywhere. The recommended rule is
+exact timestamp arithmetic:
+
+```text
+Trial starts at an exact timestamp.
+Trial ends after the published number of full days.
+Grace ends after the published grace duration.
+Dates shown to people use the clinic timezone.
+```
+
+Do not describe a Trial as “14 calendar days” in one place and calculate it as
+14 × 24 hours somewhere else. If the business chooses clinic-local calendar
+days instead, that choice must replace this rule everywhere, including
+Recovery Trial, complimentary access, expiry, and reminder scheduling.
+
 ### 11.2 Recovery Trial
 
 Recovery Trial is allowed only after:
 
 - A paid subscription existed.
-- Razorpay confirmed expiry or completion.
+- The provider confirmed that paid access actually ended.
+- The recorded paid-access expiry timestamp is reached.
 - Provider event processing succeeded.
 - The recovery transition has not already been applied.
 
@@ -844,6 +947,22 @@ recovery transition ID
 
 Recovery Trial is not a new acquisition Trial.
 
+Cancellation is not the same as expiry. A cancellation request, a disabled
+auto-renewal flag, or an unclear provider status must keep the current paid
+access unchanged and enter reconciliation if necessary. Only confirmed paid
+access expiry can start Recovery Trial.
+
+The Recovery Trial transition ID must be based on the provider subscription
+instance:
+
+```text
+recovery:{provider}:{providerSubscriptionId}
+```
+
+The provider event ID and event type are stored as metadata. They must not be
+the only idempotency key, because two different expiry-related events may
+refer to the same provider subscription.
+
 ### 11.3 Admin Trial
 
 Admin Trial is a controlled exception:
@@ -856,6 +975,7 @@ Admin Trial is a controlled exception:
 - Separate `admin_granted` origin.
 - Separate lifecycle event.
 - Configurable repetition limit.
+- Separate operation type from initial signup and paid-expiry recovery.
 
 An Admin cannot repeatedly use Trial grants as an unbounded replacement for paid access.
 
@@ -1059,6 +1179,27 @@ Unpaid pending assignment
 Complimentary list value is not revenue.
 
 No generic clinic-edit endpoint should be able to mutate plan or subscription state.
+
+### 14.1 How policy changes affect existing clinics
+
+Saving a policy version is not enough. The entitlement resolver must also know
+which policy version applies to the current access.
+
+Use these defaults unless the business approves a different rule:
+
+| Access type | Policy used for limits |
+|---|---|
+| Initial Trial | Policy saved when the Trial starts |
+| Recovery Trial | Policy saved when Recovery Trial starts |
+| Admin-granted Trial | Policy saved when the grant starts |
+| Complimentary access | Policy saved when the grant starts |
+| Verified manual payment | Policy saved when the payment is verified |
+| Paid provider subscription | The policy agreed for the current paid period, unless the contract says otherwise |
+
+When a new catalog is published, do not silently change the limits of an
+existing assignment unless that is the approved commercial policy. The Admin
+view should show both the assignment policy version and the currently
+published catalog version when they differ.
 
 ---
 
@@ -1505,6 +1646,22 @@ If any condition fails, the UI should show:
 
 The server must enforce the same rule even if the browser manually submits `requestedMode: "razorpay"`.
 
+Before applying a provider result, the server must match all of these:
+
+```text
+Internal clinic ID
+Internal request ID
+Internal transition ID
+Expected provider subscription ID
+Target plan
+Target billing cycle
+Expected request status
+```
+
+If the result belongs to an old, cancelled, superseded, unmatched, or
+reconciliation-required request, do not change effective access. Store the
+provider event for investigation instead.
+
 ### 20.2 Provider adapter
 
 Razorpay-specific behavior should be isolated behind a provider adapter with operations equivalent to:
@@ -1530,6 +1687,12 @@ Mark the provider operation as unsupported or failed.
 Offer Super Admin request handling.
 Notify the clinic with a clear next step.
 ```
+
+Provider preparation failure, expired activation links, and unmatched webhook
+results must have visible failure states. They must not leave a clinic
+permanently stuck in `pending_payment`, and they must not activate paid access.
+The clinic should return to its previous authoritative state when safe; if the
+previous state cannot be proven, use `reconciliation_required`.
 
 ### 20.3 Upgrade timing
 
@@ -1909,6 +2072,36 @@ status:
 
 The request record must snapshot the current plan and billing cycle at submission time. This prevents an old request from silently applying against a different current subscription.
 
+For conflict handling, use these separate but clinic-scoped limits:
+
+```text
+One active provider operation
+One active scheduled change
+One active manual-review request
+```
+
+The request must also identify the subscription instance or assignment it was
+created against. A request for an old provider subscription must not change a
+newer subscription after a renewal, cancellation, manual assignment, or
+superseding request.
+
+When a new request is submitted, the server must choose one clear result:
+
+```text
+Wait:
+  Keep the old request active and reject the new conflicting request.
+
+Supersede:
+  Mark the old request and any scheduled change as superseded,
+  record the reason, then create the new request.
+
+Cancel:
+  Cancel the old request only when the provider operation can still be
+  cancelled, then create the new request.
+```
+
+Never silently overwrite an unresolved request.
+
 ### 23.2 Provider operations
 
 Inbound provider events are already stored in `subscription_provider_events`. Outbound change attempts should be recorded separately:
@@ -2264,3 +2457,534 @@ Effective access:
 Downgrade:
   Applies at renewal by default and never deletes existing data.
 ```
+
+---
+
+## 29. Plain-language edge-case playbook
+
+This section turns the policy into simple rules for the people implementing the
+feature. When two rules appear to conflict, the safer rule wins:
+
+```text
+Do not remove valid access early.
+Do not activate paid access without proof.
+Do not overwrite history.
+Do not trust a browser response or an unmatched provider event.
+Do not let two access sources overlap silently.
+```
+
+### 29.1 An active paid clinic asks for an upgrade
+
+Example:
+
+```text
+Current: Growth Annual, active until 14 September 2027
+Request: Pro Annual
+```
+
+Rules:
+
+1. Keep Growth active while the request is being checked.
+2. Create a change request instead of editing `clinics.plan` directly.
+3. If Razorpay supports the change, wait for provider confirmation.
+4. If the provider cannot safely change it, schedule it for renewal or send it
+   to Super Admin.
+5. If the upgrade is complimentary or manually paid, create a separate
+   assignment with its own dates and audit record.
+6. Preserve the old Growth assignment forever in history.
+7. Never charge twice and never show Pro access before the approved effective
+   time.
+
+### 29.2 A clinic asks to downgrade before its paid period ends
+
+Example:
+
+```text
+Current: Pro Annual
+Request: Growth Annual
+Paid access ends: 14 September 2027
+```
+
+Default behavior:
+
+```text
+Keep Pro access until 14 September 2027.
+Show “Downgrade to Growth scheduled”.
+Apply Growth at the renewal/effective date.
+```
+
+Do not delete or hide existing:
+
+- Doctors
+- Patients
+- Bookings
+- Clinical records
+- Documents
+- Messages
+- Billing history
+
+After the downgrade becomes effective, restrictions apply only to new
+activity, and only after the capability-specific enforcement rules are enabled.
+
+An immediate downgrade requires explicit confirmation and provider or
+authorized Super Admin approval. “The clinic clicked downgrade” is not enough
+to silently remove paid access.
+
+### 29.3 Complimentary access changes to paid access
+
+Complimentary access is free access granted by the business. It is not revenue
+and must not look like a Razorpay payment.
+
+There are two safe choices:
+
+```text
+Scheduled change:
+  Complimentary access ends at its recorded end time.
+  Paid access begins after provider confirmation at the approved time.
+
+Immediate change:
+  The complimentary grant is explicitly closed and logged.
+  The paid plan becomes effective only after provider confirmation.
+```
+
+Do not keep both sources active without a deliberate, recorded overlap rule.
+When the complimentary grant ends, restore the correct underlying state from
+the precedence rules in §8.4, not from an old plan snapshot.
+
+### 29.4 Manual/offline payment changes to Razorpay
+
+Manual payment and Razorpay payment are different financial records.
+
+When a clinic with verified offline coverage requests Razorpay:
+
+1. Keep the offline payment record unchanged.
+2. Record the offline coverage end date.
+3. Create a separate Razorpay provider operation.
+4. Do not mark the clinic provider-paid until Razorpay confirms.
+5. Decide whether the provider plan begins immediately after closing the
+   offline period or at its scheduled end.
+6. If the provider attempt fails, keep the manual-payment state when it is still
+   valid.
+7. If the records cannot be reconciled, stop automatic access changes and mark
+   the clinic for reconciliation.
+
+Never create a fake Razorpay event to make the records look consistent.
+
+### 29.5 A clinic submits several changes at once
+
+Examples:
+
+- Upgrade Growth to Pro and change monthly to annual
+- Submit two upgrade requests from two browser tabs
+- Request an upgrade while a downgrade is already scheduled
+
+The system must not create competing active operations. Keep these limits:
+
+```text
+One active provider operation
+One active scheduled change
+One active manual-review request
+```
+
+For every new request, choose one result:
+
+```text
+Wait:
+  Reject the new conflicting request and keep the old one.
+
+Supersede:
+  Mark the old request as superseded, record why, then create the new one.
+
+Cancel:
+  Cancel the old request only when the provider operation can still be
+  cancelled, then create the new one.
+```
+
+Repeated submission of the same request must return the existing request rather
+than creating a second one.
+
+### 29.6 A scheduled downgrade is followed by an upgrade
+
+Example:
+
+```text
+Scheduled: Pro → Growth at renewal
+New request: Pro → Growth → Pro, or Pro → Starter → Growth
+```
+
+The newer request must explicitly supersede or cancel the old scheduled change.
+If Razorpay already has a provider-side schedule, the server must first check
+whether that schedule can be cancelled.
+
+If the provider schedule cannot be safely changed:
+
+```text
+Keep current access.
+Do not pretend the new request is applied.
+Record the provider conflict.
+Send the request to reconciliation or Super Admin.
+```
+
+Both the old and new requests remain visible in history.
+
+### 29.7 A renewal reminder overlaps with a pending change
+
+The reminder must show the current plan and the pending plan together.
+
+Good message:
+
+```text
+Your Growth Annual access ends on 14 September 2027.
+Your pending downgrade to Starter Annual is scheduled for renewal.
+```
+
+Bad message:
+
+```text
+Your Growth plan expires. Renew now.
+```
+
+The second message is misleading when the clinic already has a valid scheduled
+downgrade. Reminder generation must read the current effective assignment and
+the pending scheduled change before choosing the message.
+
+If a cancellation-at-period-end exists, the reminder should explain that access
+continues until the paid end date and that renewal is not currently scheduled.
+
+### 29.8 Trial misuse and repeated registration
+
+Trial selection during registration is allowed once for the clinic lifecycle.
+The server, not the browser, decides whether the clinic is eligible.
+
+The check may use:
+
+- Verified email
+- Normalized phone
+- Clinic name
+- GST number
+- Medical license identity
+- Registration-certificate identity
+- Existing active and archived clinic records
+- Previous Trial lifecycle events
+- Existing or recently completed registrations
+
+Do not use one field alone as an automatic rejection rule. A legitimate
+multi-branch clinic or ownership transfer may share some identity details.
+Cases with conflicting evidence should go to review.
+
+These Trial origins remain separate:
+
+```text
+initial_signup
+recovery_paid_expiry
+admin_granted
+admin_extension
+```
+
+An Admin-granted Trial must not reset the clinic’s initial-registration Trial
+eligibility.
+
+### 29.9 Provider webhook fails, is late, or cannot be matched
+
+The clinic must not become paid-active because an Admin selected a plan or
+because a browser received a successful preparation response.
+
+Use visible provider states:
+
+```text
+provider_pending
+provider_confirmed
+provider_failed
+provider_unmatched
+reconciliation_required
+```
+
+When a webhook cannot be matched to the expected clinic, request, provider
+subscription, plan, billing cycle, and transition:
+
+1. Store the provider event.
+2. Do not change effective access.
+3. Retry or query the provider when safe.
+4. Mark the clinic for reconciliation if the result remains unclear.
+5. Notify the responsible Admin and clinic when action is needed.
+
+An unmatched or old webhook must never change a newer local assignment.
+
+### 29.10 A paid plan expires and Recovery Trial may begin
+
+Recovery Trial starts only when all of these are true:
+
+1. The clinic really had a paid provider subscription.
+2. The provider confirms that paid access ended.
+3. The recorded paid-access expiry time has arrived.
+4. The provider subscription ID is known.
+5. The event has been processed successfully.
+6. Recovery has not already been applied for that provider subscription.
+
+Cancellation, disabled auto-renewal, or an unclear provider status is not
+enough.
+
+Use this transition identity:
+
+```text
+recovery:{provider}:{providerSubscriptionId}
+```
+
+Store the provider event ID and event type as supporting metadata. If two
+different expiry events refer to the same provider subscription, they must
+still create only one Recovery Trial.
+
+### 29.11 Trial, grace, expiry, and reminder timing
+
+The document must use one timing model everywhere. The recommended model is:
+
+```text
+Start from an exact timestamp.
+Add the published duration.
+Calculate grace from the Trial end timestamp.
+Display the resulting dates in the clinic timezone.
+```
+
+For example, do not describe a Trial as 14 calendar days but calculate it as
+the end of the fourteenth clinic-local date in one route and as 14 × 24 hours
+in another route.
+
+Apply the same decision to:
+
+- Initial Trial
+- Recovery Trial
+- Trial grace
+- Paid expiry
+- Complimentary access
+- Manual-payment coverage
+- Renewal reminders
+
+If the business chooses clinic-local calendar days instead, all of these
+workflows must use that rule consistently.
+
+### 29.12 What remains after temporary access ends
+
+The latest value of `clinics.plan` is not enough to decide this. Resolve access
+from assignment and lifecycle history.
+
+Recommended precedence:
+
+```text
+1. Active provider-paid subscription
+2. Active verified manual-payment assignment
+3. Active complimentary paid-plan grant
+4. Active Trial
+5. Trial grace
+6. Expired/read-only state
+7. Reconciliation required
+```
+
+If two records overlap and the system cannot prove which one should win, do not
+guess. Preserve access only when it is clearly authorized and send the case to
+reconciliation.
+
+### 29.13 Admin Trial must not look like Recovery Trial
+
+Admin Trial is a controlled business exception. It requires:
+
+- Super Admin authorization
+- A reason
+- Fixed start and end dates
+- Actor identity
+- Policy version
+- A unique transition ID
+- A separate lifecycle event
+- A repetition limit
+
+The system must not label an Admin Trial as paid-expiry recovery merely because
+the clinic currently has an expired, cancelled, or manual subscription state.
+Recovery origin requires matching provider-expiry evidence.
+
+### 29.14 Trial conversion to paid access
+
+When a Trial clinic starts paid conversion:
+
+```text
+Current effective access: Trial
+Pending target: paid plan
+Current state: pending payment
+```
+
+The Trial remains usable while payment is pending. After provider confirmation:
+
+```text
+Effective access: paid plan
+State: active
+Trial dates: cleared
+```
+
+If the payment fails, the link expires, or the clinic abandons the process:
+
+```text
+Request: failed or expired
+Effective access: previous Trial or grace state
+Paid access: not active
+```
+
+### 29.15 Pending payment must not become a permanent dead end
+
+For every pending payment, define:
+
+- Activation-link expiry
+- Retry behavior
+- Whether a new request supersedes the old one
+- Maximum outstanding provider attempts
+- What happens to an old provider subscription
+- How provider and local records are reconciled
+
+Safe default:
+
+```text
+Provider preparation fails:
+  Keep current access unchanged.
+
+Payment remains pending:
+  Keep current access unchanged unless the clinic had no prior access.
+
+Payment fails or expires:
+  Return to the previous authoritative state.
+
+Provider result cannot be matched:
+  Do not activate access; require reconciliation.
+```
+
+### 29.16 Provider webhooks must belong to the correct request
+
+Before applying any provider event, match:
+
+```text
+Clinic
+Internal request
+Internal transition
+Provider subscription
+Target plan
+Billing cycle
+Current request status
+```
+
+Reject or quarantine the event when:
+
+- The provider subscription ID is old or unexpected.
+- The plan does not match the request.
+- The billing cycle does not match.
+- The request was cancelled or superseded.
+- A newer assignment is already effective.
+- The provider event has no matching clinic.
+
+The event should remain available for investigation even when it is not applied.
+
+### 29.17 Policy changes must not silently change old access
+
+Each assignment records the policy version used when it was created. The
+entitlement resolver must use that version according to the approved policy.
+
+Recommended defaults:
+
+```text
+Initial Trial:
+  Use the policy saved when Trial started.
+
+Recovery Trial:
+  Use the policy saved when Recovery Trial started.
+
+Complimentary or manual access:
+  Use the policy saved when the access was granted or verified.
+
+Paid access:
+  Use the policy agreed for the current paid period unless the contract says
+  that published limits change immediately.
+```
+
+When a new catalog is published, show the difference to Super Admin instead of
+silently changing existing clinic limits.
+
+### 29.18 Downgrade enforcement must be capability-specific
+
+“Make the clinic read-only” is not detailed enough. Before enforcement, approve
+a table like this:
+
+| Capability | Existing data | New activity after downgrade |
+|---|---|---|
+| Doctors | Keep existing doctors | Block or allow new doctor creation according to target plan |
+| Bookings | Keep existing and scheduled bookings | Define whether new bookings are blocked once the limit is reached |
+| Smile Deals | Keep existing deals visible | Block new deals when over the target limit |
+| Storage | Keep files readable | Define whether uploads are blocked |
+| Messaging | Keep history visible | Preserve essential notifications and define other message limits |
+| Clinical records | Never delete or hide | Do not block safe clinical access without an approved policy |
+| Billing history | Keep all history | Never delete financial records |
+
+Show warnings before enforcing a restriction. Never delete data to make usage
+fit the new plan.
+
+### 29.19 Usage measurements need approved definitions
+
+Before limits are enforced, define whether each item counts:
+
+- Cancelled bookings
+- No-show bookings
+- Imported bookings
+- Admin-created bookings
+- Deactivated doctors
+- Expired Smile Deals
+- Files still inside a retention period
+- Test messages
+- Failed messages
+- Essential WhatsApp, SMS, or email messages
+
+The same definition must be used in reports, warnings, and enforcement.
+
+### 29.20 Renewal reminders depend on stable lifecycle states
+
+Renewal and expiry reminders should be implemented only after the following
+states are reliable:
+
+- Current effective plan
+- Access source
+- Paid-access expiry
+- Trial end and grace end
+- Pending scheduled change
+- Cancellation-at-period-end
+- Recovery Trial eligibility
+- Manual-payment coverage end
+- Complimentary-access end
+
+Every reminder needs a delivery record, template version, channel, status,
+retry behavior, and idempotency key. A reminder must not be sent repeatedly
+because a scheduler restarted.
+
+## 30. Known implementation mismatches to fix before rollout
+
+The current code already contains useful lifecycle foundations, but these
+specific mismatches must be corrected before enabling commercial automation:
+
+1. **Recovery identity:** The lifecycle helper uses the provider subscription
+   ID, but the webhook path still builds an event-based recovery transition.
+2. **Cancellation versus expiry:** The webhook and helper do not express one
+   single, shared rule for when paid access has truly ended.
+3. **Admin Trial origin:** The Admin Trial route can infer a paid-expiry origin
+   from the current snapshot. It must require matching provider history.
+4. **Trial conversion:** The paid-plan assignment route clears Trial fields
+   before provider confirmation. Trial access must remain effective while
+   payment is pending.
+5. **Timing language:** The implementation uses timestamp arithmetic while the
+   policy currently describes calendar days. One timing model must be chosen.
+6. **Temporary-access precedence:** The entitlement resolver supports active
+   sponsored access, but the full precedence and overlap rules need to be
+   explicit.
+7. **Provider correlation:** Future provider changes need request, transition,
+   provider-operation, subscription, plan, and billing-cycle correlation.
+8. **Usage enforcement:** Current usage measurements are useful for reporting,
+   but their commercial meaning must be approved before restrictions are turned
+   on.
+9. **Baseline wording:** Historical audit findings must be labelled as
+   historical. Current code findings and completed lifecycle foundations should
+   be refreshed before the execution tracker is used as a release gate.
+
+These are implementation gates, not suggestions. A workflow that cannot prove
+which access source, provider operation, or lifecycle transition it is applying
+must stop safely and request reconciliation.
