@@ -1,6 +1,6 @@
 # Super Admin Screen Optimisation
 
-**Status:** Implementation in progress — foundation work completed; UI consolidation remains  
+**Status:** Planning complete — foundation work completed; independent UI steps defined; UI consolidation remains  
 **Audience:** Product, design, frontend, backend, database, QA, support, and operations teams  
 **Application:** BookMySlot dental clinic platform  
 **Primary goal:** Make the Super Admin area easier to understand and faster to operate without removing existing administrative capabilities or exposing clinic-private treatment revenue.
@@ -237,115 +237,63 @@ Recommended user-facing labels:
 
 ---
 
-## 6. Independent implementation workstreams
+## 6. Independent implementation steps
 
-The following workstreams are deliberately separated so they can be planned, reviewed, and tested independently.
+The following steps are deliberately separated so each one can be implemented, reviewed, and tested as a standalone change. A step may still have a prerequisite; “independent” means that the step has one clear outcome and does not require an unrelated UI rewrite.
 
-### Dependency legend
+### Step definition
 
-- **Independent:** Can be developed without waiting for another UI workstream, provided existing API contracts remain unchanged.
-- **Prerequisite:** Should be completed before another workstream to avoid duplicated implementation.
-- **Follow-on:** Can start independently, but its final integration depends on an earlier workstream.
+Each row is one reviewable implementation step. The step should be kept small enough to merge and verify on its own. Dependencies identify information or code that must exist first; they do not require the whole optimisation to be delivered in one branch.
 
-### Detailed workstream table
+| ID | Independent step | Scope | Likely files or areas | Direct prerequisite | Done when |
+|---|---|---|---|---|---|
+| SA-01 | Confirm the target navigation | Approve the names, order, and ownership of Operations, Clinics & Access, Plans & Policies, Pending Review, Smile Deals, and Security & Audit. Decide that Archived is a clinic-directory state. | `client/src/pages/Admin.tsx`, this document, product/design review | None | A signed-off navigation map exists and no implementation step needs to reinterpret the information architecture. |
+| SA-02 | Keep shared admin policies authoritative | Retain the completed status, attention, storage, messaging, entitlement, and data-state helpers. Add any missing pure policy needed by later filters. Do not move authorization into the browser. | `shared/admin-operations.ts`, `shared/admin-operations.test.ts` | None; foundation is completed | Shared helpers define normal, warning, critical, unknown, unavailable, delayed, pending, archived, Trial, paid, sponsored, and exception interpretations with pure tests. |
+| SA-03 | Define one clinic filter contract | Document and implement the inclusion rules for active, pending, archived, Trial, paid, sponsored, exception, attention, and unknown clinics. | New shared clinic-filter module; `shared/admin-operations.ts`; tests | SA-02 | Operations, Pending, Active, Archived, and Clinics & Access can use the same filter definitions without inline variations. |
+| SA-04 | Define the shared reporting-period state | Establish one owner for month, API timezone, refresh, query keys, and freshness. Preserve existing endpoint shapes. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `Admin.tsx` | SA-02 | One month and timezone label can be passed to every messaging summary, trend, comparison, and detail view. |
+| SA-05 | Add explicit unavailable and delayed rendering | Replace remaining zero fallbacks for missing messaging, storage, entitlement, and provider data with unavailable, delayed, or error states. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `AdminEntitlementReview.tsx` | SA-02 | A real measured zero is displayed as zero; missing or failed data never appears as a successful zero. |
+| SA-06 | Build the Operations workspace shell | Rename Overview as Operations and provide one header, KPI area, attention area, usage area, tenant area, period control, and refresh action. | `AdminOperationsOverview.tsx`, `Admin.tsx` | SA-01, SA-04, SA-05 | Operations clearly answers what is healthy, what needs attention, and which clinic should be opened next. |
+| SA-07 | Move messaging summary into Operations | Bring messaging totals, trend, channel mix, and failure information into Operations. Remove duplicate KPI groups while preserving useful detail. | `AdminMessagingUsagePanel.tsx`, `AdminOperationsOverview.tsx` | SA-04, SA-06 | Messaging information appears once at the correct level and all sections update to the shared reporting period. |
+| SA-08 | Create one Operations clinic detail surface | Replace separate Operations and Messaging Usage clinic sheets with one selected-clinic context containing operational, messaging, storage, and provider information. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx` | SA-04, SA-07 | A clinic opened from an attention card, table, or messaging comparison uses the same detail surface and preserves the list state. |
+| SA-09 | Define the Clinics & Access directory contract | Specify the directory columns, search fields, selection model, URL/state behavior, filters, archived handling, and mobile representation. | `Admin.tsx`, `AdminEntitlementReview.tsx`, `AdminOperationsOverview.tsx`, new shared directory types | SA-01, SA-03 | One clinic can be searched and selected without silently excluding a valid lifecycle or access state. |
+| SA-10 | Build the Clinics & Access shell | Combine the directory and selected-clinic detail layout. Use a split layout on large screens and stacked layout on narrow screens. | New focused admin workspace component; `Admin.tsx`; `AdminEntitlementReview.tsx` | SA-09 | A selected clinic can be reviewed without switching between Active Clinics and Entitlements tabs. |
+| SA-11 | Move clinic profile actions | Preserve edit clinic, credentials, booking/About URLs, archive, and restore actions in the shared detail view. | `Admin.tsx`, clinic mutation handlers, shared detail components | SA-10 | All current Active Clinics actions remain available with the same mutations, confirmations, and error handling. |
+| SA-12 | Move effective access and entitlement details | Show the server-derived plan, access source, subscription state, important dates, limits, features, grants, exceptions, and unknown states. | `AdminEntitlementReview.tsx`, new detail components | SA-10; existing entitlement endpoints remain authoritative | The selected clinic view explains why access is active, Trial, paid, sponsored, exceptional, expired, pending, or unavailable. |
+| SA-13 | Combine clinic history | Present lifecycle events, plan assignments, sponsored grants, entitlement exceptions, revocations, and provider events in one consistent history view. | `AdminOperationsOverview.tsx`, `AdminEntitlementReview.tsx`, admin subscription routes | SA-12 | A support user can understand access history in one place, and no history record is rewritten or removed. |
+| SA-14 | Connect Pending Review to the selected clinic | Keep Pending Review as a queue, but link approval results directly to the same Clinics & Access view. Do not merge approval with paid activation. | Pending section in `Admin.tsx`, `AdminEntitlementReview.tsx` | SA-10; approved lifecycle policy | After approval, the administrator can open the clinic’s Access view and see the resulting Trial or access state. |
+| SA-15 | Move Archived into the shared directory | Add archived filtering and restore actions to the shared directory. Keep archived clinics out of active counts according to the shared filter contract. | `Admin.tsx`, shared clinic directory | SA-03, SA-10 | Archived clinics remain reachable and restorable, and Pending, Active, and Archived counts use documented rules everywhere. |
+| SA-16 | Keep Plan Policies separate and link effective versions | Leave draft/publish policy editing as a separate high-risk workflow. Show the effective policy version in clinic access details without embedding an editable policy document. | `AdminPlanPolicies.tsx`, `AdminEntitlementReview.tsx` | SA-12 | Policy editing remains separate, and a clinic detail can safely link to the relevant policy information. |
+| SA-17 | Audit admin route authorization consistency | Review the repeated superuser checks and the narrower `isAdmin` middleware. Do not broaden access or change the server-authoritative model; make protection consistent only where safe. | `server/routes.ts`, admin route tests | None; independent backend safety review | Every Super Admin endpoint has an explicit, tested server-side authorization path, with no new browser-only permission assumption. |
+| SA-18 | Redesign primary navigation responsively | Replace the nine-item equal-weight layout with grouped or compact navigation. Keep active state, keyboard access, focus visibility, and readable labels. | `Admin.tsx`, shared navigation styles | SA-01 | The primary navigation is usable on narrow screens and every workflow remains reachable. |
+| SA-19 | Make clinic directory and detail responsive | Use compact cards or a stacked list on phones. Keep identity, access state, attention state, and primary action visible. | New directory/detail components; `AdminEntitlementReview.tsx`; shared styles if needed | SA-10 | No critical clinic action is hidden off-screen and detail sections stack predictably. |
+| SA-20 | Make Operations tables and charts responsive | Keep clear scroll boundaries for genuinely tabular data and ensure charts have readable labels and stable dimensions. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx` | SA-06, SA-07 | Tables do not create page-level overflow and charts are readable at representative desktop and mobile widths. |
+| SA-21 | Extract stable Admin workflow components | Split the large page at stable workflow boundaries without changing business rules. Suggested boundaries are `AdminShell`, `AdminOperations`, `AdminClinicsAccess`, `AdminPendingReview`, `AdminPlansPolicies`, `AdminGrowthContent`, and `AdminSecurity`. | `client/src/pages/Admin.tsx`, new components | SA-01; may proceed incrementally | `Admin.tsx` owns composition/authentication while each workflow owns its presentation and local state. |
+| SA-22 | Add focused automated tests | Test policy helpers, clinic filters, period formatting, selection behavior, unavailable data, action visibility, and archived/pending inclusion rules. | Existing tests; new admin policy/filter/component tests | SA-02, SA-03; add alongside each UI step | Tests cover normal, empty, loading, error, unknown, unavailable, delayed, archived, pending, Trial, paid, sponsored, and exception states. |
+| SA-23 | Complete accessibility review | Check headings, tab semantics, labels, focus order, dialogs/sheets, live regions, table headers, and contrast. Do not communicate status by colour alone. | All changed admin components | Review each UI step; final pass after SA-18 to SA-20 | Keyboard and assistive-technology users can navigate, understand, and complete every workflow. |
+| SA-24 | Run final verification and release review | Run type check, production build, Build Check, application workflow, API smoke checks, responsive review, authorization checks, and privacy review. | Project workflows, admin routes, changed files | All applicable implementation steps | Workflows start, checks pass, admin protection remains intact, and no clinic-private revenue or clinical data appears. |
 
-| ID | Workstream | Plain-language change | Technical work required | Likely files or areas | Dependency | Completion criteria |
-|---|---|---|---|---|---|---|
-| SA-01 | Confirm the target navigation | Agree on the new names and section order before changing layout. | Record the final navigation map and which current tab moves into which workspace. Keep existing route and permission behaviour unchanged. | `client/src/pages/Admin.tsx`, this document, product/design review | Independent | A signed-off map exists for Operations, Clinics & Access, Plans & Policies, Pending Review, Smile Deals, and Security & Audit. |
-| SA-02 | Create shared admin display policies | Make status, attention, freshness, and availability labels consistent. | Extract pure helpers or shared modules for subscription status, operational attention reasons, data availability, and display labels. Do not move authorization into the browser. | `shared/admin-operations.ts`; `shared/admin-operations.test.ts`; `AdminOperationsOverview.tsx`; shared subscription policy | **Completed foundation** | Shared policy helpers now cover subscription, storage, messaging, entitlement, and data-state interpretation. Pure tests cover supported, legacy, unknown, healthy, warning, critical, and unavailable states. |
-| SA-03 | Define shared admin data contracts | Give the frontend one predictable shape for shared clinic operations data. | Document or type the combined clinic summary fields: clinic identity, lifecycle status, subscription state, plan, messaging summary, storage summary, attention reasons, and data freshness. Preserve existing endpoint compatibility unless a deliberate API change is approved. | `shared/admin-operations.ts`; `AdminOperationsOverview.tsx`; `AdminMessagingUsagePanel.tsx` | **Completed foundation** | Messaging and storage response types are shared by the current Operations and Messaging Usage components. Existing endpoint shapes remain unchanged. |
-| SA-04 | Share the messaging period and query state | Ensure Operations and detailed messaging information use the same month and timezone. | Create a shared hook or parent-owned state for selected month, refresh state, query key, period label, and freshness. Reuse the existing React Query key shape where possible. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `Admin.tsx` | SA-03 recommended | Changing the month updates all messaging sections in the workspace. There is one clear reporting-period label and no contradictory UTC/clinic-timezone copy. |
-| SA-05 | Build the Operations shell | Rename and restructure Overview as the main platform operations workspace. | Add a workspace header, period control, refresh action, KPI area, attention area, usage area, and tenant operations area. Keep loading, retry, empty, and unavailable states. | `AdminOperationsOverview.tsx`, `Admin.tsx` | SA-01; SA-02 and SA-04 recommended | The workspace answers: what is healthy, what needs attention, how much service usage exists, and which clinic should be opened next. |
-| SA-06 | Add the compact messaging section to Operations | Bring the useful parts of Messaging Usage into Operations without duplicating the entire page. | Reuse or extract channel mix, six-month trend, outcome totals, and period context. Keep a detailed clinic comparison available through the Operations tenant table or an explicit detail mode. | `AdminMessagingUsagePanel.tsx`, `AdminOperationsOverview.tsx` | SA-04; can start independently as a component extraction | Operations shows messaging totals and trends once. The detailed messaging view remains available and uses the same month and selected clinic. |
-| SA-07 | Remove duplicate Operations metrics | Avoid showing the same messages, accepted, failed, and clinic counts in several cards. | Decide which values are page-level KPIs and which belong in the messaging detail section. Remove or demote repeated cards while preserving important supporting information. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx` | SA-05 and SA-06 | There is one authoritative KPI row. A reviewer can identify the current period, total volume, failures, and channel breakdown without reading two competing metric groups. |
-| SA-08 | Unify Operations and messaging clinic details | Stop opening two different sheets for the same clinic. | Use one selected-clinic context. Add Usage as a section or tab within the clinic detail sheet. Preserve subscription provider history, storage information, messaging detail, and operational context. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx` | SA-04 and SA-06 | Selecting a clinic from Operations opens one detail surface. Messaging, storage, subscription, and operational context are available without losing the current list or filter. |
-| SA-09 | Define the shared clinic directory | Create one source of truth for finding and selecting clinics. | Decide list columns, search fields, filters, selected state, archived handling, and desktop/mobile rendering. Include active, pending, attention, Trial, paid, and archived states as appropriate. | `Admin.tsx`, `AdminEntitlementReview.tsx`, `AdminOperationsOverview.tsx` | SA-01 and SA-03 | A clinic can be found by one search and selected once. The directory has a documented filter contract and does not silently exclude a valid state. |
-| SA-10 | Build Clinics & Access workspace shell | Combine Active Clinics and Entitlements around one directory and one selected clinic. | Create the workspace layout with a left directory/list and a right detail panel on large screens. Stack the areas on small screens. Keep the clinic selection in the URL or controlled state if the existing routing pattern supports it. | New focused admin workspace component; `Admin.tsx`; `AdminEntitlementReview.tsx` | SA-09; SA-02 recommended | A selected clinic can be reviewed without switching between separate Active Clinics and Entitlements tabs. |
-| SA-11 | Move active-clinic operational actions into the shared detail view | Keep existing clinic management capabilities available after consolidation. | Preserve edit clinic, manage credentials, copy booking URL, copy About URL, archive, and restore actions. Keep destructive actions visibly distinct and retain existing confirmation or mutation behaviour. | `Admin.tsx`, clinic mutation handlers | SA-10 | Every action currently available from Active Clinics remains available from Clinics & Access, with the same server mutation and success/error handling. |
-| SA-12 | Add access and entitlement sections to the selected clinic | Make subscription and effective access understandable without a separate entitlement directory. | Move or extract effective plan, subscription state, policy version, access source, important dates, limits, features, temporary grants, exceptions, and lifecycle history into the selected clinic detail. | `AdminEntitlementReview.tsx`, new detail components | SA-10; existing entitlement endpoints remain authoritative | The selected clinic view explains why access is active, pending, Trial, sponsored, exceptional, expired, or unknown. |
-| SA-13 | Combine subscription and provider history | Give administrators one chronological access history. | Present lifecycle events, plan assignments, sponsored grants, entitlement exceptions, revocations, and provider events in a consistent timeline or grouped history view. Keep provider event processing status visible. | `AdminOperationsOverview.tsx`, `AdminEntitlementReview.tsx`, admin subscription routes | SA-12; API review may be required | A support user can understand what happened to a clinic’s access without opening multiple unrelated history cards. No history record is deleted or rewritten. |
-| SA-14 | Connect pending review to Clinics & Access | Remove the confusing instruction to switch tabs to assign access after approval. | Keep Pending Review as a queue, but link the approved clinic directly to its access section. Decide whether approval continues to start Trial only or offers a clearly documented next action. Do not change the approved lifecycle policy without product approval. | Pending section in `Admin.tsx`; `AdminEntitlementReview.tsx` | SA-10; policy decision required before changing approval actions | After approval, the administrator can reach the same clinic’s Access view directly. The UI does not imply that approval and paid activation are the same operation. |
-| SA-15 | Move archived clinics into the shared directory | Reduce top-level navigation while preserving archived management. | Add archived filtering and restore actions to the shared clinic workspace, or provide a secondary archived view using the same directory component. Exclude archived clinics consistently from active counts. | `Admin.tsx`, shared clinic directory | SA-09 and SA-10 | Archived records are reachable, restorable, and not counted as active. Pending and archived filters use the same inclusion rules everywhere. |
-| SA-16 | Keep Plan Policies separate but connect it clearly | Prevent catalog editing from being confused with per-clinic access management. | Keep the draft/publish policy editor separate. Add clear links or references to the policy version shown in clinic access details. Preserve validation, impact preview, reason requirements, and publish confirmation. | `AdminPlanPolicies.tsx`, `AdminEntitlementReview.tsx` | Independent; integration after SA-12 | Policy editing remains a separate high-risk workflow. A clinic detail can show which policy version is effective without embedding the editor. |
-| SA-17 | Reclassify low-frequency navigation | Make the navigation reflect how often and why each area is used. | Move Archived into Clinics & Access. Keep Smile Deals and Login Activity separate. Decide whether labels become Growth & Content and Security & Audit without changing their underlying functions. | `Admin.tsx` | SA-01 | The main navigation no longer presents nine unrelated items with equal visual weight. All existing workflows remain reachable. |
-| SA-18 | Responsive navigation redesign | Make the navigation usable on narrow screens. | Replace the nine-item grid with grouped navigation, a scrollable primary tab row, or a compact selector. Ensure active state, keyboard access, focus visibility, and readable labels. | `Admin.tsx`, shared tab/navigation styles | SA-17 | The navigation does not become an excessively tall grid on mobile. Every workspace remains reachable by keyboard and touch. |
-| SA-19 | Responsive clinic directory and detail layout | Make the combined clinic workflow usable on phones. | Use compact cards or a stacked list on narrow screens. Keep the clinic name, access state, attention state, and primary action visible. Make detail sections stack predictably. Preserve horizontal scrolling only for genuinely tabular data. | New directory/detail components; `AdminEntitlementReview.tsx`; `index.css` only if shared styles are needed | SA-10 | No critical action is hidden off-screen. The selected clinic, status, and main action remain understandable at narrow widths. |
-| SA-20 | Responsive Operations tables and charts | Prevent wide data from becoming unusable on mobile. | Keep a scrollable table where comparison requires columns, but provide a clear scroll boundary and preserve the first identity column if possible. Give charts minimum heights and readable legends. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx` | SA-05 and SA-06 | Tables do not overflow the page itself. Charts render without clipped labels or zero-height containers at representative widths. |
-| SA-21 | Accessibility and interaction audit | Make the reorganised screen usable for keyboard and assistive-technology users. | Check heading hierarchy, tab semantics, button labels, form labels, focus order, dialogs/sheets, live regions for loading/error states, table headers, and colour contrast. | All changed admin components | After each UI workstream; final audit after SA-18 to SA-20 | Keyboard users can navigate, open, close, and act on every workspace. Status meaning is not communicated by colour alone. |
-| SA-22 | Extract reusable implementation components | Reduce the risk of future changes in the large Admin page. | Split code at stable workflow boundaries rather than rewriting the page. Suggested boundaries: `AdminShell`, `AdminOperations`, `AdminClinicsAccess`, `AdminPendingReview`, `AdminPlansPolicies`, `AdminGrowthContent`, and `AdminSecurity`. | `client/src/pages/Admin.tsx` and new components | After navigation decisions; can happen incrementally | `Admin.tsx` remains responsible for composition and authentication state, while each workflow owns its presentation and local state. No business rule is changed during extraction. |
-| SA-23 | Add focused automated tests | Protect the shared behaviour while the UI is reorganised. | Add pure tests for status normalization, attention classification, clinic filters, archived/pending inclusion rules, period formatting, and unavailable-data handling. Add component tests for selection and action visibility where the project test setup supports them. | Existing test files; new admin policy/filter tests | SA-02, SA-03, SA-09 | Tests cover normal, empty, error, unknown, unavailable, archived, pending, Trial, paid, sponsored, and exception states. |
-| SA-24 | Run full verification and release review | Confirm that the screen still works as a complete system. | Run type check, production build, Build Check workflow, application workflow, API smoke checks, and representative desktop/mobile review. Confirm admin route protection and no privacy-boundary regression. | Project workflows; admin route; changed files | All implementation workstreams | The build and checks pass, workflows start, admin authentication remains protected, and no clinic-private revenue data appears in the operations UI. |
+### Steps that can proceed in parallel
 
----
+The steps below are independent once their direct prerequisites are satisfied:
 
-## 7. Work that can happen in parallel
+- **Policy and contract track:** SA-02, SA-03, SA-05, and SA-22.
+- **Operations track:** SA-04 through SA-08.
+- **Clinics & Access track:** SA-09 through SA-16.
+- **Safety track:** SA-17 and SA-23.
+- **Responsive and maintainability track:** SA-18 through SA-21.
 
-The work can be divided into independent tracks to reduce delivery time.
+Parallel work must not create competing definitions for clinic filters, reporting periods, data availability, or effective access. Those concepts must remain shared.
 
-### Track A — Shared rules and contracts
+### Recommended order for the complete delivery
 
-Can start immediately:
+The steps are independent deliverables, but this order minimizes rework:
 
-- SA-02 Shared admin display policies
-- SA-03 Shared admin data contracts
-- SA-23 Test planning and pure policy tests
-
-These tasks should be reviewed before the final Operations and Clinics & Access screens are connected.
-
-### Track B — Operations and messaging
-
-Can start after the target layout is agreed:
-
-- SA-04 Shared messaging period state
-- SA-05 Operations shell
-- SA-06 Compact messaging section
-- SA-07 Remove duplicate metrics
-- SA-08 Unified clinic detail
-
-### Track C — Clinics and access
-
-Can start independently from Track B after the navigation decision:
-
-- SA-09 Shared clinic directory definition
-- SA-10 Clinics & Access shell
-- SA-11 Active-clinic actions
-- SA-12 Access and entitlement sections
-- SA-13 Unified history
-
-### Track D — Navigation and low-frequency areas
-
-Can proceed independently:
-
-- SA-14 Pending Review handoff
-- SA-15 Archived view
-- SA-16 Plan Policies boundary
-- SA-17 Navigation classification
-- SA-18 Responsive navigation
-
-### Track E — Responsive and quality work
-
-Should begin once representative layouts exist, but does not need to wait for all business logic:
-
-- SA-19 Responsive clinic directory
-- SA-20 Responsive Operations tables and charts
-- SA-21 Accessibility audit
-- SA-22 Component extraction
-- SA-24 Final verification
-
----
-
-## 8. Suggested delivery sequence
-
-The workstreams are independent, but the safest delivery sequence is:
-
-| Phase | Work | Reason |
-|---|---|---|
-| Phase 0 | SA-01, SA-02, SA-03 | Agree on the destination and remove inconsistent display rules before duplicating them in new components. |
-| Phase 1 | SA-04, SA-05, SA-06, SA-07 | Consolidate Operations and messaging first because their metrics currently overlap most directly. |
-| Phase 2 | SA-09, SA-10, SA-11, SA-12 | Build one clinic directory and selected-clinic workspace. |
-| Phase 3 | SA-08, SA-13, SA-14, SA-15, SA-16, SA-17 | Join detail views, connect history, and reduce navigation duplication. |
-| Phase 4 | SA-18, SA-19, SA-20, SA-21 | Finish narrow-screen and accessibility behaviour after the information architecture is stable. |
-| Phase 5 | SA-22, SA-23, SA-24 | Extract remaining code, add regression protection, and perform full release verification. |
+1. **SA-01 to SA-05:** Confirm the destination and establish shared rules before building new screens.
+2. **SA-06 to SA-08:** Consolidate Operations and messaging.
+3. **SA-09 to SA-13:** Build the shared clinic directory, detail view, access sections, and history.
+4. **SA-14 to SA-17:** Connect Pending, Archived, Plan Policies, and route authorization review.
+5. **SA-18 to SA-21:** Finish navigation, responsive layouts, and component extraction.
+6. **SA-22 to SA-24:** Complete tests, accessibility, build verification, and release review.
 
 ---
 
