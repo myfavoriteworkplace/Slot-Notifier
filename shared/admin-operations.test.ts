@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   getAdminClinicLifecycleState,
   getAdminClinicAttentionReasons,
+  getAdminCurrentMonth,
   getAdminDataState,
   getAdminStorageUsageLevel,
   matchesAdminClinicFilter,
@@ -13,6 +14,10 @@ test("admin data state distinguishes loading, error, empty, and available", () =
   assert.equal(getAdminDataState({ isError: true }), "error");
   assert.equal(getAdminDataState({ hasData: false }), "empty");
   assert.equal(getAdminDataState({ hasData: true }), "available");
+});
+
+test("current reporting month uses a stable YYYY-MM value", () => {
+  assert.equal(getAdminCurrentMonth(new Date("2026-09-14T12:00:00.000Z")), "2026-09");
 });
 
 test("storage usage levels use the shared warning thresholds", () => {

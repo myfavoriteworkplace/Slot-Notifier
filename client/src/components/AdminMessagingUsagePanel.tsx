@@ -3,23 +3,26 @@ import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Building2, ChevronRight, Mail, MessageSquare, RefreshCw, Search, Smartphone } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { AdminMessagingUsageSummary } from "@shared/admin-operations";
+import { getAdminCurrentMonth, type AdminMessagingUsageSummary } from "@shared/admin-operations";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-const currentMonth = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit" }).formatToParts(new Date());
-  return `${parts.find(part => part.type === "year")?.value}-${parts.find(part => part.type === "month")?.value}`;
-};
 const formatMonth = (month: string) => new Intl.DateTimeFormat("en-IN", { month: "short" }).format(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1));
 const eventLabel = (eventType: string) => eventType.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase());
 const number = (value: number) => value.toLocaleString("en-IN");
 
-export default function AdminMessagingUsagePanel() {
-  const [month, setMonth] = useState(currentMonth);
+export default function AdminMessagingUsagePanel({
+  month,
+  onMonthChange,
+  onRefreshMessaging,
+}: {
+  month: string;
+  onMonthChange: (month: string) => void;
+  onRefreshMessaging: () => void;
+}) {
   const [search, setSearch] = useState("");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const query = useQuery<AdminMessagingUsageSummary>({
@@ -54,8 +57,8 @@ export default function AdminMessagingUsagePanel() {
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="admin-messaging-usage-month" className="sr-only">Usage month</label>
-          <input id="admin-messaging-usage-month" type="month" value={month} max={currentMonth()} onChange={event => setMonth(event.target.value)} className="h-8 rounded-md border bg-background px-2 text-xs" />
-          <Button variant="outline" size="sm" onClick={() => query.refetch()} disabled={query.isFetching} className="h-8"><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />Refresh</Button>
+          <input id="admin-messaging-usage-month" type="month" value={month} max={getAdminCurrentMonth()} onChange={event => onMonthChange(event.target.value)} className="h-8 rounded-md border bg-background px-2 text-xs" />
+          <Button variant="outline" size="sm" onClick={onRefreshMessaging} disabled={query.isFetching} className="h-8"><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />Refresh usage</Button>
         </div>
       </div>
 
@@ -96,7 +99,7 @@ export default function AdminMessagingUsagePanel() {
               const percent = total ? Math.round(value / total * 100) : 0;
               return <div key={label}><div className="mb-1 flex items-center justify-between text-xs"><span className="flex items-center gap-1.5 font-medium"><Icon className={`h-3.5 w-3.5 ${text}`} />{label}</span><span className="font-semibold">{number(value)} · {percent}%</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${bar}`} style={{ width: `${percent}%` }} /></div></div>;
             })}
-            <p className="border-t pt-3 text-[11px] text-muted-foreground">Reporting period uses UTC for cross-clinic comparison.</p>
+            <p className="border-t pt-3 text-[11px] text-muted-foreground">Reporting period timezone: {query.data?.period.timezone ?? "Loading"}.</p>
           </CardContent>
         </Card>
       </div>
@@ -137,7 +140,7 @@ export default function AdminMessagingUsagePanel() {
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="rounded-md bg-emerald-50 p-2 text-emerald-700">Accepted<br /><strong>{number(detailQuery.data.totals.accepted)}</strong></div><div className="rounded-md bg-amber-50 p-2 text-amber-700">Skipped<br /><strong>{number(detailQuery.data.totals.skipped)}</strong></div><div className="rounded-md bg-red-50 p-2 text-red-700">Failed<br /><strong>{number(detailQuery.data.totals.failed)}</strong></div></div>
               <div className="rounded-lg border"><div className="border-b bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Message purpose</div><div className="divide-y">{(detailQuery.data.byEvent ?? []).map(event => <div key={event.eventType} className="flex items-center justify-between gap-3 px-3 py-2 text-xs"><span className="font-medium">{eventLabel(event.eventType)}</span><span className="text-muted-foreground">{event.total} accepted message{event.total === 1 ? "" : "s"}</span></div>)}{!detailQuery.data.byEvent.length && <p className="p-4 text-xs text-muted-foreground">No accepted messages this month.</p>}</div></div>
-              <p className="text-[11px] text-muted-foreground">Billable units: <strong>{number(detailQuery.data.totals.billable)}</strong>. Reporting period uses UTC in the application admin view.</p>
+               <p className="text-[11px] text-muted-foreground">Billable units: <strong>{number(detailQuery.data.totals.billable)}</strong>. Reporting period timezone: {detailQuery.data.period.timezone}.</p>
             </div>
           )}
         </SheetContent>

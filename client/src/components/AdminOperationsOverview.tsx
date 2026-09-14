@@ -10,6 +10,7 @@ import {
   History,
   Mail,
   MessageSquare,
+  RefreshCw,
   Search,
   Server,
   ShieldAlert,
@@ -19,6 +20,7 @@ import {
 import type { Clinic } from "@shared/schema";
 import {
   getAdminClinicAttentionReasons,
+  getAdminCurrentMonth,
   getAdminStorageUsageLevel,
   matchesAdminClinicFilter,
   type AdminMessagingUsageSummary,
@@ -47,11 +49,6 @@ type SubscriptionProviderEvent = {
 };
 
 type TenantFilter = "all" | "attention" | "active" | "pending";
-
-const currentMonth = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit" }).formatToParts(new Date());
-  return `${parts.find(part => part.type === "year")?.value}-${parts.find(part => part.type === "month")?.value}`;
-};
 
 const formatNumber = (value: number) => value.toLocaleString("en-IN");
 
@@ -125,16 +122,21 @@ function MetricCard({
 
 export default function AdminOperationsOverview({
   clinics,
+  month,
+  onMonthChange,
+  onRefreshMessaging,
   clinicsLoading = false,
   clinicsError = false,
   onRetryClinics,
 }: {
   clinics: Clinic[];
+  month: string;
+  onMonthChange: (month: string) => void;
+  onRefreshMessaging: () => void;
   clinicsLoading?: boolean;
   clinicsError?: boolean;
   onRetryClinics?: () => void;
 }) {
-  const [month] = useState(currentMonth);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<TenantFilter>("all");
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
@@ -223,13 +225,34 @@ export default function AdminOperationsOverview({
             Subscription access and BookMySlot service consumption. Clinic treatment revenue is not shown here.
           </p>
         </div>
-        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-          platformSignalsHealthy
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
-            : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
-        }`}>
-          {platformSignalsHealthy ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-          {platformSignalsHealthy ? "Service signals healthy" : `${attentionClinics.length} tenant${attentionClinics.length === 1 ? "" : "s"} need attention`}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <label htmlFor="admin-operations-month" className="sr-only">Operations reporting month</label>
+          <input
+            id="admin-operations-month"
+            type="month"
+            value={month}
+            max={getAdminCurrentMonth()}
+            onChange={event => onMonthChange(event.target.value)}
+            className="h-8 rounded-md border bg-background px-2 text-xs"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefreshMessaging}
+            disabled={messagingQuery.isFetching}
+            className="h-8"
+          >
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${messagingQuery.isFetching ? "animate-spin" : ""}`} />
+            Refresh usage
+          </Button>
+          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+            platformSignalsHealthy
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
+              : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+          }`}>
+            {platformSignalsHealthy ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+            {platformSignalsHealthy ? "Service signals healthy" : `${attentionClinics.length} tenant${attentionClinics.length === 1 ? "" : "s"} need attention`}
+          </div>
         </div>
       </div>
 

@@ -17,7 +17,7 @@ import { notify } from "@/lib/notify";
 import { compressImage } from "@/lib/imageCompression";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Clinic, SmileDeal } from "@shared/schema";
-import { matchesAdminClinicFilter } from "@shared/admin-operations";
+import { getAdminCurrentMonth, matchesAdminClinicFilter } from "@shared/admin-operations";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -71,6 +71,7 @@ export default function Admin() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginStep, setLoginStep] = useState<"credentials" | "otp">("credentials");
   const [loginOtp, setLoginOtp] = useState("");
+  const [adminMessagingMonth, setAdminMessagingMonth] = useState(getAdminCurrentMonth);
   
   // Create clinic state
   const [newClinicName, setNewClinicName] = useState("");
@@ -372,6 +373,10 @@ export default function Admin() {
     enabled: !!user,
     refetchInterval: false,
   });
+
+  const refreshAdminMessaging = () => {
+    void queryClient.invalidateQueries({ queryKey: ["/api/admin/messaging-usage"] });
+  };
 
   const createClinicMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -989,6 +994,9 @@ export default function Admin() {
         <TabsContent value="overview">
           <AdminOperationsOverview
             clinics={clinics}
+            month={adminMessagingMonth}
+            onMonthChange={setAdminMessagingMonth}
+            onRefreshMessaging={refreshAdminMessaging}
             clinicsLoading={clinicsLoading}
             clinicsError={clinicsError}
             onRetryClinics={() => refetchClinics()}
@@ -1206,7 +1214,11 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="messaging-usage">
-          <AdminMessagingUsagePanel />
+          <AdminMessagingUsagePanel
+            month={adminMessagingMonth}
+            onMonthChange={setAdminMessagingMonth}
+            onRefreshMessaging={refreshAdminMessaging}
+          />
         </TabsContent>
 
         <TabsContent value="pending">

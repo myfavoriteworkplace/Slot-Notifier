@@ -65,6 +65,14 @@ export type AdminClinicFilterRecord = {
   attentionReasons?: readonly AdminAttentionReason[];
 };
 
+export function getAdminCurrentMonth(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(now);
+  return `${parts.find(part => part.type === "year")?.value}-${parts.find(part => part.type === "month")?.value}`;
+}
+
 export type AdminDataStateInput = {
   isLoading?: boolean;
   isError?: boolean;
