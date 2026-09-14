@@ -17,10 +17,11 @@ This table records the next independently executable work packages. Each row has
 | 4 | Clinic Admin Settings self-service request flow | **Not implemented.** `ClinicEntitlementSettingsPanel` is currently read-only and there is no subscription-change request table or endpoint. | Add the Settings change-plan experience, server eligibility response, request submission, request history, and cancellation of eligible pending requests. | A Clinic Admin can request upgrades, downgrades, and billing-cycle changes without directly mutating plan or payment state. |
 | 5 | Super Admin request queue and notification workflow | **Partially prepared.** In-app notification storage and broadcast patterns exist, but there is no subscription request queue, generic resource link, or request-specific notification lifecycle. | Add the Admin queue, filters, request detail view, approve/reject/request-information actions, and deduplicated Clinic/Admin notifications. | Offline and exceptional plan changes become visible, actionable, and traceable instead of relying on email or manual follow-up. |
 | 6 | Razorpay provider-change adapter | **Partially implemented.** Razorpay subscription creation, activation links, and inbound confirmation webhooks exist; provider upgrade, downgrade, cycle-change, and scheduled-change operations do not. | Add an outbound provider-operation record and adapter. Support only provider-confirmed operations; fall back to Super Admin when Razorpay cannot safely perform a change. | Eligible Clinic Admin requests can be completed automatically by Razorpay without changing local access before provider confirmation. |
-| 7 | Manual-payment and complimentary-access workflow | **Partially prepared.** Complimentary/sponsored access and lifecycle history exist; a dedicated manual-payment ledger, evidence, verification, and approval flow do not. | Add the manual-payment record, evidence reference, verifier, payment period, two-person approval threshold, and separate complimentary assignment path. | Offline access is commercially accurate: complimentary access is not revenue, verified offline payment is not a fake Razorpay event, and both remain auditable. |
-| 8 | Scheduled upgrades, downgrades, and renewal application | **Not implemented.** The policy defines next-renewal downgrades, but scheduled-change storage and renewal application are absent. | Add scheduled-change records, superseding/cancellation rules, provider schedule references, and an idempotent renewal application job. | Downgrades and uncertain upgrades apply on the correct date while current paid access and existing data remain protected. |
-| 9 | Renewal reminders and pending-change notifications | **Not implemented.** Reminder policy is documented, but delivery records, templates, and scheduler integration are absent. | Add reminder-delivery tracking for 30-day, 7-day, expiry, Trial, manual-payment, complimentary, and pending-change events. | Clinics and Super Admins receive timely, deduplicated warnings about renewal, expiry, failed changes, and pending decisions. |
-| 10 | End-to-end verification and reporting-only rollout | **Baseline only.** Existing type checking, subscription tests, diff checks, and Build Check have passed; the new workflows do not yet have complete race, authorization, provider, or downgrade tests. | Add contract, authorization, idempotency, provider-race, notification, scheduled-change, and data-preservation tests before enabling enforcement. | The subscription system can be validated safely while remaining reporting-only until provider reconciliation and release gates pass. |
+| 7 | Manual-payment ledger and verification | **Partially prepared.** Manual-payment state and lifecycle history exist, but a dedicated financial ledger, evidence, verification, and approval flow are not complete. | Add the manual-payment record, evidence reference, verifier, payment period, two-person approval threshold, and reconciliation rules. Keep manual payment separate from complimentary and Razorpay access. | Offline payment is financially accurate, auditable, and never represented as a fabricated Razorpay event or complimentary grant. |
+| 8 | Complimentary access lifecycle | **Partially prepared.** Sponsored-access records, timestamped grants, entitlement resolution, and revocation foundations exist, but the complete non-overlap, replacement, scheduling, extension, and expiry workflow is not complete. | Add a dedicated complimentary path for Starter, Growth, and Pro. Reject overlap with active paid/manual coverage; replace or schedule after current coverage; use exact timestamps displayed in clinic timezone; treat unused time as lost; allow early Super Admin revocation with a reason; create extensions as separate append-only grants. | Complimentary access becomes a controlled fixed-term benefit that cannot silently overlap paid access, transfer unused time, or lose audit history. |
+| 9 | Scheduled upgrades, downgrades, and renewal application | **Not implemented.** The policy defines next-renewal changes, but scheduled-change storage and renewal application are absent. | Add scheduled-change records, complimentary-after-current-coverage rules, superseding/cancellation rules, provider schedule references, and an idempotent renewal application job. | Changes apply on the correct date while current access remains protected and complimentary access never overlaps paid coverage. |
+| 10 | Renewal reminders and pending-change notifications | **Not implemented.** Reminder policy is documented, but delivery records, templates, and scheduler integration are absent. | Add reminder-delivery tracking for 30-day, 7-day, expiry, Trial, manual-payment, complimentary, revocation, extension, and pending-change events. | Clinics and Super Admins receive timely, deduplicated warnings about expiry, replacement, failed changes, and pending decisions. |
+| 11 | End-to-end verification and reporting-only rollout | **Baseline only.** Existing type checking, subscription tests, diff checks, and Build Check have passed; the new workflows do not yet have complete race, authorization, provider, grant, or downgrade tests. | Add contract, authorization, overlap, revocation, extension, idempotency, provider-race, notification, scheduled-change, and data-preservation tests before enabling enforcement. | The subscription system can be validated safely while remaining reporting-only until provider reconciliation and release gates pass. |
 
 ### Edge-case review status
 
@@ -34,9 +35,19 @@ Before coding starts, the team must still make a final business decision on:
    days.
 2. Which capabilities are blocked when a clinic is already over a lower plan’s
    limit after a downgrade.
-3. How unused manual-payment or complimentary time is handled when a clinic
-   changes to another access source.
-4. The exact identity-matching rules for detecting repeated Trial registrations.
+3. The exact identity-matching rules for detecting repeated Trial registrations.
+
+The complimentary-access decisions are approved and are no longer open:
+
+```text
+No overlap with active paid or verified manual-payment coverage.
+Replace current access or schedule after it ends.
+Unused complimentary time is lost.
+Exact timestamps are stored; clinic timezone is used for display and local
+calendar reporting.
+Only a Super Admin can revoke early, with a reason and audit event.
+Extensions are separate append-only grants.
+```
 
 Until these choices are approved, the affected workflow must remain reporting
 only. It must not silently guess.
@@ -78,9 +89,9 @@ The Super Admin approval step must explicitly choose the assignment mode:
    Creates an online payment/subscription activation flow.
    Access becomes paid only after Razorpay confirmation.
 
-3. Complimentary offline plan
+3. Complimentary offline plan for Starter, Growth, or Pro
    No payment is taken. Super Admin grants fixed-term access with
-   a reason and audit history.
+   a reason and audit history. It cannot overlap active paid coverage.
 
 4. Verified offline payment
    Payment was received outside Razorpay. Access requires evidence
@@ -179,7 +190,7 @@ The main missing pieces are:
 - Trial as a registration-time choice.
 - Server-side prevention of repeated acquisition Trials.
 - Approval-time selection of assignment mode.
-- Offline complimentary assignment for every plan.
+- Offline complimentary assignment for paid plans.
 - Verified offline-payment assignment, if required.
 - Scheduled upgrade and downgrade records.
 - Renewal reminder tracking and delivery.
@@ -504,18 +515,26 @@ Rules:
 - No Razorpay subscription.
 - No payment record.
 - No fake provider event.
-- Fixed start and end dates.
+- Fixed exact start and end timestamps.
+- Dates displayed in the clinic timezone.
 - Mandatory reason.
 - Actor and policy version.
 - Optional campaign or partner reference.
 - Waived list value reported separately from revenue.
-- Expiry returns to the clearly defined underlying state. The precedence rules
-  in §8.4 must be applied; the system must not guess from the current
-  `clinics.plan` snapshot.
+- Must not overlap active provider-paid or verified manual-payment coverage.
+- If current coverage exists, either schedule the grant after it ends or
+  explicitly replace/revoke the current assignment.
+- Unused complimentary time is lost if the grant is replaced or revoked early.
+- Only a Super Admin may revoke the grant early, with a reason and audit event.
+- Extensions are separate append-only grants, not edits to this record.
+- Expiry or revocation returns to the clearly defined underlying state. The
+  precedence rules in §8.4 must be applied; the system must not guess from the
+  current `clinics.plan` snapshot.
 
 This is the correct way to assign a plan offline without taking payment.
 
-The application should not label complimentary access as provider-paid `active`.
+The application should not label complimentary access as provider-paid
+`active`. It should show the access source and exact end timestamp clearly.
 
 ### 6.5 Approval with verified offline payment
 
@@ -648,6 +667,11 @@ actorId
 transitionId
 providerSubscriptionId
 paymentReference
+replacesAssignmentId
+supersedesAssignmentId
+revokedAt
+revocationReason
+extensionOfAssignmentId
 ```
 
 Recommended assignment modes:
@@ -662,6 +686,12 @@ recovery_trial
 ```
 
 ### 8.3 Scheduled changes
+
+Scheduled changes are also required for complimentary access when a clinic has
+active paid or verified manual-payment coverage. A complimentary grant may be
+created in advance, but its effective start must be after the current coverage
+ends unless the current assignment is explicitly replaced or revoked by an
+authorized Super Admin.
 
 Recommended table:
 
@@ -716,10 +746,24 @@ Use this order when more than one record exists:
 7. Reconciliation required
 ```
 
-The exact precedence between an active provider-paid subscription and an
-active manual or complimentary record must be resolved before overlapping
-records are allowed. The safe default is to reject overlapping effective
-access unless the transition explicitly closes the old source.
+Complimentary access must never be effective at the same time as active
+provider-paid or verified manual-payment coverage. The system must either:
+
+```text
+Replace:
+  Explicitly close or revoke the current assignment, then start the
+  complimentary grant at the approved effective timestamp.
+
+Schedule:
+  Keep current access active until its recorded end timestamp, then start the
+  complimentary grant.
+```
+
+Creating a complimentary record in advance is allowed. Activating it before
+the current paid or verified coverage ends is not.
+
+If a complimentary grant is ended early, all unused complimentary time is
+lost. It is not transferred, credited, or added to a later plan.
 
 Examples:
 
@@ -738,8 +782,27 @@ Trial conversion is pending
 ```
 
 Each access source must have its own assignment, start/end dates, reason,
-origin, policy version, and transition ID. Expiring one source must not delete
-the history of another source.
+origin, policy version, and transition ID. Expiring, revoking, or replacing
+one source must not delete the history of another source.
+
+Complimentary grants use the existing application time convention:
+
+```text
+Store startsAt and endsAt as exact timestamp instants.
+Use the existing duration/timestamp arithmetic for calculating windows.
+Display dates and times in the clinic timezone.
+Use clinic-local calendar boundaries only for features that already use them,
+such as monthly usage reports and local scheduling.
+```
+
+Only a Super Admin may revoke a complimentary grant before `endsAt`. Early
+revocation requires a reason, actor identity, revocation timestamp, and
+append-only lifecycle event. A grant that has already expired cannot be
+revoked retroactively.
+
+An extension is never an edit to the original grant. It is a new append-only
+grant with its own grant ID, dates, reason, actor, policy version, transition
+ID, and `extensionOfAssignmentId`.
 
 ### 8.5 Renewal reminder records
 
@@ -1219,10 +1282,13 @@ published catalog version when they differ.
 
 1. Add approval-time plan confirmation.
 2. Add Trial approval mode.
-3. Add complimentary offline assignment.
-4. Keep Razorpay online assignment pending until provider confirmation.
-5. Add verified offline payment assignment only after the manual-payment ledger and evidence flow are approved.
-6. Preserve a lifecycle and assignment event for every outcome.
+3. Add the dedicated complimentary offline assignment path for Starter, Growth, and Pro.
+4. Reject overlap with active provider-paid or verified manual-payment coverage.
+5. Support replacement or scheduling after current coverage ends.
+6. Keep Razorpay online assignment pending until provider confirmation.
+7. Add verified offline payment assignment only after the manual-payment ledger and evidence flow are approved.
+8. Preserve a lifecycle and assignment event for every outcome.
+9. Record policy version, exact timestamps, replacement links, and extension links.
 
 ### Phase 3 — Admin Trial controls
 
@@ -1240,7 +1306,10 @@ published catalog version when they differ.
 4. Add billing-cycle changes.
 5. Add stale-state protection.
 6. Add cancellation and superseding rules.
-7. Preserve old and new assignments and policy versions.
+7. Apply complimentary grants only after current paid/manual coverage ends unless an authorized replacement closes it.
+8. Preserve old and new assignments and policy versions.
+9. Treat unused complimentary time as lost when replaced or revoked.
+10. Create extensions as separate append-only assignments.
 
 ### Phase 5 — Renewal reminders
 
@@ -1273,6 +1342,12 @@ Before production enforcement or automatic commercial changes:
 - A clinic cannot repeatedly self-select the acquisition Trial.
 - Approval explicitly records the selected plan and assignment mode.
 - Offline complimentary assignment is distinct from paid access.
+- Complimentary access never overlaps active provider-paid or verified manual-payment coverage.
+- Complimentary access is replaced or scheduled after current coverage, never silently layered on top.
+- Unused complimentary time is lost when the grant is replaced or revoked.
+- Exact access timestamps are stored and displayed in the clinic timezone.
+- Only a Super Admin can revoke complimentary access early, with a reason and audit event.
+- Complimentary extensions are separate append-only assignments.
 - Razorpay-paid assignment activates only after provider confirmation.
 - Manual offline payment requires evidence and authorization.
 - No workflow fabricates provider events.
@@ -1316,7 +1391,11 @@ Paid plan through Razorpay:
   Active paid access only after confirmation.
 
 Paid plan without payment:
-  Fixed-term complimentary access.
+  Fixed-term complimentary access for Starter, Growth, or Pro.
+  It replaces current paid/manual coverage or starts after it ends.
+  Unused time is lost if it is revoked or replaced.
+  Only a Super Admin can revoke it early.
+  Extensions are separate append-only assignments.
   Never label it as captured paid revenue.
 
 Paid plan through offline payment:
@@ -1887,6 +1966,26 @@ assignmentMode = manual_payment_offline
 ```
 
 It must not be reported as a Razorpay-paid subscription.
+
+For a complimentary change:
+
+```text
+Current paid/manual coverage exists:
+  Schedule the complimentary grant after its end timestamp, or explicitly
+  replace/revoke the current assignment before the grant starts.
+
+Current complimentary grant exists:
+  Schedule the next grant after it ends, or have a Super Admin revoke it.
+  Unused time is lost.
+
+Extension requested:
+  Create a separate append-only grant.
+  Do not edit the original grant dates.
+```
+
+The grant must store exact timestamp instants. The UI displays those timestamps
+in the clinic timezone. Only a Super Admin can revoke the grant early, and the
+revocation must record the reason, actor, timestamp, and lifecycle event.
 
 ---
 
@@ -2535,21 +2634,35 @@ to silently remove paid access.
 Complimentary access is free access granted by the business. It is not revenue
 and must not look like a Razorpay payment.
 
-There are two safe choices:
+The complimentary grant cannot overlap with the paid plan. There are two safe
+choices:
 
 ```text
 Scheduled change:
-  Complimentary access ends at its recorded end time.
-  Paid access begins after provider confirmation at the approved time.
+  Keep complimentary access active until its recorded end timestamp.
+  The paid request is prepared separately.
+  Paid access begins only after provider confirmation and after the
+  complimentary grant ends.
 
 Immediate change:
-  The complimentary grant is explicitly closed and logged.
+  A Super Admin explicitly revokes/closes the complimentary grant.
+  The unused complimentary time is lost.
+  The revocation reason and audit event are recorded.
   The paid plan becomes effective only after provider confirmation.
 ```
 
-Do not keep both sources active without a deliberate, recorded overlap rule.
-When the complimentary grant ends, restore the correct underlying state from
-the precedence rules in §8.4, not from an old plan snapshot.
+Do not keep both sources effective at the same time. If payment fails during
+an immediate conversion, the system must return to the authoritative
+post-revocation state; it must not silently recreate or extend the lost
+complimentary period.
+
+When the complimentary grant ends, is revoked, or is replaced, restore the
+correct underlying state from the precedence rules in §8.4, not from an old
+plan snapshot.
+
+An extension is not an edit to the original grant. It is a new append-only
+grant with its own dates, reason, Super Admin actor, policy version, and
+transition ID.
 
 ### 29.4 Manual/offline payment changes to Razorpay
 
@@ -2767,6 +2880,12 @@ workflows must use that rule consistently.
 The latest value of `clinics.plan` is not enough to decide this. Resolve access
 from assignment and lifecycle history.
 
+Because complimentary access cannot overlap paid coverage, a complimentary
+assignment must either start after paid/manual coverage ends or explicitly
+close that coverage first. An overlapping record should be treated as a
+workflow error, not resolved by silently choosing whichever row was written
+last.
+
 Recommended precedence:
 
 ```text
@@ -2971,17 +3090,22 @@ specific mismatches must be corrected before enabling commercial automation:
 4. **Trial conversion:** The paid-plan assignment route clears Trial fields
    before provider confirmation. Trial access must remain effective while
    payment is pending.
-5. **Timing language:** The implementation uses timestamp arithmetic while the
-   policy currently describes calendar days. One timing model must be chosen.
-6. **Temporary-access precedence:** The entitlement resolver supports active
-   sponsored access, but the full precedence and overlap rules need to be
-   explicit.
-7. **Provider correlation:** Future provider changes need request, transition,
+5. **Complimentary access controls:** The grant table and revocation foundation
+   exist, but non-overlap, replacement/scheduling, lost unused time, separate
+   extensions, and Super Admin-only early revocation must be enforced as one
+   workflow.
+6. **Timing language:** Complimentary access should use the existing exact
+   timestamp convention and clinic timezone for display. Trial and grace
+   wording still needs the final business decision recorded at the top.
+7. **Temporary-access precedence:** The entitlement resolver supports active
+   sponsored access, but the full replacement and underlying-state rules need
+   to be enforced.
+8. **Provider correlation:** Future provider changes need request, transition,
    provider-operation, subscription, plan, and billing-cycle correlation.
-8. **Usage enforcement:** Current usage measurements are useful for reporting,
+9. **Usage enforcement:** Current usage measurements are useful for reporting,
    but their commercial meaning must be approved before restrictions are turned
    on.
-9. **Baseline wording:** Historical audit findings must be labelled as
+10. **Baseline wording:** Historical audit findings must be labelled as
    historical. Current code findings and completed lifecycle foundations should
    be refreshed before the execution tracker is used as a release gate.
 
