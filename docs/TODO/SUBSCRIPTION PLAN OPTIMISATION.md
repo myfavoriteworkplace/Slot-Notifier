@@ -5,6 +5,37 @@
 **Related blueprint:** [16-four-plan-subscription-and-entitlement-blueprint.md](./16-four-plan-subscription-and-entitlement-blueprint.md)
 **Source comparison:** Market-standard review supplied for this analysis
 
+## Execution tracker
+
+This table records the next independently executable work packages. Each row has a defined boundary and deliverable. The rows may be prepared independently, but integration must respect the request, provider-confirmation, lifecycle-history, and entitlement rules described later in this document.
+
+| Order | Independent executable step | Current status | Immediate action | What this will achieve |
+|---|---|---|---|---|
+| 1 | Registration plan request and billing-cycle contract | **Not complete.** Registration currently exposes paid plans only, approval starts Trial for every approved clinic, and there is no dedicated registration-request record. | Define and implement the server contract for `requestedPlan`, `requestedBillingCycle`, policy version, and request status. Keep requested values separate from effective subscription fields. | The system will preserve what the clinic selected without activating access or silently replacing a paid selection with Trial. |
+| 2 | Initial Trial eligibility and duplicate-registration protection | **Partially prepared.** Trial lifecycle helpers and history exist, but registration-level identity eligibility and duplicate-clinic protection are not complete. | Add a server-side eligibility decision using existing clinic identity fields and Trial history. Make the initial Trial transition clinic-scoped and idempotent. | A clinic can select Trial once, while repeated registrations cannot restart or recreate the acquisition Trial. |
+| 3 | Approval decision and assignment-mode workflow | **Partially implemented.** Super Admin Trial and provider-paid assignment paths exist, but approval does not yet offer one unified choice between Trial, Razorpay, complimentary offline, and verified offline payment. | Add an approval decision contract containing selected/overridden plan, billing cycle, assignment mode, dates, reason, actor, policy version, and transition ID. | Super Admin approval becomes explicit, auditable, and capable of approving the selected plan either online or offline. |
+| 4 | Clinic Admin Settings self-service request flow | **Not implemented.** `ClinicEntitlementSettingsPanel` is currently read-only and there is no subscription-change request table or endpoint. | Add the Settings change-plan experience, server eligibility response, request submission, request history, and cancellation of eligible pending requests. | A Clinic Admin can request upgrades, downgrades, and billing-cycle changes without directly mutating plan or payment state. |
+| 5 | Super Admin request queue and notification workflow | **Partially prepared.** In-app notification storage and broadcast patterns exist, but there is no subscription request queue, generic resource link, or request-specific notification lifecycle. | Add the Admin queue, filters, request detail view, approve/reject/request-information actions, and deduplicated Clinic/Admin notifications. | Offline and exceptional plan changes become visible, actionable, and traceable instead of relying on email or manual follow-up. |
+| 6 | Razorpay provider-change adapter | **Partially implemented.** Razorpay subscription creation, activation links, and inbound confirmation webhooks exist; provider upgrade, downgrade, cycle-change, and scheduled-change operations do not. | Add an outbound provider-operation record and adapter. Support only provider-confirmed operations; fall back to Super Admin when Razorpay cannot safely perform a change. | Eligible Clinic Admin requests can be completed automatically by Razorpay without changing local access before provider confirmation. |
+| 7 | Manual-payment and complimentary-access workflow | **Partially prepared.** Complimentary/sponsored access and lifecycle history exist; a dedicated manual-payment ledger, evidence, verification, and approval flow do not. | Add the manual-payment record, evidence reference, verifier, payment period, two-person approval threshold, and separate complimentary assignment path. | Offline access is commercially accurate: complimentary access is not revenue, verified offline payment is not a fake Razorpay event, and both remain auditable. |
+| 8 | Scheduled upgrades, downgrades, and renewal application | **Not implemented.** The policy defines next-renewal downgrades, but scheduled-change storage and renewal application are absent. | Add scheduled-change records, superseding/cancellation rules, provider schedule references, and an idempotent renewal application job. | Downgrades and uncertain upgrades apply on the correct date while current paid access and existing data remain protected. |
+| 9 | Renewal reminders and pending-change notifications | **Not implemented.** Reminder policy is documented, but delivery records, templates, and scheduler integration are absent. | Add reminder-delivery tracking for 30-day, 7-day, expiry, Trial, manual-payment, complimentary, and pending-change events. | Clinics and Super Admins receive timely, deduplicated warnings about renewal, expiry, failed changes, and pending decisions. |
+| 10 | End-to-end verification and reporting-only rollout | **Baseline only.** Existing type checking, subscription tests, diff checks, and Build Check have passed; the new workflows do not yet have complete race, authorization, provider, or downgrade tests. | Add contract, authorization, idempotency, provider-race, notification, scheduled-change, and data-preservation tests before enabling enforcement. | The subscription system can be validated safely while remaining reporting-only until provider reconciliation and release gates pass. |
+
+### Tracker status definitions
+
+```text
+Not implemented:
+  The policy is defined, but the required production capability is absent.
+
+Partially implemented:
+  Some underlying routes, tables, helpers, or UI exist, but the complete
+  workflow and its audit/payment/state guarantees are not complete.
+
+Baseline only:
+  Existing checks cover the current implementation, not the proposed workflow.
+```
+
 ## 1. Executive decision
 
 The registration page should show all four plans:
