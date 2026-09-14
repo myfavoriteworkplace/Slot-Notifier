@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, MessageSquare, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,7 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import AdminMessagingUsagePanel from "@/components/AdminMessagingUsagePanel";
 import AdminOperationsOverview from "@/components/AdminOperationsOverview";
 import AdminTenantOperations from "@/components/AdminTenantOperations";
 import AdminEntitlementReview from "@/components/AdminEntitlementReview";
@@ -1009,7 +1008,7 @@ export default function Admin() {
         }}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-9">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="operations" className="flex items-center gap-2" data-testid="tab-operations">
             <Server className="h-4 w-4" />
             Platform Operations
@@ -1025,10 +1024,6 @@ export default function Admin() {
           <TabsTrigger value="clinics-access" className="flex items-center gap-2" data-testid="tab-clinics-access">
             <ShieldCheck className="h-4 w-4" />
             Clinics & Access
-          </TabsTrigger>
-          <TabsTrigger value="messaging-usage" className="flex items-center gap-2" data-testid="tab-messaging-usage">
-            <MessageSquare className="h-4 w-4" />
-            Messaging Usage
           </TabsTrigger>
           <TabsTrigger value="pending" className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
@@ -1094,15 +1089,6 @@ export default function Admin() {
              onArchiveClinic={clinic => archiveClinicMutation.mutate(clinic.id)}
              onRestoreClinic={clinic => unarchiveClinicMutation.mutate(clinic.id)}
            />
-        </TabsContent>
-
-        <TabsContent value="messaging-usage">
-          <AdminMessagingUsagePanel
-            month={adminMessagingMonth}
-            onMonthChange={setAdminMessagingMonth}
-            onRefreshOperations={refreshAdminOperations}
-            onSelectClinic={clinicId => setAdminSelectedClinicId(clinicId)}
-          />
         </TabsContent>
 
         <TabsContent value="pending">
