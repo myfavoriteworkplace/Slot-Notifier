@@ -5,6 +5,53 @@
 **Related blueprint:** [16-four-plan-subscription-and-entitlement-blueprint.md](./16-four-plan-subscription-and-entitlement-blueprint.md)
 **Source comparison:** Market-standard review supplied for this analysis
 
+## Common-man takeaway: how the subscription works
+
+This is the short version for a clinic owner, Clinic Admin, or support team.
+The detailed rules later in this document exist to make these simple promises
+safe and auditable.
+
+1. **The clinic chooses a plan.** During registration, the clinic selects
+   Trial, Starter, Growth, or Pro. Paid plans also require Monthly or Annual
+   billing. Choosing a plan does not activate access or take payment.
+2. **Super Admin approves the clinic.** Super Admin decides whether the clinic
+   receives Trial, pays through Razorpay, receives complimentary access, or
+   provides verified offline-payment evidence.
+3. **The system records the real access source.** Trial, Razorpay, complimentary
+   access, and verified offline payment are separate states. A plan name alone
+   does not prove payment or entitlement.
+4. **Current access stays active until a valid change is confirmed.** A browser
+   response, request, or Admin selection does not change the effective plan.
+   Razorpay must confirm online changes, or Super Admin must approve offline or
+   exceptional changes.
+5. **Clinic Admin can upgrade.** Clinic Admin can request or start an eligible
+   upgrade. The existing plan remains active until the provider or Super Admin
+   confirms the upgrade.
+6. **Clinic Admin cannot cancel an active plan mid-period.** Clinic Admin
+   cannot directly cancel, downgrade, disable renewal, change billing cycle, or
+   revoke access. The clinic may submit a request for Super Admin review.
+7. **Super Admin handles offline and exceptional requests.** Super Admin can
+   approve or reject a downgrade, cancellation-at-period-end, immediate
+   exception, complimentary plan, verified offline payment, billing-cycle
+   change, or provider-failure resolution.
+8. **Cancellation normally means “do not renew.”** Access normally continues
+   until the paid period ends. A cancellation request does not automatically
+   remove access immediately and does not automatically create a refund.
+9. **Access sources cannot overlap silently.** A complimentary or offline
+   assignment must begin after current coverage ends, or an authorized Super
+   Admin decision must explicitly close or replace the current assignment.
+10. **Payment failure does not erase valid current access by itself.** While a
+    payment or provider result is pending, the system keeps the last
+    authoritative access state unless a confirmed lifecycle event says it has
+    ended.
+11. **Downgrades never delete clinic data.** Doctors, patients, bookings,
+    documents, clinical records, messages, and billing history remain
+    preserved. New activity may be limited only after the downgrade becomes
+    effective and the capability rules are enabled.
+12. **Every decision is recorded.** Requests, approvals, withdrawals,
+    cancellations, provider events, payments, reasons, actors, dates, and
+    effective access remain separately auditable.
+
 ## Execution tracker
 
 This table records the next independently executable work packages. Each row has a defined boundary and deliverable. The rows may be prepared independently, but integration must respect the request, provider-confirmation, lifecycle-history, and entitlement rules described later in this document.
@@ -14,12 +61,12 @@ This table records the next independently executable work packages. Each row has
 | 1 | Registration plan request and billing-cycle contract | **Not complete.** Registration currently exposes paid plans only, approval starts Trial for every approved clinic, and there is no dedicated registration-request record. | Define and implement the server contract for `requestedPlan`, `requestedBillingCycle`, policy version, and request status. Keep requested values separate from effective subscription fields. | The system will preserve what the clinic selected without activating access or silently replacing a paid selection with Trial. |
 | 2 | Initial Trial eligibility and duplicate-registration protection | **Partially prepared.** Trial lifecycle helpers and history exist, but registration-level identity eligibility and duplicate-clinic protection are not complete. | Add a server-side eligibility decision using existing clinic identity fields and Trial history. Make the initial Trial transition clinic-scoped and idempotent. | A clinic can select Trial once, while repeated registrations cannot restart or recreate the acquisition Trial. |
 | 3 | Approval decision and assignment-mode workflow | **Partially implemented.** Super Admin Trial and provider-paid assignment paths exist, but approval does not yet offer one unified choice between Trial, Razorpay, complimentary offline, and verified offline payment. | Add an approval decision contract containing selected/overridden plan, billing cycle, assignment mode, dates, reason, actor, policy version, and transition ID. | Super Admin approval becomes explicit, auditable, and capable of approving the selected plan either online or offline. |
-| 4 | Clinic Admin Settings self-service request flow | **Not implemented.** `ClinicEntitlementSettingsPanel` is currently read-only and there is no subscription-change request table or endpoint. | Add the Settings change-plan experience, server eligibility response, request submission, request history, and cancellation of eligible pending requests. | A Clinic Admin can request upgrades, downgrades, and billing-cycle changes without directly mutating plan or payment state. |
+| 4 | Clinic Admin upgrade and Super Admin request flow | **Not implemented.** `ClinicEntitlementSettingsPanel` is currently read-only and there is no subscription-change request table or endpoint. | Add the Settings upgrade experience, server eligibility response, upgrade submission, upgrade withdrawal rules, request history, and a Super Admin review-request route for cancellation, downgrade, cycle, offline, and exceptional needs. | Clinic Admin can upgrade without directly mutating plan or payment state; all other plan changes are routed to Super Admin. |
 | 5 | Super Admin request queue and notification workflow | **Partially prepared.** In-app notification storage and broadcast patterns exist, but there is no subscription request queue, generic resource link, or request-specific notification lifecycle. | Add the Admin queue, filters, request detail view, approve/reject/request-information actions, and deduplicated Clinic/Admin notifications. | Offline and exceptional plan changes become visible, actionable, and traceable instead of relying on email or manual follow-up. |
 | 6 | Razorpay provider-change adapter | **Partially implemented.** Razorpay subscription creation, activation links, and inbound confirmation webhooks exist; provider upgrade, downgrade, cycle-change, and scheduled-change operations do not. | Add an outbound provider-operation record and adapter. Support only provider-confirmed operations; fall back to Super Admin when Razorpay cannot safely perform a change. | Eligible Clinic Admin requests can be completed automatically by Razorpay without changing local access before provider confirmation. |
 | 7 | Manual-payment ledger and verification | **Partially prepared.** Manual-payment state and lifecycle history exist, but a dedicated financial ledger, evidence, verification, and approval flow are not complete. | Add the manual-payment record, evidence reference, verifier, payment period, two-person approval threshold, and reconciliation rules. Keep manual payment separate from complimentary and Razorpay access. | Offline payment is financially accurate, auditable, and never represented as a fabricated Razorpay event or complimentary grant. |
 | 8 | Complimentary access lifecycle | **Partially prepared.** Sponsored-access records, timestamped grants, entitlement resolution, and revocation foundations exist, but the complete non-overlap, replacement, scheduling, extension, and expiry workflow is not complete. | Add a dedicated complimentary path for Starter, Growth, and Pro. Reject overlap with active paid/manual coverage; replace or schedule after current coverage; use exact timestamps displayed in clinic timezone; treat unused time as lost; allow early Super Admin revocation with a reason; create extensions as separate append-only grants. | Complimentary access becomes a controlled fixed-term benefit that cannot silently overlap paid access, transfer unused time, or lose audit history. |
-| 9 | Scheduled upgrades, downgrades, and renewal application | **Not implemented.** The policy defines next-renewal changes, but scheduled-change storage and renewal application are absent. | Add scheduled-change records, complimentary-after-current-coverage rules, superseding/cancellation rules, provider schedule references, and an idempotent renewal application job. | Changes apply on the correct date while current access remains protected and complimentary access never overlaps paid coverage. |
+| 9 | Super Admin-controlled scheduled changes and renewal application | **Not implemented.** The policy defines next-renewal changes, but scheduled-change storage and renewal application are absent. | Add scheduled-change records, cancellation-at-period-end state, complimentary-after-current-coverage rules, Super Admin/provider-only cancellation and superseding rules, provider schedule references, and an idempotent renewal application job. | Authorized changes apply on the correct date while current access remains protected and complimentary access never overlaps paid coverage. |
 | 10 | Renewal reminders and pending-change notifications | **Not implemented.** Reminder policy is documented, but delivery records, templates, and scheduler integration are absent. | Add reminder-delivery tracking for 30-day, 7-day, expiry, Trial, manual-payment, complimentary, revocation, extension, and pending-change events. | Clinics and Super Admins receive timely, deduplicated warnings about expiry, replacement, failed changes, and pending decisions. |
 | 11 | End-to-end verification and reporting-only rollout | **Baseline only.** Existing type checking, subscription tests, diff checks, and Build Check have passed; the new workflows do not yet have complete race, authorization, provider, grant, or downgrade tests. | Add contract, authorization, overlap, revocation, extension, idempotency, provider-race, notification, scheduled-change, and data-preservation tests before enabling enforcement. | The subscription system can be validated safely while remaining reporting-only until provider reconciliation and release gates pass. |
 
@@ -886,7 +933,11 @@ Recommended behavior:
 
 ### 9.3 Downgrade
 
-Downgrades should default to the next renewal:
+Clinic Admin cannot apply or directly schedule a downgrade. A Clinic Admin may
+submit a downgrade request to Super Admin, but the current plan remains
+effective until an authorized decision is approved and applied.
+
+Super Admin-approved downgrades should default to the next renewal:
 
 ```text
 Growth Annual → Starter Annual
@@ -907,17 +958,17 @@ Rules:
 - Use a capability-specific enforcement table. “Read-only” alone is not
   specific enough for clinical software.
 
-Immediate downgrade requires explicit confirmation and should be limited to:
+Immediate downgrade is Super Admin-only and should be limited to:
 
 - Fraud or abuse.
 - Contractual termination.
-- Explicit clinic request.
+- A Clinic Admin request that has been reviewed and approved by Super Admin.
 - Administrative correction.
 - Complimentary access expiry.
 
-An explicit request does not by itself authorize an immediate downgrade. The
-request still needs the required provider confirmation or authorized
-Super Admin approval, plus a clear effective time.
+A Clinic Admin request does not by itself authorize any downgrade. The request
+still needs provider confirmation or authorized Super Admin approval, plus a
+clear effective time.
 
 ---
 
@@ -1181,6 +1232,9 @@ Use separate actions:
 - Schedule upgrade.
 - Schedule downgrade.
 - Change billing cycle.
+- Approve cancellation-at-period-end.
+- Approve exceptional immediate cancellation.
+- Cancel or supersede a pending provider operation when supported.
 - Extend controlled Admin Trial.
 - View provider events.
 - View reminder history.
@@ -1302,14 +1356,19 @@ published catalog version when they differ.
 
 1. Add scheduled subscription changes.
 2. Add provider-aware upgrade processing.
-3. Schedule downgrades for renewal by default.
-4. Add billing-cycle changes.
-5. Add stale-state protection.
-6. Add cancellation and superseding rules.
-7. Apply complimentary grants only after current paid/manual coverage ends unless an authorized replacement closes it.
-8. Preserve old and new assignments and policy versions.
-9. Treat unused complimentary time as lost when replaced or revoked.
-10. Create extensions as separate append-only assignments.
+3. Route downgrade requests through Super Admin and schedule approved
+   downgrades for renewal by default.
+4. Route billing-cycle changes through Super Admin unless a separately approved
+   provider operation handles them.
+5. Add cancellation-at-period-end and exceptional immediate-cancellation
+   states.
+6. Add provider-authority, withdrawal, cancellation, and superseding rules.
+7. Add stale-state protection.
+8. Apply complimentary grants only after current paid/manual coverage ends unless
+   an authorized replacement closes it.
+9. Preserve old and new assignments and policy versions.
+10. Treat unused complimentary time as lost when replaced or revoked.
+11. Create extensions as separate append-only assignments.
 
 ### Phase 5 — Renewal reminders
 
@@ -1354,6 +1413,12 @@ Before production enforcement or automatic commercial changes:
 - Initial, recovery, and Admin-granted Trial origins are distinct.
 - Upgrades and downgrades are idempotent.
 - Downgrades default to the correct renewal date.
+- Clinic Admin cannot directly cancel, downgrade, disable renewal, or change
+  billing cycle.
+- Clinic Admin can withdraw only an uncommitted upgrade request.
+- Cancellation-at-period-end preserves access until the paid period ends.
+- Immediate cancellation requires Super Admin authorization and an explicit
+  financial/access decision.
 - Monthly and annual provider mappings are verified.
 - Renewal reminders are scheduled and deduplicated.
 - Reminder status is visible to Super Admin.
@@ -1407,8 +1472,14 @@ Upgrade:
   No usage-based surprise upgrade.
 
 Downgrade:
+  Clinic Admin may request it, but only Super Admin can approve it.
   Next renewal by default.
-  Immediate only for explicit approved exceptions.
+  Immediate only for explicit Super Admin-approved exceptions.
+
+Cancellation:
+  Clinic Admin may submit a review request but cannot cancel the active plan.
+  Cancellation normally disables renewal at period end.
+  Immediate cancellation is a Super Admin-only exception.
 
 Renewal:
   30-day and 7-day reminders.
@@ -1445,17 +1516,24 @@ The Clinic Admin may:
 - View the payment/access source.
 - Compare Starter, Growth, and Pro.
 - Request an upgrade.
-- Request a downgrade.
-- Request a monthly or annual billing-cycle change.
 - Start a Razorpay-managed online change when eligible.
-- Submit a request for Super Admin handling.
-- View pending, scheduled, applied, failed, rejected, and cancelled requests.
-- Cancel a pending or scheduled request when cancellation is still allowed.
+- Submit a request for Super Admin handling when the clinic needs a
+  cancellation, downgrade, billing-cycle change, offline assignment, manual
+  payment, or other exception.
+- View pending, scheduled, applied, failed, rejected, withdrawn, and cancelled
+  requests.
+- Withdraw an upgrade request only while it has not become a committed provider
+  operation. Withdrawal is not subscription cancellation.
 
 The Clinic Admin must not be able to:
 
 - Directly edit `clinics.plan`.
 - Directly edit `clinics.subscriptionStatus`.
+- Cancel an active plan mid-period.
+- Disable renewal directly.
+- Directly downgrade the current plan.
+- Directly change monthly billing to annual or annual billing to monthly.
+- Cancel a provider operation after it has been committed.
 - Change the Razorpay subscription ID.
 - Select a provider plan ID supplied by the browser.
 - Mark a payment as captured.
@@ -1517,15 +1595,18 @@ pendingChange:
   effectiveAt
   requestedMode
   createdAt
-  cancellable
+  withdrawable
+  providerOperationCommitted
+  cancellationAuthority
 
 actions:
   canRequestUpgrade
-  canRequestDowngrade
-  canChangeBillingCycle
   canUseRazorpay
   canRequestSuperAdmin
-  canCancelPendingChange
+  canWithdrawUpgradeRequest
+  canRequestCancellationReview
+  canRequestDowngradeReview
+  canRequestBillingCycleReview
 
 catalog:
   availablePlans
@@ -1552,12 +1633,22 @@ Renewal date: 14 September 2027
 
 Selecting **Manage plan** opens a plan-change dialog with:
 
-1. Target plan.
-2. Target billing cycle.
+1. Target plan for an upgrade.
+2. Target billing cycle, where the upgrade requires it.
 3. Effective timing.
 4. Payment/approval route.
 5. Price and entitlement impact.
 6. Confirmation.
+
+The Clinic Admin interface must not present direct downgrade, cancellation,
+renewal-disable, or billing-cycle-change actions. It should present a clear
+Super Admin request route for those needs:
+
+```text
+Need to cancel, downgrade, change billing cycle, or arrange offline access?
+Submit a request to Super Admin.
+Your current access will remain unchanged while the request is reviewed.
+```
 
 Target plan cards should show:
 
@@ -1567,7 +1658,8 @@ Target plan cards should show:
 - Annual savings.
 - Included limits.
 - Relevant differences from the current plan.
-- Upgrade or downgrade label.
+- Upgrade label for plans above the current plan.
+- Super Admin request label for unsupported or non-upgrade changes.
 
 The dialog must show the effective date before the final confirmation.
 
@@ -1587,17 +1679,17 @@ Payment route:
 Your current Growth access will remain active until the change is confirmed.
 ```
 
-Example downgrade confirmation:
+Example Super Admin review request:
 
 ```text
 Pro Annual → Growth Annual
 
-Default effective date:
-  Next renewal: 14 September 2027
+Request type:
+  Downgrade at next renewal
 
-Your current Pro access continues until that date.
-Existing clinic data will not be deleted.
-New activity may be limited by Growth rules after the downgrade becomes effective.
+Your request will be sent to Super Admin.
+Your current Pro access continues until an approved effective date.
+No data will be deleted.
 ```
 
 ### 18.3 Trial restrictions in Clinic Settings
@@ -1625,12 +1717,15 @@ Admin-granted Trial, recovery Trial, and Trial extensions remain Super Admin act
 
 Every Clinic Admin plan change must use one of two explicit routes.
 
-### Route A — Razorpay-managed online change
+### Route A — Razorpay-managed online upgrade
 
-Use this route when the current subscription is provider-managed and the requested operation is supported.
+Use this route only for a Clinic Admin upgrade or Trial-to-paid conversion when
+the current subscription is provider-managed and the requested operation is
+supported. Downgrades, cancellation, renewal changes, and billing-cycle
+changes do not use this direct Clinic Admin route.
 
 ```text
-Clinic selects a target plan
+Clinic selects a higher target plan
   ↓
 Server validates the current subscription
   ↓
@@ -1665,7 +1760,9 @@ The system must never treat a successful browser response from a provider prepar
 
 ### Route B — Super Admin request
 
-Use this route when the clinic wants offline handling or when the provider path is not eligible.
+Use this route for any offline handling, non-upgrade request, or provider path
+that is not eligible. A Clinic Admin may submit the request, but submission
+does not change effective access.
 
 ```text
 Clinic selects a target plan
@@ -1699,6 +1796,11 @@ This route is required for:
 - Custom effective dates.
 - Immediate changes requiring human approval.
 - Trial exceptions.
+- Cancellation-at-period-end.
+- Immediate cancellation exceptions.
+- Downgrades.
+- Billing-cycle changes.
+- Withdrawal or cancellation of a committed provider operation.
 
 The clinic should not have to contact support by email for a normal plan request. The request should be visible, trackable, and auditable in the application.
 
@@ -1812,10 +1914,14 @@ Growth becomes effective after renewal confirmation
 
 Immediate downgrade requires:
 
-- Explicit Clinic Admin confirmation.
+- A Clinic Admin request or a documented administrative reason.
+- Super Admin approval.
 - Clear financial and entitlement impact.
-- Provider confirmation or Super Admin approval.
+- Provider confirmation where the provider controls the subscription.
 - Data-preservation validation.
+
+Clinic Admin confirmation records intent only. It is not authorization to
+remove access or apply a downgrade.
 
 An immediate downgrade must not delete or silently hide:
 
@@ -2140,9 +2246,12 @@ Recommended values:
 requestType:
   upgrade
   downgrade
-  plan_change
   billing_cycle_change
   trial_conversion
+  cancellation_review
+  renewal_disable_review
+  offline_assignment
+  provider_operation_review
 
 requestedMode:
   razorpay
@@ -2162,6 +2271,12 @@ status:
   awaiting_payment
   approved
   rejected
+  withdrawn_by_clinic
+  cancelled_by_admin
+  cancellation_requested
+  cancel_at_period_end
+  provider_cancel_pending
+  provider_cancelled
   cancelled
   applied
   failed
@@ -2184,7 +2299,10 @@ created against. A request for an old provider subscription must not change a
 newer subscription after a renewal, cancellation, manual assignment, or
 superseding request.
 
-When a new request is submitted, the server must choose one clear result:
+When a new request is submitted, the server must choose one clear result. A
+Clinic Admin may withdraw only an uncommitted upgrade request. Cancellation of
+an active subscription or a committed provider operation is never implied by a
+Clinic Admin request:
 
 ```text
 Wait:
@@ -2195,8 +2313,12 @@ Supersede:
   record the reason, then create the new request.
 
 Cancel:
-  Cancel the old request only when the provider operation can still be
-  cancelled, then create the new request.
+  Super Admin or the provider adapter cancels the old request only when the
+  provider operation can still be cancelled, then create the new request.
+
+Withdraw:
+  Clinic Admin withdraws an upgrade request only before a provider operation is
+  committed. The current subscription remains unchanged.
 ```
 
 Never silently overwrite an unresolved request.
