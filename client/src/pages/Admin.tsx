@@ -1048,7 +1048,7 @@ export default function Admin() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="operations" forceMount>
+        <TabsContent value="operations">
           <AdminOperationsOverview
             clinics={clinics}
             month={adminMessagingMonth}
