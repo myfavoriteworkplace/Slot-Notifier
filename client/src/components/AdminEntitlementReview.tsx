@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
 import type { EffectiveEntitlementItem, EffectiveEntitlementReport } from "@shared/effective-entitlement";
+import { matchesAdminClinicFilter } from "@shared/admin-operations";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
@@ -191,14 +192,7 @@ export default function AdminEntitlementReview({ clinics }: { clinics: Clinic[] 
     const needle = search.trim().toLowerCase();
     return clinics
       .filter(clinic => !clinic.isArchived)
-      .filter(clinic => {
-        const plan = String(clinic.plan || "").toLowerCase();
-        const status = String(clinic.subscriptionStatus || "").toLowerCase();
-        if (clinicFilter === "trial") return plan === "trial" || status === "trialing" || status === "trial";
-        if (clinicFilter === "paid") return ["starter", "growth", "pro"].includes(plan) && ["active", "manual_override"].includes(status);
-        if (clinicFilter === "attention") return !["active", "trialing", "trial"].includes(status);
-        return true;
-      })
+      .filter(clinic => matchesAdminClinicFilter(clinic, clinicFilter))
       .filter(clinic => !needle || [clinic.name, clinic.city, clinic.email, clinic.plan]
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(needle)));

@@ -17,6 +17,7 @@ import { notify } from "@/lib/notify";
 import { compressImage } from "@/lib/imageCompression";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Clinic, SmileDeal } from "@shared/schema";
+import { matchesAdminClinicFilter } from "@shared/admin-operations";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -759,9 +760,9 @@ export default function Admin() {
     );
   }
 
-  const activeClinics = clinics.filter(c => c.status === 'approved' && !c.isArchived);
-  const pendingClinics = clinics.filter(c => c.status === 'pending');
-  const archivedClinics = clinics.filter(c => c.isArchived);
+  const activeClinics = clinics.filter(c => matchesAdminClinicFilter(c, "active"));
+  const pendingClinics = clinics.filter(c => matchesAdminClinicFilter(c, "pending"));
+  const archivedClinics = clinics.filter(c => matchesAdminClinicFilter(c, "archived"));
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-[1440px]">

@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getAdminClinicLifecycleState,
   getAdminClinicAttentionReasons,
   getAdminDataState,
   getAdminStorageUsageLevel,
+  matchesAdminClinicFilter,
 } from "./admin-operations";
 
 test("admin data state distinguishes loading, error, empty, and available", () => {
@@ -57,5 +59,119 @@ test("healthy active clinic has no attention reasons", () => {
       entitlement: { available: true, overLimitCount: 0 },
     }),
     [],
+  );
+});
+
+test("clinic lifecycle filters treat archived as a distinct state", () => {
+  assert.equal(
+    getAdminClinicLifecycleState({ status: "approved", isArchived: false }),
+    "active",
+  );
+  assert.equal(
+    getAdminClinicLifecycleState({ status: "pending", isArchived: false }),
+    "pending",
+  );
+  assert.equal(
+    getAdminClinicLifecycleState({ status: "pending", isArchived: true }),
+    "archived",
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ status: "pending", isArchived: true }, "pending"),
+    false,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ status: "pending", isArchived: true }, "archived"),
+    true,
+  );
+});
+
+test("trial and paid filters normalize legacy subscription values", () => {
+  assert.equal(
+    matchesAdminClinicFilter({ plan: "trial", subscriptionStatus: "trialing" }, "trial"),
+    true,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ plan: "starter", subscriptionStatus: "unpaid" }, "trial"),
+    false,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ plan: "growth", subscriptionStatus: "active" }, "paid"),
+    true,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ plan: "starter", subscriptionStatus: "manual" }, "paid"),
+    true,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ plan: "growth", subscriptionStatus: "past_due" }, "paid"),
+    false,
+  );
+});
+
+test("effective access state overrides raw plan fields for access filters", () => {
+  assert.equal(
+    matchesAdminClinicFilter({
+      plan: "starter",
+      subscriptionStatus: "active",
+      effectiveAccessState: "sponsored",
+    }, "sponsored"),
+    true,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({
+      plan: "starter",
+      subscriptionStatus: "active",
+      effectiveAccessState: "sponsored",
+    }, "paid"),
+    false,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({
+      plan: "growth",
+      subscriptionStatus: "active",
+      effectiveAccessState: "active_paid",
+    }, "paid"),
+    true,
+  );
+});
+
+test("sponsored and exception filters do not guess without server access context", () => {
+  const rawClinic = { plan: "growth", subscriptionStatus: "active" };
+  assert.equal(matchesAdminClinicFilter(rawClinic, "sponsored"), false);
+  assert.equal(matchesAdminClinicFilter(rawClinic, "exception"), false);
+  assert.equal(
+    matchesAdminClinicFilter({ ...rawClinic, hasSponsoredAccess: true }, "sponsored"),
+    true,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ ...rawClinic, hasActiveException: true }, "exception"),
+    true,
+  );
+});
+
+test("attention and unknown filters remain explicit", () => {
+  assert.equal(
+    matchesAdminClinicFilter({
+      status: "approved",
+      subscriptionStatus: "active",
+      attentionReasons: [],
+    }, "attention"),
+    false,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({
+      status: "approved",
+      subscriptionStatus: "active",
+      attentionReasons: [{ code: "storage", severity: "warning", label: "Storage 86%" }],
+    }, "attention"),
+    true,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ status: "approved", subscriptionStatus: "future_state" }, "unknown"),
+    true,
+  );
+  assert.equal(
+    matchesAdminClinicFilter({ status: "approved", subscriptionStatus: "active" }, "unknown"),
+    false,
   );
 });

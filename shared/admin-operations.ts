@@ -24,6 +24,47 @@ export type AdminAttentionReason = {
   label: string;
 };
 
+export const ADMIN_CLINIC_FILTERS = [
+  "all",
+  "active",
+  "pending",
+  "archived",
+  "trial",
+  "paid",
+  "sponsored",
+  "exception",
+  "attention",
+  "unknown",
+] as const;
+
+export type AdminClinicFilter = (typeof ADMIN_CLINIC_FILTERS)[number];
+
+export type AdminClinicLifecycleState =
+  | "active"
+  | "pending"
+  | "archived"
+  | "rejected"
+  | "unknown";
+
+/**
+ * This is the minimum server-backed summary needed by shared clinic lists.
+ *
+ * `effectiveAccessState`, `hasSponsoredAccess`, and `hasActiveException` are
+ * optional because the base clinic directory does not load every clinic's
+ * entitlement report. When they are absent, sponsored and exception filters
+ * deliberately do not match instead of guessing from raw plan fields.
+ */
+export type AdminClinicFilterRecord = {
+  status?: string | null;
+  isArchived?: boolean | null;
+  plan?: string | null;
+  subscriptionStatus?: string | null;
+  effectiveAccessState?: "trial" | "trial_grace" | "active_paid" | "sponsored" | "attention" | "unknown" | null;
+  hasSponsoredAccess?: boolean;
+  hasActiveException?: boolean;
+  attentionReasons?: readonly AdminAttentionReason[];
+};
+
 export type AdminDataStateInput = {
   isLoading?: boolean;
   isError?: boolean;
@@ -147,6 +188,79 @@ export function getAdminDataState({
   if (isError) return "error";
   if (!hasData) return "empty";
   return "available";
+}
+
+export function getAdminClinicLifecycleState(
+  clinic: AdminClinicFilterRecord,
+): AdminClinicLifecycleState {
+  if (clinic.isArchived === true) return "archived";
+
+  const status = clinic.status?.trim().toLowerCase();
+  if (status === "pending") return "pending";
+  if (status === "approved") return "active";
+  if (status === "rejected") return "rejected";
+  return "unknown";
+}
+
+function isTrialClinic(clinic: AdminClinicFilterRecord): boolean {
+  if (clinic.effectiveAccessState === "trial" || clinic.effectiveAccessState === "trial_grace") {
+    return true;
+  }
+  if (clinic.effectiveAccessState !== undefined && clinic.effectiveAccessState !== null) {
+    return false;
+  }
+
+  const subscription = getSubscriptionStatusInfo(clinic.subscriptionStatus);
+  return subscription.state === "trialing" || clinic.plan?.trim().toLowerCase() === "trial";
+}
+
+function isPaidClinic(clinic: AdminClinicFilterRecord): boolean {
+  if (clinic.effectiveAccessState === "active_paid") return true;
+  if (clinic.effectiveAccessState !== undefined && clinic.effectiveAccessState !== null) {
+    return false;
+  }
+
+  const plan = clinic.plan?.trim().toLowerCase();
+  const subscription = getSubscriptionStatusInfo(clinic.subscriptionStatus);
+  return Boolean(plan && plan !== "trial") &&
+    (subscription.state === "active" || subscription.state === "manual_override");
+}
+
+function hasAdminClinicAttention(clinic: AdminClinicFilterRecord): boolean {
+  if (clinic.attentionReasons !== undefined) {
+    return clinic.attentionReasons.length > 0;
+  }
+  return getSubscriptionStatusInfo(clinic.subscriptionStatus).needsAttention;
+}
+
+/**
+ * Shared inclusion rules for all Super Admin clinic directories.
+ *
+ * This function classifies records for display and filtering only. It does
+ * not grant access or replace the server's effective-entitlement decision.
+ */
+export function matchesAdminClinicFilter(
+  clinic: AdminClinicFilterRecord,
+  filter: AdminClinicFilter,
+): boolean {
+  if (filter === "all") return true;
+
+  const lifecycle = getAdminClinicLifecycleState(clinic);
+  if (filter === lifecycle) return true;
+  if (filter === "trial") return isTrialClinic(clinic);
+  if (filter === "paid") return isPaidClinic(clinic);
+  if (filter === "sponsored") {
+    return clinic.effectiveAccessState === "sponsored" || clinic.hasSponsoredAccess === true;
+  }
+  if (filter === "exception") return clinic.hasActiveException === true;
+  if (filter === "attention") return hasAdminClinicAttention(clinic);
+  if (filter === "unknown") {
+    return lifecycle === "unknown" ||
+      clinic.effectiveAccessState === "unknown" ||
+      getSubscriptionStatusInfo(clinic.subscriptionStatus).state === "unknown";
+  }
+
+  return false;
 }
 
 export function getAdminStorageUsageLevel(

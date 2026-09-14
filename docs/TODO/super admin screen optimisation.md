@@ -45,7 +45,15 @@ The first foundation step has now been completed without changing the visible Su
 - Updated the Messaging Usage panel to use the shared messaging response types.
 - Added pure tests for the shared policies.
 
-The next UI step is still pending: combine Overview and Messaging Usage into one Operations workspace. The Active Clinics and Entitlements consolidation has not started.
+The first independent filter step is now also complete:
+
+- Added one shared clinic-filter contract for active, pending, archived, Trial, paid, sponsored, exception, attention, and unknown states.
+- Made archived records take precedence over pending or approved lifecycle status.
+- Kept sponsored-access and entitlement-exception filters conservative when server-backed access context is unavailable.
+- Reused the shared filter rules in the current Operations, Entitlements, and main Admin clinic counts.
+- Added pure tests for legacy subscription values, effective access overrides, archived/pending inclusion, attention, unknown, sponsored, and exception states.
+
+The next immediate implementation step is **SA-04: Define the shared reporting-period state**. The Operations and Messaging Usage consolidation, shared clinic directory, and Active Clinics/Entitlements consolidation have not started.
 
 ---
 
@@ -248,8 +256,8 @@ Each row is one reviewable implementation step. The step should be kept small en
 | ID | Independent step | Scope | Likely files or areas | Direct prerequisite | Done when |
 |---|---|---|---|---|---|
 | SA-01 | Confirm the target navigation | Approve the names, order, and ownership of Operations, Clinics & Access, Plans & Policies, Pending Review, Smile Deals, and Security & Audit. Decide that Archived is a clinic-directory state. | `client/src/pages/Admin.tsx`, this document, product/design review | None | A signed-off navigation map exists and no implementation step needs to reinterpret the information architecture. |
-| SA-02 | Keep shared admin policies authoritative | Retain the completed status, attention, storage, messaging, entitlement, and data-state helpers. Add any missing pure policy needed by later filters. Do not move authorization into the browser. | `shared/admin-operations.ts`, `shared/admin-operations.test.ts` | None; foundation is completed | Shared helpers define normal, warning, critical, unknown, unavailable, delayed, pending, archived, Trial, paid, sponsored, and exception interpretations with pure tests. |
-| SA-03 | Define one clinic filter contract | Document and implement the inclusion rules for active, pending, archived, Trial, paid, sponsored, exception, attention, and unknown clinics. | New shared clinic-filter module; `shared/admin-operations.ts`; tests | SA-02 | Operations, Pending, Active, Archived, and Clinics & Access can use the same filter definitions without inline variations. |
+| SA-02 | **Completed:** Keep shared admin policies authoritative | Retain the completed status, attention, storage, messaging, entitlement, and data-state helpers. Add any missing pure policy needed by later filters. Do not move authorization into the browser. | `shared/admin-operations.ts`, `shared/admin-operations.test.ts` | None; foundation is completed | Shared helpers define normal, warning, critical, unknown, unavailable, delayed, pending, archived, Trial, paid, sponsored, and exception interpretations with pure tests. |
+| SA-03 | **Completed:** Define one clinic filter contract | Document and implement the inclusion rules for active, pending, archived, Trial, paid, sponsored, exception, attention, and unknown clinics. | `shared/admin-operations.ts`, `shared/admin-operations.test.ts`, `AdminOperationsOverview.tsx`, `AdminEntitlementReview.tsx`, `Admin.tsx` | SA-02 | Operations, Entitlements, and the main Admin lifecycle counts use the shared filter contract; sponsored and exception filters do not guess without server-backed access context. |
 | SA-04 | Define the shared reporting-period state | Establish one owner for month, API timezone, refresh, query keys, and freshness. Preserve existing endpoint shapes. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `Admin.tsx` | SA-02 | One month and timezone label can be passed to every messaging summary, trend, comparison, and detail view. |
 | SA-05 | Add explicit unavailable and delayed rendering | Replace remaining zero fallbacks for missing messaging, storage, entitlement, and provider data with unavailable, delayed, or error states. | `AdminOperationsOverview.tsx`, `AdminMessagingUsagePanel.tsx`, `AdminEntitlementReview.tsx` | SA-02 | A real measured zero is displayed as zero; missing or failed data never appears as a successful zero. |
 | SA-06 | Build the Operations workspace shell | Rename Overview as Operations and provide one header, KPI area, attention area, usage area, tenant area, period control, and refresh action. | `AdminOperationsOverview.tsx`, `Admin.tsx` | SA-01, SA-04, SA-05 | Operations clearly answers what is healthy, what needs attention, and which clinic should be opened next. |

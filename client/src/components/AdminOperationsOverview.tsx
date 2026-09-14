@@ -20,6 +20,7 @@ import type { Clinic } from "@shared/schema";
 import {
   getAdminClinicAttentionReasons,
   getAdminStorageUsageLevel,
+  matchesAdminClinicFilter,
   type AdminMessagingUsageSummary,
   type AdminStorageUsageSummary,
 } from "@shared/admin-operations";
@@ -171,24 +172,30 @@ export default function AdminOperationsOverview({
 
   const activeClinics = clinics.filter(clinic => clinic.status === "approved" && !clinic.isArchived);
   const pendingClinics = clinics.filter(clinic => clinic.status === "pending" && !clinic.isArchived);
+  const attentionReasonsByClinic = new Map(
+    activeClinics.map(clinic => {
+      const storage = storageByClinic.get(clinic.id);
+      const messaging = messagingByClinic.get(clinic.id);
+      return [clinic.id, getAdminClinicAttentionReasons({
+        subscriptionStatus: clinic.subscriptionStatus,
+        storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
+        messaging: messaging ? { available: true, failed: messaging.failed } : { available: false },
+      })] as const;
+    }),
+  );
   const attentionClinics = activeClinics.filter(clinic => {
-    const storage = storageByClinic.get(clinic.id);
-    const messaging = messagingByClinic.get(clinic.id);
-    return getAdminClinicAttentionReasons({
-      subscriptionStatus: clinic.subscriptionStatus,
-      storage: storage ? { available: true, usagePercent: storage.usagePercent } : { available: false },
-      messaging: messaging ? { available: true, failed: messaging.failed } : { available: false },
-    }).length > 0;
+    return matchesAdminClinicFilter({
+      ...clinic,
+      attentionReasons: attentionReasonsByClinic.get(clinic.id) ?? [],
+    }, "attention");
   });
 
   const filteredClinics = clinics
     .filter(clinic => !clinic.isArchived)
-    .filter(clinic => {
-      if (filter === "active") return clinic.status === "approved";
-      if (filter === "pending") return clinic.status === "pending";
-      if (filter === "attention") return attentionClinics.some(item => item.id === clinic.id);
-      return true;
-    })
+    .filter(clinic => filter === "all" || matchesAdminClinicFilter({
+      ...clinic,
+      attentionReasons: attentionReasonsByClinic.get(clinic.id) ?? [],
+    }, filter))
     .filter(clinic => {
       const needle = search.trim().toLowerCase();
       if (!needle) return true;
