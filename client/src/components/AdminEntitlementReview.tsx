@@ -22,7 +22,14 @@ import {
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
 import type { EffectiveEntitlementItem, EffectiveEntitlementReport } from "@shared/effective-entitlement";
-import { matchesAdminClinicFilter } from "@shared/admin-operations";
+import {
+  ADMIN_CLINIC_DIRECTORY_FILTER_OPTIONS,
+  matchesAdminClinicDirectoryFilter,
+  matchesAdminClinicDirectorySearch,
+  type AdminClinicDirectoryFilter,
+  type AdminClinicDirectoryRecord,
+} from "@shared/admin-clinic-directory";
+import { getAdminClinicLifecycleState } from "@shared/admin-operations";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +73,6 @@ const USAGE_CAPABILITIES = new Set([
   "messaging_email",
 ]);
 
-type ClinicFilter = "all" | "attention" | "trial" | "paid";
 type AccessAction = "sponsored" | "exception";
 type SubscriptionHistory = {
   lifecycleEvents: Array<{
@@ -159,7 +165,7 @@ export default function AdminEntitlementReview({
   onRetryClinics?: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [clinicFilter, setClinicFilter] = useState<ClinicFilter>("all");
+  const [clinicFilter, setClinicFilter] = useState<AdminClinicDirectoryFilter>("all");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [trialDialogOpen, setTrialDialogOpen] = useState(false);
   const [trialAction, setTrialAction] = useState<"start" | "extend">("start");
@@ -201,11 +207,8 @@ export default function AdminEntitlementReview({
   const filteredClinics = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return clinics
-      .filter(clinic => !clinic.isArchived)
-      .filter(clinic => matchesAdminClinicFilter(clinic, clinicFilter))
-      .filter(clinic => !needle || [clinic.name, clinic.city, clinic.email, clinic.plan]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(needle)));
+      .filter(clinic => matchesAdminClinicDirectoryFilter(clinic, clinicFilter))
+      .filter(clinic => matchesAdminClinicDirectorySearch(clinic as AdminClinicDirectoryRecord, needle));
   }, [clinicFilter, clinics, search]);
 
   const numericCapabilities = reportQuery.data?.capabilities.filter(item => USAGE_CAPABILITIES.has(item.capability)) ?? [];
@@ -336,39 +339,38 @@ export default function AdminEntitlementReview({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold tracking-tight">Subscription plans & entitlements</h2>
+        <h2 className="text-xl font-bold tracking-tight">Clinics & Access</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review and manage audited plan access without enabling commercial enforcement.
+          Find a clinic once, then review its profile context, effective access, usage, limits, and audited history in one workspace.
         </p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(230px,0.8fr)_minmax(0,1.8fr)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.8fr)]">
         <Card className="min-w-0">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Clinic subscriptions</CardTitle>
-            <CardDescription>{filteredClinics.length} clinic{filteredClinics.length === 1 ? "" : "s"} available for review</CardDescription>
+            <CardTitle className="text-sm">Clinic directory</CardTitle>
+            <CardDescription>{filteredClinics.length} clinic{filteredClinics.length === 1 ? "" : "s"} match the current view</CardDescription>
             <div className="relative pt-2">
               <Search className="pointer-events-none absolute left-2.5 top-4 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={event => setSearch(event.target.value)}
-                placeholder="Search clinics"
+                placeholder="Search name, city, email, or plan"
                 className="h-8 pl-8 text-xs"
-                aria-label="Search clinics for entitlement review"
+                aria-label="Search Clinics and Access directory"
               />
             </div>
             <div className="flex items-center gap-2 pt-2">
               <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <select
                 value={clinicFilter}
-                onChange={event => setClinicFilter(event.target.value as ClinicFilter)}
+                onChange={event => setClinicFilter(event.target.value as AdminClinicDirectoryFilter)}
                 className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                aria-label="Filter subscription clinics"
+                aria-label="Filter Clinics and Access directory"
               >
-                <option value="all">All clinics</option>
-                <option value="attention">Needs attention</option>
-                <option value="trial">Trial</option>
-                <option value="paid">Active paid</option>
+                {ADMIN_CLINIC_DIRECTORY_FILTER_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </div>
           </CardHeader>
@@ -392,9 +394,11 @@ export default function AdminEntitlementReview({
                   <span className="min-w-0 truncate text-xs font-semibold">{clinic.name}</span>
                   <span className="shrink-0 text-[10px] capitalize text-muted-foreground">{clinic.plan || "No plan"}</span>
                 </div>
-                <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                  {[clinic.city, clinic.subscriptionStatus || "state unavailable"].filter(Boolean).join(" · ")}
-                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                  {clinic.city && <span className="truncate">{clinic.city}</span>}
+                  <span className="capitalize">{getAdminClinicLifecycleState(clinic)}</span>
+                  <span className="capitalize">{clinic.subscriptionStatus || "state unavailable"}</span>
+                </div>
               </button>
             ))}
             {!filteredClinics.length && <p className="py-8 text-center text-xs text-muted-foreground">No clinics match this search.</p>}

@@ -987,9 +987,9 @@ export default function Admin() {
             <FileText className="h-4 w-4" />
             Plan Policies
           </TabsTrigger>
-          <TabsTrigger value="subscription-plans" className="flex items-center gap-2" data-testid="tab-subscription-plans">
+          <TabsTrigger value="clinics-access" className="flex items-center gap-2" data-testid="tab-clinics-access">
             <ShieldCheck className="h-4 w-4" />
-            Entitlements
+            Clinics & Access
           </TabsTrigger>
           <TabsTrigger value="active" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
@@ -1036,7 +1036,7 @@ export default function Admin() {
           <AdminPlanPolicies />
         </TabsContent>
 
-        <TabsContent value="subscription-plans">
+        <TabsContent value="clinics-access">
            <AdminEntitlementReview clinics={clinics} clinicsLoading={clinicsLoading} clinicsError={clinicsError} onRetryClinics={() => refetchClinics()} />
         </TabsContent>
 
