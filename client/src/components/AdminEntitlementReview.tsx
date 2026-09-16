@@ -2,28 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  Archive,
-  ArchiveRestore,
   CalendarDays,
   CheckCircle2,
   Clock3,
-  Database,
   CreditCard,
-  Globe,
   Gift,
   History,
-  Mail,
-  MapPin,
-  Phone,
-  Play,
-  Plus,
   RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  Stethoscope,
   Users,
   XCircle,
 } from "lucide-react";
@@ -46,6 +36,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import ClinicControlCenter from "@/components/ClinicControlCenter";
 
 const CAPABILITY_LABELS: Record<string, string> = {
   bookings: "Bookings",
@@ -148,19 +139,6 @@ const labelFor = (value: string | null | undefined) => {
   if (value === "active_paid") return "Active Paid";
   if (value === "sponsored") return "Sponsored Access";
   return value.replace(/_/g, " ").replace(/\b\w/g, character => character.toUpperCase());
-};
-
-const statusClass = (state: EffectiveEntitlementReport["access"]["state"]) => {
-  if (state === "active_paid" || state === "trial") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300";
-  }
-  if (state === "sponsored") {
-    return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300";
-  }
-  if (state === "unknown") {
-    return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300";
-  }
-  return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300";
 };
 
 const guidanceClass = (action: EffectiveEntitlementReport["nextStep"]["action"]) => {
@@ -584,140 +562,24 @@ export default function AdminEntitlementReview({
 
         {selectedClinic && (
           <div className="min-w-0 space-y-4">
-             <Card data-testid={`clinic-profile-actions-${selectedClinic.id}`}>
-               <CardHeader className="pb-3">
-                 <CardTitle className="text-sm">Clinic profile actions</CardTitle>
-                 <CardDescription>Manage profile details and access links without leaving Clinics & Access.</CardDescription>
-               </CardHeader>
-               <CardContent className="flex flex-wrap gap-2 pt-0">
-                 {onCopyClinicUrl && (
-                   <>
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       className="h-8 text-xs"
-                       onClick={() => onCopyClinicUrl(selectedClinic, "book")}
-                     >
-                       <Database className="mr-1.5 h-3.5 w-3.5" />Book URL
-                     </Button>
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       className="h-8 text-xs"
-                       onClick={() => onCopyClinicUrl(selectedClinic, "about")}
-                     >
-                       <Database className="mr-1.5 h-3.5 w-3.5" />About URL
-                     </Button>
-                   </>
-                 )}
-                 {onEditClinic && (
-                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onEditClinic(selectedClinic)}>
-                     <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Edit clinic
-                   </Button>
-                 )}
-                 {onManageCredentials && (
-                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onManageCredentials(selectedClinic)}>
-                     <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />Credentials
-                   </Button>
-                 )}
-                 {selectedClinic.isArchived ? (
-                   onRestoreClinic && (
-                     <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onRestoreClinic(selectedClinic)}>
-                       <ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />Restore clinic
-                     </Button>
-                   )
-                 ) : (
-                   onArchiveClinic && (
-                     <Button variant="outline" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={() => onArchiveClinic(selectedClinic)}>
-                       <Archive className="mr-1.5 h-3.5 w-3.5" />Archive clinic
-                     </Button>
-                   )
-                 )}
-               </CardContent>
-             </Card>
+             <ClinicControlCenter
+               clinic={selectedClinic}
+               report={report}
+               attentionCount={attentionCount}
+               hasTrialHistory={hasTrialHistory}
+               reportLoading={reportQuery.isLoading}
+               reportError={reportQuery.isError}
+               onRetryReport={() => reportQuery.refetch()}
+               onStartTrial={() => openTrialDialog(hasTrialHistory ? "extend" : "start")}
+               onAssignPaidPlan={() => setPaidDialogOpen(true)}
+               onOpenAccessDialog={openAccessDialog}
+               onCopyClinicUrl={onCopyClinicUrl}
+               onEditClinic={onEditClinic}
+               onManageCredentials={onManageCredentials}
+               onArchiveClinic={onArchiveClinic}
+               onRestoreClinic={onRestoreClinic}
+             />
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <Database className="h-4 w-4 text-primary" />Clinic profile
-                  </CardTitle>
-                  <CardDescription>Contact details and assigned doctors for the selected clinic.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-4 pt-0 md:grid-cols-2">
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Contact & location</p>
-                    <div className="space-y-2 text-xs">
-                      {(selectedClinic.address || selectedClinic.city || (selectedClinic as any).pincode) && (
-                        <div className="flex items-start gap-2">
-                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                          <span>{[selectedClinic.address, selectedClinic.city, (selectedClinic as any).pincode].filter(Boolean).join(", ")}</span>
-                        </div>
-                      )}
-                      {selectedClinic.email && (
-                        <a href={`mailto:${selectedClinic.email}`} className="flex items-center gap-2 text-foreground hover:text-primary">
-                          <Mail className="h-3.5 w-3.5 shrink-0 text-primary" />{selectedClinic.email}
-                        </a>
-                      )}
-                      {selectedClinic.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3.5 w-3.5 shrink-0 text-primary" />{selectedClinic.phone}
-                        </div>
-                      )}
-                      {selectedClinic.website && (
-                        <a href={selectedClinic.website} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-primary hover:underline">
-                          <Globe className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{selectedClinic.website.replace(/^https?:\/\//, "")}</span>
-                        </a>
-                      )}
-                      {!selectedClinic.address && !selectedClinic.city && !selectedClinic.email && !selectedClinic.phone && !selectedClinic.website && (
-                        <p className="text-muted-foreground">No contact details recorded.</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      <Stethoscope className="h-3.5 w-3.5" />Assigned doctors
-                    </p>
-                    {selectedClinic.doctors && selectedClinic.doctors.length > 0 ? (
-                      <div className="space-y-2">
-                        {selectedClinic.doctors.map((doctor, index) => (
-                          <div key={`${doctor.name}-${index}`} className="flex items-center gap-2.5 rounded-md border bg-muted/20 px-2.5 py-2">
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold text-primary">
-                              {doctor.name.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-medium">Dr. {doctor.name}</p>
-                              <p className="truncate text-[10px] text-muted-foreground">
-                                {doctor.specialization}{doctor.degree ? ` · ${doctor.degree}` : ""}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">No doctors listed.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-            {reportQuery.isLoading && (
-              <Card><CardContent className="flex min-h-[180px] items-center justify-center text-sm text-muted-foreground">Loading entitlement report…</CardContent></Card>
-            )}
-            {reportQuery.isError && (
-              <Card className="border-red-200 dark:border-red-900">
-                <CardContent className="flex items-start gap-3 p-5 text-sm text-red-700 dark:text-red-300">
-                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-semibold">Entitlement report unavailable</p>
-                    <p className="mt-1 text-xs">The clinic can remain unchanged while this read-only report is unavailable.</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => reportQuery.refetch()} disabled={reportQuery.isFetching}>
-                    <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${reportQuery.isFetching ? "animate-spin" : ""}`} />Retry
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
             {reportQuery.isFetching && report && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
                 Refreshing the entitlement report; the displayed values are from the previous successful report until the refresh completes.
@@ -725,68 +587,6 @@ export default function AdminEntitlementReview({
             )}
             {report && (
               <>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <CardTitle className="flex items-center gap-2 text-base">
-                          <Database className="h-4 w-4 text-primary" />{selectedClinic.name}
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          {selectedClinic.city || "Clinic"} · measured {formatDate(report.measuredAt)}
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <Badge variant="outline" className={`capitalize ${statusClass(report.access.state)}`}>
-                          {report.access.state === "attention" ? <AlertTriangle className="mr-1 h-3 w-3" /> : report.access.state === "unknown" ? <ShieldAlert className="mr-1 h-3 w-3" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
-                          {labelFor(report.access.state)}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          variant={hasTrialHistory ? "outline" : "default"}
-                          className="h-8"
-                          onClick={() => openTrialDialog(hasTrialHistory ? "extend" : "start")}
-                          data-testid={`button-${hasTrialHistory ? "extend" : "start"}-trial-${selectedClinic.id}`}
-                        >
-                          {hasTrialHistory ? <Plus className="mr-1.5 h-3.5 w-3.5" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
-                          {hasTrialHistory ? "Extend Trial" : "Start Trial"}
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8" onClick={() => setPaidDialogOpen(true)}>
-                          <CreditCard className="mr-1.5 h-3.5 w-3.5" />Assign paid plan
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8" onClick={() => openAccessDialog("sponsored")}>
-                          <Gift className="mr-1.5 h-3.5 w-3.5" />Sponsored access
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8" onClick={() => openAccessDialog("exception")}>
-                          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Exception
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Effective plan</p>
-                      <p className="mt-1 text-sm font-bold">{report.plan.displayName || labelFor(report.plan.effective)}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">Requested: {report.plan.requested || "not set"} · {sourceLabel(report.plan.source)}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Subscription</p>
-                      <p className="mt-1 text-sm font-bold">{report.subscription.label}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">{labelFor(report.access.reasonCode)}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Policy</p>
-                      <p className="mt-1 text-sm font-bold">{report.plan.policyVersion || "Unavailable"}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">Timezone: {report.timezone}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attention</p>
-                      <p className={`mt-1 text-sm font-bold ${attentionCount ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>{attentionCount ? `${attentionCount} over limit` : "No over-limit usage"}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">{report.exceptions.active} exception{report.exceptions.active === 1 ? "" : "s"} · {report.grants.active} grant{report.grants.active === 1 ? "" : "s"}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <Card className={guidanceClass(report.nextStep.action)} data-testid={`admin-access-guidance-${selectedClinic.id}`}>
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-sm">
