@@ -13,12 +13,10 @@ import {
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
-  Users,
   XCircle,
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
-import type { EffectiveEntitlementItem, EffectiveEntitlementReport } from "@shared/effective-entitlement";
+import type { EffectiveEntitlementReport } from "@shared/effective-entitlement";
 import {
   ADMIN_CLINIC_DIRECTORY_DEFAULT_FILTER,
   ADMIN_CLINIC_DIRECTORY_FILTER_OPTIONS,
@@ -37,30 +35,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ClinicControlCenter from "@/components/ClinicControlCenter";
-
-const CAPABILITY_LABELS: Record<string, string> = {
-  bookings: "Bookings",
-  active_doctors: "Active doctors",
-  smile_deals: "Live Smile Deals",
-  storage: "Storage",
-  messaging_sms: "SMS",
-  messaging_whatsapp: "WhatsApp",
-  messaging_email: "Email",
-  analytics: "Analytics",
-  export: "Data export",
-  inventory: "Inventory",
-  pharmacy: "Pharmacy",
-  website: "Clinic website",
-  support: "Support",
-  public_profile: "Public profile",
-  verified_badge: "Verified badge",
-  featured_deal_placement: "Featured deal placement",
-  essential_whatsapp: "Essential WhatsApp",
-  routine_whatsapp: "Routine WhatsApp",
-  bulk_whatsapp: "Bulk WhatsApp",
-  promotional_whatsapp: "Promotional WhatsApp",
-  advanced_whatsapp: "Advanced WhatsApp",
-};
 
 const USAGE_CAPABILITIES = new Set([
   "bookings",
@@ -119,16 +93,6 @@ type AccessHistoryEntry = {
   revokeTarget?: RevokeTarget;
 };
 
-const formatBytes = (value: number | null) => {
-  if (value === null) return "—";
-  if (!value) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-  return `${(value / Math.pow(1024, index)).toFixed(index ? 1 : 0)} ${units[index]}`;
-};
-
-const formatNumber = (value: number | null) => value === null ? "—" : value.toLocaleString("en-IN");
-
 const formatDate = (value: string | null) => {
   if (!value) return "Not recorded";
   return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -150,13 +114,6 @@ const guidanceClass = (action: EffectiveEntitlementReport["nextStep"]["action"])
   }
   return "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20";
 };
-
-const sourceLabel = (source: EffectiveEntitlementItem["source"]) => ({
-  plan: "Published plan",
-  sponsored_access: "Sponsored access",
-  exception: "Temporary exception",
-  unknown: "Unknown",
-}[source]);
 
 const historyDateValue = (value: string | null) => value ? new Date(value).getTime() : 0;
 
@@ -180,20 +137,6 @@ const historyStatusClass = (status: string | null) => {
   if (status === "Revoked" || status === "Failed" || status === "Unmatched") return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-300";
   return "text-muted-foreground";
 };
-
-function CapabilityValue({ item }: { item: EffectiveEntitlementItem }) {
-  if (item.capability === "storage") return <>{formatBytes(item.value as number | null)}</>;
-  if (typeof item.value === "boolean") return <>{item.value ? "Included" : "Not included"}</>;
-  if (typeof item.value === "string") return <>{labelFor(item.value)}</>;
-  if (item.fairUse) return <>Fair use</>;
-  return <>{formatNumber(item.value as number | null)}</>;
-}
-
-function UsageValue({ item }: { item: EffectiveEntitlementItem }) {
-  if (!item.usage?.available) return <span className="text-muted-foreground">Unavailable</span>;
-  if (item.capability === "storage") return <>{formatBytes(item.usage.value)}</>;
-  return <>{formatNumber(item.usage.value)}</>;
-}
 
 export default function AdminEntitlementReview({
   clinics,
@@ -566,6 +509,8 @@ export default function AdminEntitlementReview({
                clinic={selectedClinic}
                report={report}
                attentionCount={attentionCount}
+               numericCapabilities={numericCapabilities}
+               featureCapabilities={featureCapabilities}
                hasTrialHistory={hasTrialHistory}
                reportLoading={reportQuery.isLoading}
                reportError={reportQuery.isError}
@@ -679,46 +624,6 @@ export default function AdminEntitlementReview({
                         ))}
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-sm"><Users className="h-4 w-4" />Usage and limits</CardTitle>
-                    <CardDescription>Measured in {report.timezone}. Unavailable values are not treated as zero.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid gap-2 sm:grid-cols-2">
-                    {numericCapabilities.map(item => (
-                      <div key={item.capability} className={`rounded-lg border p-3 ${item.overLimit ? "border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/20" : ""}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-semibold">{CAPABILITY_LABELS[item.capability] || labelFor(item.capability)}</span>
-                          {item.overLimit ? <XCircle className="h-3.5 w-3.5 text-amber-600" /> : item.usage?.available ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> : <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground" />}
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between gap-2">
-                          <span className="text-lg font-bold"><UsageValue item={item} /></span>
-                          <span className="text-[11px] text-muted-foreground">of <CapabilityValue item={item} /></span>
-                        </div>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {item.remaining !== null ? `${item.capability === "storage" ? formatBytes(item.remaining) : formatNumber(item.remaining)} remaining` : item.reasonCode === "USAGE_UNAVAILABLE" ? "Usage unavailable" : labelFor(item.reasonCode)}
-                          {" · "}{sourceLabel(item.source)}
-                        </p>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Sparkles className="h-4 w-4" />Included features</CardTitle></CardHeader>
-                  <CardContent className="grid gap-2 sm:grid-cols-2">
-                    {featureCapabilities.map(item => (
-                      <div key={item.capability} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs">
-                        <span className="font-medium">{CAPABILITY_LABELS[item.capability] || labelFor(item.capability)}</span>
-                        <span className={`inline-flex items-center gap-1 font-semibold ${item.enabled === false ? "text-muted-foreground" : item.source === "exception" ? "text-amber-700 dark:text-amber-300" : item.enabled === null ? "text-slate-600" : "text-emerald-700 dark:text-emerald-300"}`}>
-                          {item.enabled === false ? <XCircle className="h-3.5 w-3.5" /> : item.enabled === null ? <ShieldAlert className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                          {item.enabled === false ? "Not included" : item.enabled === null ? "Unknown" : typeof item.value === "string" ? labelFor(item.value) : "Included"}
-                        </span>
-                      </div>
-                    ))}
                   </CardContent>
                 </Card>
 
