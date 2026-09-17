@@ -446,13 +446,15 @@ export default function AdminEntitlementReview({
         </p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.8fr)]">
-        <Card className="min-w-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Clinic directory</CardTitle>
-            <CardDescription>{filteredClinics.length} clinic{filteredClinics.length === 1 ? "" : "s"} match the current view</CardDescription>
-            <div className="relative pt-2">
-              <Search className="pointer-events-none absolute left-2.5 top-4 h-3.5 w-3.5 text-muted-foreground" />
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="mr-auto min-w-[180px]">
+              <CardTitle className="text-sm">Clinic directory</CardTitle>
+              <CardDescription className="mt-0.5">{filteredClinics.length} clinic{filteredClinics.length === 1 ? "" : "s"} match the current view</CardDescription>
+            </div>
+            <div className="relative min-w-[min(100%,260px)] flex-1 sm:max-w-md">
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={event => setSearch(event.target.value)}
@@ -461,7 +463,7 @@ export default function AdminEntitlementReview({
                 aria-label="Search Clinics and Access directory"
               />
             </div>
-            <div className="flex items-center gap-2 pt-2">
+            <div className="flex min-w-[min(100%,220px)] items-center gap-2 sm:w-56">
               <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <select
                 value={clinicFilter}
@@ -474,7 +476,12 @@ export default function AdminEntitlementReview({
                 ))}
               </select>
             </div>
-          </CardHeader>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(260px,0.72fr)_minmax(0,2.28fr)]">
+        <Card className="min-w-0 lg:sticky lg:top-4 lg:self-start">
           <CardContent className="max-h-[620px] space-y-2 overflow-y-auto pt-0">
             {clinicsError && (
               <div className="mb-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/15 dark:text-red-300" role="alert">

@@ -4,8 +4,6 @@ import {
   ArchiveRestore,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   CreditCard,
   Copy,
   Database,
@@ -20,7 +18,6 @@ import {
   Phone,
   Play,
   Plus,
-  Settings2,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -34,7 +31,6 @@ import { getAdminClinicLifecycleState } from "@shared/admin-operations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type AccessAction = "sponsored" | "exception";
 
@@ -142,12 +138,12 @@ function SectionHeading({ icon: Icon, title, description }: { icon: typeof Datab
   );
 }
 
-function SummaryItem({ label, value, detail, valueClass = "" }: { label: string; value: string; detail: string; valueClass?: string }) {
+function MetricItem({ label, value, detail, valueClass = "" }: { label: string; value: string; detail: string; valueClass?: string }) {
   return (
-    <div className="rounded-lg border bg-muted/20 p-3">
+    <div className="min-w-0">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-sm font-bold ${valueClass}`}>{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{detail}</p>
+      <p className={`mt-1 truncate text-xs font-bold ${valueClass}`}>{value}</p>
+      <p className="mt-1 truncate text-[10px] text-muted-foreground">{detail}</p>
     </div>
   );
 }
@@ -258,155 +254,89 @@ export default function ClinicControlCenter({
   const hasContactDetails = Boolean(clinic.address || clinic.city || (clinic as any).pincode || clinic.email || clinic.phone || clinic.website);
   const lifecycle = lifecycleLabel(clinic);
   const isArchived = getAdminClinicLifecycleState(clinic) === "archived";
+  const clinicInitials = clinic.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <Card data-testid={`clinic-profile-actions-${clinic.id}`} data-clinic-control-center="true" className="overflow-hidden">
-      <CardHeader className="border-b pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Database className="h-4 w-4 shrink-0 text-primary" />
-              <span className="truncate">{clinic.name}</span>
-            </CardTitle>
-            <CardDescription className="mt-1">
-              {clinic.city || "Clinic"} · {clinic.id ? `Clinic #${clinic.id}` : "Clinic identity"} · {report ? `measured ${formatDate(report.measuredAt)}` : "entitlement summary loading"}
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className="capitalize">{lifecycle}</Badge>
-            {report && (
-              <Badge variant="outline" className={`capitalize ${accessStateClass(report.access.state)}`}>
-                {report.access.state === "unknown" ? <ShieldAlert className="mr-1 h-3 w-3" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
-                {labelFor(report.access.state)}
-              </Badge>
-            )}
-            {clinic.plan && <Badge variant="secondary" className="capitalize">{clinic.plan}</Badge>}
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-5 pt-5">
-        <section aria-labelledby={`clinic-profile-actions-heading-${clinic.id}`}>
-          <SectionHeading
-            icon={Settings2}
-            title="Profile actions"
-            description="Manage clinic identity, links, and administrator access."
-          />
-          <div id={`clinic-profile-actions-heading-${clinic.id}`} className="mt-3 flex flex-wrap gap-2">
-            {onCopyClinicUrl && (
-              <>
-                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onCopyClinicUrl(clinic, "book")} title="Copy booking URL">
-                  <Copy className="mr-1.5 h-3.5 w-3.5" />Book URL
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onCopyClinicUrl(clinic, "about")} title="Copy About URL">
-                  <Copy className="mr-1.5 h-3.5 w-3.5" />About URL
-                </Button>
-              </>
-            )}
-            {onEditClinic && (
-              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onEditClinic(clinic)}>
-                <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Edit clinic
-              </Button>
-            )}
-            {onManageCredentials && (
-              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onManageCredentials(clinic)}>
-                <KeyRound className="mr-1.5 h-3.5 w-3.5" />Credentials
-              </Button>
-            )}
-          </div>
-        </section>
-
-        {report && (
-          <>
-            <div className="border-t" />
-
-            <section aria-labelledby={`clinic-plan-details-heading-${clinic.id}`}>
-              <SectionHeading
-                icon={Sparkles}
-                title="Plan details"
-                description="Expand measured limits or inspect the features included in the effective plan."
-              />
-              <div id={`clinic-plan-details-heading-${clinic.id}`} className="mt-3 space-y-2">
-                <details className="group rounded-lg border" data-testid={`admin-usage-limits-${clinic.id}`}>
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 [&::-webkit-details-marker]:hidden">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                        <Gauge className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold">Usage and limits</p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {numericCapabilities.length} measured capabilities · {report.timezone}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge variant={attentionCount ? "outline" : "secondary"} className={attentionCount ? "border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300" : ""}>
-                        {attentionCount ? `${attentionCount} over limit` : "Within limits"}
-                      </Badge>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-                    </div>
-                  </summary>
-                  <div className="grid gap-2 border-t p-3 sm:grid-cols-2">
-                    {numericCapabilities.length > 0 ? numericCapabilities.map(item => <UsageItem key={item.capability} item={item} />) : (
-                      <p className="text-xs text-muted-foreground sm:col-span-2">No measured usage capabilities are available for this plan.</p>
-                    )}
-                  </div>
-                </details>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      data-testid={`admin-included-features-trigger-${clinic.id}`}
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                          <Sparkles className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold">Included features</p>
-                          <p className="truncate text-[11px] text-muted-foreground">
-                            {report.plan.displayName || labelFor(report.plan.effective)} · {featureCapabilities.length} feature{featureCapabilities.length === 1 ? "" : "s"}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="start"
-                    className="w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-xl p-0"
-                    data-testid={`admin-included-features-popover-${clinic.id}`}
-                  >
-                    <div className="border-b px-4 py-3">
-                      <p className="text-sm font-semibold">Included features</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {report.plan.displayName || labelFor(report.plan.effective)} · {sourceLabel(report.plan.source)}
-                      </p>
-                    </div>
-                    <div className="max-h-[min(420px,65vh)] space-y-1 overflow-y-auto p-3">
-                      {featureCapabilities.length > 0 ? featureCapabilities.map(item => (
-                        <div key={item.capability} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                          <span className="min-w-0 text-xs font-medium">{CAPABILITY_LABELS[item.capability] || labelFor(item.capability)}</span>
-                          <FeatureStatus item={item} />
-                        </div>
-                      )) : <p className="px-1 py-2 text-xs text-muted-foreground">No feature entitlements are recorded for this plan.</p>}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+    <div data-testid={`clinic-profile-actions-${clinic.id}`} data-clinic-control-center="true" className="space-y-4">
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-sm font-bold text-primary">
+                {clinicInitials}
               </div>
-            </section>
-          </>
-        )}
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-base">{clinic.name}</CardTitle>
+                  <Badge variant="outline" className="text-[10px]">{lifecycle}</Badge>
+                  {report && (
+                    <Badge variant="outline" className={`text-[10px] ${accessStateClass(report.access.state)}`}>
+                      {report.access.state === "unknown" ? <ShieldAlert className="mr-1 h-3 w-3" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+                      {labelFor(report.access.state)}
+                    </Badge>
+                  )}
+                  {attentionCount > 0 && (
+                    <Badge variant="outline" className="border-amber-300 text-[10px] text-amber-700 dark:border-amber-800 dark:text-amber-300">
+                      {attentionCount} attention {attentionCount === 1 ? "item" : "items"}
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="mt-1 truncate">
+                  {clinic.city || "Clinic"} · {clinic.id ? `Clinic #${clinic.id}` : "Clinic identity"} · {report ? `Measured ${formatDate(report.measuredAt)}` : reportLoading ? "Entitlement summary loading" : "Entitlement summary unavailable"}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {onCopyClinicUrl && (
+                <>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onCopyClinicUrl(clinic, "book")} title="Copy booking URL">
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />Book URL
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onCopyClinicUrl(clinic, "about")} title="Copy About URL">
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />About URL
+                  </Button>
+                </>
+              )}
+              {onEditClinic && (
+                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onEditClinic(clinic)}>
+                  <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Edit clinic
+                </Button>
+              )}
+              {onManageCredentials && (
+                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onManageCredentials(clinic)}>
+                  <KeyRound className="mr-1.5 h-3.5 w-3.5" />Credentials
+                </Button>
+              )}
+            </div>
+          </div>
+          {report && (
+            <div className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5">
+              <MetricItem label="Effective plan" value={report.plan.displayName || labelFor(report.plan.effective)} detail={`${sourceLabel(report.plan.source)} · ${report.plan.requested || "not requested"}`} valueClass="text-primary" />
+              <MetricItem label="Subscription" value={report.subscription.label} detail={labelFor(report.access.reasonCode)} />
+              <MetricItem
+                label="Plan timing"
+                value={report.access.trialEndsAt ? "Trial access" : report.access.paidAccessExpiresAt ? "Paid access" : "No renewal date"}
+                detail={formatDate(report.access.trialEndsAt || report.access.paidAccessExpiresAt)}
+              />
+              <MetricItem label="Policy version" value={report.plan.policyVersion || "Unavailable"} detail={`Timezone · ${report.timezone}`} />
+              <MetricItem
+                label="Account status"
+                value={attentionCount ? `${attentionCount} over limit` : labelFor(report.access.state)}
+                detail={`${report.exceptions.active} exception${report.exceptions.active === 1 ? "" : "s"} · ${report.grants.active} grant${report.grants.active === 1 ? "" : "s"}`}
+                valueClass={attentionCount ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}
+              />
+            </div>
+          )}
+        </CardHeader>
+      </Card>
 
-        <div className="border-t" />
-
-        <section aria-labelledby={`clinic-profile-heading-${clinic.id}`}>
-          <SectionHeading icon={Link2} title="Clinic profile" description="Contact details, location, registration context, and assigned doctors." />
-          <div id={`clinic-profile-heading-${clinic.id}`} className="mt-3 grid gap-5 md:grid-cols-2">
-            <div className="space-y-2 text-xs">
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="space-y-4 lg:col-span-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <SectionHeading icon={Link2} title="Contact & location" description="Clinic identity and contact details." />
+            </CardHeader>
+            <CardContent className="space-y-2.5 text-xs">
               {hasContactDetails ? (
                 <>
                   {(clinic.address || clinic.city || (clinic as any).pincode) && (
@@ -437,137 +367,179 @@ export default function ClinicControlCenter({
                 <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary" />
                 Added {clinic.createdAt ? new Date(clinic.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "not recorded"}
               </div>
-            </div>
-            <div>
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <Stethoscope className="h-3.5 w-3.5" />Assigned doctors
-              </p>
-              <div className="mt-2 space-y-2">
-                {clinic.doctors && clinic.doctors.length > 0 ? clinic.doctors.map((doctor, index) => (
-                  <div key={`${doctor.name}-${index}`} className="flex items-center gap-2.5 rounded-md border bg-muted/20 px-2.5 py-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-[10px] font-bold text-primary">
-                      {doctor.name.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase()}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-3">
+                <SectionHeading icon={Stethoscope} title="Assigned doctors" description="Doctors currently associated with this clinic." />
+                <Badge variant="secondary" className="shrink-0 text-[10px]">{clinic.doctors?.length || 0} registered</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {clinic.doctors && clinic.doctors.length > 0 ? clinic.doctors.map((doctor, index) => (
+                <div key={`${doctor.name}-${index}`} className="flex items-center gap-2.5 rounded-lg border bg-muted/20 px-2.5 py-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-[10px] font-bold text-primary">
+                    {doctor.name.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">Dr. {doctor.name}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">{doctor.specialization}{doctor.degree ? ` · ${doctor.degree}` : ""}</p>
+                  </div>
+                </div>
+              )) : <p className="text-xs text-muted-foreground">No doctors listed.</p>}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4 lg:col-span-8">
+          <Card>
+            <CardHeader className="pb-3">
+              <SectionHeading icon={ShieldCheck} title="Administrative access control" description="Separate plan lifecycle actions from temporary access overrides." />
+            </CardHeader>
+            <CardContent className="grid gap-3 pt-0 sm:grid-cols-2">
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Plan lifecycle</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <Button size="sm" variant={hasTrialHistory ? "outline" : "default"} className="h-9 text-xs" onClick={onStartTrial} data-testid={`button-${hasTrialHistory ? "extend" : "start"}-trial-${clinic.id}`}>
+                    {hasTrialHistory ? <Plus className="mr-1.5 h-3.5 w-3.5" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
+                    {hasTrialHistory ? "Extend trial" : "Start trial"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 text-xs" onClick={onAssignPaidPlan}>
+                    <CreditCard className="mr-1.5 h-3.5 w-3.5" />Assign paid plan
+                  </Button>
+                </div>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Access overrides</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <Button size="sm" variant="outline" className="h-9 border-sky-200 text-xs text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-300 dark:hover:bg-sky-950/30" onClick={() => onOpenAccessDialog("sponsored")}>
+                    <Gift className="mr-1.5 h-3.5 w-3.5" />Sponsored access
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 border-amber-200 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30" onClick={() => onOpenAccessDialog("exception")}>
+                    <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Grant exception
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+            {report && (
+              <CardContent className="border-t pt-4">
+                <div className={`rounded-lg border border-l-4 p-3 ${nextBestActionClass(report.nextStep.action)}`} data-testid={`admin-next-best-action-${clinic.id}`}>
+                  <div className="flex items-start gap-2.5">
+                    <div className="mt-0.5 shrink-0">
+                      {report.nextStep.action === "contact_support"
+                        ? <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        : report.nextStep.action === "view_plans"
+                          ? <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-medium">Dr. {doctor.name}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">{doctor.specialization}{doctor.degree ? ` · ${doctor.degree}` : ""}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide">Next best action</p>
+                        <span className="rounded-full border border-current/15 bg-background/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                          {report.nextStep.action === "none" ? "No action required" : report.nextStep.action === "view_plans" ? "Review" : "Support"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold">{report.nextStep.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{report.nextStep.description}</p>
+                      {(report.access.trialOrigin || report.access.previousPaidPlan) && (
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          {[
+                            report.access.trialOrigin && `Origin: ${labelFor(report.access.trialOrigin)}`,
+                            report.access.previousPaidPlan && `Previous paid plan: ${labelFor(report.access.previousPaidPlan)}`,
+                          ].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                     </div>
                   </div>
-                )) : <p className="text-xs text-muted-foreground">No doctors listed.</p>}
-              </div>
-            </div>
-          </div>
-        </section>
+                </div>
+              </CardContent>
+            )}
+          </Card>
 
-        <div className="border-t" />
-
-        <section aria-labelledby={`clinic-access-controls-heading-${clinic.id}`}>
-          <SectionHeading icon={ShieldCheck} title="Access controls" description="Change trial, paid, sponsored, or exceptional platform access." />
-          <div id={`clinic-access-controls-heading-${clinic.id}`} className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant={hasTrialHistory ? "outline" : "default"} className="h-8 text-xs" onClick={onStartTrial} data-testid={`button-${hasTrialHistory ? "extend" : "start"}-trial-${clinic.id}`}>
-              {hasTrialHistory ? <Plus className="mr-1.5 h-3.5 w-3.5" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
-              {hasTrialHistory ? "Extend trial" : "Start trial"}
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onAssignPaidPlan}>
-              <CreditCard className="mr-1.5 h-3.5 w-3.5" />Assign paid plan
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onOpenAccessDialog("sponsored")}>
-              <Gift className="mr-1.5 h-3.5 w-3.5" />Sponsored access
-            </Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onOpenAccessDialog("exception")}>
-              <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />Exception
-            </Button>
-          </div>
-        </section>
-
-        <div className="border-t" />
-
-        <section aria-labelledby={`clinic-access-summary-heading-${clinic.id}`}>
-          <SectionHeading icon={ShieldCheck} title="Access summary" description="Server-derived entitlement state and the latest attention signals." />
           {report ? (
-            <div id={`clinic-access-summary-heading-${clinic.id}`} className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <SummaryItem label="Effective plan" value={report.plan.displayName || labelFor(report.plan.effective)} detail={`Requested: ${report.plan.requested || "not set"} · ${sourceLabel(report.plan.source)}`} />
-              <SummaryItem label="Subscription" value={report.subscription.label} detail={labelFor(report.access.reasonCode)} />
-              <SummaryItem label="Policy" value={report.plan.policyVersion || "Unavailable"} detail={`Timezone: ${report.timezone}`} />
-              <SummaryItem
-                label="Attention"
-                value={attentionCount ? `${attentionCount} over limit` : "No over-limit usage"}
-                valueClass={attentionCount ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}
-                detail={`${report.exceptions.active} exception${report.exceptions.active === 1 ? "" : "s"} · ${report.grants.active} grant${report.grants.active === 1 ? "" : "s"}`}
-              />
-            </div>
-          ) : (
-            <div id={`clinic-access-summary-heading-${clinic.id}`} className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3 text-xs">
-              <span className="text-muted-foreground">{reportLoading ? "Loading entitlement summary…" : reportError ? "Entitlement summary unavailable." : "Entitlement summary not available."}</span>
-              {reportError && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onRetryReport}>Retry summary</Button>}
-            </div>
-          )}
-          {report && (
-            <div className={`mt-3 rounded-lg border border-l-4 p-3 ${nextBestActionClass(report.nextStep.action)}`} data-testid={`admin-next-best-action-${clinic.id}`}>
-              <div className="flex items-start gap-2.5">
-                <div className="mt-0.5 shrink-0">
-                  {report.nextStep.action === "contact_support"
-                    ? <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    : report.nextStep.action === "view_plans"
-                      ? <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide">Next best action</p>
-                    <span className="rounded-full border border-current/15 bg-background/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                      {report.nextStep.action === "none" ? "No action required" : report.nextStep.action === "view_plans" ? "Review" : "Support"}
-                    </span>
+            <>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <SectionHeading icon={Gauge} title="Resource usage & quotas" description={`${numericCapabilities.length} measured capabilities · ${report.timezone}`} />
+                    <Badge variant={attentionCount ? "outline" : "secondary"} className={attentionCount ? "border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300" : ""}>
+                      {attentionCount ? `${attentionCount} over limit` : "Within limits"}
+                    </Badge>
                   </div>
-                  <p className="mt-1 text-sm font-semibold">{report.nextStep.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{report.nextStep.description}</p>
-                  {(report.access.trialOrigin || report.access.previousPaidPlan) && (
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      {[
-                        report.access.trialOrigin && `Origin: ${labelFor(report.access.trialOrigin)}`,
-                        report.access.previousPaidPlan && `Previous paid plan: ${labelFor(report.access.previousPaidPlan)}`,
-                      ].filter(Boolean).join(" · ")}
-                    </p>
+                </CardHeader>
+                <CardContent className="grid gap-2 pt-0 sm:grid-cols-2 xl:grid-cols-3" data-testid={`admin-usage-limits-${clinic.id}`}>
+                  {numericCapabilities.length > 0 ? numericCapabilities.map(item => <UsageItem key={item.capability} item={item} />) : (
+                    <p className="text-xs text-muted-foreground sm:col-span-2 xl:col-span-3">No measured usage capabilities are available for this plan.</p>
                   )}
-                </div>
-              </div>
-            </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <SectionHeading icon={Sparkles} title="Included capabilities & feature flags" description={`${report.plan.displayName || labelFor(report.plan.effective)} · ${sourceLabel(report.plan.source)}`} />
+                </CardHeader>
+                <CardContent className="grid gap-2 pt-0 sm:grid-cols-2 xl:grid-cols-3" data-testid={`admin-included-features-${clinic.id}`}>
+                  {featureCapabilities.length > 0 ? featureCapabilities.map(item => (
+                    <div key={item.capability} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
+                      <span className="min-w-0 truncate text-xs font-medium">{CAPABILITY_LABELS[item.capability] || labelFor(item.capability)}</span>
+                      <FeatureStatus item={item} />
+                    </div>
+                  )) : <p className="text-xs text-muted-foreground sm:col-span-2 xl:col-span-3">No feature entitlements are recorded for this plan.</p>}
+                </CardContent>
+              </Card>
+
+              {(report.access.trialEndsAt || report.access.trialGraceEndsAt || report.access.paidAccessExpiresAt || report.grants.endsAt) && (
+                <Card>
+                  <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><CalendarDays className="h-4 w-4 text-primary" />Important dates</CardTitle></CardHeader>
+                  <CardContent className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
+                    {report.access.trialEndsAt && <div className="rounded-lg border bg-muted/20 p-3"><span className="text-muted-foreground">Trial ends</span><strong className="mt-1 block">{formatDate(report.access.trialEndsAt)}</strong></div>}
+                    {report.access.trialGraceEndsAt && <div className="rounded-lg border bg-muted/20 p-3"><span className="text-muted-foreground">Trial grace ends</span><strong className="mt-1 block">{formatDate(report.access.trialGraceEndsAt)}</strong></div>}
+                    {report.access.paidAccessExpiresAt && <div className="rounded-lg border bg-muted/20 p-3"><span className="text-muted-foreground">Paid access expires</span><strong className="mt-1 block">{formatDate(report.access.paidAccessExpiresAt)}</strong></div>}
+                    {report.grants.endsAt && <div className="rounded-lg border bg-muted/20 p-3"><span className="text-muted-foreground">Sponsored access ends</span><strong className="mt-1 block">{formatDate(report.grants.endsAt)}</strong></div>}
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-xs">
+                <span className="text-muted-foreground">{reportLoading ? "Loading entitlement summary…" : reportError ? "Entitlement summary unavailable." : "Entitlement summary not available."}</span>
+                {reportError && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onRetryReport}>Retry summary</Button>}
+              </CardContent>
+            </Card>
           )}
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/20 px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <History className="h-4 w-4 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold">Audit trail</p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {auditHistoryLoading ? "Loading access events…" : `${auditEventCount} recorded event${auditEventCount === 1 ? "" : "s"}`}
-                </p>
-              </div>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <History className="h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide">Audit trail</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {auditHistoryLoading ? "Loading access events…" : `${auditEventCount} recorded event${auditEventCount === 1 ? "" : "s"}`}
+              </p>
             </div>
-            <Button variant="outline" size="sm" className="h-8 shrink-0 text-xs" onClick={onOpenAuditTrail} data-testid={`button-open-audit-trail-${clinic.id}`}>
-              View audit trail
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onOpenAuditTrail} data-testid={`button-open-audit-trail-${clinic.id}`}>
+              View full history
             </Button>
           </div>
-        </section>
-
-        <div className="border-t" />
-
-        <section aria-labelledby={`clinic-lifecycle-heading-${clinic.id}`} className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-start gap-2.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-muted-foreground/20 bg-muted/40 text-muted-foreground">
-              {isArchived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Lifecycle state</p>
+              <p className="text-xs font-semibold">{lifecycle}</p>
             </div>
-            <div>
-              <h3 id={`clinic-lifecycle-heading-${clinic.id}`} className="text-xs font-semibold uppercase tracking-wide">Lifecycle</h3>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{isArchived ? "Restore this clinic to return it to active administration." : "Archive only when the clinic should leave active administration."}</p>
-            </div>
+            {isArchived ? (
+              onRestoreClinic && <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onRestoreClinic(clinic)}><ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />Restore clinic</Button>
+            ) : (
+              onArchiveClinic && <Button variant="outline" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={() => onArchiveClinic(clinic)}><Archive className="mr-1.5 h-3.5 w-3.5" />Archive clinic</Button>
+            )}
           </div>
-          {isArchived ? (
-            onRestoreClinic && <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onRestoreClinic(clinic)}><ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />Restore clinic</Button>
-          ) : (
-            onArchiveClinic && <Button variant="outline" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={() => onArchiveClinic(clinic)}><Archive className="mr-1.5 h-3.5 w-3.5" />Archive clinic</Button>
-          )}
-        </section>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
