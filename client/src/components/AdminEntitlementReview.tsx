@@ -9,11 +9,11 @@ import {
   Gift,
   GitBranch,
   History,
+  List,
   Radio,
   RefreshCw,
   Search,
   ShieldAlert,
-  ShieldCheck,
   SlidersHorizontal,
   XCircle,
 } from "lucide-react";
@@ -191,6 +191,7 @@ export default function AdminEntitlementReview({
   const [auditTrailOpen, setAuditTrailOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [clinicPickerOpen, setClinicPickerOpen] = useState(false);
+  const [directoryCollapsed, setDirectoryCollapsed] = useState(false);
   const clinicPickerRef = useRef<HTMLDivElement>(null);
   const clinicDirectoryListRef = useRef<HTMLDivElement>(null);
   const clinicDirectorySentinelRef = useRef<HTMLDivElement>(null);
@@ -494,6 +495,18 @@ export default function AdminEntitlementReview({
     setAccessDialogOpen(true);
   };
 
+  const selectClinicFromDirectory = (clinicId: number) => {
+    setSelectedClinicId(clinicId);
+    setDirectoryCollapsed(true);
+    setClinicPickerOpen(false);
+  };
+
+  const restoreDirectory = () => {
+    setDirectoryCollapsed(false);
+    setSelectedClinicId(null);
+    setClinicPickerOpen(false);
+  };
+
   return (
     <div className="space-y-5">
       <div>
@@ -503,6 +516,8 @@ export default function AdminEntitlementReview({
         </p>
       </div>
 
+      {!directoryCollapsed && (
+        <>
       <Card>
         <CardContent className="p-3">
           <div className="flex flex-wrap items-center gap-4">
@@ -677,11 +692,11 @@ export default function AdminEntitlementReview({
                     tabIndex={0}
                     aria-expanded={selectedClinicId === clinic.id}
                     aria-controls={selectedClinicId === clinic.id ? `admin-clinic-details-${clinic.id}` : undefined}
-                    onClick={() => setSelectedClinicId(clinic.id)}
+                    onClick={() => selectClinicFromDirectory(clinic.id)}
                     onKeyDown={event => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        setSelectedClinicId(clinic.id);
+                        selectClinicFromDirectory(clinic.id);
                       }
                     }}
                     className={`rounded-xl border p-3 text-left transition-colors ${
@@ -773,21 +788,24 @@ export default function AdminEntitlementReview({
           {onRetryClinics && <Button variant="outline" size="sm" className="mt-2 h-7 text-xs" onClick={onRetryClinics} disabled={clinicsLoading}>Retry clinics</Button>}
         </div>
       )}
-
-      {!selectedClinic && (
-        <Card className="flex min-h-[320px] items-center justify-center">
-          <CardContent className="max-w-sm text-center">
-            <ShieldCheck className="mx-auto h-10 w-10 text-primary/50" />
-            <h3 className="mt-3 text-sm font-semibold">Select a clinic to review access</h3>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Search for a clinic above to review its profile context, effective access, usage, limits, and temporary access sources.
-            </p>
-          </CardContent>
-        </Card>
+        </>
       )}
 
-      {selectedClinic && (
-        <div id={`admin-clinic-details-${selectedClinic.id}`} className="min-w-0 space-y-4">
+      {directoryCollapsed && selectedClinic && (
+        <div className="relative pl-10">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="absolute left-0 top-4 z-10 h-8 w-8 rounded-full bg-background shadow-sm"
+            onClick={restoreDirectory}
+            aria-label="Show clinic directory"
+            title="Show clinic directory"
+            data-testid="button-restore-clinic-directory"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <div id={`admin-clinic-details-${selectedClinic.id}`} className="min-w-0 space-y-4">
              <ClinicControlCenter
                clinic={selectedClinic}
                report={report}
@@ -836,7 +854,8 @@ export default function AdminEntitlementReview({
               </>
             )}
           </div>
-        )}
+        </div>
+      )}
 
       <Sheet open={auditTrailOpen} onOpenChange={setAuditTrailOpen}>
         <SheetContent
