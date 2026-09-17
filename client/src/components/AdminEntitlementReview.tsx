@@ -111,6 +111,11 @@ const formatDate = (value: string | null) => {
   return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 };
 
+const formatClinicDate = (value: Date | string | null | undefined) => {
+  if (!value) return "Not recorded";
+  return formatDate(value instanceof Date ? value.toISOString() : value);
+};
+
 const labelFor = (value: string | null | undefined) => {
   if (!value) return "—";
   if (value === "active_paid") return "Active Paid";
@@ -187,6 +192,9 @@ export default function AdminEntitlementReview({
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [clinicPickerOpen, setClinicPickerOpen] = useState(false);
   const clinicPickerRef = useRef<HTMLDivElement>(null);
+  const clinicDirectoryListRef = useRef<HTMLDivElement>(null);
+  const clinicDirectorySentinelRef = useRef<HTMLDivElement>(null);
+  const [visibleClinicCount, setVisibleClinicCount] = useState(10);
   const queryClient = useQueryClient();
   const selectedClinic = clinics.find(clinic => clinic.id === selectedClinicId) ?? null;
 
@@ -229,6 +237,27 @@ export default function AdminEntitlementReview({
     [clinics],
   );
   const pickerClinics = filteredClinics.slice(0, 10);
+  const visibleClinics = filteredClinics.slice(0, visibleClinicCount);
+
+  useEffect(() => {
+    setVisibleClinicCount(10);
+  }, [clinicFilter, search, clinics]);
+
+  useEffect(() => {
+    const list = clinicDirectoryListRef.current;
+    const sentinel = clinicDirectorySentinelRef.current;
+    if (!list || !sentinel || visibleClinicCount >= filteredClinics.length) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        setVisibleClinicCount(currentCount => Math.min(currentCount + 10, filteredClinics.length));
+      },
+      { root: list, rootMargin: "160px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredClinics.length, visibleClinicCount]);
 
   useEffect(() => {
     setSelectedClinicId(currentId => {
@@ -608,6 +637,133 @@ export default function AdminEntitlementReview({
               </select>
             </div>
           </div>
+
+          <div className="mt-3 border-t pt-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold">Clinics</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Click a clinic to expand its full access workspace.
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-[10px]">
+                Showing {Math.min(visibleClinics.length, filteredClinics.length)} of {filteredClinics.length}
+              </Badge>
+            </div>
+
+            <div
+              ref={clinicDirectoryListRef}
+              className="max-h-[560px] space-y-2 overflow-y-auto rounded-xl border bg-muted/10 p-2"
+              aria-label="Visible clinic directory"
+            >
+              {clinicsLoading && (
+                <p className="px-3 py-10 text-center text-xs text-muted-foreground">Loading clinics…</p>
+              )}
+              {!clinicsLoading && visibleClinics.map(clinic => {
+                const lifecycle = getAdminClinicLifecycleState(clinic);
+                const hasAttention = matchesAdminClinicDirectoryFilter(clinic, "attention");
+                const timingLabel = clinic.trialEndsAt
+                  ? "Trial access"
+                  : clinic.paidAccessExpiresAt
+                    ? "Paid access"
+                    : "No renewal date";
+                const timingDate = clinic.trialEndsAt || clinic.paidAccessExpiresAt;
+                const accountStatus = hasAttention ? "Attention" : labelFor(lifecycle);
+
+                return (
+                  <div
+                    key={clinic.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={selectedClinicId === clinic.id}
+                    aria-controls={selectedClinicId === clinic.id ? `admin-clinic-details-${clinic.id}` : undefined}
+                    onClick={() => setSelectedClinicId(clinic.id)}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedClinicId(clinic.id);
+                      }
+                    }}
+                    className={`rounded-xl border p-3 text-left transition-colors ${
+                      selectedClinicId === clinic.id
+                        ? "border-primary/50 bg-primary/5 shadow-sm"
+                        : "border-border bg-background hover:bg-muted/30"
+                    }`}
+                    data-testid={`clinic-directory-row-${clinic.id}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-xs font-bold text-primary">
+                          {clinic.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="truncate text-sm font-semibold">{clinic.name}</p>
+                            <Badge variant="outline" className="text-[10px]">{labelFor(lifecycle)}</Badge>
+                            {hasAttention && (
+                              <Badge variant="outline" className="border-amber-300 text-[10px] text-amber-700 dark:border-amber-800 dark:text-amber-300">
+                                Attention
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                            {clinic.city || "Clinic"} · Clinic #{clinic.id}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5" onClick={event => event.stopPropagation()}>
+                        {onCopyClinicUrl && (
+                          <>
+                            <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => onCopyClinicUrl(clinic, "book")} title="Copy booking URL">
+                              Book URL
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => onCopyClinicUrl(clinic, "about")} title="Copy About URL">
+                              About URL
+                            </Button>
+                          </>
+                        )}
+                        {onEditClinic && (
+                          <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => onEditClinic(clinic)}>
+                            Edit clinic
+                          </Button>
+                        )}
+                        {onManageCredentials && (
+                          <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => onManageCredentials(clinic)}>
+                            Credentials
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5">
+                      {[
+                        { label: "Effective plan", value: labelFor(clinic.plan), detail: "Clinic plan" },
+                        { label: "Subscription", value: labelFor(clinic.subscriptionStatus), detail: labelFor(clinic.billingCycle) },
+                        { label: "Plan timing", value: timingLabel, detail: formatClinicDate(timingDate) },
+                        { label: "Policy version", value: clinic.subscriptionPolicyVersion || "Unavailable", detail: `Timezone · ${clinic.timezone}` },
+                        { label: "Account status", value: accountStatus, detail: hasAttention ? "Review required" : "No attention items" },
+                      ].map(metric => (
+                        <div key={metric.label} className="min-w-0 rounded-lg bg-muted/30 px-2.5 py-2">
+                          <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                          <p className="mt-1 truncate text-xs font-semibold">{metric.value}</p>
+                          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{metric.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {!clinicsLoading && !visibleClinics.length && (
+                <p className="px-3 py-10 text-center text-xs text-muted-foreground">No clinics match the current search and filter.</p>
+              )}
+              {!clinicsLoading && visibleClinics.length < filteredClinics.length && (
+                <div ref={clinicDirectorySentinelRef} className="flex justify-center py-3 text-[10px] text-muted-foreground" role="status">
+                  Scroll for more clinics…
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -631,7 +787,7 @@ export default function AdminEntitlementReview({
       )}
 
       {selectedClinic && (
-        <div className="min-w-0 space-y-4">
+        <div id={`admin-clinic-details-${selectedClinic.id}`} className="min-w-0 space-y-4">
              <ClinicControlCenter
                clinic={selectedClinic}
                report={report}
