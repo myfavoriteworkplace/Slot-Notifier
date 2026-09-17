@@ -12,6 +12,7 @@ import {
   Gift,
   Gauge,
   Globe,
+  History,
   KeyRound,
   Link2,
   Mail,
@@ -110,6 +111,16 @@ const accessStateClass = (state: EffectiveEntitlementReport["access"]["state"]) 
     return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300";
   }
   return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300";
+};
+
+const nextBestActionClass = (action: EffectiveEntitlementReport["nextStep"]["action"]) => {
+  if (action === "contact_support") {
+    return "border-red-200 border-l-red-500 bg-red-50/70 dark:border-red-900/60 dark:border-l-red-500 dark:bg-red-950/20";
+  }
+  if (action === "view_plans") {
+    return "border-amber-200 border-l-amber-500 bg-amber-50/70 dark:border-amber-900/60 dark:border-l-amber-500 dark:bg-amber-950/20";
+  }
+  return "border-emerald-200 border-l-emerald-500 bg-emerald-50/70 dark:border-emerald-900/60 dark:border-l-emerald-500 dark:bg-emerald-950/20";
 };
 
 const lifecycleLabel = (clinic: Clinic) => {
@@ -214,6 +225,9 @@ export default function ClinicControlCenter({
   onStartTrial,
   onAssignPaidPlan,
   onOpenAccessDialog,
+  auditEventCount,
+  auditHistoryLoading,
+  onOpenAuditTrail,
   onCopyClinicUrl,
   onEditClinic,
   onManageCredentials,
@@ -232,6 +246,9 @@ export default function ClinicControlCenter({
   onStartTrial: () => void;
   onAssignPaidPlan: () => void;
   onOpenAccessDialog: (action: AccessAction) => void;
+  auditEventCount: number;
+  auditHistoryLoading: boolean;
+  onOpenAuditTrail: () => void;
   onCopyClinicUrl?: (clinic: Clinic, kind: "book" | "about") => void;
   onEditClinic?: (clinic: Clinic) => void;
   onManageCredentials?: (clinic: Clinic) => void;
@@ -485,6 +502,51 @@ export default function ClinicControlCenter({
               {reportError && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onRetryReport}>Retry summary</Button>}
             </div>
           )}
+          {report && (
+            <div className={`mt-3 rounded-lg border border-l-4 p-3 ${nextBestActionClass(report.nextStep.action)}`} data-testid={`admin-next-best-action-${clinic.id}`}>
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 shrink-0">
+                  {report.nextStep.action === "contact_support"
+                    ? <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    : report.nextStep.action === "view_plans"
+                      ? <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide">Next best action</p>
+                    <span className="rounded-full border border-current/15 bg-background/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                      {report.nextStep.action === "none" ? "No action required" : report.nextStep.action === "view_plans" ? "Review" : "Support"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm font-semibold">{report.nextStep.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{report.nextStep.description}</p>
+                  {(report.access.trialOrigin || report.access.previousPaidPlan) && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      {[
+                        report.access.trialOrigin && `Origin: ${labelFor(report.access.trialOrigin)}`,
+                        report.access.previousPaidPlan && `Previous paid plan: ${labelFor(report.access.previousPaidPlan)}`,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/20 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <History className="h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold">Audit trail</p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {auditHistoryLoading ? "Loading access events…" : `${auditEventCount} recorded event${auditEventCount === 1 ? "" : "s"}`}
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" className="h-8 shrink-0 text-xs" onClick={onOpenAuditTrail} data-testid={`button-open-audit-trail-${clinic.id}`}>
+              View audit trail
+            </Button>
+          </div>
         </section>
 
         <div className="border-t" />

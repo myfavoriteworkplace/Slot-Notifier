@@ -7,7 +7,9 @@ import {
   Clock3,
   CreditCard,
   Gift,
+  GitBranch,
   History,
+  Radio,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -34,6 +36,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import ClinicControlCenter from "@/components/ClinicControlCenter";
 
 const USAGE_CAPABILITIES = new Set([
@@ -93,6 +96,16 @@ type AccessHistoryEntry = {
   revokeTarget?: RevokeTarget;
 };
 
+type HistoryFilter = "all" | "lifecycle" | "plan" | "temporary" | "provider";
+
+const HISTORY_FILTER_OPTIONS: { value: HistoryFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "lifecycle", label: "Lifecycle" },
+  { value: "plan", label: "Plan changes" },
+  { value: "temporary", label: "Temporary access" },
+  { value: "provider", label: "Provider events" },
+];
+
 const formatDate = (value: string | null) => {
   if (!value) return "Not recorded";
   return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -103,16 +116,6 @@ const labelFor = (value: string | null | undefined) => {
   if (value === "active_paid") return "Active Paid";
   if (value === "sponsored") return "Sponsored Access";
   return value.replace(/_/g, " ").replace(/\b\w/g, character => character.toUpperCase());
-};
-
-const guidanceClass = (action: EffectiveEntitlementReport["nextStep"]["action"]) => {
-  if (action === "contact_support") {
-    return "border-red-200 bg-red-50/70 dark:border-red-900/60 dark:bg-red-950/20";
-  }
-  if (action === "view_plans") {
-    return "border-amber-200 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/20";
-  }
-  return "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20";
 };
 
 const historyDateValue = (value: string | null) => value ? new Date(value).getTime() : 0;
@@ -180,6 +183,8 @@ export default function AdminEntitlementReview({
   const [accessReason, setAccessReason] = useState("");
   const [revokeTarget, setRevokeTarget] = useState<RevokeTarget | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
+  const [auditTrailOpen, setAuditTrailOpen] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const queryClient = useQueryClient();
   const selectedClinic = clinics.find(clinic => clinic.id === selectedClinicId) ?? null;
 
@@ -302,6 +307,16 @@ export default function AdminEntitlementReview({
 
     return entries.sort((a, b) => historyDateValue(b.occurredAt) - historyDateValue(a.occurredAt) || b.id.localeCompare(a.id));
   }, [historyQuery.data]);
+  const filteredHistoryEntries = useMemo(
+    () => historyEntries.filter(entry =>
+      historyFilter === "all"
+      || historyFilter === "lifecycle" && entry.kind === "lifecycle"
+      || historyFilter === "plan" && entry.kind === "assignment"
+      || historyFilter === "temporary" && (entry.kind === "sponsored" || entry.kind === "exception")
+      || historyFilter === "provider" && entry.kind === "provider"
+    ),
+    [historyEntries, historyFilter],
+  );
 
   const refreshSubscriptionQueries = async () => {
     await queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
@@ -512,12 +527,15 @@ export default function AdminEntitlementReview({
                numericCapabilities={numericCapabilities}
                featureCapabilities={featureCapabilities}
                hasTrialHistory={hasTrialHistory}
+                auditEventCount={historyEntries.length}
+                auditHistoryLoading={historyQuery.isLoading}
                reportLoading={reportQuery.isLoading}
                reportError={reportQuery.isError}
                onRetryReport={() => reportQuery.refetch()}
                onStartTrial={() => openTrialDialog(hasTrialHistory ? "extend" : "start")}
                onAssignPaidPlan={() => setPaidDialogOpen(true)}
                onOpenAccessDialog={openAccessDialog}
+                onOpenAuditTrail={() => setAuditTrailOpen(true)}
                onCopyClinicUrl={onCopyClinicUrl}
                onEditClinic={onEditClinic}
                onManageCredentials={onManageCredentials}
@@ -532,37 +550,6 @@ export default function AdminEntitlementReview({
             )}
             {report && (
               <>
-                <Card className={guidanceClass(report.nextStep.action)} data-testid={`admin-access-guidance-${selectedClinic.id}`}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      {report.nextStep.action === "contact_support"
-                        ? <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        : report.nextStep.action === "view_plans"
-                          ? <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
-                      Access guidance
-                    </CardTitle>
-                    <CardDescription>Server-derived guidance for the clinic’s current access state.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-0">
-                    <div>
-                      <p className="text-sm font-semibold">{report.nextStep.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{report.nextStep.description}</p>
-                    </div>
-                    {(report.access.trialOrigin || report.access.previousPaidPlan) && (
-                      <div className="rounded-md border border-current/10 bg-background/60 px-3 py-2 text-xs">
-                        <p className="font-semibold">Recovery context</p>
-                        <p className="mt-1 text-muted-foreground">
-                          {[
-                            report.access.trialOrigin && `Origin: ${labelFor(report.access.trialOrigin)}`,
-                            report.access.previousPaidPlan && `Previous paid plan: ${labelFor(report.access.previousPaidPlan)}`,
-                          ].filter(Boolean).join(" · ")}
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
                 {(report.access.trialEndsAt || report.access.trialGraceEndsAt || report.access.paidAccessExpiresAt || report.grants.endsAt) && (
                   <Card>
                     <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Clock3 className="h-4 w-4" />Important dates</CardTitle></CardHeader>
@@ -575,58 +562,6 @@ export default function AdminEntitlementReview({
                   </Card>
                 )}
 
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-sm"><History className="h-4 w-4" />Access history</CardTitle>
-                    <CardDescription>One chronological view of lifecycle, plan, temporary access, exception, and provider records. Records are append-only.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {historyQuery.isLoading && <p className="text-xs text-muted-foreground">Loading access history…</p>}
-                    {historyQuery.isError && (
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-red-600 dark:text-red-400">
-                        <span>Access history is unavailable.</span>
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => historyQuery.refetch()} disabled={historyQuery.isFetching}>Retry history</Button>
-                      </div>
-                    )}
-                    {historyQuery.isFetching && historyQuery.data && (
-                      <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
-                        Refreshing access history; the displayed records may be delayed.
-                      </p>
-                    )}
-                    {historyQuery.data && historyEntries.length === 0 && <p className="text-xs text-muted-foreground">No access history has been recorded for this clinic.</p>}
-                    {historyQuery.data && historyEntries.length > 0 && (
-                      <div className="space-y-2" data-testid={`admin-access-history-${selectedClinic.id}`}>
-                        {historyEntries.map(entry => (
-                          <div key={entry.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-semibold">{entry.title}</span>
-                                <Badge variant="outline" className={`text-[10px] ${historyStatusClass(entry.status)}`}>{entry.status || "Recorded"}</Badge>
-                                <Badge variant="secondary" className="text-[10px] capitalize">{entry.kind.replace("_", " ")}</Badge>
-                              </div>
-                              <p className="mt-1 text-muted-foreground">{entry.detail || "No additional details recorded."}</p>
-                              {entry.reason && <p className="mt-1 leading-5">{entry.reason}</p>}
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-2">
-                              <time className="text-[10px] text-muted-foreground">{entry.occurredAt ? formatDate(entry.occurredAt) : "Date unavailable"}</time>
-                              {entry.revokeTarget && entry.status === "Active" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 text-[11px]"
-                                  onClick={() => { setRevokeTarget(entry.revokeTarget!); setRevokeReason(""); }}
-                                >
-                                  <XCircle className="mr-1 h-3 w-3" />Revoke
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
                 <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
                   Every Admin action requires a reason and writes an append-only lifecycle record. Paid assignment remains pending payment until provider activation. These controls do not enforce limits.
                 </div>
@@ -635,6 +570,126 @@ export default function AdminEntitlementReview({
           </div>
         )}
       </div>
+
+      <Sheet open={auditTrailOpen} onOpenChange={setAuditTrailOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+          data-testid="sheet-audit-trail"
+        >
+          <SheetHeader className="shrink-0 border-b px-5 py-4 text-left">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <History className="h-4 w-4 text-primary" />
+              Audit trail
+              <Badge variant="secondary" className="ml-auto text-[10px]">
+                {historyEntries.length} event{historyEntries.length === 1 ? "" : "s"}
+              </Badge>
+            </SheetTitle>
+            <SheetDescription className="text-xs leading-5">
+              Append-only lifecycle, plan, temporary access, and provider records for {selectedClinic?.name || "this clinic"}.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="shrink-0 overflow-x-auto border-b bg-muted/20 px-4 py-3">
+            <div className="flex min-w-max items-center gap-1.5" role="group" aria-label="Audit trail filters">
+              {HISTORY_FILTER_OPTIONS.map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={historyFilter === option.value}
+                  onClick={() => setHistoryFilter(option.value)}
+                  className={`rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                    historyFilter === option.value
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                  data-testid={`audit-filter-${option.value}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            {historyQuery.isLoading && <p className="text-xs text-muted-foreground">Loading audit events…</p>}
+            {historyQuery.isError && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50/70 p-3 text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-300">
+                <span>Audit trail is unavailable.</span>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => historyQuery.refetch()} disabled={historyQuery.isFetching}>Retry</Button>
+              </div>
+            )}
+            {historyQuery.isFetching && historyQuery.data && (
+              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300" role="status">
+                Refreshing audit trail; displayed records may be delayed.
+              </p>
+            )}
+            {historyQuery.data && filteredHistoryEntries.length === 0 && (
+              <div className="rounded-lg border border-dashed p-6 text-center">
+                <History className="mx-auto h-7 w-7 text-muted-foreground/50" />
+                <p className="mt-2 text-xs font-semibold">No matching events</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {historyEntries.length === 0 ? "No access history has been recorded for this clinic." : "Try a different audit trail filter."}
+                </p>
+              </div>
+            )}
+            {filteredHistoryEntries.length > 0 && (
+              <div className="relative space-y-4 pl-7" data-testid={`admin-access-history-${selectedClinic?.id}`}>
+                <div className="absolute bottom-3 left-[11px] top-3 w-px bg-border" aria-hidden="true" />
+                {filteredHistoryEntries.map(entry => {
+                  const EntryIcon = entry.kind === "provider"
+                    ? Radio
+                    : entry.kind === "assignment"
+                      ? CreditCard
+                      : entry.kind === "sponsored"
+                        ? Gift
+                        : entry.kind === "exception"
+                          ? SlidersHorizontal
+                          : GitBranch;
+                  const kindLabel = entry.kind === "assignment"
+                    ? "Plan change"
+                    : entry.kind === "sponsored" || entry.kind === "exception"
+                      ? "Temporary access"
+                      : entry.kind === "provider"
+                        ? "Provider event"
+                        : "Lifecycle";
+                  return (
+                    <article key={entry.id} className="relative rounded-xl border bg-background p-3 shadow-sm">
+                      <div className="absolute -left-[27px] top-3 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-primary shadow-sm">
+                        <EntryIcon className="h-3 w-3" />
+                      </div>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-semibold">{entry.title}</span>
+                            <Badge variant="outline" className={`text-[10px] ${historyStatusClass(entry.status)}`}>{entry.status || "Recorded"}</Badge>
+                            <Badge variant="secondary" className="text-[10px]">{kindLabel}</Badge>
+                          </div>
+                          <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{entry.detail || "No additional details recorded."}</p>
+                          {entry.reason && <p className="mt-1.5 text-xs leading-5">{entry.reason}</p>}
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <time className="font-mono text-[10px] text-muted-foreground">{entry.occurredAt ? formatDate(entry.occurredAt) : "Date unavailable"}</time>
+                          {entry.revokeTarget && entry.status === "Active" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              onClick={() => { setRevokeTarget(entry.revokeTarget!); setRevokeReason(""); }}
+                            >
+                              <XCircle className="mr-1 h-3 w-3" />Revoke
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={trialDialogOpen} onOpenChange={setTrialDialogOpen}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
