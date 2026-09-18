@@ -595,7 +595,7 @@ export default function Admin() {
 
   if (authLoading) {
     return (
-      <div className="container mx-auto py-6 px-4 max-w-4xl space-y-6">
+      <div className="container mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end">
           <div className="space-y-2">
             <Skeleton className="h-8 w-44" />
@@ -761,7 +761,7 @@ export default function Admin() {
 
   if (clinicsLoading) {
     return (
-      <div className="container mx-auto py-6 px-4 max-w-4xl space-y-6">
+      <div className="container mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div className="space-y-2">
             <Skeleton className="h-8 w-36" />
@@ -802,7 +802,7 @@ export default function Admin() {
   const archivedClinics = clinics.filter(c => matchesAdminClinicFilter(c, "archived"));
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-[1440px]">
+    <div className="container mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Admin Panel</h1>
@@ -985,7 +985,7 @@ export default function Admin() {
       )}
 
       <Tabs
-        defaultValue="operations"
+        defaultValue="clinics-access"
         onValueChange={(value) => {
           if (value !== "operations" && value !== "tenant-operations") {
             setAdminSelectedClinicId(null);
@@ -993,36 +993,36 @@ export default function Admin() {
         }}
         className="space-y-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/80 bg-card p-1.5 shadow-sm sm:grid-cols-4 lg:grid-cols-8">
-          <TabsTrigger value="operations" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-operations">
-            <Server className="h-4 w-4" />
-            Platform Operations
-          </TabsTrigger>
-          <TabsTrigger value="tenant-operations" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-tenant-operations">
-            <Building2 className="h-4 w-4" />
-            Tenant Operations
-          </TabsTrigger>
-          <TabsTrigger value="plan-policies" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-plan-policies">
-            <FileText className="h-4 w-4" />
-            Plan Policies
-          </TabsTrigger>
-          <TabsTrigger value="clinics-access" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-clinics-access">
+        <TabsList className="flex h-auto w-full items-stretch justify-start gap-1 overflow-x-auto rounded-xl border border-border/80 bg-card p-1.5 shadow-sm">
+          <TabsTrigger value="clinics-access" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-clinics-access">
             <ShieldCheck className="h-4 w-4" />
             Clinics & Access
           </TabsTrigger>
-          <TabsTrigger value="pending" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm">
+          <TabsTrigger value="pending" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm">
             <Plus className="h-4 w-4" />
             Pending ({pendingClinics.length})
           </TabsTrigger>
-          <TabsTrigger value="archived" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm">
+          <TabsTrigger value="archived" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm">
             <Archive className="h-4 w-4" />
             Archived ({archivedClinics.length})
           </TabsTrigger>
-          <TabsTrigger value="smile-deals" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm">
+          <TabsTrigger value="operations" className="ml-2 min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent border-l-border/70 bg-background/50 px-3 py-2 pl-4 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-operations">
+            <Server className="h-4 w-4" />
+            Platform Operations
+          </TabsTrigger>
+          <TabsTrigger value="tenant-operations" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-tenant-operations">
+            <Building2 className="h-4 w-4" />
+            Tenant Operations
+          </TabsTrigger>
+          <TabsTrigger value="smile-deals" className="ml-2 min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent border-l-border/70 bg-background/50 px-3 py-2 pl-4 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm">
             <Megaphone className="h-4 w-4" />
             Smile Deals
           </TabsTrigger>
-          <TabsTrigger value="login-activity" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-login-activity">
+          <TabsTrigger value="plan-policies" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-plan-policies">
+            <FileText className="h-4 w-4" />
+            Plan Policies
+          </TabsTrigger>
+          <TabsTrigger value="login-activity" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-login-activity">
             <Activity className="h-4 w-4" />
             Login Activity
           </TabsTrigger>
