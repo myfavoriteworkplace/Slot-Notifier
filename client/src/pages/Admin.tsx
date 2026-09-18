@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { SpecializationInput } from "@/components/SpecializationInput";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
@@ -63,7 +63,7 @@ function trustBandColor(score: number): string {
 }
 
 export default function Admin() {
-  const { user, isLoading: authLoading, logout, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
+  const { user, isLoading: authLoading, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -85,6 +85,7 @@ export default function Admin() {
   const [newClinicDoctors, setNewClinicDoctors] = useState<{ name: string; specialization: string; degree: string; email: string }[]>([]);
   const [newClinicUsername, setNewClinicUsername] = useState("");
   const [newClinicPassword, setNewClinicPassword] = useState("");
+  const [addClinicDialogOpen, setAddClinicDialogOpen] = useState(false);
 
   // Edit clinic state
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
@@ -549,10 +550,6 @@ export default function Admin() {
     notify.success(`${kind === "book" ? "Book" : "About"} URL copied`);
   };
 
-  const handleAdminLogout = () => {
-    logout();
-  };
-
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
@@ -811,14 +808,7 @@ export default function Admin() {
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Admin Panel</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Manage clinics, subscriptions, and platform services</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-9">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Clinic
-              </Button>
-            </DialogTrigger>
+        <Dialog open={addClinicDialogOpen} onOpenChange={setAddClinicDialogOpen}>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Add New Clinic</DialogTitle>
@@ -978,12 +968,7 @@ export default function Admin() {
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
-          <Button variant="outline" size="sm" onClick={handleAdminLogout} className="h-9">
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
-        </div>
+        </Dialog>
       </div>
 
       {clinicsError && (
@@ -1008,36 +993,36 @@ export default function Admin() {
         }}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
-          <TabsTrigger value="operations" className="flex items-center gap-2" data-testid="tab-operations">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-border/80 bg-card p-1.5 shadow-sm sm:grid-cols-4 lg:grid-cols-8">
+          <TabsTrigger value="operations" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-operations">
             <Server className="h-4 w-4" />
             Platform Operations
           </TabsTrigger>
-          <TabsTrigger value="tenant-operations" className="flex items-center gap-2" data-testid="tab-tenant-operations">
+          <TabsTrigger value="tenant-operations" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-tenant-operations">
             <Building2 className="h-4 w-4" />
             Tenant Operations
           </TabsTrigger>
-          <TabsTrigger value="plan-policies" className="flex items-center gap-2" data-testid="tab-plan-policies">
+          <TabsTrigger value="plan-policies" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-plan-policies">
             <FileText className="h-4 w-4" />
             Plan Policies
           </TabsTrigger>
-          <TabsTrigger value="clinics-access" className="flex items-center gap-2" data-testid="tab-clinics-access">
+          <TabsTrigger value="clinics-access" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-clinics-access">
             <ShieldCheck className="h-4 w-4" />
             Clinics & Access
           </TabsTrigger>
-          <TabsTrigger value="pending" className="flex items-center gap-2">
+          <TabsTrigger value="pending" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm">
             <Plus className="h-4 w-4" />
             Pending ({pendingClinics.length})
           </TabsTrigger>
-          <TabsTrigger value="archived" className="flex items-center gap-2">
+          <TabsTrigger value="archived" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm">
             <Archive className="h-4 w-4" />
             Archived ({archivedClinics.length})
           </TabsTrigger>
-          <TabsTrigger value="smile-deals" className="flex items-center gap-2">
+          <TabsTrigger value="smile-deals" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm">
             <Megaphone className="h-4 w-4" />
             Smile Deals
           </TabsTrigger>
-          <TabsTrigger value="login-activity" className="flex items-center gap-2" data-testid="tab-login-activity">
+          <TabsTrigger value="login-activity" className="min-h-10 min-w-0 rounded-lg px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-colors hover:bg-muted/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-3 sm:text-sm" data-testid="tab-login-activity">
             <Activity className="h-4 w-4" />
             Login Activity
           </TabsTrigger>
@@ -1078,17 +1063,23 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="clinics-access">
-           <AdminEntitlementReview
-             clinics={clinics}
-             clinicsLoading={clinicsLoading}
-             clinicsError={clinicsError}
-             onRetryClinics={() => refetchClinics()}
-             onEditClinic={openEditClinic}
-             onManageCredentials={openClinicCredentials}
-             onCopyClinicUrl={copyClinicUrl}
-             onArchiveClinic={clinic => archiveClinicMutation.mutate(clinic.id)}
-             onRestoreClinic={clinic => unarchiveClinicMutation.mutate(clinic.id)}
-           />
+          <div className="mb-4 flex justify-end">
+            <Button size="sm" className="h-9" onClick={() => setAddClinicDialogOpen(true)} data-testid="button-add-clinic">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Clinic
+            </Button>
+          </div>
+          <AdminEntitlementReview
+            clinics={clinics}
+            clinicsLoading={clinicsLoading}
+            clinicsError={clinicsError}
+            onRetryClinics={() => refetchClinics()}
+            onEditClinic={openEditClinic}
+            onManageCredentials={openClinicCredentials}
+            onCopyClinicUrl={copyClinicUrl}
+            onArchiveClinic={clinic => archiveClinicMutation.mutate(clinic.id)}
+            onRestoreClinic={clinic => unarchiveClinicMutation.mutate(clinic.id)}
+          />
         </TabsContent>
 
         <TabsContent value="pending">
