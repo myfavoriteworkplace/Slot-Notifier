@@ -767,33 +767,18 @@ export default function Admin() {
             <Skeleton className="h-8 w-36" />
             <Skeleton className="h-4 w-64" />
           </div>
-          <div className="flex gap-2">
-            <Skeleton className="h-9 w-28 rounded-md" />
-            <Skeleton className="h-9 w-24 rounded-md" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+          <div className="space-y-2 rounded-xl border border-border/50 p-3">
+            {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            ))}
           </div>
         </div>
-        <div className="flex gap-2">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-9 w-32 rounded-md" />)}
-        </div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="rounded-xl border border-border/50 p-5 space-y-4">
-            <div className="flex items-start gap-4">
-              <Skeleton className="h-12 w-12 rounded-xl shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-5 w-16 rounded-full" />
-                </div>
-                <Skeleton className="h-3.5 w-56" />
-                <Skeleton className="h-3.5 w-40" />
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Skeleton className="h-8 w-20 rounded-md" />
-                <Skeleton className="h-8 w-8 rounded-md" />
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
     );
   }
@@ -986,49 +971,63 @@ export default function Admin() {
 
       <Tabs
         defaultValue="clinics-access"
+        orientation="vertical"
         onValueChange={(value) => {
           if (value !== "operations" && value !== "tenant-operations") {
             setAdminSelectedClinicId(null);
           }
         }}
-        className="space-y-6"
+        className="grid gap-6 lg:grid-cols-[minmax(12.5rem,15rem)_minmax(0,1fr)] lg:items-start"
       >
-        <TabsList className="flex h-auto w-full items-stretch justify-start gap-1 overflow-x-auto rounded-xl border border-border/80 bg-card p-1.5 shadow-sm">
-          <TabsTrigger value="clinics-access" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-clinics-access">
-            <ShieldCheck className="h-4 w-4" />
-            Clinics & Access
+        <TabsList aria-label="Admin sections" className="flex h-auto w-full flex-col items-stretch justify-start gap-1 rounded-xl border border-border/80 bg-card p-2 text-left shadow-sm lg:sticky lg:top-6">
+          <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Clinic lifecycle
+          </div>
+          <TabsTrigger value="clinics-access" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-clinics-access">
+            <ShieldCheck className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Clinics & Access</span>
           </TabsTrigger>
-          <TabsTrigger value="pending" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm">
-            <Plus className="h-4 w-4" />
-            Pending ({pendingClinics.length})
+          <TabsTrigger value="pending" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Pending</span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-700 group-data-[state=active]:bg-amber-200 group-data-[state=active]:text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 dark:group-data-[state=active]:bg-amber-900/70 dark:group-data-[state=active]:text-amber-200">{pendingClinics.length}</span>
           </TabsTrigger>
-          <TabsTrigger value="archived" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm">
-            <Archive className="h-4 w-4" />
-            Archived ({archivedClinics.length})
+          <TabsTrigger value="archived" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            <Archive className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Archived</span>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-slate-600 group-data-[state=active]:bg-slate-200 group-data-[state=active]:text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-data-[state=active]:bg-slate-700 dark:group-data-[state=active]:text-slate-200">{archivedClinics.length}</span>
           </TabsTrigger>
-          <TabsTrigger value="operations" className="ml-2 min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent border-l-border/70 bg-background/50 px-3 py-2 pl-4 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-operations">
-            <Server className="h-4 w-4" />
-            Platform Operations
+
+          <div className="mt-4 border-t border-border/70 px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Operations
+          </div>
+          <TabsTrigger value="operations" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-operations">
+            <Server className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Platform Operations</span>
           </TabsTrigger>
-          <TabsTrigger value="tenant-operations" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-tenant-operations">
-            <Building2 className="h-4 w-4" />
-            Tenant Operations
+          <TabsTrigger value="tenant-operations" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-tenant-operations">
+            <Building2 className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Tenant Operations</span>
           </TabsTrigger>
-          <TabsTrigger value="smile-deals" className="ml-2 min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent border-l-border/70 bg-background/50 px-3 py-2 pl-4 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm">
-            <Megaphone className="h-4 w-4" />
-            Smile Deals
+
+          <div className="mt-4 border-t border-border/70 px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Growth &amp; governance
+          </div>
+          <TabsTrigger value="smile-deals" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            <Megaphone className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Smile Deals</span>
           </TabsTrigger>
-          <TabsTrigger value="plan-policies" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-plan-policies">
-            <FileText className="h-4 w-4" />
-            Plan Policies
+          <TabsTrigger value="plan-policies" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-plan-policies">
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Plan Policies</span>
           </TabsTrigger>
-          <TabsTrigger value="login-activity" className="min-h-11 shrink-0 gap-1.5 rounded-lg border border-transparent bg-background/50 px-3 py-2 text-xs font-medium leading-tight text-foreground/75 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-login-activity">
-            <Activity className="h-4 w-4" />
-            Login Activity
+          <TabsTrigger value="login-activity" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-login-activity">
+            <Activity className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Login Activity</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="operations">
+        <TabsContent value="operations" className="mt-0 min-w-0">
           <AdminOperationsOverview
             clinics={clinics}
             month={adminMessagingMonth}
@@ -1043,7 +1042,7 @@ export default function Admin() {
           />
         </TabsContent>
 
-        <TabsContent value="tenant-operations">
+        <TabsContent value="tenant-operations" className="mt-0 min-w-0">
           <AdminTenantOperations
             clinics={clinics}
             month={adminMessagingMonth}
@@ -1058,13 +1057,17 @@ export default function Admin() {
           />
         </TabsContent>
 
-        <TabsContent value="plan-policies">
+        <TabsContent value="plan-policies" className="mt-0 min-w-0">
           <AdminPlanPolicies />
         </TabsContent>
 
-        <TabsContent value="clinics-access">
-          <div className="mb-4 flex justify-end">
-            <Button size="sm" className="h-9" onClick={() => setAddClinicDialogOpen(true)} data-testid="button-add-clinic">
+        <TabsContent value="clinics-access" className="mt-0 min-w-0">
+          <div className="mb-5 flex flex-col gap-3 border-b border-border/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">Clinics &amp; Access</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Find a clinic, review access, and manage clinic settings.</p>
+            </div>
+            <Button size="sm" className="h-9 shrink-0" onClick={() => setAddClinicDialogOpen(true)} data-testid="button-add-clinic">
               <Plus className="mr-2 h-4 w-4" />
               Add Clinic
             </Button>
@@ -1082,7 +1085,7 @@ export default function Admin() {
           />
         </TabsContent>
 
-        <TabsContent value="pending">
+        <TabsContent value="pending" className="mt-0 min-w-0">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -1543,7 +1546,7 @@ export default function Admin() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="archived">
+        <TabsContent value="archived" className="mt-0 min-w-0">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center text-muted-foreground">
@@ -1573,7 +1576,7 @@ export default function Admin() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="smile-deals">
+        <TabsContent value="smile-deals" className="mt-0 min-w-0">
           <div className="space-y-6">
 
             {/* Deal Creator Panel */}
@@ -2200,7 +2203,7 @@ export default function Admin() {
         </TabsContent>
 
         {/* ── Login Activity Tab ───────────────────────────────────────────────── */}
-        <TabsContent value="login-activity">
+        <TabsContent value="login-activity" className="mt-0 min-w-0">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
