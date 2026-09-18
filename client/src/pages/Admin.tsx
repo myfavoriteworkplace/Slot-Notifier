@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,6 +62,130 @@ function trustBandColor(score: number): string {
   return 'text-muted-foreground';
 }
 
+type AdminClinicListFilter = "all" | "attention";
+
+function matchesAdminClinicListSearch(clinic: Clinic, query: string): boolean {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return true;
+  return [
+    clinic.name,
+    clinic.city,
+    clinic.email,
+    clinic.phone,
+    clinic.plan,
+    clinic.id,
+  ].some(value => String(value ?? "").toLocaleLowerCase().includes(needle));
+}
+
+function AdminClinicListToolbar({
+  scopeLabel,
+  matchingCount,
+  totalCount,
+  search,
+  onSearchChange,
+  filter,
+  onFilterChange,
+}: {
+  scopeLabel: "Pending" | "Archived";
+  matchingCount: number;
+  totalCount: number;
+  search: string;
+  onSearchChange: (value: string) => void;
+  filter: AdminClinicListFilter;
+  onFilterChange: (value: AdminClinicListFilter) => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-3">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="min-w-[220px] flex-1">
+            <CardTitle className="text-sm">{scopeLabel} clinic directory</CardTitle>
+            <CardDescription className="mt-0.5">
+              {matchingCount} matching · {totalCount} {scopeLabel.toLowerCase()} clinic{totalCount === 1 ? "" : "s"}
+            </CardDescription>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {([
+                { value: "all", label: `All ${scopeLabel}` },
+                { value: "attention", label: "Needs attention" },
+              ] as const).map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={filter === option.value}
+                  onClick={() => onFilterChange(option.value)}
+                  className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    filter === option.value
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {option.label}{option.value === "all" ? ` ${totalCount}` : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative min-w-[min(100%,280px)] flex-1 sm:max-w-lg">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 z-10 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={event => onSearchChange(event.target.value)}
+              placeholder="Search name, city, email, phone, or plan"
+              className="h-9 pl-8 text-xs"
+              aria-label={`Search ${scopeLabel.toLowerCase()} clinics`}
+            />
+          </div>
+
+          <div className="flex min-w-[min(100%,220px)] items-center gap-2 sm:w-56">
+            <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <select
+              value={filter}
+              onChange={event => onFilterChange(event.target.value as AdminClinicListFilter)}
+              className="h-9 w-full rounded-md border bg-background px-2 text-xs"
+              aria-label={`Filter ${scopeLabel.toLowerCase()} clinics`}
+            >
+              <option value="all">All {scopeLabel.toLowerCase()} clinics</option>
+              <option value="attention">Needs attention</option>
+            </select>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminClinicSummaryMetrics({ clinic, status }: { clinic: Clinic; status: "pending" | "archived" }) {
+  const isPending = status === "pending";
+  const timingLabel = clinic.trialEndsAt
+    ? "Trial access"
+    : clinic.paidAccessExpiresAt
+      ? "Paid access"
+      : isPending
+        ? "Pending review"
+        : "Archived access";
+  const timingDate = clinic.trialEndsAt || clinic.paidAccessExpiresAt;
+
+  const metrics = [
+    { label: "Effective plan", value: clinic.plan || "Not selected", detail: "Clinic plan" },
+    { label: "Subscription", value: clinic.subscriptionStatus || "Not recorded", detail: clinic.billingCycle || "Billing cycle unavailable" },
+    { label: "Plan timing", value: timingLabel, detail: timingDate ? new Date(timingDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Not recorded" },
+    { label: "Policy version", value: clinic.subscriptionPolicyVersion || "Unavailable", detail: `Timezone · ${clinic.timezone || "Unavailable"}` },
+    { label: "Account status", value: isPending ? "Pending review" : "Archived", detail: isPending ? "Approval required" : "Access inactive" },
+  ];
+
+  return (
+    <div className="grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5">
+      {metrics.map(metric => (
+        <div key={metric.label} className="min-w-0 rounded-lg bg-muted/30 px-2.5 py-2">
+          <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+          <p className="mt-1 truncate text-xs font-semibold">{metric.value}</p>
+          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{metric.detail}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user, isLoading: authLoading, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
   const [, setLocation] = useLocation();
@@ -73,6 +197,10 @@ export default function Admin() {
   const [loginOtp, setLoginOtp] = useState("");
   const [adminMessagingMonth, setAdminMessagingMonth] = useState(getAdminCurrentMonth);
   const [adminSelectedClinicId, setAdminSelectedClinicId] = useState<number | null>(null);
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [pendingFilter, setPendingFilter] = useState<AdminClinicListFilter>("all");
+  const [archivedSearch, setArchivedSearch] = useState("");
+  const [archivedFilter, setArchivedFilter] = useState<AdminClinicListFilter>("all");
   
   // Create clinic state
   const [newClinicName, setNewClinicName] = useState("");
@@ -785,6 +913,12 @@ export default function Admin() {
 
   const pendingClinics = clinics.filter(c => matchesAdminClinicFilter(c, "pending"));
   const archivedClinics = clinics.filter(c => matchesAdminClinicFilter(c, "archived"));
+  const filteredPendingClinics = pendingClinics
+    .filter(clinic => pendingFilter !== "attention" || matchesAdminClinicFilter(clinic, "attention"))
+    .filter(clinic => matchesAdminClinicListSearch(clinic, pendingSearch));
+  const filteredArchivedClinics = archivedClinics
+    .filter(clinic => archivedFilter !== "attention" || matchesAdminClinicFilter(clinic, "attention"))
+    .filter(clinic => matchesAdminClinicListSearch(clinic, archivedSearch));
 
   return (
     <div className="container mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
@@ -1087,22 +1221,38 @@ export default function Admin() {
 
         <TabsContent value="pending" className="mt-0 min-w-0">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="flex items-center">
                 <Sparkles className="h-5 w-5 mr-2" />
                 Pending Registrations
               </CardTitle>
+              <CardDescription className="mt-1">
+                Review new clinic registrations using the same directory structure as Clinics &amp; Access.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4 pt-0">
+              <AdminClinicListToolbar
+                scopeLabel="Pending"
+                matchingCount={filteredPendingClinics.length}
+                totalCount={pendingClinics.length}
+                search={pendingSearch}
+                onSearchChange={setPendingSearch}
+                filter={pendingFilter}
+                onFilterChange={setPendingFilter}
+              />
               <div className="space-y-4">
-                {pendingClinics.map((clinic) => (
-                  <div key={clinic.id} className="rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow duration-300">
+                {filteredPendingClinics.map((clinic) => (
+                  <div key={clinic.id} className="overflow-hidden rounded-xl border border-amber-300/60 bg-amber-50/30 shadow-sm transition-shadow duration-300 hover:shadow-md dark:border-amber-900/70 dark:bg-amber-950/10">
 
                     {/* Header */}
-                    <div className="relative px-5 py-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-border/40">
+                    <div className="relative border-b border-amber-200/70 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent px-5 py-4 dark:border-amber-900/60">
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 rounded-l-xl" />
                       <div className="flex items-start justify-between gap-4 pl-2">
-                        <div className="min-w-0">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300/70 bg-amber-100 text-xs font-bold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                            {clinic.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-base font-semibold tracking-tight">{clinic.name}</h3>
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
@@ -1110,6 +1260,10 @@ export default function Admin() {
                               Pending Review
                             </span>
                           </div>
+
+                          <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                            {(clinic as any).city || "Clinic"} · Clinic #{clinic.id}
+                          </p>
 
                           {/* Location row */}
                           <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -1129,6 +1283,7 @@ export default function Admin() {
                                 {(clinic as any).pincode}
                               </span>
                             )}
+                          </div>
                           </div>
                         </div>
 
@@ -1197,6 +1352,10 @@ export default function Admin() {
                           </Button>
                         </div>
                       </div>
+                    </div>
+
+                    <div className="px-5 pb-1">
+                      <AdminClinicSummaryMetrics clinic={clinic} status="pending" />
                     </div>
 
                     {/* Body */}
@@ -1538,8 +1697,10 @@ export default function Admin() {
 
                   </div>
                 ))}
-                {pendingClinics.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">No pending registrations.</p>
+                {filteredPendingClinics.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-amber-300/70 bg-amber-50/20 py-10 text-center text-sm text-muted-foreground dark:border-amber-900/60 dark:bg-amber-950/10">
+                    {pendingClinics.length === 0 ? "No pending registrations." : "No pending clinics match the current search and filter."}
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -1548,28 +1709,77 @@ export default function Admin() {
 
         <TabsContent value="archived" className="mt-0 min-w-0">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="flex items-center text-muted-foreground">
                 <Archive className="h-5 w-5 mr-2" />
                 Archived Clinics
               </CardTitle>
+              <CardDescription className="mt-1">
+                Review archived clinic records and restore access when needed.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4 pt-0">
+              <AdminClinicListToolbar
+                scopeLabel="Archived"
+                matchingCount={filteredArchivedClinics.length}
+                totalCount={archivedClinics.length}
+                search={archivedSearch}
+                onSearchChange={setArchivedSearch}
+                filter={archivedFilter}
+                onFilterChange={setArchivedFilter}
+              />
               <div className="space-y-4">
-                {archivedClinics.map((clinic) => (
-                  <div key={clinic.id} className="flex items-center justify-between p-4 border rounded-lg opacity-60">
-                    <div>
-                      <h3 className="font-medium">{clinic.name}</h3>
-                      <p className="text-sm text-muted-foreground">{clinic.address}</p>
+                {filteredArchivedClinics.map((clinic) => (
+                  <article key={clinic.id} className="overflow-hidden rounded-xl border border-amber-200/80 bg-amber-50/45 shadow-sm transition-shadow hover:shadow-md dark:border-amber-900/70 dark:bg-amber-950/15">
+                    <div className="relative border-b border-amber-200/70 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent px-5 py-4 dark:border-amber-900/60">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-amber-400" />
+                      <div className="flex flex-wrap items-start justify-between gap-3 pl-2">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300/70 bg-amber-100 text-xs font-bold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                            {clinic.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <h3 className="truncate text-sm font-semibold">{clinic.name}</h3>
+                              <Badge variant="outline" className="border-slate-300 text-[10px] text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                                <Archive className="mr-1 h-2.5 w-2.5" />
+                                Archived
+                              </Badge>
+                            </div>
+                            <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                              {(clinic as any).city || "Clinic"} · Clinic #{clinic.id}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              {clinic.address && <span className="text-xs text-muted-foreground">{clinic.address}</span>}
+                              {(clinic as any).pincode && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                                  <Hash className="h-2.5 w-2.5" />
+                                  {(clinic as any).pincode}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => unarchiveClinicMutation.mutate(clinic.id)}>
+                          <ArchiveRestore className="h-3.5 w-3.5" />
+                          Restore
+                        </Button>
+                      </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => unarchiveClinicMutation.mutate(clinic.id)}>
-                      <ArchiveRestore className="h-4 w-4 mr-2" />
-                      Restore
-                    </Button>
-                  </div>
+                    <div className="p-5">
+                      <AdminClinicSummaryMetrics clinic={clinic} status="archived" />
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-[11px] text-muted-foreground">
+                        <span>{clinic.email || clinic.phone || "No contact details recorded"}</span>
+                        <span>Clinic access is inactive until restored.</span>
+                      </div>
+                    </div>
+                  </article>
                 ))}
-                {archivedClinics.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">No archived clinics.</p>
+                {filteredArchivedClinics.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-amber-300/70 bg-amber-50/20 py-10 text-center text-sm text-muted-foreground dark:border-amber-900/60 dark:bg-amber-950/10">
+                    {archivedClinics.length === 0 ? "No archived clinics." : "No archived clinics match the current search and filter."}
+                  </p>
                 )}
               </div>
             </CardContent>
