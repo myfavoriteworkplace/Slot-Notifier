@@ -257,6 +257,29 @@ function AdminClinicSummaryMetrics({ clinic, status }: { clinic: Clinic; status:
   );
 }
 
+type ApprovalPlan = "trial" | "starter" | "growth" | "pro";
+type ApprovalBillingCycle = "monthly" | "annual";
+
+const APPROVAL_PLAN_LABELS: Record<ApprovalPlan, string> = {
+  trial: "Trial",
+  starter: "Starter",
+  growth: "Growth",
+  pro: "Pro",
+};
+
+function localDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addLocalDays(dateValue: string, days: number): string {
+  const date = new Date(`${dateValue}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return localDateInputValue(date);
+}
+
 export default function Admin() {
   const { user, isLoading: authLoading, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
   const [, setLocation] = useLocation();
@@ -303,6 +326,15 @@ export default function Admin() {
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [approvalClinic, setApprovalClinic] = useState<Clinic | null>(null);
+  const [approvalPlan, setApprovalPlan] = useState<ApprovalPlan>("trial");
+  const [approvalBillingCycle, setApprovalBillingCycle] = useState<ApprovalBillingCycle>("monthly");
+  const [customTrialSchedule, setCustomTrialSchedule] = useState(false);
+  const [trialStartDate, setTrialStartDate] = useState(localDateInputValue(new Date()));
+  const [trialEndDate, setTrialEndDate] = useState(addLocalDays(localDateInputValue(new Date()), 14));
+  const [trialGraceDays, setTrialGraceDays] = useState("7");
+  const [approvalReason, setApprovalReason] = useState("");
+  const [approvalTransitionId, setApprovalTransitionId] = useState("");
 
   // Smile Deals state
   const [dealCreatorTab, setDealCreatorTab] = useState<"deal" | "ad">("deal");
@@ -790,16 +822,71 @@ export default function Admin() {
     }
   });
 
+  const openApprovalDialog = (clinic: Clinic) => {
+    const requestedPlan = (clinic.requestedPlan || "trial") as ApprovalPlan;
+    const today = localDateInputValue(new Date());
+    setApprovalClinic(clinic);
+    setApprovalPlan(Object.prototype.hasOwnProperty.call(APPROVAL_PLAN_LABELS, requestedPlan) ? requestedPlan : "trial");
+    setApprovalBillingCycle("monthly");
+    setCustomTrialSchedule(false);
+    setTrialStartDate(today);
+    setTrialEndDate(addLocalDays(today, 14));
+    setTrialGraceDays("7");
+    setApprovalReason("");
+    setApprovalTransitionId(crypto.randomUUID());
+  };
+
+  const closeApprovalDialog = () => {
+    if (approveClinicMutation.isPending) return;
+    setApprovalClinic(null);
+    setApprovalReason("");
+    setApprovalTransitionId("");
+  };
+
   const approveClinicMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest('PATCH', `/api/clinics/${id}/approve`, {});
-      if (!res.ok) throw new Error("Failed to approve clinic");
+    mutationFn: async () => {
+      if (!approvalClinic) throw new Error("Select a clinic to approve");
+      const requestedPlan = (approvalClinic.requestedPlan || "trial") as ApprovalPlan;
+      const isOverride = approvalPlan !== requestedPlan;
+      const reason = approvalReason.trim();
+      if (isOverride && reason.length < 10) {
+        throw new Error("Add a reason of at least 10 characters for this plan override");
+      }
+      const payload: Record<string, unknown> = {
+        approvedPlan: approvalPlan,
+        reason: reason || undefined,
+        transitionId: approvalTransitionId || crypto.randomUUID(),
+      };
+      if (approvalPlan === "trial" && customTrialSchedule) {
+        payload.trialStartDate = trialStartDate;
+        payload.trialEndDate = trialEndDate;
+        payload.trialGraceDays = Number(trialGraceDays);
+      }
+      if (approvalPlan !== "trial") {
+        payload.billingCycle = approvalBillingCycle;
+      }
+      const res = await apiRequest('PATCH', `/api/clinics/${approvalClinic.id}/approve`, payload);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || "Failed to approve clinic");
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      notify.success("Clinic approved", { description: "Credentials sent. The clinic has started its 14-day Trial." });
-    }
+      const paid = approvalPlan !== "trial";
+      closeApprovalDialog();
+      notify.success("Clinic approved", {
+        description: paid
+          ? result?.activationUrl
+            ? `${APPROVAL_PLAN_LABELS[approvalPlan]} ${approvalBillingCycle} activation is ready. Credentials and payment instructions were sent.`
+            : `${APPROVAL_PLAN_LABELS[approvalPlan]} ${approvalBillingCycle} approval is pending payment.`
+          : customTrialSchedule
+            ? "Credentials sent. The custom Trial schedule is active."
+            : "Credentials sent. The clinic has started its 14-day Trial.",
+      });
+    },
+    onError: (error: any) => notify.apiError(error, "Approval failed"),
   });
 
   const rejectClinicMutation = useMutation({
@@ -1480,7 +1567,7 @@ export default function Admin() {
                         <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                           <Button
                             size="sm"
-                            onClick={() => approveClinicMutation.mutate(clinic.id)}
+                            onClick={() => openApprovalDialog(clinic)}
                             disabled={approveClinicMutation.isPending}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -1839,14 +1926,14 @@ export default function Admin() {
                                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Admin Decision</p>
                                 </div>
                                 <div className="p-4 space-y-3">
-                                   <p className="text-xs text-muted-foreground">
-                                     Approval starts the catalog-defined 14-day Trial. Paid plans are assigned separately from the Entitlements tab.
-                                   </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Requested plan: <span className="font-semibold text-foreground">{APPROVAL_PLAN_LABELS[((clinic.requestedPlan || "trial") as ApprovalPlan)] || "Trial"}</span>. Choose the effective plan, billing cycle, and Trial dates before approving.
+                                    </p>
                                   </div>
                                 <div className="grid grid-cols-3 gap-2">
                                   <Button
                                     size="sm"
-                                    onClick={() => approveClinicMutation.mutate(clinic.id)}
+                                    onClick={() => openApprovalDialog(clinic)}
                                     disabled={approveClinicMutation.isPending}
                                     className="h-9 gap-1.5 text-xs"
                                     data-testid={`button-approve-clinic-${clinic.id}`}
@@ -3159,6 +3246,138 @@ export default function Admin() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Registration Approval Dialog */}
+      <Dialog open={Boolean(approvalClinic)} onOpenChange={open => { if (!open) closeApprovalDialog(); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Approve clinic registration</DialogTitle>
+            <DialogDescription>
+              Choose the effective plan for {approvalClinic?.name}. The clinic requested{" "}
+              <span className="font-semibold text-foreground">
+                {approvalClinic ? APPROVAL_PLAN_LABELS[(approvalClinic.requestedPlan || "trial") as ApprovalPlan] || "Trial" : "Trial"}
+              </span>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="approval-plan">Approved plan</Label>
+              <select
+                id="approval-plan"
+                value={approvalPlan}
+                onChange={event => setApprovalPlan(event.target.value as ApprovalPlan)}
+                disabled={approveClinicMutation.isPending}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                data-testid="select-approval-plan"
+              >
+                {(Object.keys(APPROVAL_PLAN_LABELS) as ApprovalPlan[]).map(plan => (
+                  <option key={plan} value={plan}>{APPROVAL_PLAN_LABELS[plan]}</option>
+                ))}
+              </select>
+            </div>
+
+            {approvalPlan !== "trial" && (
+              <div className="space-y-2">
+                <Label htmlFor="approval-billing-cycle">Billing cycle</Label>
+                <select
+                  id="approval-billing-cycle"
+                  value={approvalBillingCycle}
+                  onChange={event => setApprovalBillingCycle(event.target.value as ApprovalBillingCycle)}
+                  disabled={approveClinicMutation.isPending}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  data-testid="select-approval-billing-cycle"
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="annual">Annual</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Payment will remain pending until the clinic completes the prepared activation.
+                </p>
+              </div>
+            )}
+
+            {approvalPlan === "trial" && (
+              <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Label htmlFor="custom-trial-schedule">Custom Trial schedule</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      The default is 14 days with a 7-day grace period.
+                    </p>
+                  </div>
+                  <input
+                    id="custom-trial-schedule"
+                    type="checkbox"
+                    checked={customTrialSchedule}
+                    onChange={event => setCustomTrialSchedule(event.target.checked)}
+                    disabled={approveClinicMutation.isPending}
+                    className="mt-1 h-4 w-4 rounded border-input"
+                    data-testid="checkbox-custom-trial-schedule"
+                  />
+                </div>
+
+                {customTrialSchedule && (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="trial-start-date" className="text-xs">Start date</Label>
+                      <Input id="trial-start-date" type="date" value={trialStartDate} onChange={event => setTrialStartDate(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-trial-start-date" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="trial-end-date" className="text-xs">End date</Label>
+                      <Input id="trial-end-date" type="date" value={trialEndDate} min={trialStartDate} onChange={event => setTrialEndDate(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-trial-end-date" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="trial-grace-days" className="text-xs">Grace days</Label>
+                      <Input id="trial-grace-days" type="number" min={0} max={365} value={trialGraceDays} onChange={event => setTrialGraceDays(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-trial-grace-days" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {approvalClinic && approvalPlan !== (approvalClinic.requestedPlan || "trial") && (
+              <div className="space-y-2">
+                <Label htmlFor="approval-reason">Override reason <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="approval-reason"
+                  value={approvalReason}
+                  onChange={event => setApprovalReason(event.target.value)}
+                  placeholder="Explain why the approved plan differs from the clinic request"
+                  maxLength={500}
+                  disabled={approveClinicMutation.isPending}
+                  data-testid="textarea-approval-reason"
+                />
+                <p className="text-xs text-muted-foreground">At least 10 characters are required.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeApprovalDialog} disabled={approveClinicMutation.isPending}>Cancel</Button>
+            <Button
+              onClick={() => approveClinicMutation.mutate()}
+              disabled={
+                approveClinicMutation.isPending ||
+                !approvalClinic ||
+                (approvalClinic && approvalPlan !== (approvalClinic.requestedPlan || "trial") && approvalReason.trim().length < 10) ||
+                (approvalPlan === "trial" && customTrialSchedule && (
+                  !trialStartDate ||
+                  !trialEndDate ||
+                  trialEndDate < trialStartDate ||
+                  !Number.isInteger(Number(trialGraceDays)) ||
+                  Number(trialGraceDays) < 0 ||
+                  Number(trialGraceDays) > 365
+                ))
+              }
+              data-testid="button-confirm-clinic-approval"
+            >
+              {approveClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {approveClinicMutation.isPending ? "Approving…" : `Approve as ${APPROVAL_PLAN_LABELS[approvalPlan]}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Credentials Dialog */}
       <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>

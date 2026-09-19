@@ -63,6 +63,32 @@ export function buildInitialTrialTransition(
   };
 }
 
+export function buildCustomTrialTransition(
+  trialStartedAt: Date,
+  trialEndsAt: Date,
+  graceDays: number,
+): TrialTransition {
+  const startMs = trialStartedAt.getTime();
+  const endMs = trialEndsAt.getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    throw new Error("Custom Trial dates must be valid");
+  }
+  if (endMs <= startMs) {
+    throw new Error("Custom Trial end must be after the start");
+  }
+  if (!Number.isFinite(graceDays) || graceDays < 0) {
+    throw new Error("Trial grace period cannot be negative");
+  }
+
+  return {
+    trialStartedAt: new Date(trialStartedAt),
+    trialEndsAt: new Date(trialEndsAt),
+    trialGraceEndsAt: new Date(endMs + graceDays * DAY_MS),
+    origin: "admin_granted",
+    previousPaidPlan: null,
+  };
+}
+
 export function buildPaidExpiryRecoveryTransition(
   clinic: TrialLifecycleClinic,
   now: Date,

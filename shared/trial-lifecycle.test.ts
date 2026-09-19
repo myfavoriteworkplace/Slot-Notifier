@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildCustomTrialTransition,
   buildInitialTrialTransition,
   buildPaidExpiryRecoveryTransition,
   buildTrialWindow,
@@ -19,6 +20,19 @@ test("builds an initial Trial window from the published duration", () => {
   assert.equal(transition.trialStartedAt.toISOString(), "2026-09-12T08:00:00.000Z");
   assert.equal(transition.trialEndsAt.toISOString(), "2026-09-26T08:00:00.000Z");
   assert.equal(transition.trialGraceEndsAt.toISOString(), "2026-10-03T08:00:00.000Z");
+});
+
+test("builds an admin-controlled Trial schedule with custom grace", () => {
+  const transition = buildCustomTrialTransition(
+    new Date("2026-09-12T00:00:00.000Z"),
+    new Date("2026-09-20T23:59:59.999Z"),
+    12,
+  );
+
+  assert.equal(transition.origin, "admin_granted");
+  assert.equal(transition.trialStartedAt.toISOString(), "2026-09-12T00:00:00.000Z");
+  assert.equal(transition.trialEndsAt.toISOString(), "2026-09-20T23:59:59.999Z");
+  assert.equal(transition.trialGraceEndsAt.toISOString(), "2026-10-02T23:59:59.999Z");
 });
 
 test("recovers an active paid clinic exactly once in the transition layer", () => {

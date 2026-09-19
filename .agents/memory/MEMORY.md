@@ -24,3 +24,4 @@
 - [Clinic plan-change workflow](clinic-plan-change-workflow.md) — Clinic Admin upgrades only; cancellation, downgrade, billing-cycle, offline, and exceptional changes require Super Admin review.
 - [Subscription lifecycle history](subscription-lifecycle-history.md) — current subscription fields are snapshots; transitions, assignments, sponsored access, and exceptions stay append-only and separate.
 - [Trial lifecycle idempotency](trial-lifecycle-idempotency.md) — provider expiry recovery must dedupe both provider events and lifecycle transition IDs before changing clinic state.
+- [Clinic approval plan override](clinic-approval-plan-override.md) — Super Admin chooses the effective plan, paid billing cycle, and optional custom Trial schedule at approval.
