@@ -1,6 +1,6 @@
 # Clinic Registration and Plan Suggestion
 
-**Status:** Planning only — no application code, database schema, routes, or UI have been changed for this workflow  
+**Status:** Step 0 complete — baseline recorded; no application code, database schema, routes, or UI have been changed for this workflow  
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -139,39 +139,151 @@ Complete the following steps in order. Do not skip the data and permission steps
 
 ---
 
-## Step 0 — Record the baseline before editing
+## Step 0 — Record the baseline before editing — COMPLETE
+
+**Baseline checked:** 2026-09-19, Asia/Calcutta  
+**Scope:** Read-only inspection of the current registration, approval, subscription, Trial, Clinic Admin, Super Admin, notification, schema, migration, and test entry points.
 
 ### Purpose
 
 Capture the current behaviour so a later test can distinguish an intentional change from an accidental regression.
 
-### Actions
+### Verified registration behaviour
 
-- Locate the current registration plan cards.
-- Locate the registration request payload and backend validation.
-- Locate the clinic approval route and its current Trial-start logic.
-- Locate the existing paid-plan assignment service or route.
-- Locate the Clinic Dashboard banner area.
-- Locate the Admin navigation tabs and clinic-management panels.
-- Locate the clinic session guard and Super Admin guard patterns.
-- Locate the existing Trial eligibility and expiry helpers.
-- Locate the existing subscription lifecycle and assignment writes.
+- **Registration screen:** `client/src/pages/RegisterClinic.tsx`
+  - `PLAN_OPTIONS` currently contains only `starter`, `growth`, and `pro`.
+  - The selected plan state is typed as `"starter" | "growth" | "pro" | ""`.
+  - The plan selector is shown after email verification.
+  - The form sends the selected value as `plan` in `POST /api/clinics/register`.
+  - The current payment message says a secure payment link for the chosen plan will be sent after approval.
+- **Registration route:** `server/routes.ts`, `POST /api/clinics/register`
+  - Requires a verified email token.
+  - Removes verification and optional document fields from the request body.
+  - Creates the clinic with `status: "pending"`.
+  - Passes the remaining fields, including the submitted `plan`, into storage.
+  - Does not currently run the complete registration body through a dedicated Zod `safeParse()` before storage.
+- **Clinic data model:** `shared/schema.ts`
+  - `clinics.plan` currently defaults to `"starter"`.
+  - There is no separate `requestedPlan` field.
+  - The current model already contains `trialStartedAt`, `trialEndsAt`, `trialGraceEndsAt`, `trialOrigin`, `previousPaidPlan`, and `subscriptionPolicyVersion`.
 
-### Record
+### Verified approval behaviour
 
-Write down:
+- **Approval route:** `server/routes.ts`, `PATCH /api/clinics/:id/approve`
+  - Uses `isAuthenticated` and then checks for the `superuser` role.
+  - Only pending clinics can be approved.
+  - Builds the initial Trial from the shared policy catalogue.
+  - Uses the current Trial policy values of 14 days plus 7 grace days.
+  - Generates clinic credentials and sends the approval email.
+  - Always updates the approved clinic to:
+    - `plan: "trial"`
+    - `subscriptionStatus: "trialing"`
+    - The newly calculated Trial dates and origin
+  - Does not currently use the clinic's selected registration plan to choose the approval result.
+  - Writes a Trial assignment to `subscriptionPlanAssignments`.
+  - Writes a `trial_started` event to `subscriptionLifecycleEvents`.
+- **Confirmed mismatch:** A clinic can submit a paid plan value from the registration form, but approval currently replaces that choice with Trial. Adding only a Trial card would not fix the complete workflow.
 
-- Current registration plan values.
-- Current approval behaviour.
-- Existing Trial field names.
-- Existing paid-plan activation entry point.
-- Existing Admin tab layout.
-- Existing test commands.
+### Verified Trial and plan policy behaviour
 
-### Completion check
+- **Shared catalogue:** `shared/plan-catalog.ts`
+  - `PLAN_KEYS` contains `trial`, `starter`, `growth`, and `pro`.
+  - `PAID_PLAN_KEYS` contains `starter`, `growth`, and `pro`.
+  - Valid billing cycles are `monthly` and `annual`.
+  - Trial is a no-card plan with a 14-day duration and 7-day grace period.
+  - Trial currently allows 10 lifetime bookings, 1 active doctor, and 50 MB storage.
+- **Trial helpers:** `shared/trial-lifecycle.ts`
+  - Existing helpers build initial Trial windows.
+  - Existing helpers determine Trial phase and conversion eligibility.
+  - The current policy treats a Trial as conversion-eligible during the active Trial or grace period, not after grace expiry.
+- **Existing tests:**
+  - `shared/trial-lifecycle.test.ts`
+  - `shared/plan-catalog.test.ts`
+  - `shared/subscription-lifecycle.test.ts`
+  - `shared/subscription-status.test.ts`
+  - `shared/effective-entitlement.test.ts`
 
-- The implementation team can explain where each existing behaviour lives.
-- No code has been changed yet.
+### Verified paid-plan activation behaviour
+
+- **Existing route:** `server/routes.ts`, `POST /api/admin/clinics/:id/paid-plan`
+  - Requires the Super Admin role.
+  - Validates plan, billing cycle, reason, and optional transition ID with Zod.
+  - Uses a transition ID to make repeated requests idempotent.
+  - Creates a Razorpay subscription when provider configuration is available.
+  - Creates an activation token and payment link.
+  - Sets the clinic to `pending_payment`, rather than pretending that payment has completed.
+  - Writes a `subscriptionPlanAssignments` record.
+  - Writes either a `converted` or `plan_assigned` lifecycle event.
+  - Returns the activation URL to the Admin client.
+- **Implementation consequence:** Upgrade-request approval must reuse this provider-aware workflow instead of creating another paid-plan assignment path.
+
+### Verified Clinic Admin surface
+
+- **Main page:** `client/src/pages/ClinicDashboard.tsx`
+  - The current subscription banner only handles `subscriptionStatus === "pending_payment"`.
+  - It tells the clinic that payment is pending and provides a support link.
+  - There is no Trial-active, Trial-grace, upgrade-request, rejected-request, or Trial-expired banner yet.
+- **Existing entitlement panel:** `client/src/components/ClinicEntitlementSettingsPanel.tsx`
+  - Loads `/api/auth/clinic/settings/entitlements`.
+  - Already displays Trial and Trial grace states.
+  - Already displays Trial start, Trial end, and grace end dates.
+  - This component is a reusable source for Trial state presentation, but it is not currently the requested top-of-dashboard upgrade flow.
+
+### Verified Super Admin surface
+
+- **Main page:** `client/src/pages/Admin.tsx`
+  - Existing Clinic lifecycle tabs are `Clinics & Access`, `Pending`, and `Archived`.
+  - Existing Operations tabs are `Platform Operations`, `Tenant Operations`, and `Clinic Monitoring`.
+  - Existing Growth/governance tabs include `Smile Deals`, `Plan Policies`, and `Security & Audit`.
+  - There is currently no `Requests` tab or upgrade-request count.
+  - The Pending registration approval action calls `PATCH /api/clinics/:id/approve` and currently tells the Admin that the clinic has started a 14-day Trial.
+- **Existing Admin access pattern:** Super Admin routes use `isAuthenticated` followed by a role check for `superuser`.
+
+### Verified notification and realtime behaviour
+
+- **Notification storage:** `notifications` is user-ID based and currently supports clinic/doctor notification ownership.
+- **Notification storage methods:** `server/storage.ts` reads and updates notifications by the scoped `userId`.
+- **Role scoping:** Existing notification migrations use `clinic:` and `doctor:` prefixes to prevent numeric-ID collisions.
+- **Current result:** There is no dedicated Super Admin upgrade-request notification channel or durable Admin request queue.
+- **Implementation consequence:** The first release should use the upgrade-request table as the source of truth, with a Super Admin Requests-tab badge and refresh/toast behaviour. A dedicated Admin WebSocket channel can remain a later enhancement.
+
+### Verified database and migration conventions
+
+- **Schema definitions:** New Drizzle tables and columns belong in `shared/schema.ts`.
+- **Startup compatibility SQL:** Existing additive schema checks are also present in `server/index.ts`, using idempotent `IF NOT EXISTS` blocks.
+- **Subscription history:** `subscriptionLifecycleEvents` and `subscriptionPlanAssignments` already have clinic indexes and unique transition IDs.
+- **Implementation consequence:** Any new requested-plan column or upgrade-request table must follow both the Drizzle schema and startup SQL/migration requirements. Existing subscription history must not be replaced or deleted.
+
+### Verified test and quality commands
+
+The current `package.json` provides these relevant commands:
+
+```text
+npm run build
+npm run check
+npm run test:subscription-entitlements
+npm run test:subscription-baseline
+npm run test:e2e
+```
+
+The existing Build Check workflow runs the production build command. The feature implementation must run the Build Check after code changes; Step 0 itself required no build or application restart because it changed no runtime code.
+
+### Step 0 completion check
+
+- [x] Current registration plan values recorded.
+- [x] Registration payload and backend handling recorded.
+- [x] Current approval behaviour recorded.
+- [x] Existing Trial fields, catalogue, and eligibility helpers recorded.
+- [x] Existing paid-plan activation route and idempotency behaviour recorded.
+- [x] Clinic Dashboard banner area recorded.
+- [x] Super Admin navigation and approval surface recorded.
+- [x] Authentication and role-check patterns recorded.
+- [x] Existing subscription assignment and lifecycle writes recorded.
+- [x] Existing notification limitation recorded.
+- [x] Existing test and build commands recorded.
+- [x] No application code, database schema, route, or UI was changed.
+
+**Step 0 result:** Complete. The team can now proceed to Step 1 only after the product decisions in Section 9 are confirmed.
 
 ---
 
