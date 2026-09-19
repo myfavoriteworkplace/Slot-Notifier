@@ -54,7 +54,8 @@ export function validateInitialApprovalSelection(
   input: InitialApprovalValidationInput,
 ): string | null {
   const reason = input.reason?.trim() ?? "";
-  if (input.isOverride && reason.length < 10) {
+  const isOverride = input.approvedPlan !== input.requestedPlan;
+  if (isOverride && reason.length < 10) {
     return "A reason of at least 10 characters is required when overriding the requested plan";
   }
 

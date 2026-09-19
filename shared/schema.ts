@@ -926,6 +926,47 @@ export const insertSubscriptionPlanAssignmentSchema = createInsertSchema(subscri
 export type SubscriptionPlanAssignment = typeof subscriptionPlanAssignments.$inferSelect;
 export type InsertSubscriptionPlanAssignment = z.infer<typeof insertSubscriptionPlanAssignmentSchema>;
 
+export const CLINIC_UPGRADE_REQUEST_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+] as const;
+export type ClinicUpgradeRequestStatus = (typeof CLINIC_UPGRADE_REQUEST_STATUSES)[number];
+
+export const clinicUpgradeRequests = pgTable("clinic_upgrade_requests", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  requestedPlan: varchar("requested_plan", { length: 20 }).notNull(),
+  billingCycle: varchar("billing_cycle", { length: 10 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  clinicReason: text("clinic_reason"),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by", { length: 255 }),
+  reviewReason: text("review_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicStatusIdx: index("clinic_upgrade_requests_clinic_status_idx").on(table.clinicId, table.status),
+  pendingCreatedIdx: index("clinic_upgrade_requests_pending_created_idx").on(table.status, table.requestedAt),
+  pendingClinicUnique: uniqueIndex("clinic_upgrade_requests_pending_clinic_uidx")
+    .on(table.clinicId)
+    .where(sql`${table.status} = 'pending'`),
+}));
+
+export const insertClinicUpgradeRequestSchema = createInsertSchema(clinicUpgradeRequests).omit({
+  id: true,
+  status: true,
+  reviewedAt: true,
+  reviewedBy: true,
+  reviewReason: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ClinicUpgradeRequest = typeof clinicUpgradeRequests.$inferSelect;
+export type InsertClinicUpgradeRequest = z.infer<typeof insertClinicUpgradeRequestSchema>;
+
 export const subscriptionAccessGrants = pgTable("subscription_access_grants", {
   id: serial("id").primaryKey(),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),

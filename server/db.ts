@@ -678,6 +678,28 @@ export async function ensureSessionTable() {
       );
       CREATE INDEX IF NOT EXISTS subscription_access_exceptions_clinic_dates_idx
         ON subscription_access_exceptions (clinic_id, starts_at, ends_at);
+
+      CREATE TABLE IF NOT EXISTS clinic_upgrade_requests (
+        id             SERIAL PRIMARY KEY,
+        clinic_id      integer NOT NULL REFERENCES clinics(id),
+        requested_plan varchar(20) NOT NULL,
+        billing_cycle  varchar(10) NOT NULL,
+        status         varchar(20) NOT NULL DEFAULT 'pending',
+        clinic_reason  text,
+        requested_at   timestamp NOT NULL DEFAULT NOW(),
+        reviewed_at    timestamp,
+        reviewed_by    varchar(255),
+        review_reason  text,
+        created_at     timestamp NOT NULL DEFAULT NOW(),
+        updated_at     timestamp NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS clinic_upgrade_requests_clinic_status_idx
+        ON clinic_upgrade_requests (clinic_id, status);
+      CREATE INDEX IF NOT EXISTS clinic_upgrade_requests_pending_created_idx
+        ON clinic_upgrade_requests (status, requested_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS clinic_upgrade_requests_pending_clinic_uidx
+        ON clinic_upgrade_requests (clinic_id)
+        WHERE status = 'pending';
     `);
     console.log("[DATABASE] subscription lifecycle/history tables ready.");
   } catch (err: any) {

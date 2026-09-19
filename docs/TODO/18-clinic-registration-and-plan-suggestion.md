@@ -1,6 +1,6 @@
 # Clinic Registration and Plan Suggestion
 
-**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
+**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -491,7 +491,7 @@ Step 3 is complete.
 
 ---
 
-## Step 4 — Add the upgrade-request data model
+## Step 4 — Add the upgrade-request data model — COMPLETE
 
 ### Purpose
 
@@ -536,9 +536,31 @@ Use the repository's existing timestamp, foreign-key, and enum conventions rathe
 
 ### Completion checks
 
-- A request can be listed after the browser is closed.
-- Old approved and rejected requests remain available for audit.
-- Two simultaneous submissions cannot create two pending requests.
+- [x] A request can be listed after the browser is closed.
+- [x] Old approved and rejected requests remain available for audit.
+- [x] Two simultaneous submissions cannot create two pending requests.
+
+### Step 4 progress record
+
+Step 4 is complete.
+
+- Added the `clinic_upgrade_requests` table to the shared Drizzle schema.
+- Added clinic foreign-key, requested plan, billing cycle, status, clinic
+  reason, request/review timestamps, reviewer, review reason, and update
+  timestamp fields.
+- Added `clinic_id + status` and `status + requested_at` indexes.
+- Added a PostgreSQL partial unique index so each clinic can have only one
+  pending request while preserving completed request history.
+- Added the same additive `CREATE TABLE IF NOT EXISTS` and index migration to
+  both startup database initialization paths.
+- Added storage methods that use conflict-safe insertion and return the
+  existing pending row on retry, so application-level retries are idempotent
+  in addition to the database uniqueness guard.
+- Review-only fields are excluded from the insert schema.
+- Added focused model tests for statuses, required creation fields, and
+  server-managed review fields.
+- Verification: focused approval, registration, and upgrade-request model
+  tests passed; `npm run build` passed; `git diff --check` passed.
 
 ---
 
@@ -1049,7 +1071,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
+**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -1500,7 +1522,7 @@ When the requested plan is Starter, Growth, or Pro:
 
 ---
 
-## Step 4 — Add the upgrade-request data model
+## Step 4 — Add the upgrade-request data model — COMPLETE
 
 ### Purpose
 
@@ -1545,9 +1567,9 @@ Use the repository's existing timestamp, foreign-key, and enum conventions rathe
 
 ### Completion checks
 
-- A request can be listed after the browser is closed.
-- Old approved and rejected requests remain available for audit.
-- Two simultaneous submissions cannot create two pending requests.
+- [x] A request can be listed after the browser is closed.
+- [x] Old approved and rejected requests remain available for audit.
+- [x] Two simultaneous submissions cannot create two pending requests.
 
 ---
 
@@ -2058,7 +2080,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
+**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -2509,7 +2531,7 @@ When the requested plan is Starter, Growth, or Pro:
 
 ---
 
-## Step 4 — Add the upgrade-request data model
+## Step 4 — Add the upgrade-request data model — COMPLETE
 
 ### Purpose
 
@@ -2554,9 +2576,9 @@ Use the repository's existing timestamp, foreign-key, and enum conventions rathe
 
 ### Completion checks
 
-- A request can be listed after the browser is closed.
-- Old approved and rejected requests remain available for audit.
-- Two simultaneous submissions cannot create two pending requests.
+- [x] A request can be listed after the browser is closed.
+- [x] Old approved and rejected requests remain available for audit.
+- [x] Two simultaneous submissions cannot create two pending requests.
 
 ---
 
@@ -3067,7 +3089,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
+**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -3518,7 +3540,7 @@ When the requested plan is Starter, Growth, or Pro:
 
 ---
 
-## Step 4 — Add the upgrade-request data model
+## Step 4 — Add the upgrade-request data model — COMPLETE
 
 ### Purpose
 
@@ -3563,9 +3585,9 @@ Use the repository's existing timestamp, foreign-key, and enum conventions rathe
 
 ### Completion checks
 
-- A request can be listed after the browser is closed.
-- Old approved and rejected requests remain available for audit.
-- Two simultaneous submissions cannot create two pending requests.
+- [x] A request can be listed after the browser is closed.
+- [x] Old approved and rejected requests remain available for audit.
+- [x] Two simultaneous submissions cannot create two pending requests.
 
 ---
 

@@ -4,6 +4,7 @@ import {
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
   inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock, patientCharts,
   patientMedicalHistory, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions,
+  clinicUpgradeRequests,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -36,6 +37,7 @@ import {
   type SubscriptionPlanAssignment, type InsertSubscriptionPlanAssignment,
   type SubscriptionAccessGrant, type InsertSubscriptionAccessGrant,
   type SubscriptionAccessException, type InsertSubscriptionAccessException,
+  type ClinicUpgradeRequest, type InsertClinicUpgradeRequest,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne, inArray } from "drizzle-orm";
@@ -314,6 +316,9 @@ export interface IStorage {
   getSubscriptionAccessGrants(clinicId: number): Promise<SubscriptionAccessGrant[]>;
   createSubscriptionAccessException(data: InsertSubscriptionAccessException): Promise<SubscriptionAccessException>;
   getSubscriptionAccessExceptions(clinicId: number): Promise<SubscriptionAccessException[]>;
+  createClinicUpgradeRequest(data: InsertClinicUpgradeRequest): Promise<ClinicUpgradeRequest>;
+  getPendingClinicUpgradeRequest(clinicId: number): Promise<ClinicUpgradeRequest | undefined>;
+  getClinicUpgradeRequests(clinicId: number): Promise<ClinicUpgradeRequest[]>;
 
   // Doctors
   getDoctorByEmail(email: string): Promise<Doctor | undefined>;
@@ -2019,6 +2024,46 @@ export class DatabaseStorage implements IStorage {
       .from(subscriptionAccessExceptions)
       .where(eq(subscriptionAccessExceptions.clinicId, clinicId))
       .orderBy(desc(subscriptionAccessExceptions.startsAt), desc(subscriptionAccessExceptions.id));
+  }
+
+  async createClinicUpgradeRequest(data: InsertClinicUpgradeRequest): Promise<ClinicUpgradeRequest> {
+    const [created] = await db.insert(clinicUpgradeRequests)
+      .values(data)
+      .onConflictDoNothing()
+      .returning();
+    if (created) return created;
+
+    // The partial unique index protects concurrent callers. Returning the
+    // existing pending row makes retries idempotent and avoids exposing a
+    // database-specific unique-constraint error to future API routes.
+    const [existing] = await db.select()
+      .from(clinicUpgradeRequests)
+      .where(and(
+        eq(clinicUpgradeRequests.clinicId, data.clinicId),
+        eq(clinicUpgradeRequests.status, "pending"),
+      ))
+      .limit(1);
+    if (existing) return existing;
+
+    throw new Error("Unable to create clinic upgrade request");
+  }
+
+  async getPendingClinicUpgradeRequest(clinicId: number): Promise<ClinicUpgradeRequest | undefined> {
+    const [request] = await db.select()
+      .from(clinicUpgradeRequests)
+      .where(and(
+        eq(clinicUpgradeRequests.clinicId, clinicId),
+        eq(clinicUpgradeRequests.status, "pending"),
+      ))
+      .limit(1);
+    return request;
+  }
+
+  async getClinicUpgradeRequests(clinicId: number): Promise<ClinicUpgradeRequest[]> {
+    return await db.select()
+      .from(clinicUpgradeRequests)
+      .where(eq(clinicUpgradeRequests.clinicId, clinicId))
+      .orderBy(desc(clinicUpgradeRequests.requestedAt), desc(clinicUpgradeRequests.id));
   }
 
   // Doctors
