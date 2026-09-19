@@ -89,8 +89,6 @@ import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
-*/
-{
 const formatDoctorName = (name?: string | null) => {
   const clean = (name || "").replace(/^dr\.?\s*/i, "").trim();
   return clean ? `Dr. ${clean}` : "Doctor";
@@ -3708,6 +3706,8 @@ import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
+*/
+{
 const formatDoctorName = (name?: string | null) => {
   const clean = (name || "").replace(/^dr\.?\s*/i, "").trim();
   return clean ? `Dr. ${clean}` : "Doctor";
@@ -3781,7 +3781,6 @@ interface BookingsPanelProps {
   setModalTabs: (f: Record<number, ModalTabType> | ((p: Record<number, ModalTabType>) => Record<number, ModalTabType>)) => void;
 }
 
-*/
 function BookingsPanelDuplicate({
   clinic,
   isAuthenticated,
@@ -7233,4 +7232,5 @@ function BookingsPanelDuplicate({
         </div>
           </div>
   );
+}
 }

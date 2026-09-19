@@ -1,4 +1,5 @@
 - [Build Check rule](build-check-rule.md) — after any frontend feature, run "Build Check" workflow before handing back; catches TDZ/chunk errors invisible in dev
+- [Vite transform validation](vite-transform-validation.md) — treat any Vite/Babel/cartographer transform error as a failed build even when the shell command reports success
 - [label-field utility class](label-field.md) — canonical CSS class for all clinic-facing form field labels; exceptions and audit commands documented.
 - [BillingHistoryPanel design rules](billing-panel-design.md) — min font text-xs, category grouping, pharmacy desc parsing, active bill styling conventions
 - [Visit completion note flow](visit-completion-note.md) — visitCompletionNote stored on booking; saved via complete-visit (note param) and override-complete (reason prefixed "Override:"); displayed as green banner + progress strip tooltip.
