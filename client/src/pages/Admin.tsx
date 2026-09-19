@@ -25,6 +25,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import AdminOperationsOverview from "@/components/AdminOperationsOverview";
 import AdminTenantOperations from "@/components/AdminTenantOperations";
+import AdminClinicMonitoring from "@/components/AdminClinicMonitoring";
 import AdminEntitlementReview from "@/components/AdminEntitlementReview";
 import AdminPlanPolicies from "@/components/AdminPlanPolicies";
 function SiFacebook({ className }: { className?: string }) {
@@ -1287,7 +1288,7 @@ export default function Admin() {
         orientation="vertical"
         onValueChange={(value) => {
           setAdminActiveTab(value);
-          if (value !== "operations" && value !== "tenant-operations") {
+          if (value !== "operations" && value !== "tenant-operations" && value !== "clinic-monitoring") {
             setAdminSelectedClinicId(null);
           }
         }}
@@ -1322,6 +1323,10 @@ export default function Admin() {
           <TabsTrigger value="tenant-operations" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-tenant-operations">
             <Building2 className="h-4 w-4 shrink-0" />
             <span className="min-w-0 flex-1">Tenant Operations</span>
+          </TabsTrigger>
+          <TabsTrigger value="clinic-monitoring" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-clinic-monitoring">
+             <Activity className="h-4 w-4 shrink-0" />
+             <span className="min-w-0 flex-1">Clinic Monitoring</span>
           </TabsTrigger>
 
           <div className="mt-4 border-t border-border/70 px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -1369,6 +1374,10 @@ export default function Admin() {
             clinicsError={clinicsError}
             onRetryClinics={() => refetchClinics()}
           />
+        </TabsContent>
+
+        <TabsContent value="clinic-monitoring" className="mt-0 min-w-0">
+          <AdminClinicMonitoring />
         </TabsContent>
 
         <TabsContent value="plan-policies" className="mt-0 min-w-0">

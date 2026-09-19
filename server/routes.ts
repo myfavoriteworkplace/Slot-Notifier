@@ -9,7 +9,7 @@ import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, noti
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
-import { format } from 'date-fns';
+import { differenceInCalendarDays, format } from 'date-fns';
 import crypto from "crypto";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -39,6 +39,12 @@ import { runReminderDigestJob, runClinicManualDigestJob, selectClinicDoctorDiges
 import { sendBookingReceivedSms, sendBookingConfirmationSms } from "./sms.service";
 import { trackCommunication, type CommunicationSendResult } from "./communication-usage";
 import { getUtcInstantForCalendarDate } from "@shared/booking-status";
+import {
+  buildClinicMonitoringReport,
+  getDefaultClinicMonitoringDateRange,
+  shiftClinicMonitoringDate,
+  validateClinicMonitoringDateRange,
+} from "./clinic-monitoring";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
 import { isBillingCycle, resolvePlanPolicy, PAID_PLAN_KEYS, PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
 import { validatePlanPolicyDocument } from "@shared/plan-policy-validation";
@@ -4292,6 +4298,107 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[ADMIN STORAGE USAGE]", err.message);
       res.status(500).json({ message: "Unable to calculate application storage usage" });
+    }
+  });
+
+  // Aggregate-only clinic activity reporting for Super Admins. This endpoint
+  // deliberately selects operational fields only and never returns booking
+  // rows, patient data, clinical data, billing data, or provider identifiers.
+  app.get("/api/admin/clinic-monitoring", isAuthenticated, auditLog({ resource: "clinic_monitoring" }), async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+
+    try {
+      const defaults = getDefaultClinicMonitoringDateRange();
+      const from = typeof req.query.from === "string" && req.query.from.trim()
+        ? req.query.from.trim()
+        : defaults.from;
+      const to = typeof req.query.to === "string" && req.query.to.trim()
+        ? req.query.to.trim()
+        : defaults.to;
+      const rangeError = validateClinicMonitoringDateRange({ from, to });
+      if (rangeError) return res.status(400).json({ message: rangeError });
+
+      const clinicIdParam = typeof req.query.clinicId === "string" && req.query.clinicId.trim()
+        ? Number(req.query.clinicId)
+        : null;
+      if (clinicIdParam !== null && (!Number.isInteger(clinicIdParam) || clinicIdParam <= 0)) {
+        return res.status(400).json({ message: "Invalid clinic ID" });
+      }
+      const planParam = typeof req.query.plan === "string" && req.query.plan.trim()
+        ? req.query.plan.trim().toLowerCase()
+        : null;
+
+      const clinicRows = await db.select({
+        id: clinics.id,
+        name: clinics.name,
+        plan: clinics.plan,
+        subscriptionStatus: clinics.subscriptionStatus,
+        timezone: clinics.timezone,
+        status: clinics.status,
+        isArchived: clinics.isArchived,
+      }).from(clinics);
+
+      const monitoringClinics = clinicRows
+        .filter(clinic => clinic.status === "approved" && !clinic.isArchived)
+        .filter(clinic => clinicIdParam === null || clinic.id === clinicIdParam)
+        .filter(clinic => !planParam || (clinic.plan || "").toLowerCase() === planParam);
+
+      if (clinicIdParam !== null && monitoringClinics.length === 0) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      if (monitoringClinics.length === 0) {
+        return res.json(buildClinicMonitoringReport([], [], { from, to }));
+      }
+
+      const periodDays = differenceInCalendarDays(
+        new Date(`${to}T00:00:00.000Z`),
+        new Date(`${from}T00:00:00.000Z`),
+      ) + 1;
+      const previousFrom = shiftClinicMonitoringDate(from, -periodDays);
+      const previousTo = shiftClinicMonitoringDate(from, -1);
+      const queryWindows = monitoringClinics.flatMap(clinic => {
+        const timezone = clinic.timezone || "Asia/Kolkata";
+        return [
+          getUtcInstantForCalendarDate(previousFrom, timezone),
+          getUtcInstantForCalendarDate(shiftClinicMonitoringDate(previousTo, 1), timezone),
+          getUtcInstantForCalendarDate(from, timezone),
+          getUtcInstantForCalendarDate(shiftClinicMonitoringDate(to, 1), timezone),
+        ];
+      });
+      const queryStart = new Date(Math.min(...queryWindows.map(date => date.getTime())));
+      const queryEnd = new Date(Math.max(...queryWindows.map(date => date.getTime())));
+      const clinicIds = monitoringClinics.map(clinic => clinic.id);
+
+      const rows = await db.select({
+        clinicId: slots.clinicId,
+        slotId: slots.id,
+        bookingId: bookings.id,
+        slotStart: slots.startTime,
+        slotEnd: slots.endTime,
+        slotCancelled: slots.isCancelled,
+        bookedBy: bookings.bookedBy,
+        verificationStatus: bookings.verificationStatus,
+        checkedInAt: bookings.checkedInAt,
+        completedAt: bookings.completedAt,
+      })
+        .from(slots)
+        .leftJoin(bookings, eq(bookings.slotId, slots.id))
+        .where(and(
+          inArray(slots.clinicId, clinicIds),
+          gte(slots.startTime, queryStart),
+          lt(slots.startTime, queryEnd),
+        ));
+
+      const report = buildClinicMonitoringReport(
+        monitoringClinics,
+        rows,
+        { from, to },
+      );
+      res.json(report);
+    } catch (err: any) {
+      console.error("[ADMIN CLINIC MONITORING]", err.message);
+      res.status(500).json({ message: "Unable to calculate clinic monitoring data" });
     }
   });
 
