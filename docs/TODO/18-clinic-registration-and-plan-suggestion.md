@@ -1,6 +1,6 @@
 # Clinic Registration and Plan Suggestion
 
-**Status:** Step 0 complete — baseline recorded; no application code, database schema, routes, or UI have been changed for this workflow  
+**Status:** Step 1 complete — Trial registration option implemented; requested-plan storage, approval, and upgrade-request work remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -283,11 +283,11 @@ The existing Build Check workflow runs the production build command. The feature
 - [x] Existing test and build commands recorded.
 - [x] No application code, database schema, route, or UI was changed.
 
-**Step 0 result:** Complete. The team can now proceed to Step 1 only after the product decisions in Section 9 are confirmed.
+**Step 0 result:** Complete. The baseline was recorded before implementation.
 
 ---
 
-## Step 1 — Add Trial to the registration screen
+## Step 1 — Add Trial to the registration screen — COMPLETE
 
 ### Purpose
 
@@ -328,6 +328,27 @@ The copy must not imply that Trial is a permanent free plan or that every featur
 - Existing Starter, Growth, and Pro registration still works.
 - The card is usable on a narrow mobile screen.
 - Labels, buttons, and selection controls are keyboard accessible.
+
+### Step 1 progress record
+
+Step 1 is complete.
+
+- Added Trial to the registration selector using the shared plan catalogue.
+- Trial displays as Free, 14 days, and No card required.
+- Trial is visually distinct from paid plans without hiding Starter, Growth,
+  or Pro.
+- Trial copy explains the seven-day grace period and the next action after
+  Trial.
+- Paid registration copy now reflects the agreed Trial-first flow: approved
+  clinics start with Trial access and the selected paid plan is retained for
+  later payment activation.
+- The existing shared API request helper and selected-plan submission path are
+  unchanged, so selecting Trial submits `plan: "trial"`.
+- The selector remains responsive and uses keyboard-accessible buttons with
+  pressed-state semantics.
+
+Step 2 must add validated requested-plan storage before the backend can safely
+distinguish a registration preference from the clinic's active plan.
 
 ---
 
@@ -935,7 +956,7 @@ If the problem is severe or risks corrupting subscription state, use the project
 
 The feature is complete only when all of the following are true:
 
-- [ ] Trial is visible and selectable during clinic registration.
+- [x] Trial is visible and selectable during clinic registration.
 - [ ] The selected registration plan is preserved until approval.
 - [ ] Trial approval starts the existing Trial lifecycle.
 - [ ] Paid registration choices are not silently overwritten.
@@ -953,7 +974,7 @@ The feature is complete only when all of the following are true:
 - [ ] Active, grace, pending, rejected, and expired states are tested.
 - [ ] Build Check passes.
 - [ ] Database and backend checklist gates pass.
-- [ ] No application implementation was started before this plan was approved.
+- [x] No application implementation was started before this plan was approved.
 
 ---
 

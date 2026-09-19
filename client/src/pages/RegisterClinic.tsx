@@ -17,7 +17,7 @@ import {
   Upload, X, Star, Zap, ShieldCheck, ExternalLink, Info,
 } from "lucide-react";
 import { z } from "zod";
-import { PUBLISHED_PLAN_POLICY, type PaidPlanKey } from "@shared/plan-catalog";
+import { PUBLISHED_PLAN_POLICY, type PlanKey } from "@shared/plan-catalog";
 
 // ─── Small reusables ──────────────────────────────────────────────────────────
 
@@ -33,13 +33,15 @@ function FieldRow({ icon: Icon, children }: { icon: React.ElementType; children:
 }
 
 const PLAN_OPTION_ICONS = {
+  trial: Sparkles,
   starter: Zap,
   growth: Building2,
   pro: ShieldCheck,
-} satisfies Record<PaidPlanKey, typeof Zap>;
+} satisfies Record<PlanKey, typeof Zap>;
 
-const PLAN_OPTIONS = (["starter", "growth", "pro"] as const).map((id) => {
+const PLAN_OPTIONS = (["trial", "starter", "growth", "pro"] as const).map((id) => {
   const policy = PUBLISHED_PLAN_POLICY.plans[id];
+  const isTrial = policy.kind === "trial";
   const bookings = policy.limits.bookings.value === null ? "Unlimited bookings" : `Up to ${policy.limits.bookings.value} bookings`;
   const doctors = policy.limits.activeDoctors.value === null
     ? "unlimited doctors"
@@ -49,9 +51,12 @@ const PLAN_OPTIONS = (["starter", "growth", "pro"] as const).map((id) => {
     id,
     icon: PLAN_OPTION_ICONS[id],
     name: policy.displayName,
-    price: `₹${policy.pricing.monthly!.toLocaleString("en-IN")}/mo`,
-    annual: `₹${policy.pricing.annual!.toLocaleString("en-IN")}/yr`,
-    desc: `${bookings} · ${doctors} · ${visibility}`,
+    isTrial,
+    price: isTrial ? "Free" : `₹${policy.pricing.monthly!.toLocaleString("en-IN")}/mo`,
+    annual: isTrial ? "No card required" : `${policy.pricing.annual!.toLocaleString("en-IN")}/yr`,
+    desc: isTrial
+      ? `${policy.trial.durationDays} days · core clinic workflow`
+      : `${bookings} · ${doctors} · ${visibility}`,
     popular: policy.recommended,
   };
 });
@@ -364,7 +369,7 @@ export default function RegisterClinic() {
   const [resendCountdown, setResendCountdown] = useState(0);
 
   // Plan selection
-  const [selectedPlan, setSelectedPlan] = useState<"starter" | "growth" | "pro" | "">("");
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey | "">("");
 
   // Optional boost fields (outside RHF — not in InsertClinic)
   const [medicalLicenseUrl, setMedicalLicenseUrl] = useState("");
@@ -922,15 +927,23 @@ export default function RegisterClinic() {
                       </a>
                     </div>
 
-                    {/* Payment reassurance — always visible before plan selection */}
+                    {/* Plan and payment reassurance */}
                     <div className="flex items-start gap-2.5 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        <span className="font-semibold text-foreground">No payment now.</span> Once our admin approves your registration, a secure payment link for your chosen plan will be sent to your email to activate your account.
+                        {selectedPlan === "trial" ? (
+                          <>
+                            <span className="font-semibold text-foreground">Start with a 14-day Trial.</span> No card is required. Trial includes a 7-day grace period; after that, choose a paid plan or request activation review.
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-foreground">No payment now.</span> Approved clinics start with Trial access first. Your selected paid plan is retained for payment activation after approval.
+                          </>
+                        )}
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       {PLAN_OPTIONS.map((plan) => {
                         const Icon = plan.icon;
                         const active = selectedPlan === plan.id;
@@ -940,26 +953,36 @@ export default function RegisterClinic() {
                             type="button"
                             onClick={() => setSelectedPlan(plan.id)}
                             data-testid={`plan-select-${plan.id}`}
+                            aria-pressed={active}
                             className={`relative text-left rounded-xl border p-3 transition-all duration-200 ${
-                              active
-                                ? "border-primary bg-primary/8 ring-2 ring-primary/20"
-                                : "border-border/60 bg-card hover:border-primary/40 hover:bg-primary/3"
+                              plan.isTrial
+                                ? active
+                                  ? "border-accent bg-accent/10 ring-2 ring-accent/20"
+                                  : "border-accent/40 bg-accent/5 hover:border-accent/70 hover:bg-accent/10"
+                                : active
+                                  ? "border-primary bg-primary/8 ring-2 ring-primary/20"
+                                  : "border-border/60 bg-card hover:border-primary/40 hover:bg-primary/3"
                             }`}
                           >
+                            {plan.isTrial && (
+                              <span className="absolute -top-2 left-3 text-[9px] font-black uppercase tracking-widest bg-accent text-accent-foreground px-2.5 py-0.5 rounded-full">
+                                No card
+                              </span>
+                            )}
                             {plan.popular && (
                               <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-primary to-accent text-white px-2.5 py-0.5 rounded-full">
                                 Popular
                               </span>
                             )}
                             <div className="flex items-center gap-2 mb-2">
-                              <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                              <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${active ? plan.isTrial ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                                 <Icon className="h-3.5 w-3.5" />
                               </div>
-                              <span className={`text-sm font-bold ${active ? "text-primary" : "text-foreground"}`}>{plan.name}</span>
-                              {active && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                              <span className={`text-sm font-bold ${active ? plan.isTrial ? "text-accent-foreground" : "text-primary" : "text-foreground"}`}>{plan.name}</span>
+                              {active && <CheckCircle2 className={`h-3.5 w-3.5 ml-auto ${plan.isTrial ? "text-accent-foreground" : "text-primary"}`} />}
                             </div>
-                            <p className={`text-base font-extrabold tracking-tight ${active ? "text-primary" : "text-foreground"}`}>{plan.price}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{plan.annual} annually</p>
+                            <p className={`text-base font-extrabold tracking-tight ${active ? plan.isTrial ? "text-accent-foreground" : "text-primary" : "text-foreground"}`}>{plan.price}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{plan.isTrial ? plan.annual : `${plan.annual} annually`}</p>
                             <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{plan.desc}</p>
                           </button>
                         );
