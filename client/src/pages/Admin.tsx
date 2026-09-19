@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -529,7 +529,7 @@ export default function Admin() {
     queryKey: ['/api/clinics'],
   });
 
-  const loginDateBounds = (() => {
+  const loginDateBounds = useMemo(() => {
     const now = new Date();
     if (loginDatePreset === "all") return { from: "", to: "" };
     if (loginDatePreset === "custom") {
@@ -545,7 +545,7 @@ export default function Admin() {
     if (loginDatePreset === "30d") from.setDate(from.getDate() - 29);
     from.setHours(0, 0, 0, 0);
     return { from: from.toISOString(), to: now.toISOString() };
-  })();
+  }, [loginDatePreset, loginFromDate, loginToDate]);
 
   const securityActivityQuery = useInfiniteQuery<SecurityActivityPage>({
     queryKey: [
