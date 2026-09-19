@@ -89,6 +89,8 @@ import { AppointmentFilters } from "@/components/AppointmentFilters";
 import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
+*/
+{
 const formatDoctorName = (name?: string | null) => {
   const clean = (name || "").replace(/^dr\.?\s*/i, "").trim();
   return clean ? `Dr. ${clean}` : "Doctor";
@@ -3614,6 +3616,7 @@ export default function BookingsPanel({
           </div>
   );
 }
+/*
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -3778,7 +3781,8 @@ interface BookingsPanelProps {
   setModalTabs: (f: Record<number, ModalTabType> | ((p: Record<number, ModalTabType>) => Record<number, ModalTabType>)) => void;
 }
 
-export default function BookingsPanel({
+*/
+function BookingsPanelDuplicate({
   clinic,
   isAuthenticated,
   slotTimings,
