@@ -157,6 +157,8 @@ This backlog is ordered by risk and dependency. It is a recommendation from the 
 
 **Relevant files:** `vite.config.ts`, `client/src/App.tsx`, `ClinicDashboard.tsx`, `DoctorDashboard.tsx`.
 
+**Detailed implementation plan:** [19-frontend-bundle-size-optimisation-plan.md](./19-frontend-bundle-size-optimisation-plan.md)
+
 **Done looks like:**
 
 - Active-panel code is lazy-loaded where practical.
