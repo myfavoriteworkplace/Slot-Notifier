@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import {
   AlertCircle,
@@ -11,8 +12,26 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import type { EffectiveEntitlementReport } from "@shared/effective-entitlement";
+import {
+  BILLING_CYCLES,
+  PAID_PLAN_KEYS,
+  PUBLISHED_PLAN_POLICY,
+  type BillingCycle,
+  type PaidPlanKey,
+} from "@shared/plan-catalog";
 import { apiRequest } from "@/lib/queryClient";
+import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type ClinicUpgradeRequest = {
   id: number;
@@ -30,6 +49,11 @@ type UpgradeRequestResponse = {
   hasPending: boolean;
 };
 
+type UpgradeRequestMutationResponse = {
+  request: ClinicUpgradeRequest;
+  idempotent?: boolean;
+};
+
 type ClinicTrialBannerProps = {
   enabled: boolean;
   onRequestUpgrade: () => void;
@@ -40,7 +64,11 @@ const formatPlan = (plan: string) => (
 );
 
 const formatBillingCycle = (billingCycle: string) => (
-  billingCycle === "yearly" ? "Yearly" : "Monthly"
+  billingCycle === "annual" ? "Annual" : "Monthly"
+);
+
+const formatCurrency = (value: number | null) => (
+  value === null ? "Included" : `₹${value.toLocaleString("en-IN")}`
 );
 
 const formatDate = (value: string | null | undefined) => {
@@ -103,10 +131,198 @@ function RequestUpgradeButton({ onRequestUpgrade }: { onRequestUpgrade: () => vo
   );
 }
 
+function UpgradeRequestDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [selectedPlan, setSelectedPlan] = useState<PaidPlanKey>("starter");
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [clinicReason, setClinicReason] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const submitMutation = useMutation<UpgradeRequestMutationResponse, Error>({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/auth/clinic/subscription/upgrade-requests", {
+        requestedPlan: selectedPlan,
+        billingCycle,
+        clinicReason: clinicReason.trim() || null,
+      });
+
+      if (!response.ok) {
+        let message = "Unable to submit upgrade request";
+        try {
+          const body = await response.json();
+          if (typeof body?.message === "string") message = body.message;
+        } catch {
+          // Keep the generic message when the server response is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      queryClient.setQueryData<UpgradeRequestResponse>(
+        ["/api/auth/clinic/subscription/upgrade-request"],
+        {
+          request: data.request,
+          hasPending: data.request.status === "pending",
+        },
+      );
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/auth/clinic/subscription/upgrade-request"],
+      });
+      setFormError(null);
+      onOpenChange(false);
+
+      if (data.idempotent) {
+        notify.info("An upgrade request is already pending", {
+          description: `Your existing ${formatPlan(data.request.requestedPlan)} request is now shown on the dashboard.`,
+        });
+      } else {
+        notify.success("Upgrade request submitted", {
+          description: "Super Admin will review your request and update its status.",
+        });
+      }
+    },
+    onError: (error) => {
+      setFormError(error.message || "Unable to submit upgrade request");
+    },
+  });
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && submitMutation.isPending) return;
+    if (nextOpen) setFormError(null);
+    onOpenChange(nextOpen);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        data-testid="dialog-upgrade-request"
+      >
+        <DialogHeader>
+          <DialogTitle>Request a plan upgrade</DialogTitle>
+          <DialogDescription>
+            Choose the paid plan and billing cycle you want Super Admin to review. Your current Trial access will not change until the request is reviewed.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <fieldset>
+            <legend className="text-sm font-semibold">Paid plan</legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Paid plan">
+              {PAID_PLAN_KEYS.map((planKey) => {
+                const plan = PUBLISHED_PLAN_POLICY.plans[planKey];
+                const selected = selectedPlan === planKey;
+                return (
+                  <button
+                    key={planKey}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={`${plan.displayName} plan`}
+                    onClick={() => setSelectedPlan(planKey)}
+                    className={`rounded-xl border p-3 text-left transition-colors ${
+                      selected
+                        ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-600/20 dark:border-emerald-400 dark:bg-emerald-950/30"
+                        : "border-border bg-background hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20"
+                    }`}
+                    data-testid={`upgrade-plan-${planKey}`}
+                  >
+                    <span className="block text-sm font-semibold">{plan.displayName}</span>
+                    <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{plan.summary}</span>
+                    <span className="mt-2 block text-xs font-medium text-foreground">
+                      {formatCurrency(plan.pricing.monthly)}/month · {formatCurrency(plan.pricing.annual)}/year
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <div className="space-y-2">
+            <Label htmlFor="upgrade-billing-cycle">Billing cycle</Label>
+            <select
+              id="upgrade-billing-cycle"
+              value={billingCycle}
+              onChange={(event) => setBillingCycle(event.target.value as BillingCycle)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+              data-testid="select-upgrade-billing-cycle"
+            >
+              {BILLING_CYCLES.map((cycle) => (
+                <option key={cycle} value={cycle}>
+                  {formatBillingCycle(cycle)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="upgrade-clinic-reason">Reason or note (optional)</Label>
+              <span className="text-[11px] text-muted-foreground">{clinicReason.length}/500</span>
+            </div>
+            <Textarea
+              id="upgrade-clinic-reason"
+              value={clinicReason}
+              onChange={(event) => setClinicReason(event.target.value)}
+              placeholder="Tell Super Admin what your clinic needs from this plan."
+              maxLength={500}
+              rows={4}
+              data-testid="textarea-upgrade-reason"
+            />
+          </div>
+
+          {formError && (
+            <div
+              className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"
+              role="alert"
+              data-testid="upgrade-request-error"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={submitMutation.isPending}
+            data-testid="button-cancel-upgrade-request"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => submitMutation.mutate()}
+            disabled={submitMutation.isPending || !selectedPlan || !billingCycle}
+            className="bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+            data-testid="button-submit-upgrade-request"
+          >
+            {submitMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitMutation.isPending ? "Submitting…" : "Submit request"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ClinicTrialBanner({
   enabled,
   onRequestUpgrade,
 }: ClinicTrialBannerProps) {
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+
   const entitlementQuery = useQuery<EffectiveEntitlementReport>({
     queryKey: ["/api/auth/clinic/settings/entitlements"],
     queryFn: async () => {
@@ -202,6 +418,16 @@ export default function ClinicTrialBanner({
   const isPending = requestData.hasPending || request?.status === "pending";
   const isRejected = request?.status === "rejected";
   const isApproved = request?.status === "approved";
+  const openRequestDialog = () => {
+    onRequestUpgrade();
+    setRequestDialogOpen(true);
+  };
+  const requestDialog = isEligible ? (
+    <UpgradeRequestDialog
+      open={requestDialogOpen}
+      onOpenChange={setRequestDialogOpen}
+    />
+  ) : null;
   const daysRemaining = daysUntil(
     entitlement.access.state === "trial"
       ? entitlement.access.trialEndsAt
@@ -229,20 +455,23 @@ export default function ClinicTrialBanner({
 
   if (isRejected && request && isEligible) {
     return (
-      <BannerShell tone="warning" testId="clinic-trial-banner-rejected">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-              Upgrade request rejected
-            </p>
-            <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
-              {request.reviewReason || "Your previous upgrade request was not approved. You can submit a new request while your Trial access remains eligible."}
-            </p>
+      <>
+        <BannerShell tone="warning" testId="clinic-trial-banner-rejected">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Upgrade request rejected
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
+                {request.reviewReason || "Your previous upgrade request was not approved. You can submit a new request while your Trial access remains eligible."}
+              </p>
+            </div>
+            <RequestUpgradeButton onRequestUpgrade={openRequestDialog} />
           </div>
-          <RequestUpgradeButton onRequestUpgrade={onRequestUpgrade} />
-        </div>
-      </BannerShell>
+        </BannerShell>
+        {requestDialog}
+      </>
     );
   }
 
@@ -266,43 +495,49 @@ export default function ClinicTrialBanner({
 
   if (entitlement.access.state === "trial") {
     return (
-      <BannerShell tone="success" testId="clinic-trial-banner-active">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
-              Trial active
-            </p>
-            <p className="mt-0.5 text-xs text-emerald-800 dark:text-emerald-300">
-              {daysRemaining === null
-                ? `Your Trial ends on ${formatDate(entitlement.access.trialEndsAt)}.`
-                : `You have ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining. Your Trial ends on ${formatDate(entitlement.access.trialEndsAt)}.`}
-              {" "}Review paid plans before your Trial ends.
-            </p>
+      <>
+        <BannerShell tone="success" testId="clinic-trial-banner-active">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                Trial active
+              </p>
+              <p className="mt-0.5 text-xs text-emerald-800 dark:text-emerald-300">
+                {daysRemaining === null
+                  ? `Your Trial ends on ${formatDate(entitlement.access.trialEndsAt)}.`
+                  : `You have ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining. Your Trial ends on ${formatDate(entitlement.access.trialEndsAt)}.`}
+                {" "}Review paid plans before your Trial ends.
+              </p>
+            </div>
+            <RequestUpgradeButton onRequestUpgrade={openRequestDialog} />
           </div>
-          <RequestUpgradeButton onRequestUpgrade={onRequestUpgrade} />
-        </div>
-      </BannerShell>
+        </BannerShell>
+        {requestDialog}
+      </>
     );
   }
 
   if (entitlement.access.state === "trial_grace") {
     return (
-      <BannerShell tone="warning" testId="clinic-trial-banner-grace">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-              Trial grace period
-            </p>
-            <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
-              Your Trial has ended. Access remains available until {formatDate(entitlement.access.trialGraceEndsAt)}
-              {daysRemaining === null ? "." : ` (${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining).`} Request an upgrade to keep your clinic active.
-            </p>
+      <>
+        <BannerShell tone="warning" testId="clinic-trial-banner-grace">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Trial grace period
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
+                Your Trial has ended. Access remains available until {formatDate(entitlement.access.trialGraceEndsAt)}
+                {daysRemaining === null ? "." : ` (${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining).`} Request an upgrade to keep your clinic active.
+              </p>
+            </div>
+            <RequestUpgradeButton onRequestUpgrade={openRequestDialog} />
           </div>
-          <RequestUpgradeButton onRequestUpgrade={onRequestUpgrade} />
-        </div>
-      </BannerShell>
+        </BannerShell>
+        {requestDialog}
+      </>
     );
   }
 
