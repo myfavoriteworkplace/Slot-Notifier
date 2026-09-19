@@ -1,6 +1,6 @@
 # Clinic Registration and Plan Suggestion
 
-**Status:** Step 5 complete — Clinic registration, approval-plan handling, durable upgrade-request storage, and clinic upgrade-request APIs implemented; Super Admin review APIs remain pending
+**Status:** Step 6 complete — Clinic registration, approval-plan handling, durable upgrade-request storage, clinic upgrade-request APIs, and the Clinic Admin Trial banner implemented; Super Admin review APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -1044,7 +1044,7 @@ The feature is complete only when all of the following are true:
 - [x] The selected registration plan is preserved until approval.
 - [x] Trial approval starts the existing Trial lifecycle.
 - [x] Paid registration choices are not silently overwritten.
-- [ ] Trial and grace status appear at the top of the authenticated Clinic Admin dashboard.
+- [x] Trial and grace status appear at the top of the authenticated Clinic Admin dashboard.
 - [ ] Eligible clinics can select a paid plan and billing cycle.
 - [ ] Upgrade requests are stored as durable records.
 - [ ] Duplicate pending requests are prevented.

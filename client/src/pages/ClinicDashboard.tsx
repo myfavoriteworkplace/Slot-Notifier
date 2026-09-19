@@ -14,6 +14,7 @@ import ClinicStorageSettingsPanel from "@/components/ClinicStorageSettingsPanel"
 import ClinicMessagingUsagePanel from "@/components/ClinicMessagingUsagePanel";
 import ClinicReminderDigestPanel from "@/components/ClinicReminderDigestPanel";
 import ClinicEntitlementSettingsPanel from "@/components/ClinicEntitlementSettingsPanel";
+import ClinicTrialBanner from "@/components/ClinicTrialBanner";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import ConsentFormPanel from "@/components/ConsentFormPanel";
@@ -1015,6 +1016,11 @@ export default function ClinicDashboard() {
           </a>
         </div>
       )}
+
+      <ClinicTrialBanner
+        enabled={isAuthenticated}
+        onRequestUpgrade={() => setActivePanel('settings')}
+      />
 
       {/* Hero card */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-4 sm:mb-8 border border-white/10">
