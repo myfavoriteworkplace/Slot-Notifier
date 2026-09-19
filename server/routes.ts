@@ -55,6 +55,10 @@ import {
   isTrialExpiredAfterGrace,
 } from "@shared/trial-lifecycle";
 import { resolveRequestedPlan } from "@shared/clinic-registration";
+import {
+  resolveInitialApprovalSelection,
+  validateInitialApprovalSelection,
+} from "@shared/clinic-approval";
 import { getAccessRevocationEventType, isAccessRevocable } from "@shared/subscription-access-revocation";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
@@ -1742,22 +1746,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const now = new Date();
-      const requestedResolution = resolvePlanPolicy(existing.requestedPlan, PUBLISHED_PLAN_POLICY);
-      const requestedPlan = requestedResolution.known && requestedResolution.planKey !== "unknown"
-        ? requestedResolution.planKey
-        : "trial";
-      const approvedPlan = parsed.data.approvedPlan || requestedPlan;
-      const isOverride = approvedPlan !== requestedPlan;
+      const approvalSelection = resolveInitialApprovalSelection(
+        existing.requestedPlan,
+        parsed.data.approvedPlan,
+      );
+      const { requestedPlan, approvedPlan, isOverride } = approvalSelection;
       const reason = parsed.data.reason?.trim() || "";
-      if (isOverride && reason.length < 10) {
-        return res.status(400).json({ message: "A reason of at least 10 characters is required when overriding the requested plan" });
-      }
-
-      if (approvedPlan !== "trial" && (parsed.data.trialStartDate || parsed.data.trialEndDate || parsed.data.trialGraceDays !== undefined)) {
-        return res.status(400).json({ message: "Trial dates can only be provided when Trial is approved" });
-      }
-      if (approvedPlan === "trial" && parsed.data.billingCycle) {
-        return res.status(400).json({ message: "Billing cycle can only be provided for a paid plan" });
+      const selectionError = validateInitialApprovalSelection({
+        ...approvalSelection,
+        billingCycle: parsed.data.billingCycle,
+        trialStartDate: parsed.data.trialStartDate,
+        trialEndDate: parsed.data.trialEndDate,
+        trialGraceDays: parsed.data.trialGraceDays,
+        reason,
+      });
+      if (selectionError) {
+        return res.status(400).json({ message: selectionError });
       }
 
       const transitionId = parsed.data.transitionId ||
@@ -1799,10 +1803,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const passwordHash = await bcrypt.hash(plainPassword, 10);
       if (approvedPlan !== "trial") {
         const paidReason = reason || "Initial approval for the requested paid plan";
-        if (!parsed.data.billingCycle) {
-          return res.status(400).json({ message: "A monthly or annual billing cycle is required for a paid approval" });
-        }
-
         const paidResult = await assignPaidPlanForAdmin({
           clinicId,
           plan: approvedPlan,

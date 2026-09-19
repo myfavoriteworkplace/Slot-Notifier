@@ -1,6 +1,6 @@
 # Clinic Registration and Plan Suggestion
 
-**Status:** Step 2 complete — Trial registration and requested-plan storage implemented; approval and upgrade-request work remain pending
+**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -426,7 +426,7 @@ Step 2 is complete.
 
 ---
 
-## Step 3 — Make Super Admin approval honour the requested plan
+## Step 3 — Make Super Admin approval honour the requested plan — COMPLETE
 
 ### Purpose
 
@@ -462,10 +462,32 @@ When the requested plan is Starter, Growth, or Pro:
 
 ### Completion checks
 
-- Trial selection starts Trial only after approval.
-- Paid selection is not silently converted to Trial.
-- The existing paid-plan route and the new approval path produce the same lifecycle records.
-- Repeating an approval request does not create duplicate assignments or provider subscriptions.
+- [x] Trial selection starts Trial only after approval.
+- [x] Paid selection is not silently converted to Trial.
+- [x] The existing paid-plan route and the new approval path produce the same lifecycle records.
+- [x] Repeating an approval request does not create duplicate assignments or provider subscriptions.
+
+### Step 3 progress record
+
+Step 3 is complete.
+
+- Super Admin approval resolves the stored `requestedPlan` and allows an explicit
+  approved-plan choice.
+- Trial approval starts the existing Trial lifecycle with default or validated
+  custom dates, assignment history, and lifecycle history.
+- Paid approval requires a monthly or annual billing cycle and reuses the
+  provider-aware paid-plan assignment workflow.
+- Paid approval remains `pending_payment` until the existing activation/payment
+  process completes; it does not falsely grant paid access.
+- Plan overrides require a reason and are recorded in lifecycle metadata.
+- Transition IDs make repeated approval requests idempotent.
+- Provider setup failure leaves the clinic unchanged and returns a recoverable
+  error to Super Admin.
+- Added shared approval-selection validation and focused approval tests covering
+  Trial defaults, paid-plan preservation, override reasons, billing-cycle rules,
+  custom Trial schedule fields, and unknown-plan fallback.
+- Verification: focused clinic registration and approval tests passed; `npm run
+  build` passed; `git diff --check` passed.
 
 ---
 
@@ -976,8 +998,8 @@ The feature is complete only when all of the following are true:
 
 - [x] Trial is visible and selectable during clinic registration.
 - [x] The selected registration plan is preserved until approval.
-- [ ] Trial approval starts the existing Trial lifecycle.
-- [ ] Paid registration choices are not silently overwritten.
+- [x] Trial approval starts the existing Trial lifecycle.
+- [x] Paid registration choices are not silently overwritten.
 - [ ] Trial and grace status appear at the top of the authenticated Clinic Admin dashboard.
 - [ ] Eligible clinics can select a paid plan and billing cycle.
 - [ ] Upgrade requests are stored as durable records.
@@ -985,7 +1007,7 @@ The feature is complete only when all of the following are true:
 - [ ] Clinics can see their request status.
 - [ ] Super Admin has a Requests tab with a pending count.
 - [ ] Super Admin can approve or reject requests with proper permissions.
-- [ ] Approval reuses the existing paid-plan workflow.
+- [x] Approval reuses the existing paid-plan workflow.
 - [ ] Rejection requires a reason.
 - [ ] Request and subscription history are preserved.
 - [ ] Super Admin receives an in-screen notification through the Requests tab/badge flow.
@@ -1027,7 +1049,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 2 complete — Trial registration and requested-plan storage implemented; approval and upgrade-request work remain pending
+**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -1435,7 +1457,7 @@ If a column is added:
 
 ---
 
-## Step 3 — Make Super Admin approval honour the requested plan
+## Step 3 — Make Super Admin approval honour the requested plan — COMPLETE
 
 ### Purpose
 
@@ -1985,8 +2007,8 @@ The feature is complete only when all of the following are true:
 
 - [x] Trial is visible and selectable during clinic registration.
 - [x] The selected registration plan is preserved until approval.
-- [ ] Trial approval starts the existing Trial lifecycle.
-- [ ] Paid registration choices are not silently overwritten.
+- [x] Trial approval starts the existing Trial lifecycle.
+- [x] Paid registration choices are not silently overwritten.
 - [ ] Trial and grace status appear at the top of the authenticated Clinic Admin dashboard.
 - [ ] Eligible clinics can select a paid plan and billing cycle.
 - [ ] Upgrade requests are stored as durable records.
@@ -1994,7 +2016,7 @@ The feature is complete only when all of the following are true:
 - [ ] Clinics can see their request status.
 - [ ] Super Admin has a Requests tab with a pending count.
 - [ ] Super Admin can approve or reject requests with proper permissions.
-- [ ] Approval reuses the existing paid-plan workflow.
+- [x] Approval reuses the existing paid-plan workflow.
 - [ ] Rejection requires a reason.
 - [ ] Request and subscription history are preserved.
 - [ ] Super Admin receives an in-screen notification through the Requests tab/badge flow.
@@ -2036,7 +2058,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 2 complete — Trial registration and requested-plan storage implemented; approval and upgrade-request work remain pending
+**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -2444,7 +2466,7 @@ If a column is added:
 
 ---
 
-## Step 3 — Make Super Admin approval honour the requested plan
+## Step 3 — Make Super Admin approval honour the requested plan — COMPLETE
 
 ### Purpose
 
@@ -2994,8 +3016,8 @@ The feature is complete only when all of the following are true:
 
 - [x] Trial is visible and selectable during clinic registration.
 - [x] The selected registration plan is preserved until approval.
-- [ ] Trial approval starts the existing Trial lifecycle.
-- [ ] Paid registration choices are not silently overwritten.
+- [x] Trial approval starts the existing Trial lifecycle.
+- [x] Paid registration choices are not silently overwritten.
 - [ ] Trial and grace status appear at the top of the authenticated Clinic Admin dashboard.
 - [ ] Eligible clinics can select a paid plan and billing cycle.
 - [ ] Upgrade requests are stored as durable records.
@@ -3003,7 +3025,7 @@ The feature is complete only when all of the following are true:
 - [ ] Clinics can see their request status.
 - [ ] Super Admin has a Requests tab with a pending count.
 - [ ] Super Admin can approve or reject requests with proper permissions.
-- [ ] Approval reuses the existing paid-plan workflow.
+- [x] Approval reuses the existing paid-plan workflow.
 - [ ] Rejection requires a reason.
 - [ ] Request and subscription history are preserved.
 - [ ] Super Admin receives an in-screen notification through the Requests tab/badge flow.
@@ -3045,7 +3067,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 2 complete — Trial registration and requested-plan storage implemented; approval and upgrade-request work remain pending
+**Status:** Step 3 complete — Trial registration, requested-plan storage, and approval-plan handling implemented; upgrade-request work remains pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -3453,7 +3475,7 @@ If a column is added:
 
 ---
 
-## Step 3 — Make Super Admin approval honour the requested plan
+## Step 3 — Make Super Admin approval honour the requested plan — COMPLETE
 
 ### Purpose
 
@@ -4003,8 +4025,8 @@ The feature is complete only when all of the following are true:
 
 - [x] Trial is visible and selectable during clinic registration.
 - [x] The selected registration plan is preserved until approval.
-- [ ] Trial approval starts the existing Trial lifecycle.
-- [ ] Paid registration choices are not silently overwritten.
+- [x] Trial approval starts the existing Trial lifecycle.
+- [x] Paid registration choices are not silently overwritten.
 - [ ] Trial and grace status appear at the top of the authenticated Clinic Admin dashboard.
 - [ ] Eligible clinics can select a paid plan and billing cycle.
 - [ ] Upgrade requests are stored as durable records.
@@ -4012,7 +4034,7 @@ The feature is complete only when all of the following are true:
 - [ ] Clinics can see their request status.
 - [ ] Super Admin has a Requests tab with a pending count.
 - [ ] Super Admin can approve or reject requests with proper permissions.
-- [ ] Approval reuses the existing paid-plan workflow.
+- [x] Approval reuses the existing paid-plan workflow.
 - [ ] Rejection requires a reason.
 - [ ] Request and subscription history are preserved.
 - [ ] Super Admin receives an in-screen notification through the Requests tab/badge flow.
