@@ -9,12 +9,12 @@ import {
   Gift,
   GitBranch,
   History,
-  List,
   Radio,
   RefreshCw,
   Search,
   ShieldAlert,
   SlidersHorizontal,
+  X,
   XCircle,
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
@@ -509,13 +509,6 @@ export default function AdminEntitlementReview({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-bold tracking-tight">Clinics & Access</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Find a clinic once, then review its profile context, effective access, usage, limits, and audited history in one workspace.
-        </p>
-      </div>
-
       {!directoryCollapsed && (
         <>
       <Card>
@@ -797,13 +790,13 @@ export default function AdminEntitlementReview({
             type="button"
             variant="outline"
             size="icon"
-            className="absolute left-0 top-4 z-10 h-8 w-8 rounded-full bg-background shadow-sm"
+            className="absolute left-0 top-4 z-10 h-8 w-8 rounded-full border-amber-200 bg-amber-50 text-amber-700 shadow-sm hover:border-amber-300 hover:bg-amber-100 hover:text-amber-800 focus-visible:ring-amber-400 dark:border-amber-800/70 dark:bg-amber-950/25 dark:text-amber-300 dark:hover:border-amber-700 dark:hover:bg-amber-950/45 dark:hover:text-amber-200"
             onClick={restoreDirectory}
-            aria-label="Show clinic directory"
-            title="Show clinic directory"
+            aria-label="Close clinic details and return to clinic directory"
+            title="Close clinic details"
             data-testid="button-restore-clinic-directory"
           >
-            <List className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </Button>
           <div id={`admin-clinic-details-${selectedClinic.id}`} className="min-w-0 space-y-4">
              <ClinicControlCenter
