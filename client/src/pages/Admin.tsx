@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -63,6 +63,31 @@ function trustBandColor(score: number): string {
 }
 
 type AdminClinicListFilter = "all" | "attention";
+type SecurityActivityPage = {
+  events: any[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+function formatSecurityEventType(eventType?: string | null): string {
+  const labels: Record<string, string> = {
+    login: "Login",
+    otp_sent: "OTP sent",
+    otp_failed: "OTP verification failed",
+    otp_expired: "OTP expired",
+    logout: "Logout",
+    password_reset_requested: "Password reset requested",
+    password_reset_completed: "Password reset completed",
+    password_reset_failed: "Password reset failed",
+    rate_limited: "Rate limited",
+  };
+  return labels[eventType || "login"] || (eventType || "login").replace(/_/g, " ");
+}
+
+function formatSecurityReason(reason?: string | null): string {
+  if (!reason) return "—";
+  return reason.replace(/_/g, " ");
+}
 
 function matchesAdminClinicListSearch(clinic: Clinic, query: string): boolean {
   const needle = query.trim().toLocaleLowerCase();
@@ -254,9 +279,15 @@ export default function Admin() {
   const [isOptimising, setIsOptimising] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Login activity filters
+  // Security & audit filters
   const [loginRoleFilter, setLoginRoleFilter] = useState<"all" | "owner" | "doctor" | "superuser">("all");
   const [loginResultFilter, setLoginResultFilter] = useState<"all" | "success" | "failed">("all");
+  const [loginEventTypeFilter, setLoginEventTypeFilter] = useState<"all" | "login" | "otp" | "logout" | "password_reset" | "rate_limited">("all");
+  const [loginSearch, setLoginSearch] = useState("");
+  const [loginDatePreset, setLoginDatePreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("30d");
+  const [loginFromDate, setLoginFromDate] = useState("");
+  const [loginToDate, setLoginToDate] = useState("");
+  const loginActivitySentinelRef = useRef<HTMLDivElement>(null);
 
   // New deal fields
   const [dealClinicId, setDealClinicId] = useState<number | null>(null);
@@ -498,11 +529,77 @@ export default function Admin() {
     queryKey: ['/api/clinics'],
   });
 
-  const { data: loginEventsRaw = [], isLoading: loginEventsLoading, refetch: refetchLoginEvents } = useQuery<any[]>({
-    queryKey: ['/api/auth/admin/login-events'],
+  const loginDateBounds = (() => {
+    const now = new Date();
+    if (loginDatePreset === "all") return { from: "", to: "" };
+    if (loginDatePreset === "custom") {
+      const customFrom = loginFromDate ? new Date(`${loginFromDate}T00:00:00`) : null;
+      const customTo = loginToDate ? new Date(`${loginToDate}T23:59:59.999`) : null;
+      return {
+        from: customFrom && !Number.isNaN(customFrom.getTime()) ? customFrom.toISOString() : "",
+        to: customTo && !Number.isNaN(customTo.getTime()) ? customTo.toISOString() : "",
+      };
+    }
+    const from = new Date(now);
+    if (loginDatePreset === "7d") from.setDate(from.getDate() - 6);
+    if (loginDatePreset === "30d") from.setDate(from.getDate() - 29);
+    from.setHours(0, 0, 0, 0);
+    return { from: from.toISOString(), to: now.toISOString() };
+  })();
+
+  const securityActivityQuery = useInfiniteQuery<SecurityActivityPage>({
+    queryKey: [
+      "/api/auth/admin/login-events",
+      loginRoleFilter,
+      loginResultFilter,
+      loginEventTypeFilter,
+      loginSearch.trim(),
+      loginDatePreset,
+      loginDateBounds.from,
+      loginDateBounds.to,
+    ],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({
+        limit: "50",
+        role: loginRoleFilter,
+        result: loginResultFilter,
+        eventType: loginEventTypeFilter,
+      });
+      if (loginSearch.trim()) params.set("search", loginSearch.trim());
+      if (loginDateBounds.from) params.set("from", loginDateBounds.from);
+      if (loginDateBounds.to) params.set("to", loginDateBounds.to);
+      if (typeof pageParam === "string" && pageParam) params.set("cursor", pageParam);
+      const response = await fetch(`/api/auth/admin/login-events?${params.toString()}`);
+      if (!response.ok) throw new Error("Unable to load security activity");
+      return response.json();
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: lastPage => lastPage.hasMore ? lastPage.nextCursor ?? undefined : undefined,
     enabled: !!user,
     refetchInterval: false,
   });
+  const loginEventsRaw = securityActivityQuery.data?.pages.flatMap(page => page.events) ?? [];
+  const loginEventsLoading = securityActivityQuery.isLoading;
+  const refetchLoginEvents = securityActivityQuery.refetch;
+
+  useEffect(() => {
+    const sentinel = loginActivitySentinelRef.current;
+    if (!sentinel || !securityActivityQuery.hasNextPage) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting && !securityActivityQuery.isFetchingNextPage) {
+          void securityActivityQuery.fetchNextPage();
+        }
+      },
+      { rootMargin: "240px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [
+    securityActivityQuery.fetchNextPage,
+    securityActivityQuery.hasNextPage,
+    securityActivityQuery.isFetchingNextPage,
+  ]);
 
   const refreshAdminOperations = () => {
     void Promise.all([
@@ -1157,7 +1254,7 @@ export default function Admin() {
           </TabsTrigger>
           <TabsTrigger value="login-activity" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-login-activity">
             <Activity className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 flex-1">Login Activity</span>
+            <span className="min-w-0 flex-1">Security &amp; Audit</span>
           </TabsTrigger>
         </TabsList>
 
@@ -2412,7 +2509,7 @@ export default function Admin() {
           </div>
         </TabsContent>
 
-        {/* ── Login Activity Tab ───────────────────────────────────────────────── */}
+        {/* ── Security & Audit Tab ─────────────────────────────────────────────── */}
         <TabsContent value="login-activity" className="mt-0 min-w-0">
           <Card>
             <CardHeader className="pb-3">
@@ -2420,52 +2517,84 @@ export default function Admin() {
                 <div>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Activity className="h-4 w-4 text-primary" />
-                    Login Activity
+                    Security &amp; Audit
                   </CardTitle>
                   <CardDescription className="mt-0.5">
-                    Every sign-in attempt across all roles — successful and failed.
+                    Authentication, session, and account-security events across BookMySlot.
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => refetchLoginEvents()} data-testid="button-refresh-login-events">
+                <Button variant="outline" size="sm" onClick={() => void refetchLoginEvents()} data-testid="button-refresh-login-events">
                   <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                   Refresh
                 </Button>
               </div>
 
-              {/* Filters */}
-              <div className="flex flex-wrap gap-2 pt-3">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium mr-1">Role:</div>
-                {(["all", "owner", "doctor", "superuser"] as const).map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setLoginRoleFilter(r)}
-                    data-testid={`filter-role-${r}`}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      loginRoleFilter === r
-                        ? "bg-primary text-white border-primary"
-                        : "bg-background border-border text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    {r === "all" ? "All roles" : r === "owner" ? "Clinic" : r === "doctor" ? "Doctor" : "Superuser"}
-                  </button>
-                ))}
-                <div className="w-px h-5 bg-border self-center mx-1" />
-                <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium mr-1">Result:</div>
-                {(["all", "success", "failed"] as const).map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setLoginResultFilter(r)}
-                    data-testid={`filter-result-${r}`}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      loginResultFilter === r
-                        ? r === "failed" ? "bg-red-500 text-white border-red-500" : "bg-primary text-white border-primary"
-                        : "bg-background border-border text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    {r === "all" ? "All" : r === "success" ? "✓ Success" : "✗ Failed"}
-                  </button>
-                ))}
+              <div className="grid gap-2 pt-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="relative md:col-span-2 xl:col-span-1">
+                  <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={loginSearch}
+                    onChange={event => setLoginSearch(event.target.value)}
+                    placeholder="Search account, IP, reason"
+                    className="h-9 pl-8 text-xs"
+                    aria-label="Search security activity"
+                  />
+                </div>
+                <select
+                  value={loginDatePreset}
+                  onChange={event => setLoginDatePreset(event.target.value as typeof loginDatePreset)}
+                  className="h-9 rounded-md border bg-background px-2 text-xs"
+                  aria-label="Filter security activity by date"
+                >
+                  <option value="30d">Last 30 days</option>
+                  <option value="7d">Last 7 days</option>
+                  <option value="today">Today</option>
+                  <option value="custom">Custom range</option>
+                  <option value="all">All available dates</option>
+                </select>
+                <select
+                  value={loginEventTypeFilter}
+                  onChange={event => setLoginEventTypeFilter(event.target.value as typeof loginEventTypeFilter)}
+                  className="h-9 rounded-md border bg-background px-2 text-xs"
+                  aria-label="Filter security activity by event type"
+                >
+                  <option value="all">All event types</option>
+                  <option value="login">Login</option>
+                  <option value="otp">OTP</option>
+                  <option value="logout">Logout</option>
+                  <option value="password_reset">Password reset</option>
+                  <option value="rate_limited">Rate limited</option>
+                </select>
+                <select
+                  value={loginRoleFilter}
+                  onChange={event => setLoginRoleFilter(event.target.value as typeof loginRoleFilter)}
+                  className="h-9 rounded-md border bg-background px-2 text-xs"
+                  aria-label="Filter security activity by role"
+                >
+                  <option value="all">All roles</option>
+                  <option value="owner">Clinic</option>
+                  <option value="doctor">Doctor</option>
+                  <option value="superuser">Super Admin</option>
+                </select>
+                <select
+                  value={loginResultFilter}
+                  onChange={event => setLoginResultFilter(event.target.value as typeof loginResultFilter)}
+                  className="h-9 rounded-md border bg-background px-2 text-xs"
+                  aria-label="Filter security activity by result"
+                >
+                  <option value="all">All results</option>
+                  <option value="success">Success</option>
+                  <option value="failed">Failed</option>
+                </select>
               </div>
+              {loginDatePreset === "custom" && (
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <label className="text-xs text-muted-foreground" htmlFor="security-from-date">From</label>
+                  <Input id="security-from-date" type="date" value={loginFromDate} onChange={event => setLoginFromDate(event.target.value)} className="h-8 w-auto text-xs" />
+                  <label className="text-xs text-muted-foreground" htmlFor="security-to-date">To</label>
+                  <Input id="security-to-date" type="date" value={loginToDate} onChange={event => setLoginToDate(event.target.value)} className="h-8 w-auto text-xs" />
+                </div>
+              )}
             </CardHeader>
 
             <CardContent className="p-0">
@@ -2484,19 +2613,14 @@ export default function Admin() {
                   ))}
                 </div>
               ) : (() => {
-                const filtered = loginEventsRaw.filter(e => {
-                  if (loginRoleFilter !== "all" && e.role !== loginRoleFilter) return false;
-                  if (loginResultFilter === "success" && !e.success) return false;
-                  if (loginResultFilter === "failed" && e.success) return false;
-                  return true;
-                });
+                const filtered = loginEventsRaw;
 
                 if (filtered.length === 0) {
                   return (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                       <Activity className="h-10 w-10 text-muted-foreground/20 mb-3" />
                       <p className="text-sm font-medium text-muted-foreground">No events match this filter</p>
-                      <p className="text-xs text-muted-foreground/60 mt-1">Try changing the role or result filters above</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Try changing the date, event, role, result, or search filters above</p>
                     </div>
                   );
                 }
@@ -2507,8 +2631,10 @@ export default function Admin() {
                       <thead>
                         <tr className="border-b border-border/50 bg-muted/30">
                           <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Result</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Event</th>
                           <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Role</th>
                           <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Identifier</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Reason</th>
                           <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">IP Address</th>
                           <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                             <span className="flex items-center gap-1"><MonitorSmartphone className="h-3 w-3" /> Device</span>
@@ -2563,12 +2689,20 @@ export default function Admin() {
                                 )}
                               </td>
                               <td className="px-4 py-3">
+                                <span className="text-xs font-medium text-foreground">
+                                  {formatSecurityEventType(event.eventType)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
                                 <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${roleBadge[event.role] ?? "bg-muted text-muted-foreground"}`}>
                                   {event.role === "owner" ? "Clinic" : event.role === "doctor" ? "Doctor" : "Superuser"}
                                 </span>
                               </td>
                               <td className="px-4 py-3 font-medium text-foreground max-w-[180px] truncate" title={event.identifier}>
                                 {event.identifier}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-muted-foreground max-w-[180px] truncate" title={event.reason || undefined}>
+                                {formatSecurityReason(event.reason)}
                               </td>
                               <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
                                 {event.ipAddress || "—"}
@@ -2587,9 +2721,17 @@ export default function Admin() {
                         })}
                       </tbody>
                     </table>
-                    <p className="text-[11px] text-muted-foreground/50 px-4 py-3 border-t border-border/30">
-                      Showing {filtered.length} of {loginEventsRaw.length} total events (last 200)
-                    </p>
+                    <div ref={loginActivitySentinelRef} className="flex min-h-12 items-center justify-center border-t border-border/30 px-4 py-3">
+                      {securityActivityQuery.isFetchingNextPage ? (
+                        <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading more events…
+                        </span>
+                      ) : securityActivityQuery.hasNextPage ? (
+                        <span className="text-[11px] text-muted-foreground/60">Scroll to load more</span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground/50">Loaded {filtered.length} event{filtered.length === 1 ? "" : "s"} · No more events</span>
+                      )}
+                    </div>
                   </div>
                 );
               })()}

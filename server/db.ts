@@ -529,9 +529,14 @@ export async function ensureSessionTable() {
         ip_address  varchar(64),
         user_agent  text,
         success     boolean NOT NULL DEFAULT true,
+        event_type  varchar(80) NOT NULL DEFAULT 'login',
+        reason      varchar(255),
         created_at  timestamp DEFAULT NOW()
       );
+      ALTER TABLE login_events ADD COLUMN IF NOT EXISTS event_type varchar(80) NOT NULL DEFAULT 'login';
+      ALTER TABLE login_events ADD COLUMN IF NOT EXISTS reason varchar(255);
       CREATE INDEX IF NOT EXISTS login_events_created_at_idx ON login_events (created_at DESC);
+      CREATE INDEX IF NOT EXISTS login_events_event_type_created_at_idx ON login_events (event_type, created_at DESC);
     `);
     console.log("[DATABASE] login_events table ready.");
   } catch (err: any) {

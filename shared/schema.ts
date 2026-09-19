@@ -714,6 +714,8 @@ export const loginEvents = pgTable("login_events", {
   ipAddress:  varchar("ip_address", { length: 64 }),
   userAgent:  text("user_agent"),
   success:    boolean("success").notNull().default(true),
+  eventType:  varchar("event_type", { length: 80 }).notNull().default("login"),
+  reason:     varchar("reason", { length: 255 }),
   createdAt:  timestamp("created_at").defaultNow(),
 });
 

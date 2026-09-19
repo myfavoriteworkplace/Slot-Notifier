@@ -218,6 +218,7 @@ export interface IStorage {
   // Login audit
   createLoginEvent(data: InsertLoginEvent): Promise<LoginEvent>;
   getLoginEvents(limit?: number): Promise<LoginEvent[]>;
+  getSecurityActivityEvents(options?: SecurityActivityQuery): Promise<SecurityActivityPage>;
 
   // Users
   hasSuperuser(): Promise<boolean>;
@@ -468,6 +469,23 @@ export interface IStorage {
   // Patient Medical History
   getPatientMedicalHistory(patientId: number, clinicId: number): Promise<PatientMedicalHistory | null>;
   upsertPatientMedicalHistory(patientId: number, clinicId: number, data: Partial<Omit<PatientMedicalHistory, "id" | "patientId" | "clinicId" | "createdAt" | "updatedAt">>): Promise<PatientMedicalHistory>;
+}
+
+export interface SecurityActivityQuery {
+  limit?: number;
+  cursor?: string;
+  from?: Date;
+  to?: Date;
+  role?: string;
+  result?: "success" | "failed";
+  eventType?: string;
+  search?: string;
+}
+
+export interface SecurityActivityPage {
+  events: LoginEvent[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2540,6 +2558,74 @@ export class DatabaseStorage implements IStorage {
 
   async getLoginEvents(limit = 200): Promise<LoginEvent[]> {
     return db.select().from(loginEvents).orderBy(desc(loginEvents.createdAt)).limit(limit);
+  }
+
+  async getSecurityActivityEvents(options: SecurityActivityQuery = {}): Promise<SecurityActivityPage> {
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+    const conditions = [];
+
+    if (options.from) {
+      conditions.push(gte(loginEvents.createdAt, options.from));
+    }
+    if (options.to) {
+      conditions.push(lte(loginEvents.createdAt, options.to));
+    }
+    if (options.role && options.role !== "all") {
+      conditions.push(eq(loginEvents.role, options.role));
+    }
+    if (options.result === "success") {
+      conditions.push(eq(loginEvents.success, true));
+    } else if (options.result === "failed") {
+      conditions.push(eq(loginEvents.success, false));
+    }
+    if (options.eventType && options.eventType !== "all") {
+      const eventTypePrefixes: Record<string, string> = {
+        otp: "otp_",
+        password_reset: "password_reset_",
+      };
+      const prefix = eventTypePrefixes[options.eventType];
+      conditions.push(prefix
+        ? ilike(loginEvents.eventType, `${prefix}%`)
+        : eq(loginEvents.eventType, options.eventType));
+    }
+    if (options.search?.trim()) {
+      const search = `%${options.search.trim()}%`;
+      conditions.push(or(
+        ilike(loginEvents.identifier, search),
+        ilike(loginEvents.ipAddress, search),
+        ilike(loginEvents.reason, search),
+        ilike(loginEvents.eventType, search),
+      ));
+    }
+
+    if (options.cursor) {
+      const separatorIndex = options.cursor.lastIndexOf("|");
+      const createdAtValue = separatorIndex >= 0 ? options.cursor.slice(0, separatorIndex) : "";
+      const idValue = separatorIndex >= 0 ? options.cursor.slice(separatorIndex + 1) : "";
+      const cursorDate = new Date(createdAtValue);
+      const cursorId = Number(idValue);
+      if (!Number.isNaN(cursorDate.getTime()) && Number.isInteger(cursorId)) {
+        conditions.push(or(
+          lt(loginEvents.createdAt, cursorDate),
+          and(eq(loginEvents.createdAt, cursorDate), lt(loginEvents.id, cursorId)),
+        ));
+      }
+    }
+
+    const rows = await db
+      .select()
+      .from(loginEvents)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(loginEvents.createdAt), desc(loginEvents.id))
+      .limit(limit + 1);
+    const hasMore = rows.length > limit;
+    const events = hasMore ? rows.slice(0, limit) : rows;
+    const lastEvent = events[events.length - 1];
+    const nextCursor = hasMore && lastEvent?.createdAt
+      ? `${new Date(lastEvent.createdAt).toISOString()}|${lastEvent.id}`
+      : null;
+
+    return { events, nextCursor, hasMore };
   }
 
   // Patient Bills

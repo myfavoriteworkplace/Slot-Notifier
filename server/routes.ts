@@ -66,6 +66,34 @@ const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmai
 const REMINDER_JOB_SECRET = process.env.REMINDER_JOB_SECRET;
 const SUBSCRIPTION_JOB_SECRET = process.env.SUBSCRIPTION_JOB_SECRET || REMINDER_JOB_SECRET;
 
+function requestIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+}
+
+function requestUserAgent(req: Request): string | null {
+  return req.headers["user-agent"] || null;
+}
+
+function recordSecurityEvent(data: {
+  role: string;
+  identifier: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  success: boolean;
+  eventType?: string;
+  reason?: string;
+}): void {
+  storage.createLoginEvent({
+    role: data.role,
+    identifier: data.identifier,
+    ipAddress: data.ipAddress,
+    userAgent: data.userAgent,
+    success: data.success,
+    eventType: data.eventType || "login",
+    reason: data.reason,
+  }).catch(() => {});
+}
+
 async function sendTrackedEmail(
   input: {
     clinicId?: number | null;
@@ -684,6 +712,21 @@ const loginRateLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res, _next, options) => {
+    const path = req.path.toLowerCase();
+    const role = path.includes("/admin") ? "superuser" : path.includes("/doctor") ? "doctor" : "owner";
+    const identifier = String((req.body as any)?.email || (req.body as any)?.username || "unknown");
+    recordSecurityEvent({
+      role,
+      identifier,
+      ipAddress: requestIp(req),
+      userAgent: requestUserAgent(req),
+      success: false,
+      eventType: "rate_limited",
+      reason: "login_rate_limit",
+    });
+    res.status(options.statusCode).send(options.message);
+  },
   message: { message: "Too many login attempts, please try again after 15 minutes" },
 });
 
@@ -4550,17 +4593,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/clinic/login", loginRateLimiter, async (req, res) => {
     const { username, password } = req.body;
-    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
-    const ua = req.headers["user-agent"] || null;
+    const ip = requestIp(req);
+    const ua = requestUserAgent(req);
     try {
       const clinic = await storage.getClinicByUsername(username);
       if (!clinic || clinic.isArchived) {
-        storage.createLoginEvent({ role: "owner", identifier: username || "unknown", ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        recordSecurityEvent({ role: "owner", identifier: username || "unknown", ipAddress: ip, userAgent: ua, success: false, reason: clinic?.isArchived ? "archived_account" : "unknown_account" });
         return res.status(401).json({ message: "Invalid credentials" });
       }
       const isMatch = await bcrypt.compare(password, clinic.passwordHash || "");
       if (!isMatch) {
-        storage.createLoginEvent({ role: "owner", identifier: username, ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        recordSecurityEvent({ role: "owner", identifier: username, ipAddress: ip, userAgent: ua, success: false, reason: "invalid_credentials" });
         return res.status(401).json({ message: "Invalid credentials" });
       }
       req.session.regenerate((err) => {
@@ -4569,7 +4612,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         sess.adminLoggedIn = true;
         sess.clinicId = clinic.id;
         sess.role = 'owner';
-        storage.createLoginEvent({ role: "owner", identifier: clinic.name, ipAddress: ip, userAgent: ua, success: true }).catch(() => {});
+        recordSecurityEvent({ role: "owner", identifier: clinic.name, ipAddress: ip, userAgent: ua, success: true, reason: "password_verified" });
         req.session.save(() => res.json({ message: "Login successful", user: { id: clinic.id, name: clinic.name, role: 'owner' } }));
       });
     } catch (error: any) {
@@ -4579,6 +4622,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/admin/login", loginRateLimiter, async (req, res) => {
     const { email, password } = req.body;
+    const ip = requestIp(req);
+    const ua = requestUserAgent(req);
     if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       adminOtpStore = { otp, expiresAt: Date.now() + 10 * 60 * 1000 };
@@ -4628,33 +4673,54 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.log(`[ADMIN 2FA DEV] OTP for admin login: ${otp}`);
       }
 
+      recordSecurityEvent({
+        role: "superuser",
+        identifier: email || "unknown",
+        ipAddress: ip,
+        userAgent: ua,
+        success: true,
+        eventType: "otp_sent",
+        reason: resend ? "email_delivery_attempted" : "development_delivery",
+      });
       return res.json({ step: "otp_required" });
     }
+    recordSecurityEvent({
+      role: "superuser",
+      identifier: email || "unknown",
+      ipAddress: ip,
+      userAgent: ua,
+      success: false,
+      reason: "invalid_credentials",
+    });
     res.status(401).json({ message: "Invalid credentials" });
   });
 
   app.post("/api/auth/admin/verify-otp", (req, res) => {
     const { otp } = req.body;
+    const ip = requestIp(req);
+    const ua = requestUserAgent(req);
+    const identifier = process.env.ADMIN_EMAIL || "superuser";
     if (!adminOtpStore) {
+      recordSecurityEvent({ role: "superuser", identifier, ipAddress: ip, userAgent: ua, success: false, eventType: "otp_failed", reason: "no_otp_pending" });
       return res.status(400).json({ message: "No OTP pending. Please start login again." });
     }
     if (Date.now() > adminOtpStore.expiresAt) {
       adminOtpStore = null;
+      recordSecurityEvent({ role: "superuser", identifier, ipAddress: ip, userAgent: ua, success: false, eventType: "otp_expired", reason: "otp_expired" });
       return res.status(400).json({ message: "OTP has expired. Please start login again." });
     }
     if (otp !== adminOtpStore.otp) {
+      recordSecurityEvent({ role: "superuser", identifier, ipAddress: ip, userAgent: ua, success: false, eventType: "otp_failed", reason: "incorrect_code" });
       return res.status(401).json({ message: "Incorrect OTP. Please try again." });
     }
     adminOtpStore = null;
-    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
-    const ua = req.headers["user-agent"] || null;
     req.session.regenerate((err) => {
       if (err) return res.status(500).json({ message: "Session error" });
       const sess = req.session as any;
       sess.adminLoggedIn = true;
       sess.role = 'superuser';
       sess.adminEmail = process.env.ADMIN_EMAIL;
-      storage.createLoginEvent({ role: "superuser", identifier: process.env.ADMIN_EMAIL || "superuser", ipAddress: ip, userAgent: ua, success: true }).catch(() => {});
+        recordSecurityEvent({ role: "superuser", identifier, ipAddress: ip, userAgent: ua, success: true, reason: "otp_verified" });
       req.session.save(() =>
         res.json({ message: "Login successful", user: { email: process.env.ADMIN_EMAIL, role: 'superuser', firstName: 'Super', lastName: 'Admin' } })
       );
@@ -4662,6 +4728,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/auth/admin/logout", (req, res) => {
+    const sess = req.session as any;
+    if (sess?.adminLoggedIn && sess.role === "superuser") {
+      recordSecurityEvent({
+        role: "superuser",
+        identifier: sess.adminEmail || process.env.ADMIN_EMAIL || "superuser",
+        ipAddress: requestIp(req),
+        userAgent: requestUserAgent(req),
+        success: true,
+        eventType: "logout",
+        reason: "user_logout",
+      });
+    }
     req.session.destroy(() => {
       res.clearCookie('connect.sid', { path: '/' });
       res.json({ message: "Logout successful" });
@@ -4674,12 +4752,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ message: "Forbidden" });
     }
     try {
-      const limit = Math.min(parseInt(req.query.limit as string) || 200, 500);
-      const events = await storage.getLoginEvents(limit);
-      res.json(events);
+      const parseDate = (value: unknown): Date | undefined => {
+        if (typeof value !== "string" || !value) return undefined;
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? undefined : date;
+      };
+      const result = req.query.result === "success" || req.query.result === "failed"
+        ? req.query.result
+        : undefined;
+      const page = await storage.getSecurityActivityEvents({
+        limit: Math.min(parseInt(req.query.limit as string) || 50, 100),
+        cursor: typeof req.query.cursor === "string" ? req.query.cursor : undefined,
+        from: parseDate(req.query.from),
+        to: parseDate(req.query.to),
+        role: typeof req.query.role === "string" ? req.query.role : undefined,
+        result,
+        eventType: typeof req.query.eventType === "string" ? req.query.eventType : undefined,
+        search: typeof req.query.search === "string" ? req.query.search : undefined,
+      });
+      res.json(page);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
+  });
+
+  app.post("/api/auth/clinic/logout", (req, res) => {
+    const sess = req.session as any;
+    if (sess?.clinicId && sess.role === "owner") {
+      recordSecurityEvent({
+        role: "owner",
+        identifier: String(sess.clinicId),
+        ipAddress: requestIp(req),
+        userAgent: requestUserAgent(req),
+        success: true,
+        eventType: "logout",
+        reason: "user_logout",
+      });
+    }
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid', { path: '/' });
+      res.json({ message: "Logout successful" });
+    });
   });
 
   app.get("/api/auth/user", (req, res) => {
@@ -4861,17 +4974,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/auth/doctor/login", loginRateLimiter, async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
-    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
-    const ua = req.headers["user-agent"] || null;
+    const ip = requestIp(req);
+    const ua = requestUserAgent(req);
     try {
       const doctor = await storage.getDoctorByEmail(email);
       if (!doctor) {
-        storage.createLoginEvent({ role: "doctor", identifier: email, ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        recordSecurityEvent({ role: "doctor", identifier: email, ipAddress: ip, userAgent: ua, success: false, reason: "unknown_account" });
         return res.status(401).json({ message: "Invalid credentials" });
       }
       const isMatch = await bcrypt.compare(password, doctor.passwordHash || "");
       if (!isMatch) {
-        storage.createLoginEvent({ role: "doctor", identifier: email, ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        recordSecurityEvent({ role: "doctor", identifier: email, ipAddress: ip, userAgent: ua, success: false, reason: "invalid_credentials" });
         return res.status(401).json({ message: "Invalid credentials" });
       }
       const clinicResults = await db.select({ clinic: clinics })
@@ -4888,7 +5001,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         sess.role = 'doctor';
         sess.doctorEmail = doctor.email;
         sess.doctorId = doctor.id;
-        storage.createLoginEvent({ role: "doctor", identifier: doctor.email, ipAddress: ip, userAgent: ua, success: true }).catch(() => {});
+        recordSecurityEvent({ role: "doctor", identifier: doctor.email, ipAddress: ip, userAgent: ua, success: true, reason: "password_verified" });
         req.session.save(() => res.json({
           email: doctor.email,
           name: doctor.name,
@@ -4907,6 +5020,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // POST /api/auth/clinic/forgot-password — send reset link to clinic's registered email
   app.post("/api/auth/clinic/forgot-password", async (req, res) => {
     const { email } = req.body;
+    const ip = requestIp(req);
+    const ua = requestUserAgent(req);
+    recordSecurityEvent({
+      role: "owner",
+      identifier: email || "unknown",
+      ipAddress: ip,
+      userAgent: ua,
+      success: true,
+      eventType: "password_reset_requested",
+      reason: "request_received",
+    });
     // Always respond with neutral message to prevent email enumeration
     res.json({ message: "If this email is registered, you will receive a reset link shortly." });
     if (!email) return;
@@ -4939,6 +5063,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // POST /api/auth/doctor/forgot-password — send reset link to doctor's email
   app.post("/api/auth/doctor/forgot-password", async (req, res) => {
     const { email } = req.body;
+    const ip = requestIp(req);
+    const ua = requestUserAgent(req);
+    recordSecurityEvent({
+      role: "doctor",
+      identifier: email || "unknown",
+      ipAddress: ip,
+      userAgent: ua,
+      success: true,
+      eventType: "password_reset_requested",
+      reason: "request_received",
+    });
     res.json({ message: "If this email is registered, you will receive a reset link shortly." });
     if (!email) return;
     try {
@@ -4968,34 +5103,58 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // POST /api/auth/reset-password — validate token and set new password
   app.post("/api/auth/reset-password", async (req, res) => {
     const { token, type, newPassword } = req.body;
+    const ip = requestIp(req);
+    const ua = requestUserAgent(req);
+    const role = type === "clinic" ? "owner" : "doctor";
+    const identifier = type === "clinic" || type === "doctor" ? String(type) : "unknown";
     if (!token || !type || !newPassword) return res.status(400).json({ message: "Token, type, and new password are required." });
-    if (!["clinic", "doctor"].includes(type)) return res.status(400).json({ message: "Invalid type." });
-    if (newPassword.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters." });
+    if (!["clinic", "doctor"].includes(type)) {
+      recordSecurityEvent({ role: "system", identifier, ipAddress: ip, userAgent: ua, success: false, eventType: "password_reset_failed", reason: "invalid_account_type" });
+      return res.status(400).json({ message: "Invalid type." });
+    }
+    if (newPassword.length < 8) {
+      recordSecurityEvent({ role, identifier, ipAddress: ip, userAgent: ua, success: false, eventType: "password_reset_failed", reason: "password_too_short" });
+      return res.status(400).json({ message: "Password must be at least 8 characters." });
+    }
     try {
       const purpose = type === "clinic" ? "clinic_password_reset" : "doctor_password_reset";
       const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
       const [row] = await db.select().from(emailOtps)
         .where(and(eq(emailOtps.otpHash, tokenHash), eq(emailOtps.purpose, purpose), eq(emailOtps.verified, false)))
         .limit(1);
-      if (!row) return res.status(400).json({ message: "This reset link is invalid or has already been used." });
-      if (new Date() > row.expiresAt) return res.status(410).json({ message: "This reset link has expired. Please request a new one." });
+      if (!row) {
+        recordSecurityEvent({ role, identifier, ipAddress: ip, userAgent: ua, success: false, eventType: "password_reset_failed", reason: "invalid_or_used_token" });
+        return res.status(400).json({ message: "This reset link is invalid or has already been used." });
+      }
+      if (new Date() > row.expiresAt) {
+        recordSecurityEvent({ role, identifier: row.email, ipAddress: ip, userAgent: ua, success: false, eventType: "password_reset_failed", reason: "expired_token" });
+        return res.status(410).json({ message: "This reset link has expired. Please request a new one." });
+      }
       const passwordHash = await bcrypt.hash(newPassword, 10);
       if (type === "clinic") {
         const [clinic] = await db.select().from(clinics)
           .where(eq(clinics.email, row.email))
           .limit(1);
-        if (!clinic) return res.status(404).json({ message: "Account not found." });
+        if (!clinic) {
+          recordSecurityEvent({ role, identifier: row.email, ipAddress: ip, userAgent: ua, success: false, eventType: "password_reset_failed", reason: "account_not_found" });
+          return res.status(404).json({ message: "Account not found." });
+        }
         await storage.updateClinic(clinic.id, { passwordHash } as any);
       } else {
         const doctor = await storage.getDoctorByEmail(row.email);
-        if (!doctor) return res.status(404).json({ message: "Account not found." });
+        if (!doctor) {
+          recordSecurityEvent({ role, identifier: row.email, ipAddress: ip, userAgent: ua, success: false, eventType: "password_reset_failed", reason: "account_not_found" });
+          return res.status(404).json({ message: "Account not found." });
+        }
         await db.update(doctors).set({ passwordHash }).where(eq(doctors.id, doctor.id));
       }
       await db.update(emailOtps).set({ verified: true }).where(eq(emailOtps.id, row.id));
       await sendPasswordChangedEmail(row.email, type);
+      recordSecurityEvent({ role, identifier: row.email, ipAddress: ip, userAgent: ua, success: true, eventType: "password_reset_completed", reason: "password_updated" });
       res.json({ message: "Password updated successfully." });
     } catch (err: any) {
       console.error("[RESET PASSWORD] Error:", err.message);
+      recordSecurityEvent({ role, identifier, ipAddress: ip, userAgent: ua, success: false, eventType: "password_reset_failed", reason: "server_error" });
       res.status(500).json({ message: "Something went wrong. Please try again." });
     }
   });
@@ -5031,6 +5190,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/auth/doctor/logout", (req, res) => {
+    const sess = req.session as any;
+    if (sess?.doctorLoggedIn && sess.role === "doctor") {
+      recordSecurityEvent({
+        role: "doctor",
+        identifier: sess.doctorEmail || "doctor",
+        ipAddress: requestIp(req),
+        userAgent: requestUserAgent(req),
+        success: true,
+        eventType: "logout",
+        reason: "user_logout",
+      });
+    }
     req.session.destroy(() => {
       res.clearCookie('connect.sid', { path: '/' });
       res.json({ message: "Logout successful" });
