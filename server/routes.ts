@@ -46,7 +46,14 @@ import {
   validateClinicMonitoringDateRange,
 } from "./clinic-monitoring";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
-import { isBillingCycle, resolvePlanPolicy, PAID_PLAN_KEYS, PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
+import {
+  isBillingCycle,
+  resolvePlanPolicy,
+  PAID_PLAN_KEYS,
+  PUBLISHED_PLAN_POLICY,
+  type BillingCycle,
+  type PaidPlanKey,
+} from "@shared/plan-catalog";
 import { validatePlanPolicyDocument } from "@shared/plan-policy-validation";
 import {
   buildInitialTrialTransition,
@@ -61,7 +68,11 @@ import {
 } from "@shared/clinic-approval";
 import {
   clinicUpgradeRequestBodySchema,
+  clinicUpgradeRequestApprovalBodySchema,
+  clinicUpgradeRequestListStatusSchema,
+  clinicUpgradeRequestRejectionBodySchema,
   isClinicUpgradeEligible,
+  validateClinicUpgradeRequestApproval,
 } from "@shared/clinic-upgrade-request-policy";
 import { getAccessRevocationEventType, isAccessRevocable } from "@shared/subscription-access-revocation";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
@@ -1444,6 +1455,191 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     },
   );
 
+  app.get(
+    "/api/admin/clinic-upgrade-requests",
+    isAuthenticated,
+    async (req, res) => {
+      if ((req as any).user?.role !== "superuser") {
+        return res.status(403).json({ message: "Only superusers can review clinic upgrade requests" });
+      }
+
+      const parsedStatus = clinicUpgradeRequestListStatusSchema.safeParse(req.query.status || "pending");
+      if (!parsedStatus.success) {
+        return res.status(400).json({ message: "Status must be pending or all" });
+      }
+
+      try {
+        const [requests, pendingCount] = await Promise.all([
+          storage.getAdminClinicUpgradeRequests(parsedStatus.data),
+          storage.countPendingClinicUpgradeRequests(),
+        ]);
+        return res.json({ requests, pendingCount });
+      } catch (error: any) {
+        console.error("[ADMIN CLINIC UPGRADE REQUESTS] Load failed:", error?.message || error);
+        return res.status(500).json({ message: "Unable to load clinic upgrade requests" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/admin/clinic-upgrade-requests/:id/approve",
+    isAuthenticated,
+    async (req, res) => {
+      if ((req as any).user?.role !== "superuser") {
+        return res.status(403).json({ message: "Only superusers can approve clinic upgrade requests" });
+      }
+
+      const parsed = clinicUpgradeRequestApprovalBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "The approved plan, billing cycle, or review reason is invalid" });
+      }
+
+      const requestId = Number(req.params.id);
+      if (!Number.isInteger(requestId) || requestId <= 0) {
+        return res.status(400).json({ message: "Invalid upgrade request ID" });
+      }
+
+      try {
+        const request = await storage.getClinicUpgradeRequest(requestId);
+        if (!request) return res.status(404).json({ message: "Upgrade request not found" });
+        if (request.status === "approved") {
+          return res.json({ request, idempotent: true });
+        }
+        if (request.status !== "pending") {
+          return res.status(409).json({ message: "Only pending upgrade requests can be approved" });
+        }
+
+        const approvedPlan = (parsed.data.requestedPlan || request.requestedPlan) as PaidPlanKey;
+        const approvedBillingCycle = (parsed.data.billingCycle || request.billingCycle) as BillingCycle;
+        if (!PAID_PLAN_KEYS.includes(approvedPlan) || !isBillingCycle(approvedBillingCycle)) {
+          return res.status(409).json({ message: "The stored upgrade request has an invalid plan or billing cycle" });
+        }
+        const reviewReason = parsed.data.reviewReason?.trim() ||
+          "Approved clinic upgrade request";
+        const approvalError = validateClinicUpgradeRequestApproval({
+          approvedPlan,
+          approvedBillingCycle,
+          requestedPlan: request.requestedPlan,
+          requestedBillingCycle: request.billingCycle,
+          reviewReason,
+        });
+        if (approvalError) return res.status(400).json({ message: approvalError });
+
+        const transitionId = parsed.data.transitionId ||
+          `clinic-upgrade:${request.id}:${approvedPlan}:${approvedBillingCycle}`;
+        const actorId = String(
+          (req as any).user?.claims?.email ||
+          (req as any).user?.id ||
+          "superuser",
+        );
+        const paidResult = await assignPaidPlanForAdmin({
+          clinicId: request.clinicId,
+          plan: approvedPlan,
+          billingCycle: approvedBillingCycle,
+          reason: reviewReason,
+          transitionId,
+          actorId,
+          metadata: {
+            approvalType: "clinic_upgrade_request",
+            upgradeRequestId: request.id,
+            requestedPlan: request.requestedPlan,
+            requestedBillingCycle: request.billingCycle,
+            approvedPlan,
+            approvedBillingCycle,
+            planOverridden: approvedPlan !== request.requestedPlan,
+            billingCycleOverridden: approvedBillingCycle !== request.billingCycle,
+          },
+        });
+
+        const reviewedRequest = await storage.reviewClinicUpgradeRequest(
+          request.id,
+          "approved",
+          actorId,
+          reviewReason,
+        );
+        if (!reviewedRequest) {
+          const latest = await storage.getClinicUpgradeRequest(request.id);
+          if (latest?.status === "approved") {
+            return res.json({ request: latest, paidPlan: paidResult, idempotent: true });
+          }
+          return res.status(409).json({
+            message: "The upgrade request was reviewed by another administrator",
+          });
+        }
+
+        return res.status(paidResult.idempotent ? 200 : 201).json({
+          request: reviewedRequest,
+          paidPlan: paidResult,
+          idempotent: paidResult.idempotent,
+        });
+      } catch (error: any) {
+        const statusCode = Number(error?.statusCode);
+        if (statusCode >= 400 && statusCode < 600) {
+          return res.status(statusCode).json({ message: error.message });
+        }
+        console.error("[ADMIN CLINIC UPGRADE REQUESTS] Approval failed:", error?.message || error);
+        return res.status(500).json({ message: "Unable to approve clinic upgrade request" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/admin/clinic-upgrade-requests/:id/reject",
+    isAuthenticated,
+    async (req, res) => {
+      if ((req as any).user?.role !== "superuser") {
+        return res.status(403).json({ message: "Only superusers can reject clinic upgrade requests" });
+      }
+
+      const parsed = clinicUpgradeRequestRejectionBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "A rejection reason is required" });
+      }
+
+      const requestId = Number(req.params.id);
+      if (!Number.isInteger(requestId) || requestId <= 0) {
+        return res.status(400).json({ message: "Invalid upgrade request ID" });
+      }
+
+      try {
+        const request = await storage.getClinicUpgradeRequest(requestId);
+        if (!request) return res.status(404).json({ message: "Upgrade request not found" });
+        if (request.status === "rejected") {
+          return res.json({ request, idempotent: true });
+        }
+        if (request.status !== "pending") {
+          return res.status(409).json({ message: "Only pending upgrade requests can be rejected" });
+        }
+
+        const actorId = String(
+          (req as any).user?.claims?.email ||
+          (req as any).user?.id ||
+          "superuser",
+        );
+        const reviewedRequest = await storage.reviewClinicUpgradeRequest(
+          request.id,
+          "rejected",
+          actorId,
+          parsed.data.reviewReason,
+        );
+        if (!reviewedRequest) {
+          const latest = await storage.getClinicUpgradeRequest(request.id);
+          if (latest?.status === "rejected") {
+            return res.json({ request: latest, idempotent: true });
+          }
+          return res.status(409).json({
+            message: "The upgrade request was reviewed by another administrator",
+          });
+        }
+
+        return res.json({ request: reviewedRequest, idempotent: false });
+      } catch (error: any) {
+        console.error("[ADMIN CLINIC UPGRADE REQUESTS] Rejection failed:", error?.message || error);
+        return res.status(500).json({ message: "Unable to reject clinic upgrade request" });
+      }
+    },
+  );
+
   // ── WebSocket server for real-time clinic + doctor notifications ─────────
   const wss = new WebSocketServer({ server: httpServer, path: "/ws/notifications" });
   const clinicSockets = new Map<string, Set<WebSocket>>();
@@ -1878,7 +2074,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const paidResult = await assignPaidPlanForAdmin({
           clinicId,
           plan: approvedPlan,
-          billingCycle: parsed.data.billingCycle,
+          billingCycle: parsed.data.billingCycle!,
           reason: paidReason,
           transitionId,
           actorId: String((req as any).user?.claims?.email || (req as any).user?.id || "superuser"),

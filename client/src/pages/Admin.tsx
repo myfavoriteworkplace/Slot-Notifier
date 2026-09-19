@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server, Search, SlidersHorizontal } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw, Server, Search, SlidersHorizontal, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +28,7 @@ import AdminTenantOperations from "@/components/AdminTenantOperations";
 import AdminClinicMonitoring from "@/components/AdminClinicMonitoring";
 import AdminEntitlementReview from "@/components/AdminEntitlementReview";
 import AdminPlanPolicies from "@/components/AdminPlanPolicies";
+import AdminClinicUpgradeRequests from "@/components/AdminClinicUpgradeRequests";
 function SiFacebook({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.268h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>;
 }
@@ -368,6 +369,17 @@ export default function Admin() {
   const [loginToDate, setLoginToDate] = useState("");
   const loginActivitySentinelRef = useRef<HTMLDivElement>(null);
   const [adminActiveTab, setAdminActiveTab] = useState("clinics-access");
+  const upgradeRequestsCountQuery = useQuery<{ pendingCount: number }>({
+    queryKey: ["/api/admin/clinic-upgrade-requests-count"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/admin/clinic-upgrade-requests?status=pending");
+      if (!response.ok) throw new Error("Unable to load upgrade request count");
+      return response.json();
+    },
+    enabled: Boolean(user),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
 
   // New deal fields
   const [dealClinicId, setDealClinicId] = useState<number | null>(null);
@@ -1394,6 +1406,13 @@ export default function Admin() {
             <span className="min-w-0 flex-1">Pending</span>
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-700 group-data-[state=active]:bg-amber-200 group-data-[state=active]:text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 dark:group-data-[state=active]:bg-amber-900/70 dark:group-data-[state=active]:text-amber-200">{pendingClinics.length}</span>
           </TabsTrigger>
+          <TabsTrigger value="upgrade-requests" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" data-testid="tab-upgrade-requests">
+            <ClipboardList className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">Requests</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-700 group-data-[state=active]:bg-emerald-200 group-data-[state=active]:text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 dark:group-data-[state=active]:bg-emerald-900/70 dark:group-data-[state=active]:text-emerald-200" data-testid="badge-upgrade-requests-nav">
+              {upgradeRequestsCountQuery.data?.pendingCount ?? 0}
+            </span>
+          </TabsTrigger>
           <TabsTrigger value="archived" className="group min-h-10 w-full justify-start gap-2 rounded-lg border border-transparent bg-transparent px-3 py-2 text-left text-sm font-medium leading-tight text-foreground/80 transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary/30 data-[state=active]:border-l-4 data-[state=active]:bg-primary data-[state=active]:pl-2 data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             <Archive className="h-4 w-4 shrink-0" />
             <span className="min-w-0 flex-1">Archived</span>
@@ -1981,6 +2000,13 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="upgrade-requests" className="mt-0 min-w-0">
+          <AdminClinicUpgradeRequests
+            enabled={adminActiveTab === "upgrade-requests"}
+            pendingCount={upgradeRequestsCountQuery.data?.pendingCount ?? 0}
+          />
         </TabsContent>
 
         <TabsContent value="archived" className="mt-0 min-w-0">

@@ -3614,3 +3614,3619 @@ export default function BookingsPanel({
           </div>
   );
 }
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { notify } from "@/lib/notify";
+import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
+import {
+  type BillingService, type BillingDetails, type ClinicInfo,
+  generateReceiptPDF, generateConsentPdf, printBillFromRecord,
+} from "@/lib/clinic-pdf";
+import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
+import { BookingNotesThread } from "@/components/BookingNotesThread";
+import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
+import PatientDocumentsTab from "@/components/PatientDocumentsTab";
+import {
+  SlotTiming, BookingWithSlot,
+  OVERVIEW_VISIT_TYPE_LABELS, OVERVIEW_CLINICAL_STATUS,
+  PATIENT_VISIT_CLASSIFICATION_LABELS,
+  ADMIN_VISIT_CLASSIFICATION_LABELS,
+  DEFAULT_SECTION_CAPACITY, CHIEF_COMPLAINTS,
+  getRecommendedSpecialists,
+} from "@/lib/clinic-constants";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle, DialogTrigger
+} from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  format, startOfDay, endOfDay, startOfToday, addDays, isSameDay,
+  differenceInCalendarDays, startOfWeek, endOfWeek, addWeeks, isAfter
+} from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Loader2, Calendar as CalendarIcon, Phone, Clock, X,
+  Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
+  User, Mail, CalendarDays, FlaskConical, TrendingUp, History, Filter, Copy, Check,
+  Info, ClipboardCheck, PenLine, Link2, ClipboardList, AlertTriangle, AlertCircle, CreditCard,
+  Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal,
+  ChevronLeft, ChevronRight, Save, Hash, Printer, ArrowLeft, ArrowRight,
+  Building2, ExternalLink, LogOut, Settings, SlidersHorizontal, LayoutList, Pencil,
+} from "lucide-react";
+import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
+import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
+import { AppointmentCard } from "@/components/AppointmentCard";
+import { AppointmentInfoSection } from "@/components/AppointmentInfoSection";
+import {
+  classifyClientBooking,
+  createClientBookingDateContext,
+  getBookingLifecycleStage,
+} from "@/lib/booking-classification";
+import {
+  getAppointmentFooterModel,
+  type AppointmentFooterAction,
+} from "@/lib/appointment-footer-model";
+import { AppointmentFilters } from "@/components/AppointmentFilters";
+import { getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getTimeGroup, type BookingsPagedResponse } from "@/lib/booking-list";
+import type { PatientBill, Patient } from "@shared/schema";
+
+const formatDoctorName = (name?: string | null) => {
+  const clean = (name || "").replace(/^dr\.?\s*/i, "").trim();
+  return clean ? `Dr. ${clean}` : "Doctor";
+};
+
+function BookingCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      <div className="h-1 bg-muted/40 rounded-t-2xl" />
+      <div className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-28 rounded-md" />
+              <Skeleton className="h-3 w-20 rounded-md" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-20 rounded-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-3.5 rounded-sm shrink-0" />
+          <Skeleton className="h-3.5 w-44 rounded-md" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-3.5 rounded-sm shrink-0" />
+          <Skeleton className="h-3.5 w-24 rounded-md" />
+        </div>
+        <div className="pt-2 border-t border-border/40 flex gap-3">
+          <Skeleton className="h-9 flex-1 rounded-xl" />
+          <Skeleton className="h-9 flex-1 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type QuickFilterType = 'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days';
+
+type RescheduleSlotAvailRow = {
+  slotIndex: number; label: string; startTimeISO: string;
+  count: number; max: number; isCancelled: boolean; spotsLeft: number;
+};
+type ModalTabType = 'overview' | 'clinical' | 'documents' | 'notes' | 'actions' | 'billing';
+
+interface BookingsPanelProps {
+  clinic: any;
+  isAuthenticated: boolean;
+  slotTimings: SlotTiming[];
+  formatTime: (hour: number, minute: number) => string;
+  allBills: (PatientBill & { patientCode?: string | null })[];
+  notifHighlight: { bookingId: number; tab: string; ts: number } | null;
+  tabBadges: Record<number, string[]>;
+  onNavigate: (panel: string) => void;
+  onViewPatient: (patientId: number) => void;
+  quickFilter: QuickFilterType;
+  setQuickFilter: (f: QuickFilterType | ((p: QuickFilterType) => QuickFilterType)) => void;
+  filterDate: Date | undefined;
+  setFilterDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
+  filterEndDate: Date | undefined;
+  setFilterEndDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
+  statusFilter: '' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show';
+  setStatusFilter: (f: '' | 'in-clinic' | 'completed' | 'cancelled' | 'no-show') => void;
+  doctorFilter: string;
+  setDoctorFilter: (f: string) => void;
+  setTabBadges: (f: Record<number, string[]> | ((p: Record<number, string[]>) => Record<number, string[]>)) => void;
+  bookingsSectionRef: { current: HTMLDivElement | null };
+  openBookingId: number | null;
+  setOpenBookingId: (f: number | null | ((p: number | null) => number | null)) => void;
+  modalTabs: Record<number, ModalTabType>;
+  setModalTabs: (f: Record<number, ModalTabType> | ((p: Record<number, ModalTabType>) => Record<number, ModalTabType>)) => void;
+}
+
+export default function BookingsPanel({
+  clinic,
+  isAuthenticated,
+  slotTimings,
+  formatTime,
+  allBills,
+  notifHighlight,
+  tabBadges,
+  onNavigate,
+  onViewPatient,
+  quickFilter,
+  setQuickFilter,
+  filterDate,
+  setFilterDate,
+  filterEndDate,
+  setFilterEndDate,
+  statusFilter,
+  setStatusFilter,
+  doctorFilter,
+  setDoctorFilter,
+  bookingsSectionRef,
+  openBookingId,
+  setOpenBookingId,
+  modalTabs,
+  setModalTabs,
+  setTabBadges,
+}: BookingsPanelProps) {
+  const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
+  const [searchOpen, setSearchOpen] = useState(true);
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
+  const [chipsCollapsed, setChipsCollapsed] = useState(() => window.innerWidth < 640);
+
+  const copyClinicUrl = (type: 'booking' | 'about') => {
+    if (!clinic?.id) return;
+    const url = type === 'booking'
+      ? `${window.location.origin}/book/${clinic.id}`
+      : `${window.location.origin}/clinic/${clinic.username || clinic.id}`;
+    navigator.clipboard.writeText(url);
+    setCopiedUrlType(type);
+    notify.success("Copied to clipboard");
+    setTimeout(() => setCopiedUrlType(null), 2000);
+  };
+
+  const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelReasonOther, setCancelReasonOther] = useState("");
+  const [noShowReviewOpen, setNoShowReviewOpen] = useState(false);
+  const [selectedNoShowIds, setSelectedNoShowIds] = useState<Set<number>>(new Set());
+
+  const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
+  const setModalTab = (id: number, tab: ModalTabType) =>
+    setModalTabs(prev => ({ ...prev, [id]: tab }));
+
+  const persistRebookValues = (data: {
+    bookingName: string;
+    bookingPhone: string;
+    bookingEmail: string;
+    bookingAge: string;
+    bookingGender: string;
+    bookingDescription: string;
+    bookingVisitType: string;
+    bookingAppointmentCategory: string;
+  }) => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem('clinic_rebook_data', JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  };
+
+  const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
+  const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
+  // consent status is read from booking.consentToken / consentSignedAt after backend fix
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
+  const [legendCollapsed, setLegendCollapsed] = useState(true);
+  const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const [bookingPatientSearch, setBookingPatientSearch] = useState("");
+  const [bookingPatientResults, setBookingPatientResults] = useState<Patient[]>([]);
+  const [bookingPatientResultsLoading, setBookingPatientResultsLoading] = useState(false);
+  const [activePatientFilter, setActivePatientFilter] = useState<{ id: number; name: string; patientCode: string | null } | null>(null);
+  const [patientSearchFocused, setPatientSearchFocused] = useState(false);
+  const [patientSearchHighlightIdx, setPatientSearchHighlightIdx] = useState(-1);
+  const patientSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const patientSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const [isBillingOpen, setIsBillingOpen] = useState(false);
+  const [dialogExpanded, setDialogExpanded] = useState(false);
+  const [editingField, setEditingField] = useState<{ bookingId: number; field: string; value: string } | null>(null);
+  const [billingBooking, setBillingBooking] = useState<BookingWithSlot | null>(null);
+  const [billingDetails, setBillingDetails] = useState<BillingDetails>({
+    patientName: "", patientPhone: "", patientEmail: "",
+    clinicName: "", clinicAddress: "", clinicPhone: "", clinicEmail: "",
+    receiptNumber: "", date: "", discount: "0", tax: "0",
+    paymentMethod: "Cash", transactionId: "", remarks: "",
+    paymentStatus: "paid",
+    existingBillId: undefined, printOnly: false,
+    visitId: "", doctorName: "",
+    services: [{ description: "Dental Consultation", amount: "500", category: "Consultation" }],
+  });
+
+  const now = new Date();
+  const todayStr = format(now, 'yyyy-MM-dd');
+  const todayStart = startOfDay(now);
+  const statNext7DaysEnd = addDays(todayStart, 7);
+  const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const thisWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+  const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+  const dates = useMemo(() => Array.from({ length: 14 }, (_, idx) => addDays(startOfToday(), idx)), []);
+
+  const bookingsQueryKey = ['/api/auth/clinic/bookings', {
+    filter: quickFilter,
+    todayDate: todayStr,
+    dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
+    dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
+    patientId: activePatientFilter?.id,
+    statusFilter: statusFilter || undefined,
+    doctorEmail: doctorFilter || undefined,
+  }];
+
+  const {
+    data: bookingsInfiniteData,
+    isLoading: bookingsLoading,
+    isError: bookingsError,
+    error: bookingsErrorDetails,
+    refetch: refetchBookings,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<BookingsPagedResponse>({
+    queryKey: bookingsQueryKey,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20', todayDate: todayStr });
+      if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
+      if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
+      if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
+      if (statusFilter) params.set('statusFilter', statusFilter);
+      if (doctorFilter) params.set('doctorEmail', doctorFilter);
+      const res = await apiRequest('GET', `/api/auth/clinic/bookings?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch bookings');
+      return res.json();
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    enabled: isAuthenticated,
+    refetchOnMount: true,
+    refetchInterval: quickFilter === 'today' ? 30_000 : false,
+    staleTime: quickFilter === 'today' ? 30_000 : 5 * 60_000,
+  });
+
+  const bookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+  const bookingStats = bookingsInfiniteData?.pages[0]?.stats;
+  const bookingsTotal = bookingsInfiniteData?.pages[0]?.total ?? 0;
+
+  const { data: allDoctorLeaves = [] } = useQuery<{ doctorEmail?: string; doctorName?: string; leaveDate: string; reason?: string | null }[]>({
+    queryKey: ['/api/clinic/doctor-leaves/all'],
+    enabled: isAuthenticated,
+  });
+  const noShowCandidatesQuery = useQuery<BookingWithSlot[]>({
+    queryKey: ['/api/auth/clinic/bookings/no-show-candidates'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/bookings/no-show-candidates');
+      if (!res.ok) throw new Error('Failed to load no-show candidates');
+      return res.json();
+    },
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+
+  const { data: rescheduleSlotAvailability, isFetching: rescheduleAvailFetching } = useQuery<RescheduleSlotAvailRow[]>({
+    queryKey: ['reschedule-slot-availability', clinic?.id, format(rescheduleDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!clinic?.id) return [];
+      const payload = {
+        clinicId: clinic.id,
+        slots: slotTimings.map((slot, idx) => {
+          const t = new Date(rescheduleDate);
+          t.setHours(slot.startHour, slot.startMinute, 0, 0);
+          return { slotIndex: idx, label: slot.label, startTimeISO: t.toISOString() };
+        }),
+      };
+      const res = await apiRequest('POST', '/api/public/slot-availability', payload);
+      if (!res.ok) throw new Error('Failed to fetch slot availability');
+      return res.json();
+    },
+    enabled: !!clinic?.id && rescheduleBookingId !== null,
+    staleTime: 30_000,
+  });
+
+  // Chip badge counts come from the server stats (across all pages)
+  const todaysBookingsCount = bookingStats?.todayCount ?? 0;
+  const futureBookingsCount = bookingStats?.upcomingCount ?? 0;
+  const pastBookingsCount   = bookingStats?.pastCount ?? 0;
+  const thisWeekCount       = bookingStats?.thisWeekCount ?? 0;
+  const nextWeekCount       = bookingStats?.nextWeekCount ?? 0;
+
+  const filteredBookings = bookings;
+
+  // Visit metadata is calculated server-side from the patient's complete history.
+  // Sorts all the patient's bookings chronologically and assigns Visit #1, #2… so
+  // staff can immediately tell these are different appointments, not duplicates.
+  const visitNumberMap = useMemo(() => new Map(
+    filteredBookings.map((b: any) => [b.id, {
+      n: b.visitNumber,
+      total: b.totalVisits,
+      latestLabel: b.latestLabel,
+    }])
+  ), [filteredBookings]);
+
+  // Collapsed state — when patient filter is active and 2+ bookings exist, cards
+  // start collapsed so staff see a compact list rather than stacked full cards.
+  // Dependency uses the actual sorted IDs (not just the length) so the set is
+  // rebuilt whenever the booking list changes, not just when its size changes.
+  const filteredBookingIdsKey = filteredBookings.map(b => b.id).sort().join(',');
+  const [collapsedBookingIds, setCollapsedBookingIds] = useState<Set<number>>(new Set());
+  const [clinicalStatusDrafts, setClinicalStatusDrafts] = useState<Record<number, string>>({});
+  useEffect(() => {
+    if (activePatientFilter && filteredBookings.length >= 2) {
+      setCollapsedBookingIds(new Set(filteredBookings.map(b => b.id)));
+    } else {
+      setCollapsedBookingIds(new Set());
+    }
+  }, [activePatientFilter?.id, filteredBookingIdsKey]);
+
+  // ── Focus booking — fetch when openBookingId is set but not in the current filtered list ──────
+  // This allows the booking detail dialog to open from a notification even when the user is on
+  // another panel (BookingsPanel is mounted hidden) and the booking isn't in the active filter.
+  const isFocusBookingInList = useMemo(
+    () => filteredBookings.some(b => b.id === openBookingId),
+    [filteredBookings, openBookingId],
+  );
+  const { data: focusBookingData } = useQuery<BookingWithSlot | null>({
+    queryKey: ['/api/auth/clinic/bookings', openBookingId, 'focus'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/auth/clinic/bookings/${openBookingId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!openBookingId && isAuthenticated && !isFocusBookingInList,
+    staleTime: 60_000,
+  });
+  // bookingsForDialog = regular list + the focus booking prepended if it isn't already present
+  const bookingsForDialog = useMemo(() => {
+    if (!openBookingId || isFocusBookingInList || !focusBookingData) return filteredBookings;
+    return [focusBookingData, ...filteredBookings];
+  }, [filteredBookings, openBookingId, isFocusBookingInList, focusBookingData]);
+
+  const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
+    activePatientFilter,
+    activePatientBookingsCount: bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount ?? 0,
+    quickFilter,
+    filterDate,
+    filterEndDate,
+  }), [activePatientFilter, bookingsInfiniteData?.pages[0]?.stats?.patientTotalCount, quickFilter, filterDate, filterEndDate]);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Stable reference shared by clinic cards and dialogs. This is an appointment
+  // reference, not a daily queue token and must not change with filters.
+  const bookingReference = (booking: BookingWithSlot) => String(booking.id).padStart(4, "0");
+
+  const statusGroup = (booking: BookingWithSlot) => {
+    return getBookingDisplayMeta({ booking, todayStart, todayStr }).group;
+  };
+
+  const getActionState = (booking: BookingWithSlot) => getBookingActionState({ booking });
+
+  const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
+    setBillingBooking(booking);
+    const receiptDate = format(new Date(), "yyyyMMdd");
+    let resolvedBill: PatientBill | undefined = existingBill;
+    if (!resolvedBill) {
+      try {
+        const billsRes = await apiRequest("GET", `/api/auth/clinic/bills/booking/${booking.id}`);
+        const bookingBills: PatientBill[] = billsRes.ok ? await billsRes.json() : [];
+        resolvedBill = bookingBills.find(b => b.paymentStatus !== "paid") ?? bookingBills[0];
+      } catch {}
+    }
+    let loadedServices: { description: string; amount: string }[];
+    let loadedRemarks = resolvedBill?.notes || "";
+    if (resolvedBill?.services) {
+      loadedServices = (resolvedBill.services as any[]).map(s => ({
+        description: (s.medicine || s.description || ""),
+        amount: String(s.amount ?? 0),
+        category: s.category,
+        dosage: s.dosage || "",
+        frequency: s.frequency || "",
+        duration: s.duration || "",
+        qty: s.qty ?? 1,
+        unitPrice: s.unitPrice,
+      }));
+    } else {
+      try {
+        const res = await apiRequest("GET", `/api/clinical-records/booking/${booking.id}`);
+        const records: { diagnosis: string[]; prescription?: string; notes?: string }[] = await res.json();
+        const record = records?.[0];
+        const diagnoses: string[] = record?.diagnosis ?? [];
+        if (diagnoses.length > 0) {
+          loadedServices = diagnoses.map(d => ({ description: d, amount: "0" }));
+        } else {
+          loadedServices = [{ description: "Dental Consultation", amount: "500" }];
+        }
+        const parts: string[] = [];
+        if (record?.prescription) {
+          try {
+            const rxRows = JSON.parse(record.prescription);
+            if (Array.isArray(rxRows) && rxRows[0]?.name) {
+              parts.push(`Rx: ${rxRows.map((r: any) => `${r.name} ${r.dosage} ${r.qty} ${r.frequency} × ${r.duration}`.trim()).join('; ')}`);
+            } else {
+              parts.push(`Rx: ${record.prescription}`);
+            }
+          } catch { parts.push(`Rx: ${record.prescription}`); }
+        }
+        if ((booking as any).doctorNotes) parts.push(`Notes: ${(booking as any).doctorNotes}`);
+        if (parts.length > 0) loadedRemarks = parts.join(" | ");
+      } catch {
+        loadedServices = [{ description: "Dental Consultation", amount: "500" }];
+      }
+    }
+    setBillingDetails({
+      patientName: booking.customerName,
+      patientPhone: booking.customerPhone,
+      patientEmail: booking.customerEmail || "",
+      clinicName: clinic?.name || "",
+      clinicAddress: (clinic as any)?.address || "",
+      clinicPhone: (clinic as any)?.phone || "",
+      clinicEmail: (clinic as any)?.email || "",
+      receiptNumber: resolvedBill?.billNumber || `RCP-${booking.id}-${receiptDate}`,
+      services: loadedServices,
+      date: format(new Date(booking.slot.startTime), "PPP"),
+      discount: String(resolvedBill?.discountPct ?? 0),
+      tax: String(resolvedBill?.taxPct ?? 0),
+      paymentMethod: resolvedBill?.paymentMethod || "Cash",
+      transactionId: "",
+      remarks: loadedRemarks,
+      paymentStatus: (resolvedBill?.paymentStatus as "paid" | "pending" | "partial") || "paid",
+      existingBillId: resolvedBill?.id,
+      printOnly: false,
+      visitId: String(booking.id),
+      doctorName: (booking as any).assignedDoctor || "",
+    });
+    setIsBillingOpen(true);
+  };
+
+  const handleConsolidatedBilling = (booking: BookingWithSlot, bills: PatientBill[]) => {
+    setBillingBooking(booking);
+    const firstBill = bills[0];
+    const dateLabel = firstBill?.createdAt ? format(new Date(firstBill.createdAt), "yyyyMMdd") : format(new Date(), "yyyyMMdd");
+    const mergedServices = bills.flatMap(bill =>
+      ((bill.services ?? []) as any[]).map(s => ({
+        description: (s.medicine || s.description || ""),
+        amount: String(s.amount ?? 0),
+        category: s.category,
+        dosage: s.dosage || "",
+        frequency: s.frequency || "",
+        duration: s.duration || "",
+        qty: s.qty ?? 1,
+        unitPrice: s.unitPrice,
+      }))
+    );
+    const allPaid = bills.every(b => b.paymentStatus === "paid");
+    const anyPartial = bills.some(b => b.paymentStatus === "partial");
+    const details: BillingDetails = {
+      patientName: booking.customerName,
+      patientPhone: booking.customerPhone,
+      patientEmail: booking.customerEmail || "",
+      clinicName: (clinic as any)?.name || "",
+      clinicAddress: (clinic as any)?.address || "",
+      clinicPhone: (clinic as any)?.phone || "",
+      clinicEmail: (clinic as any)?.email || "",
+      receiptNumber: `CONSOL-${booking.id}-${dateLabel}`,
+      services: mergedServices.length > 0 ? mergedServices : [{ description: "Dental Consultation", amount: "500", category: "Consultation" }],
+      date: firstBill?.createdAt ? format(new Date(firstBill.createdAt), "PPP") : format(new Date(booking.slot.startTime), "PPP"),
+      discount: String(firstBill?.discountPct ?? 0),
+       // Consolidated receipts use the explicit tax-exempt default; the
+       // individual bill editor remains the source of truth for bill taxes.
+       tax: "0",
+      paymentMethod: firstBill?.paymentMethod || "Cash",
+      transactionId: "",
+      remarks: bills.map(b => b.notes).filter(Boolean).join(" | ") || "",
+      paymentStatus: allPaid ? "paid" : anyPartial ? "partial" : "pending",
+      existingBillId: undefined,
+      printOnly: true,
+      visitId: String(booking.id),
+      doctorName: (booking as any).assignedDoctor || "",
+    };
+    generateReceiptPDF(details);
+  };
+
+  const addServiceRow = () => {
+    setBillingDetails(prev => ({ ...prev, services: [...prev.services, { description: "", amount: "" }] }));
+  };
+
+  const removeServiceRow = (index: number) => {
+    if (billingDetails.services.length <= 1) return;
+    setBillingDetails(prev => ({ ...prev, services: prev.services.filter((_, i) => i !== index) }));
+  };
+
+  const updateService = (index: number, field: "description" | "amount", value: string) => {
+    setBillingDetails(prev => ({ ...prev, services: prev.services.map((s, i) => i === index ? { ...s, [field]: value } : s) }));
+  };
+
+  const generatePDF = () => {
+    if (!billingBooking) return;
+    generateReceiptPDF(billingDetails);
+    if (!billingDetails.printOnly) {
+      const _saveSub = billingDetails.services.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+      const _saveDiscPct = parseFloat(billingDetails.discount) || 0;
+      const _saveTaxPct = parseFloat(billingDetails.tax) || 0;
+      const _saveDiscAmt = _saveSub * (_saveDiscPct / 100);
+      const _saveTaxAmt = (_saveSub - _saveDiscAmt) * (_saveTaxPct / 100);
+      const _saveTot = _saveSub - _saveDiscAmt + _saveTaxAmt;
+      const _billPayload = {
+        bookingId: billingBooking.id,
+        patientId: (billingBooking as any).patientId ?? null,
+        billNumber: billingDetails.receiptNumber,
+        patientName: billingDetails.patientName,
+        patientPhone: billingDetails.patientPhone,
+        patientEmail: billingDetails.patientEmail,
+        services: billingDetails.services.map(s => ({
+          description: s.description,
+          category: s.category || "General",
+          amount: parseFloat(s.amount) || 0,
+          paid: billingDetails.paymentStatus === "paid",
+          dosage: s.dosage,
+          frequency: s.frequency,
+          duration: s.duration,
+          qty: s.qty,
+          unitPrice: s.unitPrice,
+        })),
+        subtotal: _saveSub,
+        discountPct: _saveDiscPct,
+        taxPct: _saveTaxPct,
+        total: _saveTot,
+        paymentMethod: billingDetails.paymentMethod || "Cash",
+        paymentStatus: billingDetails.paymentStatus || "paid",
+        notes: billingDetails.remarks || null,
+      };
+      const _saveReq = billingDetails.existingBillId
+        ? apiRequest("PATCH", `/api/auth/clinic/bills/${billingDetails.existingBillId}`, _billPayload)
+        : apiRequest("POST", "/api/auth/clinic/bills", _billPayload);
+      _saveReq.then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills/booking", billingBooking.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills"] });
+      });
+    }
+    setIsBillingOpen(false);
+    notify.success("Receipt Downloaded", { description: billingDetails.printOnly ? "Consolidated PDF downloaded." : "PDF downloaded and saved to billing history." });
+  };
+
+  const fetchBookingPatientSearch = useCallback(async (q: string) => {
+    if (q.length < 2) { setBookingPatientResults([]); return; }
+    setBookingPatientResultsLoading(true);
+    try {
+      const res = await apiRequest('GET', `/api/auth/clinic/patients/search?q=${encodeURIComponent(q)}`);
+      if (res.ok) setBookingPatientResults(await res.json());
+      else setBookingPatientResults([]);
+    } catch { setBookingPatientResults([]); }
+    finally { setBookingPatientResultsLoading(false); }
+  }, []);
+
+  const handleBookingPatientSearchInput = (val: string) => {
+    setBookingPatientSearch(val);
+    setPatientSearchHighlightIdx(-1);
+    if (!val.trim()) { setBookingPatientResults([]); return; }
+    if (patientSearchDebounceRef.current) clearTimeout(patientSearchDebounceRef.current);
+    patientSearchDebounceRef.current = setTimeout(() => fetchBookingPatientSearch(val.trim()), 250);
+  };
+
+  const applyBookingPatientFilter = (p: Patient) => {
+    setActivePatientFilter({ id: p.id, name: p.name, patientCode: p.patientCode ?? null });
+    setBookingPatientSearch("");
+    setBookingPatientResults([]);
+    setPatientSearchFocused(false);
+    setPatientSearchHighlightIdx(-1);
+  };
+
+  const clearBookingPatientFilter = () => {
+    setActivePatientFilter(null);
+    setBookingPatientSearch("");
+    setBookingPatientResults([]);
+    setPatientSearchHighlightIdx(-1);
+  };
+
+  const cancelBookingMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      setCancellingBookingId(id);
+      const res = await apiRequest('DELETE', `/api/auth/clinic/bookings/${id}`, { reason });
+      if (!res.ok) throw new Error('Failed to cancel booking');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Booking cancelled");
+      setCancellingBookingId(null);
+      setCancelReason("");
+      setCancelReasonOther("");
+    },
+    onError: () => {
+      notify.error("Failed to cancel booking");
+      setCancellingBookingId(null);
+    },
+  });
+
+  const assignDoctorMutation = useMutation({
+    mutationFn: async ({ bookingId, doctorName, doctorEmail }: { bookingId: number; doctorName: string; doctorEmail?: string }) => {
+      const response = await apiRequest('PATCH', `/api/clinic/bookings/${bookingId}/assign-doctor`, { doctorName, doctorEmail });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Doctor assigned");
+    },
+    onError: (error: any) => { notify.apiError(error, "Failed to assign doctor"); },
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ bookingId, newSlotId }: { bookingId: number; newSlotId: number }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/reschedule`, { newSlotId });
+      if (!response.ok) throw new Error('Failed to reschedule');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      setRescheduleBookingId(null);
+      setRescheduleSlot(null);
+      notify.success("Booking rescheduled");
+    },
+    onError: (error: any) => { notify.apiError(error, "Failed to reschedule booking"); },
+  });
+
+  const updateClinicalStatusMutation = useMutation({
+    mutationFn: async ({ bookingId, clinicalStatus }: { bookingId: number; clinicalStatus: string | null }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/clinical-status`, { clinicalStatus });
+      if (!response.ok) throw new Error('Failed to update clinical status');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Clinical status updated");
+    },
+    onError: (error: any) => { notify.apiError(error, "Failed to update clinical status"); },
+  });
+
+  const checkInMutation = useMutation({
+    mutationFn: async ({ bookingId, undo }: { bookingId: number; undo?: boolean }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/checkin`, { undo: !!undo });
+      if (!response.ok) throw new Error('Failed to update check-in status');
+      return response.json();
+    },
+    onSuccess: (_data, { undo }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success(undo ? "Check-in undone" : "Patient marked as arrived");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to update check-in"),
+  });
+
+  const completeVisitMutation = useMutation({
+    mutationFn: async ({ bookingId, note }: { bookingId: number; note?: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/complete-visit`, { note });
+      if (!response.ok) throw new Error('Failed to complete visit');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Visit marked as complete");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to complete visit"),
+  });
+
+  const noShowMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason?: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/no-show`, { reason });
+      if (!response.ok) throw new Error('Failed to mark no-show');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Marked as no-show");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to mark no-show"),
+  });
+
+  const batchNoShowMutation = useMutation({
+    mutationFn: async (bookingIds: number[]) => {
+      const res = await apiRequest('POST', '/api/auth/clinic/bookings/mark-no-show-batch', { bookingIds });
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to mark no-shows');
+      return res.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings/no-show-candidates'] });
+      setSelectedNoShowIds(new Set());
+      setNoShowReviewOpen(false);
+      notify.success(`${result.marked.length} appointment${result.marked.length === 1 ? '' : 's'} marked as No-Show`,
+        result.skipped.length ? { description: `${result.skipped.length} skipped because their status changed.` } : undefined);
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to mark no-shows"),
+  });
+
+  const revertNoShowMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const res = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/revert-no-show`, {});
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to revert no-show');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("No-Show reverted");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to revert no-show"),
+  });
+
+  const sendReminderMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/send-reminder`, {});
+      if (!response.ok) throw new Error('Failed to send reminder');
+      return response.json();
+    },
+    onSuccess: () => { notify.success("Reminder sent", { description: "WhatsApp message sent to patient." }); },
+    onError: (error: any) => notify.apiError(error, "Failed to send reminder"),
+  });
+
+  const overrideCompleteMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/override-complete`, { reason });
+      if (!response.ok) throw new Error('Failed to override complete');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Visit marked as complete (override)");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to override complete"),
+  });
+
+  const patientLeftEarlyMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/patient-left-early`, { reason });
+      if (!response.ok) throw new Error('Failed to mark patient left early');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Recorded — patient left before completion");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to record early departure"),
+  });
+
+  const requestConsentMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('POST', `/api/auth/clinic/bookings/${bookingId}/request-consent`, {});
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to send consent request');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
+    },
+    onError: (error: any) => { notify.apiError(error, "Failed to send consent request"); },
+  });
+
+  const confirmBookingMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/confirm`, {});
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to confirm booking');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Booking Confirmed", { description: "A confirmation email has been sent to the patient." });
+    },
+    onError: (error: any) => { notify.apiError(error, "Failed to confirm booking"); },
+  });
+
+  const patientInfoMutation = useMutation({
+    mutationFn: async ({ bookingId, field, value }: { bookingId: number; field: string; value: string }) => {
+      const payload: Record<string, string | number | null> =
+        field === 'age' ? { customerAge: value === '' ? null : Number(value) } :
+        field === 'name'   ? { customerName: value } :
+        field === 'phone'  ? { customerPhone: value || null } :
+        field === 'email'  ? { customerEmail: value || null } :
+        field === 'gender' ? { customerGender: value || null } : {};
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/patient-info`, payload);
+      if (!response.ok) { const err = await response.json(); throw new Error(err.message || 'Failed to update'); }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
+      notify.success("Patient info updated");
+      setEditingField(null);
+    },
+    onError: (error: any) => { notify.apiError(error, "Failed to update patient info"); },
+  });
+
+  const todayConfirmedCount = bookingStats?.todayConfirmedCount ?? 0;
+  const pendingNext7Count   = bookingStats?.pendingNext7Count ?? 0;
+  const totalPendingCount   = bookingStats?.totalPendingCount ?? 0;
+  const confirmedNext7Count = bookingStats?.confirmedNext7Count ?? 0;
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  return (
+          <div className="space-y-5" ref={bookingsSectionRef}>
+        {/* Panel header — desktop only (mobile header lives in ClinicDashboard above stats) */}
+        <div className="hidden sm:block rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+          <div className="flex">
+            <div className="w-1.5 bg-sky-500/60 shrink-0" />
+            <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                <CalendarIcon className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold tracking-tight">Bookings</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Manage all patient appointments</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Quick-filter chips + inline search — single unified row */}
+        <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
+          {!chipsCollapsed && (
+          <div className="flex flex-wrap gap-1.5 w-full order-2 sm:contents">
+          {/* Today */}
+          <button
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+              quickFilter === 'today'
+                ? 'bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400'
+                : 'bg-transparent border-sky-400/30 text-muted-foreground hover:bg-sky-500/10 hover:text-sky-700 dark:hover:text-sky-400'
+            }`}
+            data-testid="chip-filter-today"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Today</span>
+            </span>
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'today' ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400' : 'bg-muted text-muted-foreground'
+            }`}>{todaysBookingsCount}</span>
+          </button>
+
+          {/* Upcoming */}
+          <button
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming'); }}
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+              quickFilter === 'upcoming'
+                ? 'bg-primary/10 border-primary/40 text-primary'
+                : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
+            }`}
+            data-testid="chip-filter-upcoming"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Upcoming</span>
+            </span>
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'upcoming' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+            }`}>{futureBookingsCount}</span>
+          </button>
+
+          {/* Awaiting Confirmation */}
+          <button
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'all-pending' ? 'all' : 'all-pending'); }}
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+              quickFilter === 'all-pending'
+                ? 'bg-amber-500/10 border-amber-400/50 text-amber-700 dark:text-amber-400'
+                : 'bg-transparent border-amber-400/30 text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400'
+            }`}
+            data-testid="chip-filter-awaiting"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Awaiting</span>
+            </span>
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'all-pending' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground'
+            }`}>{bookingStats?.totalPendingCount ?? 0}</span>
+          </button>
+
+          {/* Past */}
+          <button
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+              quickFilter === 'past'
+                ? 'bg-slate-500/10 border-slate-400/40 text-slate-600 dark:text-slate-400'
+                : 'bg-transparent border-slate-400/30 text-muted-foreground hover:bg-slate-500/10 hover:text-slate-600 dark:hover:text-slate-400'
+            }`}
+            data-testid="chip-filter-past"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <History className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Past</span>
+            </span>
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'past' ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400' : 'bg-muted text-muted-foreground'
+            }`}>{pastBookingsCount}</span>
+          </button>
+
+          {/* All Bookings */}
+          <button
+            onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+              quickFilter === 'all'
+                ? 'bg-primary/10 border-primary/40 text-primary'
+                : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
+            }`}
+            data-testid="chip-filter-all"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <Filter className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">All Bookings</span>
+            </span>
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+            }`}>{bookingStats?.totalAllCount ?? 0}</span>
+          </button>
+          </div>)}
+
+          {/* Search slot — magnifier, expanded input, or active-patient chip */}
+          <div className="relative w-full sm:flex-1">
+            {activePatientFilter ? (
+              /* Active patient filter chip */
+              <div className="flex items-center gap-2.5 bg-card border border-primary/40 rounded-xl px-3 min-h-[44px] shadow-sm ring-1 ring-primary/10">
+                <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <User className="h-3 w-3 text-primary" />
+                </div>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-foreground truncate">{activePatientFilter.name}</span>
+                  {activePatientFilter.patientCode && (
+                    <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                      {activePatientFilter.patientCode}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground/70 shrink-0">
+                    · {bookingsTotal} visit{bookingsTotal !== 1 ? "s" : ""} total
+                  </span>
+                </div>
+                <button
+                  onClick={clearBookingPatientFilter}
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 active:scale-[0.97]"
+                  data-testid="button-clear-patient-filter"
+                  title="Clear patient filter"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : searchOpen ? (
+              /* Expanded search input + filter/legend icons when collapsed */
+                                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5 justify-self-start">
+                <div className={`flex-1 flex items-center gap-2.5 bg-card border rounded-xl px-3 min-h-[44px] shadow-sm transition-all duration-150 ${
+                  patientSearchFocused
+                    ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
+                    : 'border-border/50 hover:border-border'
+                }`}>
+                  {bookingPatientResultsLoading
+                    ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
+                    : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  }
+                  <input
+                    ref={patientSearchInputRef}
+                    type="text"
+                    value={bookingPatientSearch}
+                    onChange={e => handleBookingPatientSearchInput(e.target.value)}
+                    onFocus={() => setPatientSearchFocused(true)}
+                    onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
+                    onKeyDown={e => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
+                      } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
+                        e.preventDefault();
+                        applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
+                      } else if (e.key === 'Escape') {
+                        setBookingPatientSearch("");
+                        setBookingPatientResults([]);
+                        setPatientSearchFocused(false);
+                        setSearchOpen(false);
+                        patientSearchInputRef.current?.blur();
+                      }
+                    }}
+                    placeholder="Search patient — name, PAT code, phone or email…"
+                    className="flex-1 min-w-0 bg-transparent text-xs text-foreground outline-none border-none focus:ring-0 h-5 leading-none"
+                    data-testid="input-booking-patient-search"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      setBookingPatientSearch("");
+                      setBookingPatientResults([]);
+                      setSearchOpen(false);
+                    }}
+                    className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    title="Close search"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                <button
+                  onClick={() => setChipsCollapsed(c => !c)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] shrink-0 ${
+                    chipsCollapsed
+                      ? 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                      : 'bg-primary/10 border-primary/40 text-primary'
+                  }`}
+                  data-testid="button-toggle-chips"
+                  title={chipsCollapsed ? "Show filter chips" : "Hide filter chips"}
+                >
+                  <LayoutList className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setFilterRowOpen(open => !open)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] shrink-0 ${
+                    filterRowOpen
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                  }`}
+                  data-testid="button-toggle-filter-row"
+                  title={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-label={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-expanded={filterRowOpen}
+                  aria-controls="appointment-filters"
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                </button>
+                {legendCollapsed && (
+                  <button
+                    onClick={() => setLegendCollapsed(false)}
+                    title="Show colour legend"
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex flex-col items-center justify-center gap-[5px] hover:border-primary/40 hover:bg-muted/80 transition-all active:scale-[0.97] shrink-0"
+                  >
+                    <div className="flex items-center gap-[3px]">
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-sky-400 shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-primary shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
+                    </div>
+                    <div className="flex items-end gap-[3px]">
+                      <span className="h-[9px] w-[5px] rounded-sm bg-emerald-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-amber-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-rose-400 shrink-0" />
+                    </div>
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* Collapsed — magnifier + optional filter icon + legend toggle */
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setSearchOpen(true); setTimeout(() => patientSearchInputRef.current?.focus(), 50); }}
+                  className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97]"
+                  data-testid="button-open-patient-search"
+                  title="Search patient"
+                >
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={() => setFilterRowOpen(open => !open)}
+                  className={`h-11 w-11 rounded-xl border flex items-center justify-center transition-all active:scale-[0.97] ${
+                    filterRowOpen
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'bg-muted/50 border-border hover:border-primary/40 hover:text-primary'
+                  }`}
+                  data-testid="button-toggle-filter-row"
+                  title={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-label={filterRowOpen ? "Hide appointment filters" : "Show appointment filters"}
+                  aria-expanded={filterRowOpen}
+                  aria-controls="appointment-filters"
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                </button>
+                {/* Legend toggle — mini coloured-lines icon; only when legend is hidden */}
+                {legendCollapsed && (
+                  <button
+                    onClick={() => setLegendCollapsed(false)}
+                    title="Show colour legend"
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex flex-col items-center justify-center gap-[5px] hover:border-primary/40 hover:bg-muted/80 transition-all active:scale-[0.97]"
+                  >
+                    {/* Row 1: WHEN — horizontal dashes (3 × 5px = 21px total) */}
+                    <div className="flex items-center gap-[3px]">
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-sky-400 shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-primary shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
+                    </div>
+                    {/* Row 2: STATUS — vertical bars (3 × 5px = 21px total) */}
+                    <div className="flex items-end gap-[3px]">
+                      <span className="h-[9px] w-[5px] rounded-sm bg-emerald-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-amber-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-rose-400 shrink-0" />
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Dropdown results */}
+            {patientSearchFocused && !activePatientFilter && (
+              <>
+                {bookingPatientResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl overflow-hidden">
+                    {bookingPatientResults.map((p, i) => (
+                      <button
+                        key={p.id}
+                        onMouseDown={e => { e.preventDefault(); applyBookingPatientFilter(p); }}
+                        onMouseEnter={() => setPatientSearchHighlightIdx(i)}
+                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors border-b border-border/30 last:border-0 ${
+                          i === patientSearchHighlightIdx ? 'bg-primary/10' : 'hover:bg-muted/60'
+                        }`}
+                        data-testid={`result-patient-${p.id}`}
+                      >
+                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-xs text-primary">
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground">{p.name}</span>
+                            {p.patientCode && (
+                              <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1 py-0.5 rounded-md leading-none">
+                                {p.patientCode}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {p.phone && (
+                              <span className="text-xs text-muted-foreground">
+                                ••••• {p.phone.slice(-4)}
+                              </span>
+                            )}
+                            {p.phone && p.email && <span className="text-muted-foreground/30">·</span>}
+                            {p.email && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[160px]">{p.email}</span>
+                            )}
+                          </div>
+                        </div>
+                        {(p.visitCount ?? 0) > 0 && (
+                          <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0 tabular-nums">
+                            {p.visitCount}v
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {bookingPatientSearch.length >= 2 && !bookingPatientResultsLoading && bookingPatientResults.length === 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl px-4 py-3.5 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      No patients found for{" "}
+                      <span className="font-semibold text-foreground">"{bookingPatientSearch}"</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">Try a different name, phone, email or PAT code</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        <AppointmentFilters
+          role="clinic"
+          filterDate={filterDate}
+          setFilterDate={setFilterDate}
+          filterEndDate={filterEndDate}
+          setFilterEndDate={setFilterEndDate}
+          quickFilter={quickFilter}
+          setQuickFilter={setQuickFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          roleFilter={doctorFilter}
+          setRoleFilter={setDoctorFilter}
+          roleOptions={[
+            { value: "__unassigned__", label: "Unassigned" },
+            ...(((clinic?.doctors as any[]) || [])
+              .filter((doctor: any) => doctor.email)
+              .map((doctor: any, index: number) => ({
+                value: doctor.email,
+                label: doctor.name || doctor.email || `Doctor ${index + 1}`,
+              }))),
+          ]}
+          filterRowOpen={filterRowOpen}
+          onClose={() => setFilterRowOpen(false)}
+          thisWeekCount={thisWeekCount}
+          nextWeekCount={nextWeekCount}
+        />
+        {false && <>
+        {/* Legacy filter markup retained during shared filter migration */}
+        {filterRowOpen && (
+          <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-3 shadow-sm">
+
+            {/* Desktop-only: icon + label */}
+            <div className="hidden sm:flex sm:flex-none items-center gap-1.5">
+              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
+            </div>
+
+            {/* Mobile row 1: Start + End + × all inline | Desktop: Start → End flow naturally */}
+            <div className="flex items-center gap-2 sm:contents">
+
+              {/* Start picker */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`flex-1 sm:flex-none h-11 sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                      filterDate
+                        ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                        : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                    }`}
+                  >
+                    <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
+                    {filterDate ? format(filterDate!, "MMM d") : "Start"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                  <Calendar mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} initialFocus />
+                </PopoverContent>
+              </Popover>
+
+              {/* Desktop-only: → arrow */}
+              <span className="hidden sm:inline text-muted-foreground/40 text-xs shrink-0">→</span>
+
+              {/* End picker */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!filterDate}
+                    className={`flex-1 sm:flex-none h-11 sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                      filterEndDate
+                        ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                        : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                    }`}
+                  >
+                    <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
+                    {filterEndDate ? format(filterEndDate!, "MMM d") : "End"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                  <Calendar mode="single" selected={filterEndDate} onSelect={(d) => setFilterEndDate(d)} initialFocus />
+                </PopoverContent>
+              </Popover>
+
+              {/* Close × — mobile: right of End picker | desktop: hidden here (rendered below at ml-auto) */}
+              <button
+                onClick={() => setFilterRowOpen(false)}
+                className="sm:hidden h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
+                data-testid="button-close-filter-row"
+                title="Hide date & week filters"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+            </div>
+
+            {/* Clear dates — full-width on mobile, inline on desktop */}
+            {(filterDate || filterEndDate) && (
+              <div className="flex items-center gap-1.5 sm:contents">
+                <div className="w-px h-4 bg-border/50 shrink-0 hidden sm:block" />
+                <button
+                  onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1 h-11 sm:h-auto min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                  data-testid="button-clear-date-filter"
+                >
+                  <X className="h-3 w-3" />
+                  Clear dates
+                </button>
+              </div>
+            )}
+
+            {/* Desktop-only divider */}
+            <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />
+
+            {/* Mobile row 2: This Week + Next Week | Desktop: inline */}
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+
+              {/* This Week */}
+              <TooltipProvider delayDuration={700}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
+                      data-testid="chip-filter-this-week"
+                      className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                        quickFilter === 'this-week'
+                          ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50'
+                          : 'bg-background text-muted-foreground border-violet-400/30 hover:text-violet-600 active:bg-violet-500/10'
+                      }`}
+                    >
+                      <CalendarIcon className="h-3 w-3 shrink-0" />
+                      This Week
+                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400' : 'bg-violet-500/10 text-violet-600'}`}>
+                        {thisWeekCount}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                    Bookings falling within the current Mon–Sun week
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Next Week */}
+              <TooltipProvider delayDuration={700}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
+                      data-testid="chip-filter-next-week"
+                      className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                        quickFilter === 'next-week'
+                          ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-400/50'
+                          : 'bg-background text-muted-foreground border-indigo-400/30 hover:text-indigo-600 active:bg-indigo-500/10'
+                      }`}
+                    >
+                      <CalendarDays className="h-3 w-3 shrink-0" />
+                      Next Week
+                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                        {nextWeekCount}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                    Bookings falling within next Mon–Sun week
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+            </div>
+
+            {/* Clear week — full-width on mobile, inline on desktop */}
+            {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
+              <button
+                onClick={() => setQuickFilter('all')}
+                className="w-full sm:w-auto h-11 sm:h-auto inline-flex items-center justify-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                data-testid="button-clear-week-filter"
+              >
+                <X className="h-3 w-3" />
+                Clear week
+              </button>
+            )}
+
+            {/* Additional date presets */}
+            <div className="border-t border-border/40 pt-2 mt-1 flex flex-wrap gap-2 sm:contents sm:border-0 sm:pt-0 sm:mt-0">
+              {[
+                { key: 'tomorrow', label: 'Tomorrow', from: addDays(startOfToday(), 1), to: addDays(startOfToday(), 1) },
+                { key: 'last-7', label: 'Last 7 Days', from: addDays(startOfToday(), -6), to: startOfToday() },
+                { key: 'month', label: 'This Month', from: new Date(new Date().getFullYear(), new Date().getMonth(), 1), to: startOfToday() },
+              ].map(preset => {
+                const active = filterDate && filterEndDate &&
+                  format(filterDate, 'yyyy-MM-dd') === format(preset.from, 'yyyy-MM-dd') &&
+                  format(filterEndDate, 'yyyy-MM-dd') === format(preset.to, 'yyyy-MM-dd');
+                return (
+                  <button
+                    key={preset.key}
+                    onClick={() => {
+                      if (active) { setFilterDate(undefined); setFilterEndDate(undefined); }
+                      else { setQuickFilter('all'); setFilterDate(preset.from); setFilterEndDate(preset.to); }
+                    }}
+                    className={`flex-1 sm:flex-none min-h-[44px] px-3 rounded-full border text-xs font-semibold transition-all active:scale-[0.97] ${
+                      active ? 'bg-primary/10 text-primary border-primary/50' : 'bg-background text-muted-foreground border-border/60 hover:border-primary/40 hover:text-primary'
+                    }`}
+                    data-testid={`chip-date-${preset.key}`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Status filters */}
+            <div className="w-full border-t border-border/40 pt-2 mt-1 flex flex-wrap items-center gap-2 sm:w-auto sm:border-0 sm:pt-0 sm:mt-0">
+              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status</span>
+              {([
+                ['in-clinic', 'In Clinic Now', 'Activity'],
+                ['completed', 'Visit Completed', 'CheckCircle2'],
+                ['cancelled', 'Cancelled', 'X'],
+                ['no-show', 'No Show', 'UserX'],
+              ] as const).map(([value, label, icon]) => (
+                <button
+                  key={value}
+                  onClick={() => setStatusFilter(statusFilter === value ? '' : value)}
+                  className={`flex-1 sm:flex-none min-h-[44px] px-3 rounded-full border text-xs font-semibold transition-all active:scale-[0.97] ${
+                    statusFilter === value ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50' : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400/40 hover:text-violet-600'
+                  }`}
+                  data-testid={`chip-status-${value}`}
+                >
+                  {icon === 'Activity' ? <Activity className="inline h-3 w-3 mr-1" /> : icon === 'CheckCircle2' ? <CheckCircle2 className="inline h-3 w-3 mr-1" /> : icon === 'UserX' ? <UserX className="inline h-3 w-3 mr-1" /> : <X className="inline h-3 w-3 mr-1" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Doctor filter — clinic admin only */}
+            <div className="w-full border-t border-border/40 pt-2 mt-1 sm:w-auto sm:border-0 sm:pt-0 sm:mt-0">
+              <Select value={doctorFilter || 'all'} onValueChange={value => setDoctorFilter(value === 'all' ? '' : value)}>
+                <SelectTrigger className="h-11 w-full sm:w-[190px] text-xs rounded-lg" data-testid="select-doctor-filter">
+                  <SelectValue placeholder="All Doctors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Doctors</SelectItem>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {((clinic?.doctors as any[]) || []).map((doctor: any, index: number) => (
+                    <SelectItem key={`${doctor.email || doctor.name}-${index}`} value={doctor.email || doctor.name}>
+                      {doctor.name || doctor.email || 'Doctor'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Desktop-only close × at far right */}
+            <div className="hidden sm:flex sm:ml-auto">
+              <button
+                onClick={() => setFilterRowOpen(false)}
+                className="h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
+                title="Hide date & week filters"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+          </div>
+        )}
+        </>}
+
+        {/* Bookings Section */}
+        <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">
+
+          {/* Bookings header */}
+          <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between shrink-0">
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight">
+                {quickFilter === 'today' ? "Today's Bookings"
+                  : quickFilter === 'upcoming' ? "Upcoming Bookings"
+                  : quickFilter === 'past' ? "Past Bookings"
+                  : quickFilter === 'this-week' ? "This Week"
+                  : quickFilter === 'next-week' ? "Next Week"
+                  : quickFilter === 'today-confirmed' ? "Confirmed Bookings Today"
+                  : quickFilter === 'pending-7days' ? "Pending Confirmations (Next 7 Days)"
+                  : quickFilter === 'all-pending' ? "All Pending Bookings"
+                  : quickFilter === 'confirmed-7days' ? "Confirmed Bookings (Next 7 Days)"
+                  : filterDate ? "Filtered Bookings"
+                  : "Bookings"}
+              </h2>
+              <p className="text-white/70 text-xs mt-0.5">
+                {quickFilter === 'today' ? "Appointments for today"
+                  : quickFilter === 'upcoming' ? "Future appointments"
+                  : quickFilter === 'past' ? "Previous appointments"
+                  : quickFilter === 'this-week' ? "Appointments Mon – Sun"
+                  : quickFilter === 'next-week' ? "Appointments for next week"
+                  : quickFilter === 'today-confirmed' ? "Confirmed appointments scheduled for today"
+                  : quickFilter === 'pending-7days' ? "Pending confirmations in the next 7 days"
+                  : quickFilter === 'all-pending' ? "All unconfirmed bookings across all dates"
+                  : quickFilter === 'confirmed-7days' ? "Confirmed appointments in the next 7 days"
+                  : filterDate ? "Showing custom date range"
+                  : "All patient appointments"}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onNavigate("export-data")}
+              className="gap-2 text-white/80 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
+              data-testid="button-go-to-export"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Export</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setNoShowReviewOpen(true)}
+              className="gap-2 text-white/90 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
+              data-testid="button-review-no-shows">
+              {noShowCandidatesQuery.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
+              <span>Review No-Shows{noShowCandidatesQuery.data ? ` (${noShowCandidatesQuery.data.length})` : ""}</span>
+            </Button>
+          </div>
+
+          <Dialog open={noShowReviewOpen} onOpenChange={setNoShowReviewOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Review past appointments</DialogTitle>
+                <DialogDescription>Select appointments where the patient did not arrive, then mark them as No-Show.</DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center justify-between border-b pb-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={(noShowCandidatesQuery.data?.length ?? 0) > 0 && selectedNoShowIds.size === noShowCandidatesQuery.data!.length}
+                    onChange={(e) => setSelectedNoShowIds(e.target.checked ? new Set(noShowCandidatesQuery.data!.map(b => b.id)) : new Set())} />
+                  Select all
+                </label>
+                <span className="text-xs text-muted-foreground">{selectedNoShowIds.size} selected</span>
+              </div>
+              <div className="max-h-[50vh] overflow-y-auto space-y-1">
+                {noShowCandidatesQuery.isError ? <div className="py-8 text-center text-sm text-destructive">Unable to load past appointments. Please try again.</div>
+                  : noShowCandidatesQuery.isLoading ? <div className="py-8 text-center text-sm text-muted-foreground">Loading appointments…</div>
+                  : !noShowCandidatesQuery.data?.length ? <div className="py-8 text-center text-sm text-muted-foreground">No past confirmed appointments need review.</div>
+                  : noShowCandidatesQuery.data.map(b => (
+                    <label key={b.id} className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/40 cursor-pointer">
+                      <input type="checkbox" checked={selectedNoShowIds.has(b.id)}
+                        onChange={(e) => setSelectedNoShowIds(prev => { const next = new Set(prev); e.target.checked ? next.add(b.id) : next.delete(b.id); return next; })} />
+                      <span className="min-w-0 flex-1"><span className="block text-sm font-semibold truncate">{b.customerName}</span>
+                        <span className="block text-xs text-muted-foreground">{format(new Date(b.slot.startTime), "EEE, d MMM yyyy · h:mm a")} · {b.assignedDoctor || "No doctor assigned"}</span></span>
+                    </label>
+                  ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setNoShowReviewOpen(false)}>Cancel</Button>
+                <Button disabled={!selectedNoShowIds.size || batchNoShowMutation.isPending}
+                  onClick={() => batchNoShowMutation.mutate([...selectedNoShowIds])}>
+                  {batchNoShowMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Mark {selectedNoShowIds.size || ""} as No-Show
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+        <div className="p-5 space-y-5">
+        {/* ── Colour key: both card borders = lifecycle status; date badge = timing ── */}
+        {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && !legendCollapsed && (
+          <div className="border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
+
+            {/* ── Mobile layout: 4-col grid for exact vertical alignment ── */}
+            <div className="grid grid-cols-[46px_1fr_1fr_1fr] gap-x-2 gap-y-1.5 items-center sm:hidden">
+              {/* STATUS row 1: label | Confirmed | Pending | Cancelled */}
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">Status</span>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                      <span className="text-xs font-medium text-emerald-500 truncate">Confirmed</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">Confirmed · Visit Completed</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
+                <span className="text-xs font-medium text-amber-500 truncate">Pending</span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-rose-400" />
+                <span className="text-xs font-medium text-rose-500 truncate">Cancelled</span>
+              </div>
+              {/* STATUS row 2: empty | No Show | In Consult | Completed */}
+              <span />
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">No Show</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">No Show · Left Early</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      {/* Ring swatch — matches full-border card treatment for active visit states */}
+                      <span className="h-4 w-4 rounded-sm shrink-0 border-2 border-violet-500 bg-transparent" />
+                      <span className="text-xs font-medium text-violet-600 dark:text-violet-400 truncate">In Consult</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                <span className="text-xs font-medium text-emerald-500 truncate">Completed</span>
+              </div>
+            </div>
+
+            {/* ── Desktop layout: single flex row ── */}
+            <div className="hidden sm:flex sm:items-center sm:gap-x-3 group">
+              <div className="flex items-center gap-x-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">Status</span>
+                {/* Confirmed */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                  <span className="text-xs font-medium text-emerald-500">Confirmed</span>
+                </div>
+                {/* Pending */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
+                  <span className="text-xs font-medium text-amber-500">Pending</span>
+                </div>
+                {/* Cancelled */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-rose-400" />
+                  <span className="text-xs font-medium text-rose-500">Cancelled</span>
+                </div>
+                {/* No Show — includes early exit */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">No Show</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">No Show · Left Early</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {/* In Consult — includes checked in and treatment completed */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-4 rounded-sm shrink-0 border-2 border-violet-500 bg-transparent" />
+                        <span className="text-xs font-medium text-violet-600 dark:text-violet-400">In Consult</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {/* Completed */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                  <span className="text-xs font-medium text-emerald-500">Completed</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setLegendCollapsed(true)}
+                title="Hide legend"
+                className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150 motion-reduce:transition-none p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {bookingsLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <BookingCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : bookingsError ? (
+          <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-900/20 p-3 text-rose-600 dark:text-rose-400 shadow-sm">
+              <AlertCircle className="h-8 w-8" />
+            </div>
+            <div className="space-y-1.5 max-w-[320px]">
+              <p className="text-base font-semibold text-foreground">We couldn’t load your bookings</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {bookingsErrorDetails instanceof Error ? bookingsErrorDetails.message : "The booking service is temporarily unavailable. Please try again in a moment."}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-9"
+              onClick={() => refetchBookings()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Try again
+            </Button>
+          </div>
+        ) : (
+          <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Date-only filter results count — shown when a date/week range is active but no patient is selected */}
+            {!activePatientFilter && (filterDate || filterEndDate || (quickFilter !== 'all' && quickFilter !== 'today' && quickFilter !== 'upcoming' && quickFilter !== 'past')) && bookingsForDialog.length > 0 && (
+              <div className="col-span-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground" data-testid="filter-results-count">
+                <Filter className="h-3 w-3 shrink-0" />
+                Showing {bookingsForDialog.length} result{bookingsForDialog.length !== 1 ? 's' : ''}
+                {filterDate && !filterEndDate && ` for ${format(filterDate, 'MMM d, yyyy')}`}
+                {filterDate && filterEndDate && ` for ${format(filterDate, 'MMM d')} – ${format(filterEndDate, 'MMM d, yyyy')}`}
+              </div>
+            )}
+            {activePatientFilter && bookingsForDialog.length > 0 && (
+              <div className="col-span-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-primary/5 border border-primary/15" data-testid="patient-filter-banner">
+                <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-xs font-semibold text-primary flex-1 min-w-0 truncate">
+                  {activePatientFilter.name}
+                  {activePatientFilter.patientCode && (
+                    <span className="ml-1.5 font-mono text-primary/70">{activePatientFilter.patientCode}</span>
+                  )}
+                  <span className="text-primary/60 font-normal ml-1.5">
+                    {bookingsTotal > 0 && filteredBookings.length < bookingsTotal
+                      ? `· Showing ${filteredBookings.length} of ${bookingsTotal} visit${bookingsTotal !== 1 ? 's' : ''}`
+                      : `· ${filteredBookings.length} visit${filteredBookings.length !== 1 ? 's' : ''} total`
+                    }
+                  </span>
+                </span>
+                {filteredBookings.length >= 2 && (
+                  <button
+                    onClick={() => {
+                      if (collapsedBookingIds.size === 0) {
+                        setCollapsedBookingIds(new Set(bookingsForDialog.map((b: any) => b.id)));
+                      } else {
+                        setCollapsedBookingIds(new Set());
+                      }
+                    }}
+                    className="shrink-0 text-xs font-semibold text-primary/70 hover:text-primary flex items-center gap-1 px-2 py-1 rounded-md hover:bg-primary/10 transition-colors"
+                    data-testid="button-toggle-collapse-all"
+                  >
+                    {collapsedBookingIds.size === 0 ? (
+                      <><Minimize2 className="h-3 w-3" />Collapse all</>
+                    ) : collapsedBookingIds.size < filteredBookings.length ? (
+                      <><Maximize2 className="h-3 w-3" />Expand remaining</>
+                    ) : (
+                      <><Maximize2 className="h-3 w-3" />Expand all</>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+            {bookingsForDialog.length === 0 ? (
+              <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
+                <div className="rounded-2xl overflow-hidden bg-white/70 dark:bg-muted/20 p-2 shadow-sm">
+                  <img
+                    src={noBookingsImg}
+                    alt="No bookings found"
+                    className="w-32 h-32 object-contain dark:opacity-75"
+                    draggable={false}
+                  />
+                </div>
+
+                {/* ── Headline + detail ── */}
+                <div className="space-y-1.5 max-w-[280px]">
+                  <p className="text-base font-semibold text-foreground">
+                    {emptyStateMeta.title}
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {emptyStateMeta.detail}
+                  </p>
+                </div>
+
+                {/* ── Bottom action buttons ── */}
+                <div className="flex flex-wrap justify-center gap-2">
+                  {(quickFilter !== 'all' || filterDate || filterEndDate) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs h-9"
+                      onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); clearBookingPatientFilter(); }}
+                      data-testid="button-clear-filters-empty"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear all filters
+                    </Button>
+                  )}
+                  {!activePatientFilter && quickFilter === 'all' && !filterDate && (
+                    <Button
+                      size="sm"
+                      className="gap-1.5 text-xs h-9 bg-primary hover:bg-primary/90"
+                      onClick={() => onNavigate('configure-slots')}
+                      data-testid="button-configure-slots-empty"
+                    >
+                      Configure Slots →
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              (() => {
+                // Group into Future/Today and Past for mixed-date filters (no date override applied)
+                const isGrouped = (quickFilter === 'all' || quickFilter === 'all-pending') && !filterDate && !filterEndDate;
+                const groupConfig = [
+                  { label: 'Future / Today', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
+                  { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
+                ];
+                let lastGroup = -1;
+                return bookingsForDialog?.flatMap((booking) => {
+                const bookingDateTime = new Date(booking.slot.startTime);
+                const classification = classifyClientBooking(booking, "clinic", createClientBookingDateContext());
+                const isBookingToday = classification.isToday;
+                const isBookingPast = classification.isOld;
+                const isConfirmed = classification.isConfirmed;
+                const isCancelled = classification.normalizedLifecycle === "cancelled";
+
+                // Visit lifecycle states come from the shared classifier.
+                const modalIsVisitCompleted = classification.isCompleted;
+                const modalIsTreatmentCompleted = classification.isTreatmentCompleted;
+                const modalIsInConsultation = classification.normalizedLifecycle === "in_consultation";
+                const modalIsCheckedIn = classification.normalizedLifecycle === "checked_in";
+                const modalIsNoShow = classification.normalizedLifecycle === "no_show";
+                const modalIsLeftEarly = classification.isEarlyExit;
+                const modalIsTerminal = classification.isTerminal;
+
+                // Top accent bar — TIME dimension (when is the appointment?)
+                const accentBar = isBookingToday
+                  ? "bg-gradient-to-r from-sky-400 to-cyan-400"
+                  : isBookingPast
+                  ? "bg-gradient-to-r from-slate-400 to-slate-300"
+                  : "bg-gradient-to-r from-primary to-accent";
+
+                // Card header tint — follows time dimension
+                const headerBg = isBookingToday
+                  ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
+                  : isBookingPast
+                  ? "bg-muted/30"
+                  : "bg-gradient-to-r from-primary/5 to-accent/5";
+
+                // Time pill — WHEN is the appointment
+                const timeLabel = isBookingToday ? "Today" : isBookingPast ? "Past" : "Upcoming";
+                const timeClass = isBookingToday
+                  ? "text-sky-600 bg-sky-500/10 border-sky-500/25 dark:text-sky-400 dark:bg-sky-400/10 dark:border-sky-500/30"
+                  : isBookingPast
+                  ? "text-muted-foreground bg-muted/50 border-border/50"
+                  : "text-primary bg-primary/10 border-primary/25";
+
+                // Status pill — WHAT is the verification state
+                const statusLabel = isCancelled ? "Cancelled" : isConfirmed ? "Confirmed" : "Pending";
+                const statusClass = isCancelled
+                  ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
+                  : isConfirmed
+                  ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
+                  : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
+
+                // Left border — STATUS dimension (confirmation state at a glance)
+                const cardOpacity = isBookingPast ? "opacity-75" : "";
+                const leftBorder = isCancelled
+                  ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
+                  : isConfirmed
+                  ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
+                  : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
+
+                const complaints = booking.description
+                  ? CHIEF_COMPLAINTS.filter(c =>
+                      booking.description!.toLowerCase().includes(c.toLowerCase())
+                    )
+                  : [];
+
+                const isPending = !isConfirmed && !isBookingPast;
+                const group = isGrouped ? getTimeGroup(booking, now) : -1;
+                const showDivider = isGrouped && group !== lastGroup;
+                const actionState = getActionState(booking);
+                // Monotonic guard: once we enter the Past group, never step back to Future/Today
+                // even if a stale mis-sorted item arrives (e.g. cross-midnight pagination).
+                if (isGrouped) lastGroup = Math.max(lastGroup, group);
+                const groupCfg = groupConfig[Math.max(0, group)];
+                return [
+                  showDivider ? (
+                    <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-2 mb-1">
+                      <div className="h-px flex-1 bg-border/50" />
+                      <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
+                        {groupCfg.label}
+                        <span className="font-black opacity-70">— {filteredBookings?.filter(b => getTimeGroup(b, now) === group).length ?? 0}</span>
+                      </span>
+                      <div className="h-px flex-1 bg-border/50" />
+                      <button
+                        onClick={() => setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }))}
+                        aria-label={collapsedGroups[group] ? `Expand ${groupCfg.label}` : `Collapse ${groupCfg.label}`}
+                        className={`h-11 w-11 flex items-center justify-center rounded-xl border border-border/50 bg-background hover:bg-muted/60 active:bg-muted/80 active:scale-[0.95] transition-all shrink-0`}
+                      >
+                        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsedGroups[group] ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+                  ) : null,
+                <Dialog
+                  key={booking.id}
+                  open={openBookingId === booking.id}
+                  onOpenChange={(open) => { if (!open) { setOpenBookingId(null); setDialogExpanded(false); } }}
+                >
+                  {!collapsedGroups[group] && <AppointmentCard
+                    role="clinic"
+                    booking={booking}
+                    classification={classifyClientBooking(booking, "clinic", createClientBookingDateContext())}
+                    bookingNumber={bookingReference(booking)}
+                    complaints={complaints}
+                          visitNumber={visitNumberMap.get(booking.id)?.n}
+                          totalVisits={visitNumberMap.get(booking.id)?.total}
+                          latestLabel={visitNumberMap.get(booking.id)?.latestLabel}
+                    isCollapsed={collapsedBookingIds.has(booking.id)}
+                    onToggleCollapse={() => setCollapsedBookingIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(booking.id)) next.delete(booking.id);
+                      else next.add(booking.id);
+                      return next;
+                    })}
+                    onCardClick={() => setOpenBookingId(booking.id)}
+                    onConfirm={() => actionState.canConfirm && confirmBookingMutation.mutate(booking.id)}
+                    onCancel={(reason) => actionState.canCancel && cancelBookingMutation.mutate({ id: booking.id, reason })}
+                    onBill={() => {
+                      // The card lives inside the booking dialog shell. Open the
+                      // rendered Billing tab rather than the legacy receipt-editor
+                      // state, which is intentionally not mounted in this panel.
+                      setOpenBookingId(booking.id);
+                      setModalTab(booking.id, 'billing');
+                    }}
+                    onAssignDoctor={(name, email) => actionState.canAssignDoctor && assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: name, doctorEmail: email })}
+                    assignDoctorPending={assignDoctorMutation.isPending}
+                    confirmPending={confirmBookingMutation.isPending}
+                    onCheckIn={() => actionState.canCheckIn && checkInMutation.mutate({ bookingId: booking.id })}
+                    onUndoCheckIn={() => actionState.canCheckIn && checkInMutation.mutate({ bookingId: booking.id, undo: true })}
+                    onCompleteVisit={(note) => actionState.canCompleteVisit && completeVisitMutation.mutate({ bookingId: booking.id, note })}
+                    onNoShow={(reason) => actionState.canNoShow && noShowMutation.mutate({ bookingId: booking.id, reason })}
+                    noShowPending={noShowMutation.isPending}
+                    onRevertNoShow={() => revertNoShowMutation.mutate(booking.id)}
+                    revertNoShowPending={revertNoShowMutation.isPending && revertNoShowMutation.variables === booking.id}
+                    onSendReminder={() => actionState.canSendReminder && sendReminderMutation.mutate(booking.id)}
+                    sendReminderPending={sendReminderMutation.isPending}
+                    onOverrideComplete={(reason) => actionState.canOverrideComplete && overrideCompleteMutation.mutate({ bookingId: booking.id, reason })}
+                    overridePending={overrideCompleteMutation.isPending}
+                    onPatientLeftEarly={(reason) => actionState.canPatientLeftEarly && patientLeftEarlyMutation.mutate({ bookingId: booking.id, reason })}
+                    leftEarlyPending={patientLeftEarlyMutation.isPending}
+                    totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}
+                    onBookAgain={() => {
+                      const _desc = booking.description ?? "";
+                      const _rebookDesc = _desc.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
+                      const _rebookVisit = (booking as any).visitType || (_desc.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                      const _rebookCategory = (booking as any).treatmentCategory || (_desc.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                      persistRebookValues({
+                        bookingName: booking.customerName,
+                        bookingPhone: booking.customerPhone,
+                        bookingEmail: booking.customerEmail || "",
+                        bookingAge: String((booking as any).customerAge || ""),
+                        bookingGender: (booking as any).customerGender || "",
+                        bookingDescription: _rebookDesc,
+                        bookingVisitType: _rebookVisit,
+                        bookingAppointmentCategory: _rebookCategory,
+                      });
+                      onNavigate('book-a-slot');
+                      setOpenBookingId(null);
+                    }}
+                    onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
+                    consentRequestPending={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
+                    onOpenActionTab={() => { setOpenBookingId(booking.id); setModalTab(booking.id, 'actions'); }}
+                    openBillsCount={allBills.filter(b => b.bookingId === booking.id && b.paymentStatus !== 'paid').length}
+                    checkInPending={checkInMutation.isPending}
+                    completeVisitPending={completeVisitMutation.isPending}
+                    cancelPending={cancelBookingMutation.isPending}
+                  />}
+                    <DialogContent className={`w-[95vw] max-w-[95vw] ${dialogExpanded ? 'sm:w-[95vw] sm:max-w-[95vw] sm:h-[95vh] sm:max-h-[95vh]' : 'sm:w-[80vw] sm:max-w-[80vw] sm:h-[90vh] sm:max-h-[90vh]'} rounded-2xl p-0 overflow-hidden h-auto max-h-[calc(100dvh-1rem)] min-h-0 flex flex-col transition-[width,height,max-width,max-height] duration-200`}>
+
+                      {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
+                      <button
+                        onClick={() => setDialogExpanded(v => !v)}
+                        className="hidden sm:flex absolute right-11 top-3.5 z-10 h-6 w-6 items-center justify-center rounded-md bg-white/15 hover:bg-white/25 border border-white/20 transition-colors"
+                        aria-label={dialogExpanded ? "Minimize dialog" : "Maximize dialog"}
+                        data-testid="button-dialog-expand"
+                      >
+                        {dialogExpanded
+                          ? <Minimize2 className="h-3.5 w-3.5 text-white" />
+                          : <Maximize2 className="h-3.5 w-3.5 text-white" />}
+                      </button>
+
+                      {/* ── HEADER ── */}
+                      <div className="shrink-0 bg-gradient-to-br from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-0 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+                        {/* Top row: avatar + name + close */}
+                        <div className="relative flex items-start gap-3 mb-2">
+                          <div className="shrink-0">
+                            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
+                              <span className="text-lg sm:text-xl font-black text-white leading-none">
+                                {booking.customerName.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <DialogTitle className="text-white font-extrabold text-base sm:text-xl leading-tight tracking-tight">
+                                {booking.customerName}
+                              </DialogTitle>
+                              {(booking as any).visitNumber !== undefined && (booking as any).totalVisits > 1 && (
+                                <span className="inline-flex items-center gap-1 text-xs leading-none font-semibold text-violet-100 bg-violet-500/25 border border-violet-300/30 px-1.5 py-1 rounded-md shrink-0">
+                                  <Repeat2 className="h-3 w-3" />
+                                  Visit {(booking as any).visitNumber}/{(booking as any).totalVisits}
+                                </span>
+                              )}
+                              <span className="font-mono text-xs uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                 Ref #{bookingReference(booking)}
+                              </span>
+                              {((booking as any).customerAge || (booking as any).customerGender) && (
+                                <span className="text-xs text-white/55 shrink-0">
+                                  {(booking as any).customerAge ? `${(booking as any).customerAge}y` : ""}
+                                  {(booking as any).customerAge && (booking as any).customerGender ? " · " : ""}
+                                  {(booking as any).customerGender ? ((booking as any).customerGender as string).charAt(0).toUpperCase() + ((booking as any).customerGender as string).slice(1) : ""}
+                                </span>
+                              )}
+                            </div>
+                            {/* Status text row — full lifecycle priority chain */}
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {isCancelled ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-rose-300 flex items-center gap-1">
+                                    <X className="h-2.5 w-2.5" />Cancelled
+                                  </span>
+                                  {booking.cancellationReason && (
+                                    <span className="text-xs italic text-white/50">{booking.cancellationReason}</span>
+                                  )}
+                                </div>
+                              ) : modalIsNoShow ? (
+                                <span className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                                  <UserX className="h-2.5 w-2.5" />No Show
+                                </span>
+                              ) : modalIsLeftEarly ? (
+                                <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                  <LogOut className="h-2.5 w-2.5" />Left Early
+                                </span>
+                              ) : modalIsVisitCompleted ? (
+                                <span className="text-xs font-bold text-emerald-300 flex items-center gap-1">
+                                  <ShieldCheck className="h-2.5 w-2.5" />Visit Done
+                                </span>
+                              ) : modalIsTreatmentCompleted ? (
+                                <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />Tmt. Done
+                                </span>
+                              ) : modalIsInConsultation ? (
+                                <span className="text-xs font-bold text-teal-300 flex items-center gap-1">
+                                  <Stethoscope className="h-2.5 w-2.5" />With Doctor
+                                </span>
+                              ) : modalIsCheckedIn ? (
+                                <span className="text-xs font-bold text-sky-300 flex items-center gap-1">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />Arrived
+                                </span>
+                              ) : isConfirmed ? (
+                                <span className="text-xs font-bold text-emerald-300 flex items-center gap-1">
+                                  {booking.confirmedBy === 'doctor'
+                                    ? <Stethoscope className="h-2.5 w-2.5" />
+                                    : <CheckCircle2 className="h-2.5 w-2.5" />}
+                                  {booking.confirmedBy === 'doctor'
+                                    ? `Confirmed by Dr. ${booking.assignedDoctor?.split(' ')[0] || 'Doctor'}`
+                                    : booking.confirmedBy === 'admin'
+                                    ? 'Confirmed by Admin'
+                                    : 'Confirmed'}
+                                </span>
+                              ) : booking.assignedDoctor && booking.doctorApprovalStatus === 'pending' ? (
+                                <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                  <Clock className="h-2.5 w-2.5" />
+                                  Awaiting Dr. {booking.assignedDoctor.split(' ')[0]}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-white/60 flex items-center gap-1.5">
+                                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
+                                  </span>
+                                  Awaiting Confirmation
+                                </span>
+                              )}
+                              {booking.consentSignedAt && (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-white/70">
+                                  <PenLine className="h-2.5 w-2.5" />Consent Signed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Appointment strip — 2-col grid on mobile, flex row on sm+ */}
+                        <div className="relative min-w-0 pb-3">
+                          <div className="grid min-w-0 grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-3">
+                            <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/75">
+                              <CalendarDays className="h-3 w-3 opacity-80 shrink-0" />
+                              <strong className="min-w-0 truncate text-white font-semibold">{format(bookingDateTime, "EEE, d MMM yyyy")}</strong>
+                            </div>
+                            <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/75">
+                              <Clock className="h-3 w-3 opacity-80 shrink-0" />
+                              <strong className="shrink-0 text-white font-semibold">{format(bookingDateTime, "h:mm a")}</strong>
+                              <span className="truncate">→ {format(new Date(booking.slot.endTime), "h:mm a")}</span>
+                            </div>
+                            {clinic?.name && (
+                              <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/75">
+                                <Building2 className="h-3 w-3 opacity-80 shrink-0" />
+                                <span className="truncate">{clinic.name}</span>
+                              </div>
+                            )}
+                            {!isBookingPast && (() => {
+                              const daysAway = differenceInCalendarDays(bookingDateTime, new Date());
+                              const label = isBookingToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway} days`;
+                              return (
+                                <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30 w-fit">
+                                  {label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                      </div>
+
+                      {/* Tab strip — neutral bar below header */}
+                      <div className="shrink-0 flex min-w-0 overflow-x-auto border-b border-border/60 bg-card">
+                        {([
+                          { key: 'overview', label: 'Overview', icon: <User className="h-3.5 w-3.5" /> },
+                          { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3.5 w-3.5" /> },
+                          { key: 'documents', label: 'Documents', icon: <FileText className="h-3.5 w-3.5" /> },
+                          { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3.5 w-3.5" /> },
+                          { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3.5 w-3.5" /> },
+                          { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3.5 w-3.5" /> },
+                        ] as const).map(({ key, label, icon }) => {
+                          const isActive = getModalTab(booking.id) === key;
+                          const hasBadge = (tabBadges[booking.id] || []).includes(key);
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => {
+                                setModalTab(booking.id, key);
+                                if (hasBadge) setTabBadges(prev => ({ ...prev, [booking.id]: (prev[booking.id] || []).filter(t => t !== key) }));
+                              }}
+                              className={`relative flex-none sm:flex-1 min-w-[68px] px-2 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/40 ${
+                                isActive
+                                  ? 'text-primary border-primary'
+                                  : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30 active:text-foreground'
+                              }`}
+                              data-testid={`modal-tab-${key}-${booking.id}`}
+                            >
+                              {icon}
+                              <span className="text-xs leading-none">{label}</span>
+                              {hasBadge && (
+                                <span className="absolute top-1 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-1 ring-card animate-pulse" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* ── TAB PANELS ── */}
+                      <div className={`min-h-0 overflow-y-auto flex-1 transition-[box-shadow] duration-500 ${notifHighlight?.bookingId === booking.id ? "ring-2 ring-inset ring-primary/40" : ""}`}>
+
+                        {/* OVERVIEW TAB — enlarged patient card, same row style as AppointmentCard */}
+                        {getModalTab(booking.id) === 'overview' && (() => {
+                          const ovIsPastDue = classification.isPastDueToday || classification.messageInputs.showOldResolution;
+                          const ovDaysAway = differenceInCalendarDays(bookingDateTime, new Date());
+                          const ovRelBadge = !isBookingPast && !isCancelled ? (
+                            isBookingToday
+                              ? <span className="shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full text-sky-600 bg-sky-50 dark:text-sky-400 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20">Today</span>
+                              : ovDaysAway === 1
+                              ? <span className="shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20">Tomorrow</span>
+                              : ovDaysAway > 1
+                              ? <span className="shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full text-muted-foreground bg-muted/50 border-border/50">in {ovDaysAway}d</span>
+                              : null
+                          ) : null;
+
+                          const ovProgressStage: LifecycleStage = getBookingLifecycleStage(classification);
+
+                          // Parse visitType + treatmentCategory from description
+                          // (same logic as AppointmentCard — no dedicated DB columns)
+                          const rawOverviewDesc = booking.description ?? "";
+                          const ovVisitType = (booking as any).visitType
+                            || rawOverviewDesc.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim()
+                            || null;
+                          const ovBookedBy: string | null = (booking as any).bookedBy ?? null;
+                          const ovPatientVisitClassification = (booking as any).patientVisitClassification ?? null;
+                          const ovFallbackVisitKey = !ovVisitType
+                            ? (ovBookedBy === 'patient' ? 'booked_by_patient' : ovBookedBy === 'admin' ? 'admin_booked' : null)
+                            : null;
+                          const ovPatientBookingLabel = (ovBookedBy === 'patient' || ovBookedBy === 'admin') && ovPatientVisitClassification
+                            ? (ovBookedBy === 'patient' ? PATIENT_VISIT_CLASSIFICATION_LABELS : ADMIN_VISIT_CLASSIFICATION_LABELS)[ovPatientVisitClassification]
+                            : null;
+                          const ovTreatmentCategory = (booking as any).treatmentCategory
+                            || rawOverviewDesc.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim()
+                            || null;
+
+                          return (
+                            <div className="px-4 pt-4 pb-4">
+
+                              {/* ── Overview information section ── */}
+                              <section className="rounded-xl border border-border/60 bg-white dark:bg-card shadow-sm p-3 space-y-2.5">
+                              {/* Patient details — matches info grid row pattern */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 sm:gap-y-2.5">
+
+                                {/* Patient ID */}
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
+                                  <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                    <User className="h-3 w-3 text-primary" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Patient ID:</span>
+                                  {(booking as any).patientCode ? (
+                                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+                                      <span className="font-mono font-bold text-primary truncate">{(booking as any).patientCode}</span>
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((booking as any).patientCode); notify.success("Patient ID copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy Patient ID" data-testid="btn-copy-patient-id">
+                                        <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground/50">–</span>
+                                  )}
+                                </div>
+
+                                {/* Phone */}
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                    <Phone className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Phone:</span>
+                                  {editingField?.bookingId === booking.id && editingField.field === 'phone' ? (
+                                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                                      <input
+                                        autoFocus
+                                        data-testid="input-edit-phone"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        onKeyDown={e => { if (e.key === 'Escape') setEditingField(null); }}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1.5 w-28 bg-background focus:outline-none focus:border-primary"
+                                        placeholder="Phone number"
+                                      />
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'phone', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-phone">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
+                                      </button>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : booking.customerPhone ? (
+                                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+                                      <a href={`tel:${booking.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">{booking.customerPhone}</a>
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone" data-testid="btn-copy-phone"><Copy className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                      <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient"><Phone className="h-2.5 w-2.5 text-primary" /></a>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'phone', value: booking.customerPhone! }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit phone" data-testid="btn-edit-phone"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground/50">–</span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'phone', value: '' }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Add phone" data-testid="btn-edit-phone-empty"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Email — full width */}
+                                 <div className="col-span-full flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                  <div className="h-5 w-5 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0">
+                                    <Mail className="h-3 w-3 text-blue-500" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Email:</span>
+                                  {editingField?.bookingId === booking.id && editingField.field === 'email' ? (
+                                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                                      <input
+                                        autoFocus
+                                        data-testid="input-edit-email"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        onKeyDown={e => { if (e.key === 'Escape') setEditingField(null); }}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1.5 min-w-0 flex-1 bg-background focus:outline-none focus:border-primary"
+                                        placeholder="Email address"
+                                        type="email"
+                                      />
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'email', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-email">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
+                                      </button>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : booking.customerEmail ? (
+                                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+                                      <span className="font-semibold text-foreground truncate min-w-0">{booking.customerEmail}</span>
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerEmail!); notify.success("Email copied!"); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy email" data-testid="btn-copy-email"><Copy className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'email', value: booking.customerEmail! }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit email" data-testid="btn-edit-email"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground/50">–</span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'email', value: '' }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Add email" data-testid="btn-edit-email-empty"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Age */}
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                    <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Age:</span>
+                                  {editingField?.bookingId === booking.id && editingField.field === 'age' ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        autoFocus
+                                        data-testid="input-edit-age"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        onKeyDown={e => { if (e.key === 'Escape') setEditingField(null); }}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1.5 w-14 bg-background focus:outline-none focus:border-primary text-center"
+                                        placeholder="Age"
+                                        type="number"
+                                        min={0}
+                                        max={150}
+                                      />
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'age', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-age">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
+                                      </button>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className={(booking as any).customerAge ? "font-semibold text-foreground" : "text-muted-foreground/50"}>
+                                        {(booking as any).customerAge ? `${(booking as any).customerAge}y` : "–"}
+                                      </span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'age', value: String((booking as any).customerAge ?? '') }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit age" data-testid="btn-edit-age"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Gender */}
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                    <Users className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Gender:</span>
+                                  {editingField?.bookingId === booking.id && editingField.field === 'gender' ? (
+                                    <div className="flex items-center gap-1">
+                                      <select
+                                        autoFocus
+                                        data-testid="select-edit-gender"
+                                        value={editingField.value}
+                                        onChange={e => setEditingField({ ...editingField, value: e.target.value })}
+                                        className="h-6 text-xs border border-primary/40 rounded px-1 bg-background focus:outline-none focus:border-primary"
+                                      >
+                                        <option value="">–</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                      </select>
+                                      <button onClick={() => patientInfoMutation.mutate({ bookingId: booking.id, field: 'gender', value: editingField.value })} disabled={patientInfoMutation.isPending} className="shrink-0 h-5 w-5 rounded-md bg-emerald-600 flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50" title="Save" data-testid="btn-save-gender">
+                                        {patientInfoMutation.isPending ? <Loader2 className="h-2.5 w-2.5 text-white animate-spin" /> : <Save className="h-2.5 w-2.5 text-white" />}
+                                      </button>
+                                      <button onClick={() => setEditingField(null)} className="shrink-0 h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Cancel"><X className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className={(booking as any).customerGender ? "font-semibold text-foreground capitalize" : "text-muted-foreground/50"}>
+                                        {(booking as any).customerGender || "–"}
+                                      </span>
+                                      <button onClick={(e) => { e.stopPropagation(); setEditingField({ bookingId: booking.id, field: 'gender', value: (booking as any).customerGender ?? '' }); }} className="shrink-0 h-5 w-5 rounded-md bg-muted/40 flex items-center justify-center hover:bg-muted transition-colors opacity-50 hover:opacity-100" title="Edit gender" data-testid="btn-edit-gender"><Pencil className="h-2.5 w-2.5 text-muted-foreground" /></button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* ── Zone B divider ── */}
+                                 <div className="col-span-full border-t border-border/50 my-1" />
+
+                                {/* Visit Type */}
+                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                    <Repeat2 className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Visit Type:</span>
+                                  {ovPatientBookingLabel ? (
+                                      <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
+                                      {ovPatientBookingLabel}
+                                    </span>
+                                  ) : ovVisitType ? (
+                                      <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
+                                      {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
+                                    </span>
+                                  ) : ovFallbackVisitKey ? (
+                                    <span className="inline-flex w-fit min-w-0 max-w-full items-center font-semibold whitespace-normal break-words text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md">
+                                      {OVERVIEW_VISIT_TYPE_LABELS[ovFallbackVisitKey]}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/50">–</span>
+                                  )}
+                                </div>
+
+                                {/* Assigned Doctor */}
+                                  <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
+                                  <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                    <Stethoscope className="h-3 w-3 text-primary" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Assigned:</span>
+                                  {booking.assignedDoctor ? (
+                                     <div className="min-w-0 break-words">
+                                       <span className="font-semibold text-foreground">Dr. {booking.assignedDoctor}</span>
+                                       {booking.doctorApprovalStatus === 'pending' && <span className="text-amber-600 dark:text-amber-400"> (Awaiting doctor approval)</span>}
+                                       {booking.doctorApprovalStatus === 'approved' && <span className="text-emerald-600 dark:text-emerald-400"> (Approved ✓)</span>}
+                                       {booking.doctorApprovalStatus === 'admin_confirmed' && <span className="text-emerald-600 dark:text-emerald-400"> (Admin confirmed ✓)</span>}
+                                       {booking.doctorApprovalStatus === 'declined' && <span className="text-rose-600 dark:text-rose-400"> (Declined)</span>}
+                                    </div>
+                                  ) : (
+                                     <span className="text-muted-foreground/60">Not assigned</span>
+                                  )}
+                                </div>
+
+                                {/* Treatment */}
+                                  <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                    <Tag className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Treatment:</span>
+                                  {ovTreatmentCategory ? (
+                                     <span className="inline-flex w-fit min-w-0 max-w-full items-center justify-self-start font-semibold whitespace-normal break-words text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
+                                      {ovTreatmentCategory}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/50">–</span>
+                                  )}
+                                </div>
+
+                                {/* Consent */}
+                                 <div className="grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                    <PenLine className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Consent:</span>
+                                  {booking.consentSignedAt ? (
+                                    <span className="inline-flex items-center gap-1 justify-self-start font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+                                      <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
+                                    </span>
+                                  ) : booking.consentToken ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
+                                        <Clock className="h-2.5 w-2.5" />Sent
+                                      </span>
+                                      <button
+                                        onClick={() => requestConsentMutation.mutate(booking.id)}
+                                        disabled={requestConsentMutation.isPending}
+                                        className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all disabled:opacity-50"
+                                        title="Resend consent link"
+                                      >
+                                        {requestConsentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const url = `${window.location.origin}/consent/${booking.consentToken}`;
+                                          navigator.clipboard.writeText(url);
+                                          setCopiedConsentId(booking.id);
+                                          setTimeout(() => setCopiedConsentId(null), 2000);
+                                          notify.success("Consent link copied!");
+                                        }}
+                                        className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all"
+                                        title="Copy consent link"
+                                      >
+                                        {copiedConsentId === booking.id ? <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => requestConsentMutation.mutate(booking.id)}
+                                      disabled={requestConsentMutation.isPending}
+                                       className="inline-flex min-w-0 max-w-full items-center justify-self-start gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                                    >
+                                      {requestConsentMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
+                                      Send Link →
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Slot Units */}
+                                <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                    <Clock className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0">Slots:</span>
+                                  {(booking as any).slotCost > 0 ? (
+                                    <span className="font-semibold text-foreground">{(booking as any).slotCost} slot{(booking as any).slotCost !== 1 ? 's' : ''}</span>
+                                  ) : (
+                                    <span className="text-muted-foreground/50">–</span>
+                                  )}
+                                </div>
+
+                                {/* Booked — paired with Cost */}
+                                {booking.createdAt ? (
+                                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Clock className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Booked:</span>
+                                    <span className="font-semibold text-foreground truncate">{format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
+                                  </div>
+                                ) : <div />}
+
+                                {/* Complaints — full width */}
+                                 <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-xs min-w-0">
+                                  <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+                                    <ClipboardList className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
+                                  {complaints.length > 0 ? (
+                                     <div className="flex min-w-0 flex-wrap gap-1">
+                                       {complaints.map((c, idx) => (
+                                         <span key={idx} className="inline-flex max-w-full items-center break-words text-xs leading-tight font-medium text-muted-foreground bg-muted/30 border border-border/60 px-1.5 py-0.5 rounded-md">
+                                          {c}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground/50 pt-0.5">–</span>
+                                  )}
+                                </div>
+
+                                {/* Clinical — full width, conditional */}
+                                {booking.clinicalStatus && OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus] && (
+                                   <div className="col-span-full grid grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-xs min-w-0">
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                     <span className="text-muted-foreground shrink-0">Clinical Status:</span>
+                                     <span className={`inline-flex w-fit min-w-0 max-w-full items-center justify-self-start whitespace-normal break-words text-xs font-semibold px-1.5 py-0.5 rounded-md border ${OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].cls}`}>
+                                      {OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].label}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Confirmed by — full width, conditional */}
+                                {(() => {
+                                  const cb = (booking as any).confirmedBy;
+                                  const das = booking.doctorApprovalStatus;
+                                  const confirmedByLabel =
+                                    cb === 'doctor' ? `Dr. ${booking.assignedDoctor?.split(' ')[0] || 'Doctor'}` :
+                                    cb === 'admin' ? 'Clinic Admin' :
+                                    das === 'admin_confirmed' ? 'Clinic Admin' :
+                                    null;
+                                  if (!confirmedByLabel) return null;
+                                  return (
+                                    <div className="col-span-full flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                                      <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                        <CheckCircle2 className="h-3 w-3 text-primary" />
+                                      </div>
+                                      <span className="text-muted-foreground shrink-0">Confirmed by:</span>
+                                       <span className="min-w-0 break-words font-semibold text-foreground">{confirmedByLabel}</span>
+                                    </div>
+                                  );
+                                })()}
+
+                              </div>
+
+                              <AppointmentInfoSection
+                                role="clinic"
+                                classification={classification}
+                                inset={false}
+                                isCheckedInLate={!!booking.checkedInAt && new Date(booking.checkedInAt) > new Date(booking.slot.endTime)}
+                                cancellationReason={booking.cancellationReason}
+                                visitCompletionNote={(booking as any).visitCompletionNote}
+                                totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}
+                                openBillsCount={allBills.filter(b => b.bookingId === booking.id && b.paymentStatus !== 'paid').length}
+                                billingStatusKnown
+                                onBilling={() => setModalTab(booking.id, 'billing')}
+                                onReschedule={() => setModalTab(booking.id, 'actions')}
+                                confirmedBy={booking.confirmedBy ? (booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor?.split(' ')[0] || 'Doctor'}` : 'Clinic Admin') : null}
+                              />
+
+                              {/* ── Progress strip ── */}
+                              <div className="border-t border-border/40 pt-2">
+                                <BookingProgressStrip
+                                  stage={ovProgressStage}
+                                  isCancelled={isCancelled}
+                                  isNoShow={booking.verificationStatus === 'no_show'}
+                                  isLeftEarly={(booking as any).visitStatus === 'patient_left_early'}
+                                  isOverride={
+                                    (booking as any).visitStatus === 'completed' &&
+                                    !(booking as any).checkedInAt &&
+                                    (booking as any).visitStatus !== 'patient_left_early'
+                                  }
+                                  checkedInAt={booking.checkedInAt ?? undefined}
+                                  completedAt={(booking as any).completedAt ?? undefined}
+                                  cancellationReason={booking.cancellationReason ?? null}
+                                  confirmedBy={(booking as any).confirmedBy ?? null}
+                                  visitCompletionNote={(booking as any).visitCompletionNote ?? null}
+                                  hasUnpaidBill={(() => {
+                                    const bills = allBills.filter(b => b.bookingId === booking.id);
+                                    return (booking as any).visitStatus === 'completed' && bills.filter(b => b.paymentStatus !== 'paid').length > 0;
+                                  })()}
+                                  noBill={(() => {
+                                    return (booking as any).visitStatus === 'completed' && allBills.filter(b => b.bookingId === booking.id).length === 0;
+                                  })()}
+                                  stageBeforeCancel={
+                                    (isCancelled || booking.verificationStatus === 'no_show' || (booking as any).visitStatus === 'patient_left_early') ? (
+                                      (booking as any).visitStatus === 'completed' ? 4 :
+                                      ((booking as any).visitStatus === 'treatment_completed' || (booking as any).visitStatus === 'in_consultation') ? 3 :
+                                      (!!(booking as any).checkedInAt || (booking as any).visitStatus === 'checked_in') ? 2 :
+                                      !!(booking as any).confirmedBy ? 1 :
+                                      0
+                                    ) : 0
+                                  }
+                                />
+                              </div>
+
+                              </section>
+                            </div>
+                          );
+                        })()}
+
+
+                        {/* CLINICAL TAB */}
+                        {getModalTab(booking.id) === 'clinical' && (
+                          <div className="p-4 sm:p-5 space-y-4 bg-slate-50/60 dark:bg-slate-950/20">
+
+                            {/* Clinical Records — rendered directly, no outer card wrapper */}
+                            <ClinicalRecordsTab
+                              bookingId={booking.id}
+                              clinicId={clinic?.id ?? (booking.slot as any)?.clinicId}
+                              patientName={booking.customerName}
+                              patientPhone={booking.customerPhone}
+                              doctorName={booking.assignedDoctor}
+                              mode="admin"
+                              clinicName={clinic?.name}
+                            />
+
+                          </div>
+                        )}
+
+                        {/* NOTES TAB */}
+                        {getModalTab(booking.id) === 'documents' && (
+                          <PatientDocumentsTab
+                            bookingId={booking.id}
+                            patientName={booking.customerName}
+                            doctorName={booking.assignedDoctor}
+                            visitDate={new Date(booking.slot.startTime).toISOString()}
+                            authorRole="clinic_admin"
+                          />
+                        )}
+
+                        {getModalTab(booking.id) === 'notes' && (
+                          <div className="px-2 sm:px-3">
+                            <BookingNotesThread bookingId={booking.id} authorType="clinic_admin" />
+                          </div>
+                        )}
+
+                        {/* ACTIONS TAB */}
+                        {getModalTab(booking.id) === 'actions' && (
+                          <div className="p-4">
+                            {/* Two-column grid: Assign Doctor (LEFT) | Consent + Slot (RIGHT); Clinical Status full-width below */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              
+                              {/* LEFT COLUMN: Assign Doctor (scrollable on desktop) */}
+                              <div className="md:max-h-[350px] md:overflow-y-auto space-y-3">
+                                {/* Assign Doctor */}
+                                {booking.visitStatus !== 'completed' && (clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
+                              const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
+                              const isOOO = (email?: string, name?: string) =>
+                                allDoctorLeaves.some(l =>
+                                  l.leaveDate === bookingDateStr &&
+                                  ((email && l.doctorEmail === email) || (name && l.doctorName === name))
+                                );
+                              const oooReason = (email?: string, name?: string) =>
+                                allDoctorLeaves.find(l =>
+                                  l.leaveDate === bookingDateStr &&
+                                  ((email && l.doctorEmail === email) || (name && l.doctorName === name))
+                                )?.reason;
+                              return (
+                                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                                  <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <Stethoscope className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                      <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Assign Doctor</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {booking.assignedDoctor && (
+                                        <span className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                                          <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                          <span className="truncate">{formatDoctorName(booking.assignedDoctor)}</span>
+                                        </span>
+                                      )}
+                                      <span className="text-xs text-muted-foreground shrink-0">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Specialist suggestion banner */}
+                                  {(() => {
+                                    const suggested = getRecommendedSpecialists(booking.description || "");
+                                    if (!suggested.length) return null;
+                                    return (
+                                      <div className="mx-3.5 mt-3 px-3 py-2.5 rounded-lg bg-indigo-50/70 dark:bg-indigo-500/10 border border-dashed border-indigo-200 dark:border-indigo-500/30 flex items-start gap-2">
+                                        <Lightbulb className="h-4 w-4 text-indigo-600 dark:text-indigo-300 shrink-0 mt-0.5" />
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-200 mb-0.5">Suggested based on patient request</p>
+                                          <p className="text-[11px] leading-snug text-indigo-700/80 dark:text-indigo-200/80 mb-2">These specialties match the stated treatment need. You can still choose any available doctor.</p>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {suggested.map(sp => (
+                                              <span key={sp} className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-200 bg-white/70 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-400/30 px-2 py-0.5 rounded-full">
+                                                {sp}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  <div className="p-3.5 space-y-2">
+                                    {clinic?.doctorName && (() => {
+                                      const isAssigned = booking.assignedDoctor === clinic.doctorName;
+                                      const outOfOffice = isOOO(undefined, clinic.doctorName);
+                                      const reason = oooReason(undefined, clinic.doctorName);
+                                      const suggested = getRecommendedSpecialists(booking.description || "");
+                                      const isBestMatch = suggested.length > 0 && suggested.some(sp =>
+                                        (clinic.doctorSpecialization || "").toLowerCase().includes(sp.toLowerCase()) ||
+                                        sp.toLowerCase().includes((clinic.doctorSpecialization || "").toLowerCase())
+                                      );
+                                      const btn = (
+                                        <button
+                                          className={`w-full min-w-0 flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                                            isAssigned
+                                              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-600 shadow-none'
+                                              : outOfOffice
+                                              ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                              : isBestMatch
+                                              ? 'bg-white dark:bg-background border-indigo-200 dark:border-indigo-500/40 hover:border-indigo-400 hover:bg-indigo-50/50'
+                                              : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
+                                          }`}
+                                          onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
+                                          disabled={assignDoctorMutation.isPending}
+                                        >
+                                          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-emerald-600' : isBestMatch ? 'bg-indigo-100 dark:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-400/30' : 'bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20'}`}>
+                                            <span className={`text-xs font-bold ${isAssigned ? 'text-white' : isBestMatch ? 'text-indigo-700 dark:text-indigo-300' : 'text-primary'}`}>{clinic.doctorName.charAt(0)}</span>
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-emerald-900 dark:text-emerald-100' : 'text-foreground'}`}>{clinic.doctorName}</p>
+                                            <p className={`text-xs ${isAssigned ? 'text-emerald-700 dark:text-emerald-200' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                              {outOfOffice ? <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" />Out of office</span> : (clinic.doctorSpecialization || 'Lead Doctor')}
+                                            </p>
+                                          </div>
+                                          {isAssigned && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
+                                          {!isAssigned && isBestMatch && (
+                                            <span className="shrink-0 text-[11px] font-bold text-indigo-700 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-400/30 px-1.5 py-0.5 rounded-full">
+                                              Specialty match
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                      return outOfOffice ? (
+                                        <TooltipProvider key="lead" delayDuration={500}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                              <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
+                                              {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : btn;
+                                    })()}
+                                    {clinic?.doctors && Array.isArray(clinic.doctors) && (clinic.doctors as any[]).map((doctor, idx) => {
+                                      const isAssigned = booking.assignedDoctor === doctor.name;
+                                      const outOfOffice = isOOO(doctor.email, doctor.name);
+                                      const reason = oooReason(doctor.email, doctor.name);
+                                      const suggestedForDoc = getRecommendedSpecialists(booking.description || "");
+                                      const isBestMatchDoc = suggestedForDoc.length > 0 && suggestedForDoc.some(sp =>
+                                        (doctor.specialization || "").toLowerCase().includes(sp.toLowerCase()) ||
+                                        sp.toLowerCase().includes((doctor.specialization || "").toLowerCase())
+                                      );
+                                      const btn = (
+                                        <button
+                                          key={idx}
+                                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                                            isAssigned
+                                              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-600 shadow-none'
+                                              : outOfOffice
+                                              ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                              : isBestMatchDoc
+                                              ? 'bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/40 hover:border-indigo-500 hover:bg-indigo-50'
+                                              : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
+                                          }`}
+                                          onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doctor.name, doctorEmail: doctor.email }); }}
+                                          disabled={assignDoctorMutation.isPending}
+                                        >
+                                          <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${isAssigned ? 'bg-emerald-600' : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}>
+                                            <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>{doctor.name.replace(/^dr\.?\s*/i, '').charAt(0).toUpperCase()}</span>
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-emerald-900 dark:text-emerald-100' : 'text-foreground'}`}>{formatDoctorName(doctor.name)}</p>
+                                            <p className={`text-xs ${isAssigned ? 'text-emerald-700 dark:text-emerald-200' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                              {outOfOffice ? <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" />Out of office</span> : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
+                                            </p>
+                                          </div>
+                                          {isAssigned && <span className="h-6 w-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0"><Check className="h-3.5 w-3.5" /></span>}
+                                          {!isAssigned && isBestMatchDoc && (
+                                            <span className="shrink-0 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-500/30 px-1.5 py-0.5 rounded-full">
+                                              Best match
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                      return outOfOffice ? (
+                                        <TooltipProvider key={idx} delayDuration={500}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                              <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
+                                              {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : btn;
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                              </div>
+
+                              {/* RIGHT COLUMN: Digital Consent + Appointment Slot */}
+                              <div className="space-y-4">
+                                {/* Digital Consent */}
+                            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                              <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-1.5">
+                                  <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                  <div>
+                                    <span className="block text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Digital Consent</span>
+                                    {!booking.consentSignedAt && <span className="text-[11px] text-muted-foreground normal-case tracking-normal">Send securely to the patient</span>}
+                                  </div>
+                                </div>
+                                {booking.consentSignedAt ? (
+                                  <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-1 rounded-full border border-green-200 dark:border-green-600/30">
+                                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Signed
+                                  </span>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    className="h-9 px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white border-0 transition-all disabled:opacity-50"
+                                    onClick={() => requestConsentMutation.mutate(booking.id)}
+                                    disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
+                                    data-testid={`button-request-consent-${booking.id}`}
+                                  >
+                                    {requestConsentMutation.isPending && requestConsentMutation.variables === booking.id
+                                      ? "Sending…"
+                                      : booking.consentToken ? "Resend" : "Send Consent"}
+                                  </Button>
+                                )}
+                              </div>
+                              {!booking.consentSignedAt && (
+                                <div className="px-3.5 pt-3 flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-full px-2 py-1">WhatsApp &amp; SMS ready</span>
+                                </div>
+                              )}
+                              {!booking.consentSignedAt && (
+                                <div className="px-3 py-2.5">
+                                  {booking.consentToken ? (
+                                    <div className="space-y-2">
+                                      <p className="text-xs text-muted-foreground">
+                                        WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
+                                      </p>
+                                      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
+                                        <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
+                                          {`${window.location.origin}/consent/${booking.consentToken}`}
+                                        </div>
+                                        <button
+                                          className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors"
+                                          onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/consent/${booking.consentToken}`); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
+                                          data-testid={`button-copy-consent-actions-${booking.id}`}
+                                        >
+                                          {copiedConsentId === booking.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+                                        </button>
+                                        <a href={`${window.location.origin}/consent/${booking.consentToken}`} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
+                                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">Send a digital consent form to the patient via WhatsApp.</p>
+                                  )}
+                                </div>
+                              )}
+                              {booking.consentSignedAt && (
+                                <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">
+                                    Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
+                                  </span>
+                                  {booking.consentSignature && (
+                                    <button
+                                      className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
+                                      onClick={() => generateConsentPdf(booking, clinic as ClinicInfo)}
+                                      data-testid={`button-download-consent-actions-${booking.id}`}
+                                    >
+                                      <Download className="h-3 w-3" />
+                                      Download PDF
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Reschedule */}
+                            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                              <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <CalendarDays className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                  <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Appointment Slot</span>
+                                </div>
+                                {rescheduleBookingId === booking.id ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-9 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-green-100 dark:hover:bg-green-800/40 gap-1.5 transition-all"
+                                    onClick={() => { setRescheduleBookingId(null); setRescheduleSlot(null); }}
+                                    data-testid="button-cancel-reschedule"
+                                  >
+                                    <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Collapse
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    className="h-9 px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white border-0 transition-all"
+                                    onClick={() => {
+                                      const orig = new Date(booking.slot.startTime);
+                                      setRescheduleBookingId(booking.id);
+                                      setRescheduleDate(orig < startOfToday() ? startOfToday() : orig);
+                                    }}
+                                    data-testid="button-start-reschedule"
+                                  >
+                                    Reschedule
+                                  </Button>
+                                )}
+                              </div>
+                              {rescheduleBookingId !== booking.id && (
+                                <div className="px-3 py-2.5">
+                                  <div className="px-1 py-1">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Current appointment</p>
+                                    <p className="mt-1 text-sm font-semibold text-foreground">{format(bookingDateTime, "EEE, MMM d, yyyy")}</p>
+                                    <p className="text-xs text-muted-foreground">{format(bookingDateTime, "h:mm a")} – {format(new Date(booking.slot.endTime), "h:mm a")}</p>
+                                  </div>
+                                </div>
+                              )}
+                              {rescheduleBookingId === booking.id && (
+                                  <div className="px-3.5 sm:px-4 py-3.5 space-y-4">
+                                  <div className="space-y-1.5">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-8 px-2.5 gap-1.5 text-xs font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                                              data-testid="button-reschedule-date-picker"
+                                            >
+                                              <CalendarIcon className="h-3.5 w-3.5" />
+                                              <span className="hidden xs:inline">Choose date</span>
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0 rounded-xl" align="end">
+                                            <Calendar
+                                              mode="single"
+                                              selected={rescheduleDate}
+                                              onSelect={(date) => {
+                                                if (date) {
+                                                  setRescheduleDate(date);
+                                                  setRescheduleSlot(null);
+                                                }
+                                              }}
+                                              disabled={(date) => date < startOfToday()}
+                                              initialFocus
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
+                                    </div>
+                                    <ScrollArea className="w-full whitespace-nowrap pb-1">
+                                      <div className="flex space-x-1.5 w-max pb-1">
+                                        {dates.map((date) => {
+                                          const isPastDate = date < startOfToday();
+                                          return (
+                                          <button
+                                            key={date.toISOString()}
+                                            onClick={() => { if (!isPastDate) { setRescheduleDate(date); setRescheduleSlot(null); } }}
+                                            disabled={isPastDate}
+                                            className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center active:scale-[0.96] ${
+                                              isPastDate
+                                                ? 'bg-muted/30 border-border/30 opacity-40 cursor-not-allowed'
+                                                : isSameDay(date, rescheduleDate)
+                                                ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                                                : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
+                                            }`}
+                                            data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
+                                          >
+                                            <span className="text-xs uppercase font-bold opacity-70 leading-none">{format(date, "EEE")}</span>
+                                            <span className="text-sm font-black leading-tight">{format(date, "d")}</span>
+                                          </button>
+                                          );
+                                        })}
+                                      </div>
+                                      <ScrollBar orientation="horizontal" />
+                                    </ScrollArea>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                      {rescheduleAvailFetching && (
+                                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-2 min-[420px]:grid-cols-3 sm:grid-cols-5 gap-2">
+                                      {slotTimings.map((slot, slotIdx) => {
+                                        const avail = rescheduleSlotAvailability?.find(a => a.slotIndex === slotIdx);
+                                        const isSlotCancelled = avail?.isCancelled ?? false;
+                                        const spotsLeft = avail ? avail.spotsLeft : (DEFAULT_SECTION_CAPACITY[slot.id] ?? 3);
+                                        const isFull = avail ? avail.spotsLeft === 0 : false;
+                                        const isSelected = rescheduleSlot === slot.id;
+                                        if (isSlotCancelled) return null;
+                                        return (
+                                          <button
+                                            key={slot.id}
+                                            onClick={() => !isFull && setRescheduleSlot(slot.id)}
+                                            disabled={isFull}
+                                            className={`relative flex flex-col items-center justify-center min-h-[74px] rounded-xl border text-center transition-all active:scale-[0.96] ${
+                                              isSelected
+                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                                                : isFull
+                                                ? 'bg-muted/30 border-border/40 opacity-50 cursor-not-allowed'
+                                                : 'bg-background border-border/60 hover:border-emerald-400 hover:bg-emerald-50/50 active:bg-emerald-50 dark:hover:bg-emerald-500/10'
+                                            }`}
+                                            data-testid={`reschedule-slot-${slot.id}`}
+                                          >
+                                            <span className="text-xs font-bold leading-tight px-1 text-center">{slot.label}</span>
+                                            <span className={`text-xs leading-tight mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>{formatTime(slot.startHour, slot.startMinute)}</span>
+                                            {isFull ? (
+                                              <span className="mt-1 text-[10px] font-bold text-destructive">FULL</span>
+                                            ) : (
+                                              <span className={`mt-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                                isSelected
+                                                  ? 'bg-white/20 text-white'
+                                                  : spotsLeft <= 1
+                                                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300'
+                                                  : spotsLeft <= 2
+                                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                                                  : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                                              }`}>
+                                                {spotsLeft} {spotsLeft === 1 ? 'left' : 'available'}
+                                              </span>
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    className="w-full h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0"
+                                    disabled={!rescheduleSlot || rescheduleMutation.isPending}
+                                    onClick={async () => {
+                                      if (!rescheduleSlot) return;
+                                      const slotInfo = slotTimings.find(s => s.id === rescheduleSlot);
+                                      if (!slotInfo) return;
+                                      const newSlotTime = new Date(rescheduleDate);
+                                      newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
+                                      try {
+                                        const rescheduleBracket = slotTimings.find(s => s.id === rescheduleSlot);
+                                        const rescheduleDefaultMax = rescheduleBracket ? (DEFAULT_SECTION_CAPACITY[rescheduleBracket.id] ?? 4) : 4;
+                                        const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
+                                          startTime: newSlotTime.toISOString(), maxBookings: rescheduleDefaultMax, isCancelled: false
+                                        });
+                                        if (!configResponse.ok) throw new Error('Failed to ensure slot exists');
+                                        const configResult = await configResponse.json();
+                                        const newSlotId = configResult.id;
+                                        if (newSlotId) {
+                                          rescheduleMutation.mutate({ bookingId: booking.id, newSlotId });
+                                        } else {
+                                          throw new Error("Invalid slot ID received from server");
+                                        }
+                                      } catch (error: any) {
+                                        notify.apiError(error, "Failed to reschedule");
+                                      }
+                                    }}
+                                    data-testid="button-confirm-reschedule"
+                                  >
+                                    {rescheduleMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                                    Confirm Reschedule
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                              </div>
+                            </div>
+
+                            {/* Clinical Status (full-width, below grid) */}
+                            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-card overflow-hidden">
+                              <div className="px-3.5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                                <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">Clinical Status</span>
+                                <TooltipProvider delayDuration={400}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Info className="h-3 w-3 text-muted-foreground ml-0.5 cursor-default" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs max-w-[240px]">
+                                      Track the outcome of this case. 'Follow-up Required' = patient needs another visit. 'Case Closed' = treatment is complete.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                              <div className="px-3.5 py-3">
+                                <div className="flex gap-2">
+                                  <Select
+                                    value={clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus ?? ''}
+                                    onValueChange={(v) => setClinicalStatusDrafts(prev => ({ ...prev, [booking.id]: v }))}
+                                  >
+                                    <SelectTrigger className="h-9 text-sm flex-1" data-testid={`clinical-status-trigger-${booking.id}`}>
+                                      <SelectValue placeholder="Select status…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
+                                      <SelectItem value="case_closed">Case Closed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    size="sm"
+                                    className="h-9 px-4 text-sm shrink-0"
+                                    onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: (clinicalStatusDrafts[booking.id] ?? booking.clinicalStatus) || null })}
+                                    disabled={updateClinicalStatusMutation.isPending}
+                                    data-testid={`clinical-status-save-${booking.id}`}
+                                  >
+                                    {updateClinicalStatusMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+
+                          </div>
+                        )}
+
+                        {/* BILLING TAB */}
+                        {getModalTab(booking.id) === 'billing' && (
+                          <div className="p-4">
+                            <BillingHistoryPanel
+                              bookingId={booking.id}
+                              clinicId={clinic.id}
+                              patientName={booking.customerName}
+                              patientId={(booking as any).patientId || undefined}
+                              patientPhone={booking.customerPhone}
+                              patientEmail={booking.customerEmail || ""}
+                              patientCode={(booking as any).patientCode || undefined}
+                              onGenerateReceipt={(existingBill) => handleOpenBilling(booking, existingBill)}
+                              onPrintBill={(bill) => printBillFromRecord(bill, clinic as ClinicInfo, bookings ?? [])}
+                              onConsolidatedReceipt={(bills) => handleConsolidatedBilling(booking, bills)}
+                            />
+                          </div>
+                        )}
+
+                      </div>
+
+                      {/* ── PERSISTENT FOOTER — lifecycle-aware ── */}
+                      <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 space-y-2">
+
+                        {/* Cancel dialog (shared, single instance) */}
+                        {(() => {
+                          const CancelDialog = ({ trigger }: { trigger: React.ReactNode }) => (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will cancel {booking.customerName}'s appointment and send them a cancellation email.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <div className="px-1 py-2 space-y-3">
+                                  <div className="space-y-1.5">
+                                    <label className="label-field">Reason for cancellation</label>
+                                    <select
+                                      value={cancelReason}
+                                      onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
+                                      className="w-full select-base"
+                                    >
+                                      <option value="">Select a reason…</option>
+                                      <option value="Patient requested cancellation">Patient requested cancellation</option>
+                                      <option value="Doctor unavailable">Doctor unavailable</option>
+                                      <option value="Clinic closure / emergency">Clinic closure / emergency</option>
+                                      <option value="Patient no-show">Patient no-show</option>
+                                      <option value="Rescheduled to another slot">Rescheduled to another slot</option>
+                                      <option value="Other">Other</option>
+                                    </select>
+                                  </div>
+                                  {cancelReason === "Other" && (
+                                    <div className="space-y-1.5">
+                                      <label className="label-field">Please specify</label>
+                                      <Input
+                                        value={cancelReasonOther}
+                                        onChange={e => setCancelReasonOther(e.target.value)}
+                                        placeholder="e.g. Patient requested cancellation"
+                                        autoFocus
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason })}
+                                    className="bg-destructive text-destructive-foreground"
+                                    disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
+                                  >
+                                    Cancel Booking
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          );
+
+                          const modalBookingBills = allBills.filter(b => b.bookingId === booking.id);
+                          const footerModel = getAppointmentFooterModel(
+                            classification,
+                            "clinic",
+                            {
+                              totalBillsCount: modalBookingBills.length,
+                              openBillsCount: modalBookingBills.filter(b => b.paymentStatus !== 'paid').length,
+                              noShowSource: (booking as any).noShowSource ?? null,
+                            },
+                          );
+
+                          const handleFooterAction = (action: AppointmentFooterAction) => {
+                            switch (action.id) {
+                              case "confirm":
+                                confirmBookingMutation.mutate(booking.id);
+                                break;
+                              case "cancel":
+                                break;
+                              case "mark_arrived":
+                                checkInMutation.mutate({ bookingId: booking.id });
+                                break;
+                              case "remind":
+                                sendReminderMutation.mutate(booking.id);
+                                break;
+                              case "resolve_booking":
+                              case "manage_visit":
+                                setModalTab(booking.id, 'actions');
+                                break;
+                              case "mark_visit_done":
+                                completeVisitMutation.mutate({ bookingId: booking.id });
+                                break;
+                              case "bill":
+                              case "settle_payment":
+                              case "view_invoice":
+                                handleOpenBilling(booking);
+                                break;
+                              case "review_appointment":
+                              case "review_visit":
+                                setModalTab(booking.id, 'overview');
+                                break;
+                              case "revert_no_show":
+                                revertNoShowMutation.mutate(booking.id);
+                                break;
+                              case "rebook": {
+                                const _d = booking.description ?? "";
+                                const _rd = _d.split(/\s*\|\s*/).filter((p: string) =>
+                                  !p.startsWith("Category:") && !p.startsWith("Visit:") &&
+                                  !p.startsWith("Age:") && !p.startsWith("Gender:")
+                                ).join(", ").trim();
+                                const _rv = (booking as any).visitType || (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                const _rc = (booking as any).treatmentCategory || (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                persistRebookValues({
+                                  bookingName: booking.customerName,
+                                  bookingPhone: booking.customerPhone,
+                                  bookingEmail: booking.customerEmail || "",
+                                  bookingAge: String((booking as any).customerAge || ""),
+                                  bookingGender: (booking as any).customerGender || "",
+                                  bookingDescription: _rd,
+                                  bookingVisitType: _rv,
+                                  bookingAppointmentCategory: _rc,
+                                });
+                                onNavigate('book-a-slot');
+                                setOpenBookingId(null);
+                                break;
+                              }
+                              default:
+                                break;
+                            }
+                          };
+
+                          const footerActionPending = (action: AppointmentFooterAction) => {
+                            switch (action.id) {
+                              case "confirm":
+                                return confirmBookingMutation.isPending;
+                              case "mark_arrived":
+                                return checkInMutation.isPending;
+                              case "remind":
+                                return sendReminderMutation.isPending;
+                              case "mark_visit_done":
+                                return completeVisitMutation.isPending;
+                              case "revert_no_show":
+                                return revertNoShowMutation.isPending;
+                              default:
+                                return false;
+                            }
+                          };
+
+                          const renderFooterAction = (action: AppointmentFooterAction, primary: boolean) => {
+                            const pending = footerActionPending(action);
+                            const currentTab = getModalTab(booking.id);
+                            const isCurrentTabAction = action.target === currentTab;
+                            const buttonLabel = isCurrentTabAction ? "Close" : action.label;
+                            const button = (
+                              <Button
+                                variant={primary ? "default" : "outline"}
+                                size={primary ? "default" : "sm"}
+                                className={`w-full min-w-0 ${primary ? "min-h-11 h-auto py-2 text-sm font-semibold" : "min-h-10 h-auto py-2 text-xs font-medium"} gap-1.5 whitespace-normal text-center leading-tight active:scale-[0.98] transition-all`}
+                                onClick={() => {
+                                  if (isCurrentTabAction) {
+                                    setOpenBookingId(null);
+                                  } else {
+                                    handleFooterAction(action);
+                                  }
+                                }}
+                                disabled={pending}
+                                data-testid={`button-dialog-footer-${isCurrentTabAction ? "close" : action.id}-${booking.id}`}
+                              >
+                                {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                                {buttonLabel}
+                              </Button>
+                            );
+                            return (
+                              <span key={action.id} className="w-full min-w-0">
+                                {action.id === "cancel" ? <CancelDialog trigger={button} /> : button}
+                              </span>
+                            );
+                          };
+
+                           const footerActionCount = (footerModel.primary ? 1 : 0) + footerModel.secondary.length;
+                           const footerGridColumns = footerActionCount >= 3
+                             ? "sm:grid-cols-3"
+                             : footerActionCount === 2
+                             ? "sm:grid-cols-2"
+                             : "sm:grid-cols-1";
+                           return (
+                             <div className={`grid min-w-0 w-full grid-cols-1 ${footerGridColumns} items-stretch gap-2`}>
+                               {footerModel.primary && renderFooterAction(footerModel.primary, true)}
+                               {footerModel.secondary.map((action) => renderFooterAction(action, false))}
+                             </div>
+                           );
+
+                          /* ── Stage 5: Visit Completed ── */
+                          if (modalIsVisitCompleted) {
+                            const modalBookingBills = allBills.filter(b => b.bookingId === booking.id);
+                            const modalNoBill = modalBookingBills.length === 0;
+                            const modalOpenBills = modalBookingBills.filter(b => b.paymentStatus !== 'paid').length;
+                            return (
+                              <>
+                              <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                               {modalOpenBills > 0 ? (
+                                <Button
+                                   className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 active:scale-[0.98] transition-all"
+                                  variant="outline"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  title="Payment outstanding — tap to settle"
+                                  data-testid={`button-dialog-settle-bill-${booking.id}`}
+                                >
+                                  Settle Payment
+                                </Button>
+                              ) : (
+                                <Button
+                                   className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  title="Preview or download invoice"
+                                  data-testid={`button-dialog-bill-done-${booking.id}`}
+                                >
+                                  <Download className="h-4 w-4" />View Invoice
+                                </Button>
+                              )}
+                                <Button variant="outline" size="sm"
+                                  className="flex-1 min-w-0 h-10 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                                  onClick={() => {
+                                    const _d = booking.description ?? "";
+                                    const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
+                                    const _rv = (booking as any).visitType || (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                    const _rc = (booking as any).treatmentCategory || (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                    persistRebookValues({
+                                      bookingName: booking.customerName,
+                                      bookingPhone: booking.customerPhone,
+                                      bookingEmail: booking.customerEmail || "",
+                                      bookingAge: String((booking as any).customerAge || ""),
+                                      bookingGender: (booking as any).customerGender || "",
+                                      bookingDescription: _rd,
+                                      bookingVisitType: _rv,
+                                      bookingAppointmentCategory: _rc,
+                                    });
+                                    onNavigate('book-a-slot'); setOpenBookingId(null);
+                                  }}
+                                  data-testid={`button-dialog-rebook-${booking.id}`}>
+                                  <CalendarPlus className="h-3 w-3" />Rebook
+                                </Button>
+                              </div>
+                            </>
+                          );
+                          }
+
+                          /* ── Stage 4: Treatment Completed → Mark Visit Done ── */
+                          if (modalIsTreatmentCompleted) return (
+                            <>
+                               <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                               <Button
+                                 className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
+                                onClick={() => completeVisitMutation.mutate({ bookingId: booking.id })}
+                                disabled={completeVisitMutation.isPending}
+                                data-testid={`button-dialog-visit-done-${booking.id}`}
+                              >
+                                {completeVisitMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                                Mark Visit Done
+                               </Button>
+                                <Button variant="outline" size="sm"
+                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  data-testid={`button-dialog-bill-tmt-${booking.id}`}>
+                                  <IndianRupee className="h-3 w-3" />₹ Bill
+                                </Button>
+                                <CancelDialog trigger={
+                                  <Button variant="ghost" size="sm"
+                                    className="flex-1 h-10 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                    data-testid={`button-dialog-cancel-tmt-${booking.id}`}>
+                                    <X className="h-3 w-3" />Cancel
+                                  </Button>
+                                } />
+                              </div>
+                            </>
+                          );
+
+                          /* ── Stage 3: In Consultation ── */
+                          if (modalIsInConsultation) return (
+                            <>
+                              <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                                <Button variant="outline" size="sm"
+                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  data-testid={`button-dialog-bill-consult-${booking.id}`}>
+                                  <IndianRupee className="h-3 w-3" />₹ Bill
+                                </Button>
+                                <CancelDialog trigger={
+                                  <Button variant="ghost" size="sm"
+                                    className="flex-1 h-10 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                    data-testid={`button-dialog-cancel-consult-${booking.id}`}>
+                                    <X className="h-3 w-3" />Cancel
+                                  </Button>
+                                } />
+                              </div>
+                            </>
+                          );
+
+                          /* ── Stage 2: Checked In / Arrived ── */
+                          if (modalIsCheckedIn) return (
+                            <>
+                              <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                                <Button variant="outline" size="sm"
+                                  className="flex-1 h-10 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  data-testid={`button-dialog-bill-checkin-${booking.id}`}>
+                                  <IndianRupee className="h-3 w-3" />₹ Bill
+                                </Button>
+                                <CancelDialog trigger={
+                                  <Button variant="ghost" size="sm"
+                                    className="flex-1 h-10 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                    data-testid={`button-dialog-cancel-checkin-${booking.id}`}>
+                                    <X className="h-3 w-3" />Cancel
+                                  </Button>
+                                } />
+                              </div>
+                            </>
+                          );
+
+                          /* ── Terminal: Cancelled / No-show / Left Early ── */
+                          if (modalIsTerminal) return (
+                             <>
+                             <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                             {booking.noShowSource === 'batch_admin' && modalIsNoShow && (
+                               <Button variant="outline" className="flex-1 min-w-0 h-11 text-sm font-medium gap-2"
+                                onClick={() => revertNoShowMutation.mutate(booking.id)}
+                                disabled={revertNoShowMutation.isPending}>
+                                {revertNoShowMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                Revert No-Show
+                              </Button>
+                            )}
+                            <Button variant="outline"
+                              className="flex-1 min-w-0 h-11 text-sm font-medium text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98] transition-all"
+                              onClick={() => {
+                                const _d = booking.description ?? "";
+                                const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
+                                const _rv = (booking as any).visitType || (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                const _rc = (booking as any).treatmentCategory || (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                persistRebookValues({
+                                  bookingName: booking.customerName,
+                                  bookingPhone: booking.customerPhone,
+                                  bookingEmail: booking.customerEmail || "",
+                                  bookingAge: String((booking as any).customerAge || ""),
+                                  bookingGender: (booking as any).customerGender || "",
+                                  bookingDescription: _rd,
+                                  bookingVisitType: _rv,
+                                  bookingAppointmentCategory: _rc,
+                                });
+                                onNavigate('book-a-slot'); setOpenBookingId(null);
+                              }}
+                              data-testid={`button-dialog-rebook-terminal-${booking.id}`}>
+                              <Repeat2 className="h-4 w-4" />Rebook
+                            </Button>
+                            </div>
+                            </>
+                          );
+
+                          /* ── Stage 0/1: Pre-arrival (unconfirmed or confirmed) ── */
+                          return (
+                             <>
+                               <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2">
+                               {!isBookingPast && !isConfirmed && (
+                                 <Button
+                                 className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-[0.98] border-0 shadow-md shadow-emerald-500/20 text-white transition-all"
+                                  onClick={() => confirmBookingMutation.mutate(booking.id)}
+                                  disabled={confirmBookingMutation.isPending}
+                                  data-testid={`button-dialog-confirm-${booking.id}`}
+                                 >
+                                  {confirmBookingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                  Confirm
+                                 </Button>
+                               )}
+                              <CancelDialog trigger={
+                                <Button
+                                  variant="outline"
+                                   className="flex-1 min-w-0 gap-1.5 h-11 text-sm font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50 active:bg-destructive/10 active:scale-[0.98] transition-all"
+                                  data-testid={`button-dialog-cancel-${booking.id}`}
+                                >
+                                  <X className="h-3.5 w-3.5" />Cancel
+                                </Button>
+                              } />
+                               </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                    </DialogContent>
+                </Dialog>
+                ].filter(Boolean) as React.ReactNode[];
+                });
+              })()
+            )}
+            {isFetchingNextPage && [1, 2, 3].map(i => (
+              <BookingCardSkeleton key={`booking-loading-${i}`} />
+            ))}
+          </div>
+          {!hasNextPage && !bookingsLoading && filteredBookings.length > 0 && (
+            <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
+              All {bookingsTotal} bookings loaded
+            </p>
+          )}
+          <div ref={sentinelRef} className="h-2" />
+          </>
+        )}
+        </div>
+        </div>
+          </div>
+  );
+}

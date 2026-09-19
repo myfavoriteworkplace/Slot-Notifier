@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  clinicUpgradeRequestApprovalBodySchema,
   clinicUpgradeRequestBodySchema,
+  clinicUpgradeRequestRejectionBodySchema,
   isClinicUpgradeEligible,
+  validateClinicUpgradeRequestApproval,
 } from "./clinic-upgrade-request-policy";
 
 test("accepts only paid plans, valid billing cycles, and a bounded reason", () => {
@@ -73,5 +76,40 @@ test("allows requests only during active Trial or grace", () => {
   assert.equal(
     isClinicUpgradeEligible({ ...activeTrial, plan: "starter" }, new Date("2026-09-10T00:00:00Z")),
     false,
+  );
+});
+
+test("validates Super Admin review bodies and requires a reason for overrides", () => {
+  assert.equal(
+    clinicUpgradeRequestApprovalBodySchema.safeParse({
+      requestedPlan: "growth",
+      billingCycle: "annual",
+      reviewReason: "Approved after review",
+    }).success,
+    true,
+  );
+  assert.equal(
+    clinicUpgradeRequestRejectionBodySchema.safeParse({ reviewReason: "" }).success,
+    false,
+  );
+  assert.equal(
+    validateClinicUpgradeRequestApproval({
+      approvedPlan: "pro",
+      approvedBillingCycle: "annual",
+      requestedPlan: "starter",
+      requestedBillingCycle: "monthly",
+      reviewReason: "Too short",
+    }),
+    "A reason of at least 10 characters is required when changing the requested plan or billing cycle",
+  );
+  assert.equal(
+    validateClinicUpgradeRequestApproval({
+      approvedPlan: "pro",
+      approvedBillingCycle: "annual",
+      requestedPlan: "starter",
+      requestedBillingCycle: "monthly",
+      reviewReason: "Approved for the clinic's documented growth needs",
+    }),
+    null,
   );
 });

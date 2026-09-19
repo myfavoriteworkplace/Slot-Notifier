@@ -319,6 +319,15 @@ export interface IStorage {
   createClinicUpgradeRequest(data: InsertClinicUpgradeRequest): Promise<ClinicUpgradeRequest>;
   getPendingClinicUpgradeRequest(clinicId: number): Promise<ClinicUpgradeRequest | undefined>;
   getClinicUpgradeRequests(clinicId: number): Promise<ClinicUpgradeRequest[]>;
+  getClinicUpgradeRequest(id: number): Promise<ClinicUpgradeRequest | undefined>;
+  getAdminClinicUpgradeRequests(status: "pending" | "all"): Promise<Array<{ request: ClinicUpgradeRequest; clinic: Clinic }>>;
+  countPendingClinicUpgradeRequests(): Promise<number>;
+  reviewClinicUpgradeRequest(
+    id: number,
+    status: "approved" | "rejected",
+    reviewedBy: string,
+    reviewReason: string | null,
+  ): Promise<ClinicUpgradeRequest | undefined>;
 
   // Doctors
   getDoctorByEmail(email: string): Promise<Doctor | undefined>;
@@ -2064,6 +2073,61 @@ export class DatabaseStorage implements IStorage {
       .from(clinicUpgradeRequests)
       .where(eq(clinicUpgradeRequests.clinicId, clinicId))
       .orderBy(desc(clinicUpgradeRequests.requestedAt), desc(clinicUpgradeRequests.id));
+  }
+
+  async getClinicUpgradeRequest(id: number): Promise<ClinicUpgradeRequest | undefined> {
+    const [request] = await db.select()
+      .from(clinicUpgradeRequests)
+      .where(eq(clinicUpgradeRequests.id, id))
+      .limit(1);
+    return request;
+  }
+
+  async getAdminClinicUpgradeRequests(
+    status: "pending" | "all",
+  ): Promise<Array<{ request: ClinicUpgradeRequest; clinic: Clinic }>> {
+    const query = db.select({
+      request: clinicUpgradeRequests,
+      clinic: clinics,
+    })
+      .from(clinicUpgradeRequests)
+      .innerJoin(clinics, eq(clinicUpgradeRequests.clinicId, clinics.id));
+
+    if (status === "pending") {
+      return await query
+        .where(eq(clinicUpgradeRequests.status, "pending"))
+        .orderBy(desc(clinicUpgradeRequests.requestedAt), desc(clinicUpgradeRequests.id));
+    }
+    return await query.orderBy(desc(clinicUpgradeRequests.requestedAt), desc(clinicUpgradeRequests.id));
+  }
+
+  async countPendingClinicUpgradeRequests(): Promise<number> {
+    const [result] = await db.select({ count: count() })
+      .from(clinicUpgradeRequests)
+      .where(eq(clinicUpgradeRequests.status, "pending"));
+    return Number(result?.count ?? 0);
+  }
+
+  async reviewClinicUpgradeRequest(
+    id: number,
+    status: "approved" | "rejected",
+    reviewedBy: string,
+    reviewReason: string | null,
+  ): Promise<ClinicUpgradeRequest | undefined> {
+    const [updated] = await db.update(clinicUpgradeRequests)
+      .set({
+        status,
+        reviewedAt: new Date(),
+        reviewedBy,
+        reviewReason,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(clinicUpgradeRequests.id, id),
+        eq(clinicUpgradeRequests.status, "pending"),
+      ))
+      .returning();
+    return updated;
   }
 
   // Doctors
