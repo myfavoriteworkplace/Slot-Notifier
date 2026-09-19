@@ -59,6 +59,10 @@ import {
   resolveInitialApprovalSelection,
   validateInitialApprovalSelection,
 } from "@shared/clinic-approval";
+import {
+  clinicUpgradeRequestBodySchema,
+  isClinicUpgradeEligible,
+} from "@shared/clinic-upgrade-request-policy";
 import { getAccessRevocationEventType, isAccessRevocable } from "@shared/subscription-access-revocation";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
@@ -1371,6 +1375,74 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(500).json({ message: "Failed to send reminder digest" });
     }
   });
+
+  app.post(
+    "/api/auth/clinic/subscription/upgrade-requests",
+    isAuthenticated,
+    requireClinicOwner,
+    requireTrustedMutationOrigin,
+    async (req, res) => {
+      const sess = req.session as any;
+      const clinicId = Number(sess.clinicId);
+      const parsed = clinicUpgradeRequestBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "A paid plan, billing cycle, and optional reason are required",
+          issues: parsed.error.issues.map((issue) => ({
+            path: issue.path.join("."),
+            message: issue.message,
+          })),
+        });
+      }
+
+      try {
+        const clinic = await storage.getClinic(clinicId);
+        if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+        const existingPending = await storage.getPendingClinicUpgradeRequest(clinicId);
+        if (existingPending) {
+          return res.json({ request: existingPending, idempotent: true });
+        }
+
+        if (!isClinicUpgradeEligible(clinic, new Date())) {
+          return res.status(409).json({
+            message: "Upgrade requests are available only during an active Trial or grace period",
+          });
+        }
+
+        const request = await storage.createClinicUpgradeRequest({
+          clinicId,
+          requestedPlan: parsed.data.requestedPlan,
+          billingCycle: parsed.data.billingCycle,
+          clinicReason: parsed.data.clinicReason,
+        });
+        return res.status(201).json({ request, idempotent: false });
+      } catch (error: any) {
+        console.error("[CLINIC UPGRADE REQUEST] Create failed:", error?.message || error);
+        return res.status(500).json({ message: "Unable to submit upgrade request" });
+      }
+    },
+  );
+
+  app.get(
+    "/api/auth/clinic/subscription/upgrade-request",
+    isAuthenticated,
+    requireClinicOwner,
+    async (req, res) => {
+      const clinicId = Number((req.session as any).clinicId);
+      try {
+        const pending = await storage.getPendingClinicUpgradeRequest(clinicId);
+        const history = await storage.getClinicUpgradeRequests(clinicId);
+        return res.json({
+          request: pending ?? history[0] ?? null,
+          hasPending: Boolean(pending),
+        });
+      } catch (error: any) {
+        console.error("[CLINIC UPGRADE REQUEST] Load failed:", error?.message || error);
+        return res.status(500).json({ message: "Unable to load upgrade request" });
+      }
+    },
+  );
 
   // ── WebSocket server for real-time clinic + doctor notifications ─────────
   const wss = new WebSocketServer({ server: httpServer, path: "/ws/notifications" });

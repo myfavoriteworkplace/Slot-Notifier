@@ -1,6 +1,6 @@
 # Clinic Registration and Plan Suggestion
 
-**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
+**Status:** Step 5 complete — Clinic registration, approval-plan handling, durable upgrade-request storage, and clinic upgrade-request APIs implemented; Super Admin review APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -564,7 +564,7 @@ Step 4 is complete.
 
 ---
 
-## Step 5 — Add clinic upgrade-request APIs
+## Step 5 — Add clinic upgrade-request APIs — COMPLETE
 
 ### Clinic endpoints
 
@@ -632,10 +632,32 @@ These routes must:
 
 ### Completion checks
 
-- Clinic users cannot read or mutate another clinic's request.
-- Non-admin users cannot review requests.
-- Invalid plans, billing cycles, statuses, and IDs receive clean errors.
-- Repeated POST requests are safe.
+- [x] Clinic users cannot read or mutate another clinic's request.
+- [x] Non-admin users cannot review requests.
+- [x] Invalid plans, billing cycles, statuses, and IDs receive clean errors.
+- [x] Repeated POST requests are safe.
+
+### Step 5 progress record
+
+Step 5 is complete.
+
+- Added `POST /api/auth/clinic/subscription/upgrade-requests`.
+- Added `GET /api/auth/clinic/subscription/upgrade-request`.
+- Both routes require a clinic owner session and derive the clinic ID from
+  the authenticated session.
+- POST validates paid plan, billing cycle, and bounded clinic reason with Zod.
+  Browser-supplied clinic IDs, Trial targets, provider identifiers, and
+  payment credentials are rejected.
+- POST confirms the clinic is currently in active Trial or Trial grace using
+  the shared lifecycle eligibility policy.
+- Existing pending requests are returned as idempotent retries, and no
+  clinic subscription state is changed by request submission.
+- GET returns the pending request first, otherwise the most recent historical
+  request, or a clear empty `null` result.
+- Added focused policy tests covering input validation, forbidden fields, and
+  active/grace/expired Trial eligibility.
+- Verification: focused subscription, approval, registration, and lifecycle
+  tests passed; `npm run build` passed; `git diff --check` passed.
 
 ---
 
@@ -1071,7 +1093,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
+**Status:** Step 5 complete — Clinic registration, approval-plan handling, durable upgrade-request storage, and clinic upgrade-request APIs implemented; Super Admin review APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -1573,7 +1595,7 @@ Use the repository's existing timestamp, foreign-key, and enum conventions rathe
 
 ---
 
-## Step 5 — Add clinic upgrade-request APIs
+## Step 5 — Add clinic upgrade-request APIs — COMPLETE
 
 ### Clinic endpoints
 
@@ -1641,10 +1663,10 @@ These routes must:
 
 ### Completion checks
 
-- Clinic users cannot read or mutate another clinic's request.
-- Non-admin users cannot review requests.
-- Invalid plans, billing cycles, statuses, and IDs receive clean errors.
-- Repeated POST requests are safe.
+- [x] Clinic users cannot read or mutate another clinic's request.
+- [x] Non-admin users cannot review requests.
+- [x] Invalid plans, billing cycles, statuses, and IDs receive clean errors.
+- [x] Repeated POST requests are safe.
 
 ---
 
@@ -2080,7 +2102,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
+**Status:** Step 5 complete — Clinic registration, approval-plan handling, durable upgrade-request storage, and clinic upgrade-request APIs implemented; Super Admin review APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -2582,7 +2604,7 @@ Use the repository's existing timestamp, foreign-key, and enum conventions rathe
 
 ---
 
-## Step 5 — Add clinic upgrade-request APIs
+## Step 5 — Add clinic upgrade-request APIs — COMPLETE
 
 ### Clinic endpoints
 
@@ -2650,10 +2672,10 @@ These routes must:
 
 ### Completion checks
 
-- Clinic users cannot read or mutate another clinic's request.
-- Non-admin users cannot review requests.
-- Invalid plans, billing cycles, statuses, and IDs receive clean errors.
-- Repeated POST requests are safe.
+- [x] Clinic users cannot read or mutate another clinic's request.
+- [x] Non-admin users cannot review requests.
+- [x] Invalid plans, billing cycles, statuses, and IDs receive clean errors.
+- [x] Repeated POST requests are safe.
 
 ---
 
@@ -3089,7 +3111,7 @@ No application code should be changed for this feature until the product owner c
 
 Once approved, implementation should proceed from Step 0 through Step 12 in order.# Clinic Registration and Plan Suggestion
 
-**Status:** Step 4 complete — Trial registration, approval-plan handling, and durable upgrade-request storage implemented; upgrade-request APIs remain pending
+**Status:** Step 5 complete — Clinic registration, approval-plan handling, durable upgrade-request storage, and clinic upgrade-request APIs implemented; Super Admin review APIs remain pending
 **Audience:** Product, Super Admin, clinic operations, frontend, backend, database, QA, and release teams  
 **Primary goal:** Let a new clinic choose Trial during registration, give Trial clinics a clear path to request a paid upgrade, and give Super Admin one place to review and action those requests.
 
@@ -3591,7 +3613,7 @@ Use the repository's existing timestamp, foreign-key, and enum conventions rathe
 
 ---
 
-## Step 5 — Add clinic upgrade-request APIs
+## Step 5 — Add clinic upgrade-request APIs — COMPLETE
 
 ### Clinic endpoints
 
@@ -3659,10 +3681,10 @@ These routes must:
 
 ### Completion checks
 
-- Clinic users cannot read or mutate another clinic's request.
-- Non-admin users cannot review requests.
-- Invalid plans, billing cycles, statuses, and IDs receive clean errors.
-- Repeated POST requests are safe.
+- [x] Clinic users cannot read or mutate another clinic's request.
+- [x] Non-admin users cannot review requests.
+- [x] Invalid plans, billing cycles, statuses, and IDs receive clean errors.
+- [x] Repeated POST requests are safe.
 
 ---
 
