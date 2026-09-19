@@ -1,0 +1,1 @@
+ALTER TABLE "clinics" ADD COLUMN IF NOT EXISTS "requested_plan" varchar(20);

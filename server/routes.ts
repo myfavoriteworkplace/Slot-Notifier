@@ -53,6 +53,7 @@ import {
   buildPaidExpiryRecoveryTransition,
   isTrialExpiredAfterGrace,
 } from "@shared/trial-lifecycle";
+import { resolveRequestedPlan } from "@shared/clinic-registration";
 import { getAccessRevocationEventType, isAccessRevocable } from "@shared/subscription-access-revocation";
 import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
@@ -1454,6 +1455,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const {
         verifiedToken, email,
         username: _u, passwordHash: _p,
+        plan: legacyPlan,
+        requestedPlan: requestedPlanInput,
+        status: _status,
+        isArchived: _isArchived,
+        registeredBy: _registeredBy,
+        trustScore: _trustScore,
+        storageLimitBytes: _storageLimitBytes,
+        subscriptionStatus: _subscriptionStatus,
+        billingCycle: _billingCycle,
+        razorpaySubscriptionId: _razorpaySubscriptionId,
+        trialStartedAt: _trialStartedAt,
+        trialEndsAt: _trialEndsAt,
+        trialGraceEndsAt: _trialGraceEndsAt,
+        trialOrigin: _trialOrigin,
+        previousPaidPlan: _previousPaidPlan,
+        paidAccessExpiresAt: _paidAccessExpiresAt,
+        subscriptionPolicyVersion: _subscriptionPolicyVersion,
         googleBusinessUrl, gstNumber, medicalLicenseUrl, clinicRegCertUrl,
         ...rest
       } = req.body;
@@ -1474,6 +1492,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (!otpRow) {
         return res.status(401).json({ message: "Email verification expired or invalid. Please verify your email and try again." });
+      }
+
+      const requestedPlanResult = resolveRequestedPlan({
+        requestedPlan: requestedPlanInput,
+        plan: legacyPlan,
+      });
+      if (!requestedPlanResult.ok) {
+        return res.status(400).json({ message: requestedPlanResult.message });
       }
 
       // Compute trust score server-side
@@ -1498,6 +1524,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ...rest, email,
         status: "pending", isArchived: false,
         username: null, passwordHash: null,
+         requestedPlan: requestedPlanResult.requestedPlan,
         googleBusinessUrl: googleBusinessUrl || null,
         gstNumber: gstNumber || null,
         medicalLicenseUrl: medicalLicenseUrl || null,

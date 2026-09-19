@@ -500,7 +500,7 @@ export default function RegisterClinic() {
         gstNumber: gstNumber || undefined,
         medicalLicenseUrl: medicalLicenseUrl || undefined,
         clinicRegCertUrl: clinicRegCertUrl || undefined,
-        plan: selectedPlan,
+        requestedPlan: selectedPlan,
       });
       notify.success("Registration submitted", { description: "We'll review your details and email your login credentials once approved." });
       setLocation("/getting-started");
