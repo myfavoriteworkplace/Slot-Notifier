@@ -61,11 +61,48 @@ function trustBandColor(score: number): string {
 }
 
 type AdminClinicListFilter = "all" | "attention";
+type SecurityActivityEvent = {
+  id: number;
+  role: string;
+  identifier: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  success: boolean;
+  eventType: string;
+  reason?: string | null;
+  createdAt: string | null;
+};
 type SecurityActivityPage = {
-  events: any[];
+  events: SecurityActivityEvent[];
   nextCursor: string | null;
   hasMore: boolean;
 };
+
+class SecurityActivityRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "SecurityActivityRequestError";
+  }
+}
+
+function isSecurityActivityPage(value: unknown): value is SecurityActivityPage {
+  if (!value || typeof value !== "object") return false;
+  const page = value as Partial<SecurityActivityPage>;
+  return Array.isArray(page.events)
+    && page.events.every(event => Boolean(event)
+      && typeof event === "object"
+      && typeof event.id === "number"
+      && typeof event.role === "string"
+      && typeof event.identifier === "string"
+      && typeof event.success === "boolean"
+      && typeof event.eventType === "string"
+      && (event.createdAt === null || typeof event.createdAt === "string"))
+    && typeof page.hasMore === "boolean"
+    && (page.nextCursor === null || typeof page.nextCursor === "string");
+}
 
 function formatSecurityEventType(eventType?: string | null): string {
   const labels: Record<string, string> = {
@@ -80,6 +117,16 @@ function formatSecurityEventType(eventType?: string | null): string {
     rate_limited: "Rate limited",
   };
   return labels[eventType || "login"] || (eventType || "login").replace(/_/g, " ");
+}
+
+function formatSecurityRole(role?: string | null): string {
+  const labels: Record<string, string> = {
+    owner: "Clinic",
+    doctor: "Doctor",
+    superuser: "Super Admin",
+    system: "System",
+  };
+  return labels[role || ""] || role || "Unknown";
 }
 
 function formatSecurityReason(reason?: string | null): string {
@@ -278,14 +325,16 @@ export default function Admin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Security & audit filters
-  const [loginRoleFilter, setLoginRoleFilter] = useState<"all" | "owner" | "doctor" | "superuser">("all");
+  const [loginRoleFilter, setLoginRoleFilter] = useState<"all" | "owner" | "doctor" | "superuser" | "system">("all");
   const [loginResultFilter, setLoginResultFilter] = useState<"all" | "success" | "failed">("all");
   const [loginEventTypeFilter, setLoginEventTypeFilter] = useState<"all" | "login" | "otp" | "logout" | "password_reset" | "rate_limited">("all");
   const [loginSearch, setLoginSearch] = useState("");
+  const [loginSearchDebounced, setLoginSearchDebounced] = useState("");
   const [loginDatePreset, setLoginDatePreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("30d");
   const [loginFromDate, setLoginFromDate] = useState("");
   const [loginToDate, setLoginToDate] = useState("");
   const loginActivitySentinelRef = useRef<HTMLDivElement>(null);
+  const [adminActiveTab, setAdminActiveTab] = useState("clinics-access");
 
   // New deal fields
   const [dealClinicId, setDealClinicId] = useState<number | null>(null);
@@ -545,45 +594,75 @@ export default function Admin() {
     return { from: from.toISOString(), to: now.toISOString() };
   }, [loginDatePreset, loginFromDate, loginToDate]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setLoginSearchDebounced(loginSearch.trim());
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [loginSearch]);
+
+  const securityActivityQueryKey = [
+    "/api/auth/admin/login-events",
+    loginRoleFilter,
+    loginResultFilter,
+    loginEventTypeFilter,
+    loginSearchDebounced,
+    loginDatePreset,
+    loginDateBounds.from,
+    loginDateBounds.to,
+  ] as const;
+
   const securityActivityQuery = useInfiniteQuery<SecurityActivityPage>({
-    queryKey: [
-      "/api/auth/admin/login-events",
-      loginRoleFilter,
-      loginResultFilter,
-      loginEventTypeFilter,
-      loginSearch.trim(),
-      loginDatePreset,
-      loginDateBounds.from,
-      loginDateBounds.to,
-    ],
-    queryFn: async ({ pageParam }) => {
+    queryKey: securityActivityQueryKey,
+    queryFn: async ({ pageParam, signal }) => {
       const params = new URLSearchParams({
         limit: "50",
         role: loginRoleFilter,
         result: loginResultFilter,
         eventType: loginEventTypeFilter,
       });
-      if (loginSearch.trim()) params.set("search", loginSearch.trim());
+      if (loginSearchDebounced) params.set("search", loginSearchDebounced);
       if (loginDateBounds.from) params.set("from", loginDateBounds.from);
       if (loginDateBounds.to) params.set("to", loginDateBounds.to);
       if (typeof pageParam === "string" && pageParam) params.set("cursor", pageParam);
       const response = await fetch(`${API_BASE_URL}/api/auth/admin/login-events?${params.toString()}`, {
+        signal,
         credentials: "include",
         headers: {
           Accept: "application/json",
         },
       });
-      if (!response.ok) throw new Error("Unable to load security activity");
-      return response.json();
+      const rawBody = await response.text();
+      let body: unknown;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : null;
+      } catch {
+        body = null;
+      }
+      if (!response.ok) {
+        const message = body && typeof body === "object" && "message" in body && typeof body.message === "string"
+          ? body.message
+          : response.status === 403
+            ? "Your Super Admin session is no longer valid."
+            : "Unable to load security activity.";
+        throw new SecurityActivityRequestError(message, response.status);
+      }
+      if (!isSecurityActivityPage(body)) {
+        throw new SecurityActivityRequestError("The audit service returned an invalid response.", response.status);
+      }
+      return body;
     },
     initialPageParam: null as string | null,
     getNextPageParam: lastPage => lastPage.hasMore ? lastPage.nextCursor ?? undefined : undefined,
-    enabled: !!user,
+    maxPages: 5,
+    enabled: !!user && adminActiveTab === "login-activity",
     refetchInterval: false,
   });
   const loginEventsRaw = securityActivityQuery.data?.pages.flatMap(page => page.events) ?? [];
   const loginEventsLoading = securityActivityQuery.isLoading;
-  const refetchLoginEvents = securityActivityQuery.refetch;
+  const refreshLoginEvents = () => {
+    void queryClient.resetQueries({ queryKey: securityActivityQueryKey, exact: true });
+  };
 
   useEffect(() => {
     const sentinel = loginActivitySentinelRef.current;
@@ -1204,9 +1283,10 @@ export default function Admin() {
       )}
 
       <Tabs
-        defaultValue="clinics-access"
+        value={adminActiveTab}
         orientation="vertical"
         onValueChange={(value) => {
+          setAdminActiveTab(value);
           if (value !== "operations" && value !== "tenant-operations") {
             setAdminSelectedClinicId(null);
           }
@@ -2526,7 +2606,7 @@ export default function Admin() {
                     Authentication, session, and account-security events across BookMySlot.
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => void refetchLoginEvents()} data-testid="button-refresh-login-events">
+                <Button variant="outline" size="sm" onClick={refreshLoginEvents} disabled={securityActivityQuery.isFetching} data-testid="button-refresh-login-events">
                   <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                   Refresh
                 </Button>
@@ -2578,6 +2658,7 @@ export default function Admin() {
                   <option value="owner">Clinic</option>
                   <option value="doctor">Doctor</option>
                   <option value="superuser">Super Admin</option>
+                  <option value="system">System</option>
                 </select>
                 <select
                   value={loginResultFilter}
@@ -2615,6 +2696,24 @@ export default function Admin() {
                     </div>
                   ))}
                 </div>
+              ) : securityActivityQuery.isError ? (
+                <div className="flex flex-col items-center justify-center px-6 py-16 text-center" role="alert">
+                  <AlertTriangle className="mb-3 h-10 w-10 text-red-500/70" />
+                  <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                    {securityActivityQuery.error instanceof SecurityActivityRequestError && securityActivityQuery.error.status === 403
+                      ? "Your Super Admin session has expired."
+                      : "Security activity could not be loaded."}
+                  </p>
+                  <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                    {securityActivityQuery.error instanceof Error
+                      ? securityActivityQuery.error.message
+                      : "Check the API connection and try again."}
+                  </p>
+                  <Button className="mt-4" size="sm" variant="outline" onClick={refreshLoginEvents}>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                    Retry
+                  </Button>
+                </div>
               ) : (() => {
                 const filtered = loginEventsRaw;
 
@@ -2646,7 +2745,7 @@ export default function Admin() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filtered.map((event: any, i: number) => {
+                        {filtered.map((event, i: number) => {
                           const ua: string = event.userAgent || "";
                           const isMobile = /mobile|android|iphone|ipad/i.test(ua);
                           const browser =
@@ -2698,7 +2797,7 @@ export default function Admin() {
                               </td>
                               <td className="px-4 py-3">
                                 <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${roleBadge[event.role] ?? "bg-muted text-muted-foreground"}`}>
-                                  {event.role === "owner" ? "Clinic" : event.role === "doctor" ? "Doctor" : "Superuser"}
+                                   {formatSecurityRole(event.role)}
                                 </span>
                               </td>
                               <td className="px-4 py-3 font-medium text-foreground max-w-[180px] truncate" title={event.identifier}>

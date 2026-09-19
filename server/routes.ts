@@ -91,7 +91,14 @@ function recordSecurityEvent(data: {
     success: data.success,
     eventType: data.eventType || "login",
     reason: data.reason,
-  }).catch(() => {});
+  }).catch((error: unknown) => {
+    console.error("[SECURITY AUDIT] Failed to record security event", {
+      role: data.role,
+      eventType: data.eventType || "login",
+      success: data.success,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 async function sendTrackedEmail(
@@ -4752,27 +4759,73 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ message: "Forbidden" });
     }
     try {
-      const parseDate = (value: unknown): Date | undefined => {
-        if (typeof value !== "string" || !value) return undefined;
+      const parseDate = (value: unknown): Date | null | undefined => {
+        if (value === undefined) return undefined;
+        if (typeof value !== "string" || !value) return null;
         const date = new Date(value);
-        return Number.isNaN(date.getTime()) ? undefined : date;
+        return Number.isNaN(date.getTime()) ? null : date;
       };
-      const result = req.query.result === "success" || req.query.result === "failed"
-        ? req.query.result
-        : undefined;
+      const allowedRoles = new Set(["all", "owner", "doctor", "superuser", "system"]);
+      const allowedEventTypes = new Set(["all", "login", "otp", "logout", "password_reset", "rate_limited"]);
+      const role = typeof req.query.role === "string" ? req.query.role : "all";
+      const result = typeof req.query.result === "string" ? req.query.result : "all";
+      const eventType = typeof req.query.eventType === "string" ? req.query.eventType : "all";
+      if (!allowedRoles.has(role)) {
+        return res.status(400).json({ message: "Invalid role filter" });
+      }
+      if (!["all", "success", "failed"].includes(result)) {
+        return res.status(400).json({ message: "Invalid result filter" });
+      }
+      if (!allowedEventTypes.has(eventType)) {
+        return res.status(400).json({ message: "Invalid event type filter" });
+      }
+      const rawLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+      if (!Number.isInteger(rawLimit) || rawLimit < 1) {
+        return res.status(400).json({ message: "Invalid limit" });
+      }
+      const from = parseDate(req.query.from);
+      const to = parseDate(req.query.to);
+      if (req.query.from !== undefined && !from) {
+        return res.status(400).json({ message: "Invalid from date" });
+      }
+      if (req.query.to !== undefined && !to) {
+        return res.status(400).json({ message: "Invalid to date" });
+      }
+      if (from && to && from > to) {
+        return res.status(400).json({ message: "The from date must be before the to date" });
+      }
+      const resultFilter: "success" | "failed" | undefined =
+        result === "success" || result === "failed" ? result : undefined;
+      const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+      if (cursor && !/^.+\|\d+$/.test(cursor)) {
+        return res.status(400).json({ message: "Invalid cursor" });
+      }
+      if (cursor) {
+        const separatorIndex = cursor.lastIndexOf("|");
+        const cursorDate = new Date(cursor.slice(0, separatorIndex));
+        const cursorId = Number(cursor.slice(separatorIndex + 1));
+        if (Number.isNaN(cursorDate.getTime()) || !Number.isInteger(cursorId)) {
+          return res.status(400).json({ message: "Invalid cursor" });
+        }
+      }
+      const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+      if (search.length > 100) {
+        return res.status(400).json({ message: "Search text is too long" });
+      }
       const page = await storage.getSecurityActivityEvents({
-        limit: Math.min(parseInt(req.query.limit as string) || 50, 100),
-        cursor: typeof req.query.cursor === "string" ? req.query.cursor : undefined,
-        from: parseDate(req.query.from),
-        to: parseDate(req.query.to),
-        role: typeof req.query.role === "string" ? req.query.role : undefined,
-        result,
-        eventType: typeof req.query.eventType === "string" ? req.query.eventType : undefined,
-        search: typeof req.query.search === "string" ? req.query.search : undefined,
+        limit: Math.min(rawLimit, 100),
+        cursor,
+        from: from ?? undefined,
+        to: to ?? undefined,
+        role,
+        result: resultFilter,
+        eventType,
+        search: search || undefined,
       });
       res.json(page);
     } catch (err: any) {
-      res.status(500).json({ message: err.message });
+      console.error("[ADMIN AUDIT] Failed to load login events:", err);
+      res.status(500).json({ message: "Unable to load security activity" });
     }
   });
 

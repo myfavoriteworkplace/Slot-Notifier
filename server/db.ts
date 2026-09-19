@@ -535,12 +535,33 @@ export async function ensureSessionTable() {
       );
       ALTER TABLE login_events ADD COLUMN IF NOT EXISTS event_type varchar(80) NOT NULL DEFAULT 'login';
       ALTER TABLE login_events ADD COLUMN IF NOT EXISTS reason varchar(255);
+      UPDATE login_events SET created_at = NOW() WHERE created_at IS NULL;
+      ALTER TABLE login_events ALTER COLUMN created_at SET NOT NULL;
       CREATE INDEX IF NOT EXISTS login_events_created_at_idx ON login_events (created_at DESC);
+      CREATE INDEX IF NOT EXISTS login_events_created_at_id_idx ON login_events (created_at DESC, id DESC);
       CREATE INDEX IF NOT EXISTS login_events_event_type_created_at_idx ON login_events (event_type, created_at DESC);
+      CREATE INDEX IF NOT EXISTS login_events_role_created_at_idx ON login_events (role, created_at DESC, id DESC);
     `);
     console.log("[DATABASE] login_events table ready.");
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring login_events table:", err.message);
+  }
+
+  try {
+    await pool.query(`
+      CREATE EXTENSION IF NOT EXISTS pg_trgm;
+      CREATE INDEX IF NOT EXISTS login_events_identifier_trgm_idx
+        ON login_events USING gin (identifier gin_trgm_ops);
+      CREATE INDEX IF NOT EXISTS login_events_ip_address_trgm_idx
+        ON login_events USING gin (ip_address gin_trgm_ops);
+      CREATE INDEX IF NOT EXISTS login_events_reason_trgm_idx
+        ON login_events USING gin (reason gin_trgm_ops);
+      CREATE INDEX IF NOT EXISTS login_events_event_type_trgm_idx
+        ON login_events USING gin (event_type gin_trgm_ops);
+    `);
+    console.log("[DATABASE] Login audit search indexes ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Login audit search indexes unavailable:", err.message);
   }
 
   // subscription_provider_events — append-only subscription provider timeline

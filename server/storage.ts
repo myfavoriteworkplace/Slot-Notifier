@@ -2562,7 +2562,7 @@ export class DatabaseStorage implements IStorage {
 
   async getSecurityActivityEvents(options: SecurityActivityQuery = {}): Promise<SecurityActivityPage> {
     const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
-    const conditions = [];
+    const conditions = [isNotNull(loginEvents.createdAt)];
 
     if (options.from) {
       conditions.push(gte(loginEvents.createdAt, options.from));
@@ -2585,17 +2585,19 @@ export class DatabaseStorage implements IStorage {
       };
       const prefix = eventTypePrefixes[options.eventType];
       conditions.push(prefix
-        ? ilike(loginEvents.eventType, `${prefix}%`)
+        ? sql`${loginEvents.eventType} ILIKE ${`${prefix.replace(/_/g, "\\_")}%`} ESCAPE '\\'`
         : eq(loginEvents.eventType, options.eventType));
     }
     if (options.search?.trim()) {
-      const search = `%${options.search.trim()}%`;
-      conditions.push(or(
-        ilike(loginEvents.identifier, search),
-        ilike(loginEvents.ipAddress, search),
-        ilike(loginEvents.reason, search),
-        ilike(loginEvents.eventType, search),
-      ));
+      const escapedSearch = options.search.trim().replace(/[\\%_]/g, character => `\\${character}`);
+      const search = `%${escapedSearch}%`;
+      const searchCondition = or(
+        sql`${loginEvents.identifier} ILIKE ${search} ESCAPE '\\'`,
+        sql`${loginEvents.ipAddress} ILIKE ${search} ESCAPE '\\'`,
+        sql`${loginEvents.reason} ILIKE ${search} ESCAPE '\\'`,
+        sql`${loginEvents.eventType} ILIKE ${search} ESCAPE '\\'`,
+      );
+      if (searchCondition) conditions.push(searchCondition);
     }
 
     if (options.cursor) {
@@ -2605,17 +2607,18 @@ export class DatabaseStorage implements IStorage {
       const cursorDate = new Date(createdAtValue);
       const cursorId = Number(idValue);
       if (!Number.isNaN(cursorDate.getTime()) && Number.isInteger(cursorId)) {
-        conditions.push(or(
+        const cursorCondition = or(
           lt(loginEvents.createdAt, cursorDate),
           and(eq(loginEvents.createdAt, cursorDate), lt(loginEvents.id, cursorId)),
-        ));
+        );
+        if (cursorCondition) conditions.push(cursorCondition);
       }
     }
 
     const rows = await db
       .select()
       .from(loginEvents)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(loginEvents.createdAt), desc(loginEvents.id))
       .limit(limit + 1);
     const hasMore = rows.length > limit;

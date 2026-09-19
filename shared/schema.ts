@@ -716,7 +716,7 @@ export const loginEvents = pgTable("login_events", {
   success:    boolean("success").notNull().default(true),
   eventType:  varchar("event_type", { length: 80 }).notNull().default("login"),
   reason:     varchar("reason", { length: 255 }),
-  createdAt:  timestamp("created_at").defaultNow(),
+  createdAt:  timestamp("created_at").notNull().defaultNow(),
 });
 
 export type LoginEvent = typeof loginEvents.$inferSelect;
