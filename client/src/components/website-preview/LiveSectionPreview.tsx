@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
+import { avatarDoctorDefault } from "@/assets/platform-avatar-system";
 import {
   DEFAULT_FEATURES,
   DEFAULT_SERVICES,
@@ -496,7 +497,11 @@ function LiveSectionContent({
               {doctors.slice(0, 3).map((doctor, index) => (
                 <div key={`${doctor.name}-${index}`} className="rounded-xl border border-gray-200 bg-white p-4 text-center">
                   <div className="mx-auto h-16 w-16 overflow-hidden rounded-full bg-[#130506]">
-                    {doctor.imageUrl ? <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover object-top" /> : <Users className="mx-auto mt-5 h-7 w-7 text-red-300" aria-hidden="true" />}
+                    {doctor.imageUrl ? (
+                      <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover object-top" />
+                    ) : (
+                      <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
+                    )}
                   </div>
                   <p className="mt-3 text-xs font-bold text-[#171717]">{doctor.name}</p>
                   {doctor.specialization && <p className="mt-1 text-[10px] font-bold uppercase text-[#D9090D]">{doctor.specialization}</p>}

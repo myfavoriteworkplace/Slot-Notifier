@@ -29,6 +29,10 @@ import {
   CalendarOff, ChevronDown, Mail, MoreHorizontal, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
+import {
+  avatarDoctorDefault,
+  emptyDoctors,
+} from "@/assets/platform-avatar-system";
 
 interface DoctorLeave {
   doctorEmail?: string;
@@ -349,9 +353,7 @@ export default function ManageDoctorsPanel({ clinic, isAuthenticated, allDoctorL
                             {doctor.imageUrl ? (
                               <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
                             ) : (
-                              <span className="text-sm font-bold bg-gradient-to-br from-accent to-primary bg-clip-text text-transparent">
-                                {doctor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                              </span>
+                              <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
                             )}
                           </div>
                           <span className="absolute -bottom-1 -right-1 font-mono text-xs font-bold bg-muted border border-border/60 text-muted-foreground px-1 py-px rounded-full leading-none">
@@ -585,8 +587,8 @@ export default function ManageDoctorsPanel({ clinic, isAuthenticated, allDoctorL
               </div>
             ) : (
               <div className="py-8 text-center bg-muted/20 rounded-xl border border-dashed">
-                <div className="p-3 bg-muted/50 rounded-full w-fit mx-auto mb-3">
-                  <Stethoscope className="h-7 w-7 text-muted-foreground/60" />
+                <div className="h-20 w-20 p-1 bg-muted/50 rounded-2xl w-fit mx-auto mb-3">
+                  <img src={emptyDoctors} alt="" className="h-full w-full object-contain" />
                 </div>
                 <p className="font-medium text-muted-foreground">No doctors added yet</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">Add your first doctor using the form above</p>

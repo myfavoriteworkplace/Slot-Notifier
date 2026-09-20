@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { notify } from "@/lib/notify";
+import { avatarDoctorDefault } from "@/assets/platform-avatar-system";
 
 function isVideo(url: string) {
   return /\.(mp4|webm|ogg|mov)$/i.test(url) || url.includes("youtube.com") || url.includes("youtu.be") || url.includes("vimeo.com");
@@ -310,8 +311,8 @@ export default function DoctorPublicProfile() {
             {doctor.imageUrl ? (
               <img src={doctor.imageUrl} alt={doctor.name} className="relative w-[110px] h-[110px] sm:w-[130px] sm:h-[130px] rounded-full object-cover border-2 border-primary/30" />
             ) : (
-              <div className="relative w-[110px] h-[110px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary/15 border-2 border-primary/30 flex items-center justify-center text-4xl font-extrabold text-primary">
-                {initials}
+              <div className="relative w-[110px] h-[110px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary/15 border-2 border-primary/30 flex items-center justify-center overflow-hidden">
+                <img src={avatarDoctorDefault} alt="Doctor profile placeholder" className="h-full w-full object-contain" />
               </div>
             )}
             <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center border-2 border-background">

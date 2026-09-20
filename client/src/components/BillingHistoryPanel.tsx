@@ -25,6 +25,7 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { PatientBill, BillingAuditLog, PharmacyStockItem } from "@shared/schema";
+import { emptyBilling } from "@/assets/platform-avatar-system";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -1847,8 +1848,8 @@ export function BillingHistoryPanel({
       {/* No bills yet — one clear starting action */}
       {bills.length === 0 && (
         <div className="rounded-xl border border-dashed border-primary/25 bg-primary/[0.03] px-5 py-8 sm:py-10 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <FileText className="h-5 w-5 text-primary" />
+          <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 p-1">
+            <img src={emptyBilling} alt="" className="h-full w-full object-contain" />
           </div>
           <p className="text-sm font-semibold text-foreground">No bills yet for this visit</p>
           <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">

@@ -16,6 +16,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { ThemeClassic, ThemeWarm, ThemeModern, ThemeRedClinical } from "@/components/clinic-themes/ClinicThemes";
 import type { ClinicWebsiteConfig } from "@shared/schema";
+import { avatarDoctorDefault } from "@/assets/platform-avatar-system";
 
 const PIN_ICON = L.divIcon({
   html: `<div style="width:32px;height:40px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.4))">
@@ -358,7 +359,7 @@ export default function ClinicAbout(props: { params?: { slug?: string } }) {
                         {doc.imageUrl ? (
                           <img src={doc.imageUrl} alt={doc.name} className="h-full w-full object-cover" />
                         ) : (
-                          <User className="h-8 w-8" />
+                          <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
                         )}
                       </div>
                       <h3 className="font-display font-bold text-lg mb-1 group-hover:text-primary transition-colors">

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
-import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
+import { emptyAppointments } from "@/assets/platform-avatar-system";
 import {
   type BillingService, type BillingDetails, type ClinicInfo,
   generateReceiptPDF, generateConsentPdf, printBillFromRecord,
@@ -1806,7 +1806,7 @@ export default function BookingsPanel({
               <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
                 <div className="rounded-2xl overflow-hidden bg-white/70 dark:bg-muted/20 p-2 shadow-sm">
                   <img
-                    src={noBookingsImg}
+                    src={emptyAppointments}
                     alt="No bookings found"
                     className="w-32 h-32 object-contain dark:opacity-75"
                     draggable={false}
@@ -3619,7 +3619,6 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
-import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
 import {
   type BillingService, type BillingDetails, type ClinicInfo,
   generateReceiptPDF, generateConsentPdf, printBillFromRecord,
@@ -5425,7 +5424,7 @@ function BookingsPanelDuplicate({
               <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
                 <div className="rounded-2xl overflow-hidden bg-white/70 dark:bg-muted/20 p-2 shadow-sm">
                   <img
-                    src={noBookingsImg}
+                    src={emptyAppointments}
                     alt="No bookings found"
                     className="w-32 h-32 object-contain dark:opacity-75"
                     draggable={false}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import defaultHeroImg from "@assets/WhatsApp_Image_2026-05-13_at_9.00.41_PM_1778687930285.jpeg";
+import { avatarDoctorDefault } from "@/assets/platform-avatar-system";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -174,39 +175,7 @@ function ClinicPhotoPlaceholder({ cardBg, border, height = "h-[420px]", isOwner 
 function DoctorAvatarPlaceholder() {
   return (
     <div className="w-full h-full bg-gradient-to-b from-[#0F9B6E]/10 to-[#0F9B6E]/5 flex items-end justify-center overflow-hidden">
-      <svg
-        viewBox="0 0 160 172"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-36"
-        aria-label="Doctor placeholder"
-      >
-        {/* Head */}
-        <circle cx="80" cy="52" r="30" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.08" />
-
-        {/* Neck */}
-        <path d="M70 80 L70 94 Q80 98 90 94 L90 80" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.06" strokeLinejoin="round" />
-
-        {/* White coat body */}
-        <path d="M2 172 L2 142 C2 122 28 110 52 106 L63 126 L80 131 L97 126 L108 106 C132 110 158 122 158 142 L158 172 Z"
-          stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.07" strokeLinejoin="round" />
-
-        {/* Coat collar / lapels */}
-        <path d="M63 126 L70 148 L80 152 L90 148 L97 126"
-          stroke="#0F9B6E" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
-
-        {/* Stethoscope — left drape */}
-        <path d="M62 120 C54 130 50 143 55 155 C59 164 68 166 76 162"
-          stroke="#0F9B6E" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-        {/* Stethoscope chest piece */}
-        <circle cx="76" cy="162" r="5" stroke="#0F9B6E" strokeWidth="1.5" />
-
-        {/* Breast pocket */}
-        <rect x="104" y="134" width="22" height="15" rx="2" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.5" />
-        {/* Pen in pocket */}
-        <line x1="110" y1="134" x2="110" y2="149" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.45" strokeLinecap="round" />
-        <line x1="116" y1="134" x2="116" y2="149" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.35" strokeLinecap="round" />
-      </svg>
+      <img src={avatarDoctorDefault} alt="Doctor placeholder" className="w-full h-full object-contain" />
     </div>
   );
 }

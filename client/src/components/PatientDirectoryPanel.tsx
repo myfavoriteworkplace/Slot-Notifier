@@ -11,6 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { emptyPatients } from "@/assets/platform-avatar-system";
 
 type PatientPagedResponse = {
   data: (Patient & { totalBilled: number })[];
@@ -406,8 +407,8 @@ export default function PatientDirectoryPanel({
         </div>
       ) : patientList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-            <Users className="h-6 w-6 text-muted-foreground" />
+          <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-3 p-1">
+            <img src={emptyPatients} alt="" className="h-full w-full object-contain" />
           </div>
           <p className="text-sm font-semibold text-muted-foreground">
             {debouncedQ || hasDateFilter ? 'No patients match your filters' : 'No patients yet'}

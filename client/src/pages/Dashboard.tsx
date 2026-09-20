@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useState, useEffect } from "react";
+import { emptyAppointments } from "@/assets/platform-avatar-system";
 import {
   Dialog,
   DialogContent,
@@ -420,7 +421,8 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredBookings?.length === 0 ? (
-                <div className="col-span-full py-12 text-center bg-muted/20 rounded-2xl border border-dashed">
+                <div className="col-span-full py-12 text-center bg-muted/20 rounded-2xl border border-dashed flex flex-col items-center">
+                  <img src={emptyAppointments} alt="" className="h-24 w-24 object-contain mb-2" />
                   <p className="text-muted-foreground">No bookings found for the selected criteria.</p>
                 </div>
               ) : (

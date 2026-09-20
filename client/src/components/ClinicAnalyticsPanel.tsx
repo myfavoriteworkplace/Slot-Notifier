@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import type { AnalyticsData } from "@/lib/clinic-constants";
+import { emptyAnalytics } from "@/assets/platform-avatar-system";
 
 // -- Chart color palette (SVG fills - CSS vars can't be used in SVG attribute strings) --
 const C = {
@@ -373,7 +374,8 @@ export default function ClinicAnalyticsPanel() {
         {/* Appointments trend */}
         <ChartCard title="Appointments Trend">
           {overview.trendByDay && overview.trendByDay.length === 0 ? (
-            <div className="flex items-center justify-center h-[180px]">
+            <div className="flex flex-col items-center justify-center h-[180px] gap-1">
+              <img src={emptyAnalytics} alt="" className="h-20 w-20 object-contain" />
               <p className="text-sm text-muted-foreground">No appointment data for this period.</p>
             </div>
           ) : (
@@ -438,7 +440,8 @@ export default function ClinicAnalyticsPanel() {
         {/* Revenue trend */}
         <ChartCard title="Revenue Trend (by week)">
           {financial.revenueTrend && financial.revenueTrend.length === 0 ? (
-            <div className="flex items-center justify-center h-[190px]">
+            <div className="flex flex-col items-center justify-center h-[190px] gap-1">
+              <img src={emptyAnalytics} alt="" className="h-20 w-20 object-contain" />
               <p className="text-sm text-muted-foreground">No revenue data for this period.</p>
             </div>
           ) : (

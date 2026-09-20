@@ -10,6 +10,7 @@ import {
   CalendarDays, ArrowRight, Stethoscope,
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
+import { avatarDoctorDefault } from "@/assets/platform-avatar-system";
 
 type PublicClinic = Omit<Clinic, "passwordHash" | "registeredBy">;
 
@@ -190,7 +191,7 @@ export default function ClinicInfoSheet({
                           {doc.imageUrl ? (
                             <img src={doc.imageUrl} alt={doc.name} className="h-full w-full object-cover" />
                           ) : (
-                            <User className="h-5 w-5" />
+                            <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">

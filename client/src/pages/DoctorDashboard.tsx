@@ -7,6 +7,10 @@ import MedicalHistoryTab from "@/components/MedicalHistoryTab";
 import VisitTimelineTab from "@/components/VisitTimelineTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useLocation } from "wouter";
+import {
+  avatarDoctorDefault,
+  emptyAppointments,
+} from "@/assets/platform-avatar-system";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -877,8 +881,8 @@ export default function DoctorDashboard() {
         >
           <Avatar className="h-7 w-7 ring-2 ring-primary/20">
             <AvatarImage src={(doctor as any).imageUrl || undefined} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-              {(doctor as any).name?.charAt(0) || "D"}
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold p-0 overflow-hidden">
+              <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
             </AvatarFallback>
           </Avatar>
         </button>
@@ -942,8 +946,8 @@ export default function DoctorDashboard() {
               {/* Avatar — slightly smaller on mobile */}
               <Avatar className="h-10 w-10 sm:h-16 sm:w-16 ring-2 ring-white/30 shadow-md shrink-0">
                 <AvatarImage src={(doctor as any).imageUrl || undefined} />
-                <AvatarFallback className="bg-white/20 text-white font-bold text-sm sm:text-xl">
-                  {(doctor as any).name.charAt(0)}
+                <AvatarFallback className="bg-white/20 text-white font-bold text-sm sm:text-xl p-0 overflow-hidden">
+                  <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
@@ -1972,8 +1976,12 @@ export default function DoctorDashboard() {
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
-                      {quickFilter === "awaiting" ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" /> : <Calendar className="h-7 w-7 text-muted-foreground/40" />}
+                    <div className={`h-20 w-20 rounded-2xl flex items-center justify-center p-1 ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
+                      {quickFilter === "awaiting" ? (
+                        <CheckCircle2 className="h-7 w-7 text-amber-500/60" />
+                      ) : (
+                        <img src={emptyAppointments} alt="" className="h-full w-full object-contain" />
+                      )}
                     </div>
                     <p className="text-sm font-medium text-muted-foreground">
                       {emptyStateMeta.title}
@@ -2034,7 +2042,9 @@ export default function DoctorDashboard() {
                         <div className="absolute -inset-1.5 rounded-2xl bg-gradient-to-br from-accent/40 to-primary/30 blur-md" />
                         <Avatar className="relative h-14 w-14 rounded-2xl border-2 border-white/20 ring-1 ring-white/10">
                           <AvatarImage src={profImageUrl || undefined} />
-                          <AvatarFallback className="rounded-2xl bg-white/15 text-white font-bold text-xl">{profName?.charAt(0) || "?"}</AvatarFallback>
+                          <AvatarFallback className="rounded-2xl bg-white/15 text-white font-bold text-xl p-0 overflow-hidden">
+                            <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
+                          </AvatarFallback>
                         </Avatar>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2085,7 +2095,9 @@ export default function DoctorDashboard() {
                     <div className="flex items-center gap-4">
                       <Avatar className="h-16 w-16 ring-2 ring-primary/20 shrink-0">
                         <AvatarImage src={profImageUrl || undefined} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">{profName?.charAt(0) || "?"}</AvatarFallback>
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl p-0 overflow-hidden">
+                          <img src={avatarDoctorDefault} alt="" className="h-full w-full object-contain" />
+                        </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col gap-2">
                         <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />

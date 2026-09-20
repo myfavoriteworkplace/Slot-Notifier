@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { printBillFromRecord, type ClinicInfo } from "@/lib/clinic-pdf";
+import { emptyBilling, emptySearch } from "@/assets/platform-avatar-system";
 
 type LedgerGroup = {
   key: string; patientId: number | null; patientCode: string | null;
@@ -469,8 +470,12 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
             ))
           ) : (response.data as LedgerGroup[]).length === 0 ? (
             <div className="py-16 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
-              <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto mb-3">
-                <IndianRupee className="h-6 w-6 text-muted-foreground/50" />
+              <div className="h-20 w-20 p-1 bg-muted/40 rounded-2xl w-fit mx-auto mb-3">
+                <img
+                  src={total === 0 ? emptyBilling : emptySearch}
+                  alt=""
+                  className="h-full w-full object-contain"
+                />
               </div>
               <p className="font-medium text-muted-foreground">
                 {total === 0 ? "No bills yet" : "No patients match your search"}
