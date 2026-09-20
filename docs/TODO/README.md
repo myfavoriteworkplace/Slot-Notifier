@@ -24,6 +24,7 @@ This folder contains an evidence-based review of the application and a prioritiz
 | [15-messaging-allowance-and-plan-policy-blueprint.md](./15-messaging-allowance-and-plan-policy-blueprint.md) | Planning blueprint for messaging allowances, thresholds, reset periods, and staged enforcement |
 | [16-four-plan-subscription-and-entitlement-blueprint.md](./16-four-plan-subscription-and-entitlement-blueprint.md) | Detailed four-tier subscription model and entitlement blueprint for Trial, Starter, Growth, and Pro |
 | [19-frontend-bundle-size-optimisation-plan.md](./19-frontend-bundle-size-optimisation-plan.md) | Root-cause analysis and independently executable frontend bundle optimisation steps |
+| [20-avatar-styling-and-design-direction.md](./20-avatar-styling-and-design-direction.md) | Detailed avatar, empty-state illustration, format, sizing, theme, and design-agent handoff brief |
 
 ## Executive summary
 
