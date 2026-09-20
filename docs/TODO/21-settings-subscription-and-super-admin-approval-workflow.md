@@ -26,6 +26,31 @@ The central rule is:
 
 An assigned plan, a requested plan, a generated payment link, or a pending payment is not by itself proof of active paid access.
 
+### Confirmed business rule for paid-plan approval
+
+For a clinic that registers with a paid plan, the centralized policy is:
+
+> Super Admin may approve the clinic's requested paid plan and send a payment
+> link, but the clinic remains on Trial access until the online payment is
+> confirmed.
+
+The commercial decision and the access transition are separate:
+
+```text
+requested plan -> approved/assigned plan -> payment link
+                                              |
+                                              v
+                              Trial access continues until payment
+                                              |
+                                              v
+                             confirmed payment -> active paid access
+```
+
+This is the target policy for future implementation. The current paid-plan
+assignment route is described in the audit below because it currently moves the
+clinic to `pending_payment` and clears Trial dates. That is an implementation
+discrepancy, not the final business rule.
+
 ---
 
 ## 2. Current implementation audit
@@ -1179,3 +1204,383 @@ Clinic operational reminder actions:
 - `docs/TODO/18-clinic-registration-and-plan-suggestion.md`
 - `docs/features/subscription/README.md`
 - `docs/features/payment-and-subscription-guide.md`
+
+---
+
+## 15. Centralized approval process and scenario reference
+
+This section is the operational reference for the complete approval process. It
+defines what Super Admin selects, what the clinic can use immediately, what
+payment evidence is required, and how the access period is renewed.
+
+### 15.1 Plan catalog currently in force
+
+The current published catalog is defined in `shared/plan-catalog.ts`.
+
+| Plan key | Display name | Type | Monthly price | Annual price | Trial duration | Grace period | Operational meaning |
+|---|---|---|---:|---:|---:|---:|---|
+| `trial` | Trial | Free evaluation | Not applicable | Not applicable | 14 days | 7 days | Temporary evaluation access; no paid subscription |
+| `starter` | Starter | Paid | ₹999 | ₹9,990 | Not applicable | Not applicable | Basic clinic plan |
+| `growth` | Growth | Paid | ₹1,599 | ₹15,990 | Not applicable | Not applicable | Recommended operating plan |
+| `pro` | Pro | Paid | ₹2,999 | ₹29,990 | Not applicable | Not applicable | High-volume plan with fair-use monitoring |
+
+Monthly and annual are the current billing cycles for paid plans. Trial is an
+access mode, not a paid billing cycle.
+
+Pricing and limits are policy-versioned. A subscription history record must
+retain the policy version used when the plan was assigned or renewed. A later
+catalog price change must not silently rewrite historical amounts or historical
+plan terms.
+
+### 15.2 Centralized Super Admin approval decision table
+
+| Decision | When to use | Current access immediately after decision | Assigned plan | Payment record | Payment link | Renewal mode | Required audit |
+|---|---|---|---|---|---|---|---|
+| Approve Trial | Clinic should evaluate the platform before payment | Trial access | `trial` | None | None | Trial expiry and grace policy | Approval actor, dates, reason, policy version |
+| Approve paid plan and request online payment | Clinic registers with Starter, Growth, or Pro and must pay online | Trial remains active | Selected paid plan | Pending provider activation | Create, send, and track | Provider auto-renewal after confirmation | Assigned plan, cycle, provider reference, link status, actor, reason |
+| Approve paid plan after verified offline payment | Payment has already been received outside the provider | Active paid | Selected paid plan | Separate verified manual payment | None required | Manual renewal after paid period | Amount, currency, method, evidence, reference, verifier, dates, reason |
+| Approve paid plan free of charge | Super Admin intentionally grants paid-level access without payment | Sponsored/complimentary access | Selected paid plan or sponsored entitlement | Explicitly waived; never “paid” | None required | Admin review before fixed end date | Grant, reason, start/end dates, actor, sponsor basis |
+| Reject | Clinic does not meet approval requirements | No active clinic access | None or retained request only | None | None | Not applicable | Rejection reason, actor, timestamp |
+
+The primary paid approval sequence is:
+
+```text
+Approve paid plan
+  -> keep Trial access
+  -> send payment link
+  -> wait for provider confirmation
+  -> activate paid plan
+  -> provider handles future renewal
+```
+
+Offline payment and complimentary access must not be combined. A verified
+offline payment represents money received and checked. A complimentary grant
+represents authorized free access. They have different reporting, renewal,
+reversal, and audit requirements.
+
+### 15.3 Registration and approval process
+
+#### Step 1: Clinic registration
+
+The clinic submits identity, contact information, registration documents, and a
+requested plan. The system records:
+
+```text
+clinic.status = pending
+requestedPlan = submitted plan
+access = pending approval
+payment = not required yet
+```
+
+The requested plan is a request, not an entitlement. Selecting Growth or Pro
+does not grant paid access.
+
+#### Step 2: Super Admin review
+
+Super Admin reviews:
+
+- Clinic identity and contact information
+- Registration documents
+- Requested plan and requested billing cycle
+- Trust and verification information
+- Existing subscription history, if the clinic already exists
+- Unresolved provider, payment, or access conflicts
+
+The approval screen must show requested plan and approved plan as separate
+values.
+
+#### Step 3: Super Admin chooses one approval basis
+
+The approval action must require one explicit basis:
+
+```text
+Trial
+Paid — online payment required
+Paid — verified offline payment
+Paid-level access — complimentary/sponsored
+Reject
+```
+
+The operator must not be able to submit a generic “approve paid” action without
+choosing how payment or sponsorship is handled.
+
+#### Step 4: Snapshot and history are written
+
+The system updates the current clinic snapshot only after validating the
+selected outcome. It also writes an append-only lifecycle event and any
+corresponding assignment, payment, grant, or provider record.
+
+Every outcome must include:
+
+- Clinic ID
+- Requested plan
+- Approved/assigned plan
+- Billing cycle
+- Access state
+- Payment basis
+- Renewal mode
+- Effective date
+- End or renewal date, when applicable
+- Actor type and actor ID
+- Reason
+- Policy version
+- Unique transition ID
+
+#### Step 5: Notification and operational follow-up
+
+Notification wording must match the actual outcome:
+
+| Outcome | Clinic message |
+|---|---|
+| Trial | “Your clinic has been approved and Trial access is active.” |
+| Online payment pending | “Your clinic has Trial access. Complete payment for the selected plan to activate paid access.” |
+| Offline payment verified | “Your paid access is active after your offline payment was verified.” |
+| Complimentary | “Your clinic has temporary complimentary access until [date]. This is not a paid subscription.” |
+| Rejected | “Your clinic registration was not approved.” |
+
+The Super Admin view must show whether the notification was sent, skipped, or
+failed. Sending a notification is not payment confirmation.
+
+### 15.4 Scenario 1: paid plan approved, payment link sent, Trial continues
+
+This is the confirmed online-payment scenario.
+
+| Stage | Stored business meaning | Clinic-facing state | Renewal/next action |
+|---|---|---|---|
+| Registration | Clinic requested Growth | Pending approval | Super Admin review |
+| Approval | Growth selected for activation | Trial access | Payment link is sent |
+| Link created | Provider activation prepared | Trial with Growth payment pending | Clinic may pay |
+| Link not used | No payment confirmation exists | Trial remains active | Trial/grace policy continues |
+| Link expired | Activation was not completed in the link window | Trial, with payment activation unavailable | Support may issue a new link after checking state |
+| Payment submitted | Provider has received a payment attempt | Still Trial until confirmed | Wait for provider confirmation |
+| Payment confirmed | Provider has confirmed successful activation | Active paid Growth | Provider renewal controls future periods |
+| Renewal succeeds | New provider period is confirmed | Active paid Growth | Extend paid access expiry |
+| Renewal fails | Provider reports failure | Past-due/payment-attention state | Apply retry/grace policy; do not silently extend |
+| Subscription cancelled | Renewal was cancelled | Active through the paid period, unless policy says otherwise | Do not label future periods active |
+
+The important invariants are:
+
+```text
+Payment link generated != payment received
+Payment received != provider-confirmed paid access
+Provider-confirmed paid access = eligible for active paid state
+```
+
+The target state while waiting is two-dimensional:
+
+```text
+access.state = trial
+payment.status = pending
+assigned.plan = growth
+paid.access = false
+```
+
+The current code instead writes `subscriptionStatus = pending_payment` and
+clears Trial dates in the paid-plan assignment route. That is documented as a
+current implementation gap and must be corrected or mapped through a separate
+payment-intent/assignment model before this policy is implemented.
+
+### 15.5 Scenario 2: Super Admin verifies an offline payment
+
+| Stage | Required data | Clinic state | Renewal behavior |
+|---|---|---|---|
+| Payment reported | Amount, currency, method, date, external reference | Trial or payment-review state | No paid access yet |
+| Evidence uploaded or linked | Receipt or internal evidence | Trial or payment-review state | Await verification |
+| Payment verified | Verifier, timestamp, reason, evidence check | Active paid | Manual renewal date is calculated |
+| Payment rejected | Rejection reason | Remains Trial, pending, or expired according to prior state | No paid access |
+| Payment reversed/refunded | Reversal reason, date, operator, reference | Reconciliation or revoked-access state according to policy | Do not keep the period silently active |
+| Renewal due | New payment required | Renewal-attention state | Super Admin records and verifies the next payment |
+
+The minimum offline-payment record is:
+
+```text
+clinicId
+plan
+billingCycle
+amount
+currency
+receivedAt
+paymentMethod
+externalReference
+evidenceReference
+verificationStatus
+verifiedBy
+verifiedAt
+reason
+reversalStatus
+```
+
+Offline payment must not create or copy:
+
+- A fabricated Razorpay subscription ID
+- A fabricated provider event ID
+- A fake provider webhook
+- A generic “Mark Paid” record without evidence
+
+If the clinic later moves to provider billing, that is a new payment basis and
+a new lifecycle transition. The offline record remains historical evidence.
+
+### 15.6 Scenario 3: paid plan approved without taking payment
+
+This is a complimentary or sponsored access grant, not a successful payment.
+
+| Stage | Required data | Clinic state | Renewal behavior |
+|---|---|---|---|
+| Grant created | Plan, reason, actor, start date, end date | Sponsored/complimentary access | Admin review is scheduled |
+| Grant active | Grant remains valid | Paid-level access, but not paid subscription | No provider renewal |
+| Grant nearing expiry | Reminder/alert | Still sponsored until end date | Super Admin decides next outcome |
+| Grant extended | New reason and end date | Sponsored/complimentary | New audited end date |
+| Converted to online paid | Provider activation begins | Trial or restricted transition until confirmation | Provider renewal after confirmation |
+| Converted to offline paid | Verified manual payment is recorded | Active paid | Manual renewal |
+| Grant expires | No extension or conversion | Expired/restricted | Apply access revocation or recovery policy |
+
+Required labels:
+
+```text
+Sponsored access
+Complimentary access
+Payment waived
+```
+
+Disallowed labels unless a real payment confirmation exists:
+
+```text
+Paid
+Payment successful
+Revenue collected
+Provider active
+```
+
+Complimentary access must always have a reason, an approving operator, a start
+date, and an end date. It must never renew automatically or remain open-ended.
+
+### 15.7 Renewal policy
+
+#### Provider-paid renewal
+
+For online provider-paid subscriptions:
+
+- The provider is the source of truth for recurring payment attempts.
+- A successful renewal extends `paidAccessExpiresAt`.
+- Duplicate renewal events are idempotent.
+- A failed renewal moves the subscription to a documented
+  past-due/payment-attention state.
+- The system must not extend paid access merely because a provider subscription
+  object exists.
+- Cancellation normally leaves access active through the already-paid period,
+  unless a refund or reversal requires earlier action.
+
+#### Offline-paid renewal
+
+Offline payment is not automatically recurring:
+
+- `renewalMode = manual`.
+- The next renewal date is calculated from the verified payment date and the
+  monthly or annual cycle.
+- Renewal reminders are sent before the due date.
+- Super Admin records and verifies each renewal as a new manual payment record.
+- Each renewal receives a new external reference and transition ID.
+- The previous payment record remains immutable.
+- If renewal is not verified, the clinic enters the documented grace or
+  expired state rather than remaining active indefinitely.
+
+#### Complimentary/sponsored renewal
+
+Complimentary access is not a subscription renewal:
+
+- It always has an end date.
+- It does not auto-renew.
+- Super Admin must explicitly extend it with a new reason and end date.
+- The extension creates a new lifecycle record or immutable grant-history entry.
+- The clinic must be told whether the next period remains free, requires online
+  payment, or requires verified offline payment.
+
+### 15.8 State and field matrix
+
+The centralized model should keep these dimensions separate:
+
+| Dimension | Example values | Meaning |
+|---|---|---|
+| Registration request | `starter`, `growth`, `pro` | What the clinic asked for |
+| Assigned plan | `starter`, `growth`, `pro` | What Super Admin approved for a future/current access period |
+| Current access plan | `trial`, `starter`, `growth`, `pro` | Which plan policy is currently used for access |
+| Access state | `pending_approval`, `trial`, `trial_grace`, `active_paid`, `sponsored`, `expired`, `unknown` | What the clinic can use right now |
+| Payment status | `not_required`, `pending`, `confirmed`, `verified_offline`, `waived`, `failed`, `reversed` | Whether money/payment verification exists |
+| Payment basis | `none`, `provider`, `offline_verified`, `complimentary` | Why access is or is not paid |
+| Renewal mode | `trial_expiry`, `provider_auto`, `manual`, `admin_review` | How the next period is obtained |
+| Period dates | `startsAt`, `endsAt`, `nextRenewalAt` | Boundaries of current access or renewal |
+
+The existing `clinics.plan` and `clinics.subscriptionStatus` columns may remain
+as compatibility snapshots during migration, but new workflow logic must not
+assume that either field alone contains all of these dimensions.
+
+### 15.9 Detailed edge-case decision table
+
+| Edge case | Required decision |
+|---|---|
+| Requested Growth, approved Starter | Preserve `requestedPlan = growth`; record assigned Starter and an override reason |
+| Requested paid plan, Trial approved | Preserve the request; do not create a payment obligation unless Super Admin chooses the online-payment outcome |
+| Payment link sent but clinic does not pay | Keep Trial until Trial/grace expiry; mark activation pending or link expired |
+| Link expires | Do not create a new paid state automatically; issue a new link through an audited retry |
+| Payment succeeds but webhook is delayed | Reconcile provider state; do not activate twice or guess from the link |
+| Duplicate provider webhook | Ignore duplicate event/transition after idempotent processing |
+| Provider subscription created but no link returned | Do not tell the clinic payment is ready; recover or cancel the prepared subscription safely |
+| Provider creation fails | Keep the clinic unchanged; do not write a paid assignment that cannot be activated |
+| Offline payment entered but not verified | Treat as pending evidence, not paid |
+| Duplicate offline receipt/reference | Block or send to reconciliation; never create two active periods from one payment |
+| Offline payment is partial | Keep payment pending unless policy explicitly supports partial payment; do not activate full access by default |
+| Offline payment is refunded/reversed | Record the reversal and recalculate access under the refund/revocation policy |
+| Complimentary access has no end date | Reject the grant; open-ended free paid access is invalid |
+| Complimentary access reaches end date | Expire or require explicit extension; do not silently renew |
+| Active paid clinic is approved again | Reject duplicate initial approval or route to a provider-aware change workflow |
+| Active provider plan changes to offline | Handle provider billing first, then create a verified manual transition |
+| Sponsored clinic pays later | End or supersede the grant and create a real payment transition; preserve both histories |
+| Trial expires while payment is pending | Apply Trial grace/expiry policy; pending payment alone must not grant paid access |
+| Payment confirms after Trial expiry | Activate paid access only after provider confirmation, with clear effective date and reconciliation history |
+| Monthly renewal falls in a short month | Use provider period rules or one documented calendar-period rule consistently |
+| Annual renewal fails | Keep the paid period through its paid expiry, then apply grace/expired rules |
+| Plan upgrade mid-cycle | Require a separate provider-aware or manual adjustment policy; do not overwrite the original payment period |
+| Plan downgrade mid-cycle | Schedule it for renewal unless a documented proration/refund process exists |
+| Unknown subscription status | Stop automatic access assumptions and send to reconciliation/support |
+| Policy version changes | Preserve the old version in history; apply the new version according to migration policy |
+| Clinic is archived | Stop future renewals and decide whether current access continues to paid expiry |
+| Operator correction is needed | Append a correcting event; do not edit or delete original payment/lifecycle evidence |
+
+### 15.10 Super Admin approval checklist
+
+Before final approval, Super Admin should confirm:
+
+- Clinic identity and registration evidence are acceptable.
+- Requested plan and approved plan are visible separately.
+- Approval basis is selected: Trial, online payment, verified offline, complimentary, or reject.
+- Billing cycle is selected for a paid plan.
+- Trial dates and grace period are correct when Trial is involved.
+- A payment link is actually available before telling the clinic to pay.
+- Offline payment evidence has been verified before activating paid access.
+- Complimentary access has an end date and reason.
+- Renewal mode is visible.
+- Next renewal or access expiry date is visible.
+- Notification content matches the actual state.
+- The transition has a unique ID and audit record.
+
+### 15.11 Recommended approval-screen confirmation summaries
+
+The final confirmation should use plain language:
+
+```text
+This will approve Growth, keep the clinic on Trial, and send an online payment link.
+Paid access will start only after provider confirmation.
+```
+
+```text
+This will activate Growth through a verified offline payment.
+Record and verify the payment evidence before confirming.
+```
+
+```text
+This will grant complimentary Growth access until [date].
+No payment will be recorded and the grant will not auto-renew.
+```
+
+These summaries reduce the risk of approving a paid plan without making clear
+whether the clinic is paying, waiting to pay, or receiving free access.

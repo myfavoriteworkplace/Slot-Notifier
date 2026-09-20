@@ -26,3 +26,4 @@
 - [Subscription lifecycle history](subscription-lifecycle-history.md) — current subscription fields are snapshots; transitions, assignments, sponsored access, and exceptions stay append-only and separate.
 - [Trial lifecycle idempotency](trial-lifecycle-idempotency.md) — provider expiry recovery must dedupe both provider events and lifecycle transition IDs before changing clinic state.
 - [Clinic approval plan override](clinic-approval-plan-override.md) — Super Admin chooses the effective plan, paid billing cycle, and optional custom Trial schedule at approval.
+- [Centralized subscription approval policy](centralized-subscription-approval-policy.md) — paid approval keeps Trial active until online payment; offline-paid and complimentary access renew separately.
