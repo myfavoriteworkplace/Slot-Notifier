@@ -1,8 +1,8 @@
 # Avatar styling and design direction
 
-**Status:** Proposed design brief — no application code changes made  
+**Status:** Proposed design brief and uploaded SVG audit — no application code changes made
 **Date:** September 20, 2026  
-**Scope:** Profile avatars, empty-state illustrations, system-state illustrations, image handoff rules, and performance limits
+**Scope:** Profile avatars, empty-state illustrations, system-state illustrations, uploaded SVG audit, runtime asset placement, image handoff rules, and performance limits
 
 ## 1. Purpose of this document
 
@@ -63,6 +63,130 @@ The platform needs two related families:
 
 They should share the same colors and visual language, but each family should
 have its own artwork and purpose.
+
+## 2.1 Uploaded SVG suite audit
+
+The custom package supplied for this design direction was reviewed before any
+project files were changed.
+
+**Uploaded package:**
+
+```text
+attached_assets/bookMySlot-Dental-Asset-Suite_1789893285425.zip
+```
+
+### What the package contains
+
+| Group | Count | Contents |
+|---|---:|---|
+| Avatars | 4 | Doctor, person, clinic, and system fallback avatars |
+| Empty states | 8 | Appointments, search, patients, doctors, billing, inventory, analytics, and medical records |
+| System states | 3 | Offline, permission, and success |
+| Documentation | 1 | Package README |
+| Raster files | 0 | No PNG, WebP, JPEG, or AVIF files included |
+| Preview sheets | 0 | No light/dark or size comparison sheets included |
+| Editable source files | 0 | No Figma, Illustrator, or other source files included |
+
+The package contains **15 SVG assets**. Their combined SVG source size is
+approximately **14 KB**, and the ZIP is approximately **20 KB**. This is
+excellent for web performance and does not create a meaningful bundle-size
+risk.
+
+### Technical findings
+
+The uploaded SVG files:
+
+- Use transparent backgrounds.
+- Use responsive `width="100%"` and `height="100%"`.
+- Use `viewBox` coordinates instead of fixed pixel dimensions.
+- Do not contain hardcoded dark or light rectangular cards.
+- Do not reference external images, fonts, stylesheets, or URLs.
+- Do not contain JavaScript or embedded event handlers.
+- Use the expected teal, mint, pale green, and slate palette.
+- Can be processed by Vite as normal imported frontend assets.
+
+The uploaded files are therefore safe to treat as application-owned static
+illustrations after copying the approved files into the runtime source folder
+described in Section 12.1.
+
+### Actual canvas sizes found
+
+| Asset group | Actual canvas |
+|---|---|
+| Avatar SVGs | `viewBox="0 0 256 256"` |
+| Most empty-state SVGs | `viewBox="0 0 320 320"` |
+| `empty-medical-records.svg` | `viewBox="0 0 256 256"` |
+| System-state SVGs | `viewBox="0 0 256 256"` |
+
+The mixed 256 and 320 canvases do not cause a rendering problem because SVG
+scales correctly. The 320 × 320 canvas remains the preferred standard for
+full-size empty-state illustrations. The 256 × 256 canvas is reasonable for
+compact medical-record and system-state artwork.
+
+### Visual review of the uploaded suite
+
+The suite successfully follows the recommended “futuristic calm healthcare”
+direction:
+
+- The avatar and empty-state families are visually related but not identical.
+- Orbit rings, dotted lines, and small digital markers create the futuristic
+  feeling without using a robot or a science-fiction character.
+- The dental identity is clear through the tooth, shield, medical file, and
+  clinic symbols.
+- The illustrations remain understandable without explanatory text inside the
+  artwork.
+- The transparent artwork can sit inside application-provided light and dark
+  wrappers.
+- `empty-appointments.svg` is the strongest replacement for the current
+  booking empty-state image.
+- `avatar-clinic-default.svg` is appropriate for a dental clinic fallback.
+- `avatar-doctor-default.svg` is appropriate for doctor profiles and dashboard
+  identity.
+- `empty-patients.svg`, `empty-billing.svg`, and `empty-inventory.svg` have
+  immediately understandable meanings.
+- `state-permission.svg` and `state-success.svg` are clear at a glance.
+
+### Items to record before final integration
+
+The current suite is suitable for initial use, but the following differences
+from the full planned inventory should be documented:
+
+1. `empty-admin-requests.svg` is not included.
+2. `state-welcome.svg` is not included.
+3. No raster fallbacks or preview sheets are included.
+4. `empty-medical-records.svg` uses a 256 × 256 viewBox instead of 320 × 320.
+5. The system-state assets also use 256 × 256 viewBoxes, which is acceptable
+   for their normally smaller display size.
+6. `state-offline.svg` uses a cloud and downward arrow. This may be understood
+   as downloading or syncing rather than being offline. Confirm its meaning
+   during UI review before using it for a network failure screen.
+7. Some avatar artwork contains orbit and dotted details that may be visually
+   busy at 28 px. The person and system avatars are better candidates for very
+   small sizes; the doctor avatar should preferably start at 40 px.
+
+These are design-review items, not blockers for copying the approved SVGs into
+the runtime asset folder.
+
+### Accessibility finding
+
+The SVGs do not need embedded `<title>` or ARIA metadata if they are rendered
+through an HTML image element. The application must provide the correct
+accessible text:
+
+```tsx
+<img src={emptyAppointments} alt="No appointments" />
+```
+
+If the artwork is decorative and the surrounding heading already explains the
+state, use:
+
+```tsx
+<img src={emptyAppointments} alt="" />
+```
+
+If an SVG is rendered inline as markup rather than through `<img>`, the
+component must provide the appropriate `aria-hidden`, `role`, or accessible
+label behavior.
 
 ## 3. Recommended visual direction
 
@@ -930,14 +1054,18 @@ attached_assets/
         └── light-dark-theme-preview.png
 ```
 
-The folder intended for application pickup is:
+The folder above is the **design handoff and archive location**. It should
+remain available for future design review, source files, previews, and the
+original supplied package. It is not the preferred runtime source location for
+the React application.
 
 ```text
 attached_assets/platform-avatar-system/final/
 ```
 
-The `source`, `raster-fallbacks`, and `previews` folders are handoff folders.
-They should not automatically become part of the runtime asset bundle.
+The `source`, `raster-fallbacks`, `previews`, and ZIP files are handoff
+materials. They should not automatically become part of the runtime asset
+bundle.
 
 Use lowercase kebab-case names. Avoid names such as:
 
@@ -954,6 +1082,215 @@ avatar-doctor-default.svg
 empty-appointments.svg
 state-offline.svg
 ```
+
+## 12.1 Central runtime location under `client`
+
+The approved application-owned SVGs should be copied into:
+
+```text
+client/src/assets/platform-avatar-system/
+```
+
+The runtime structure should be:
+
+```text
+client/
+└── src/
+    └── assets/
+        └── platform-avatar-system/
+            ├── avatars/
+            │   ├── avatar-doctor-default.svg
+            │   ├── avatar-person-default.svg
+            │   ├── avatar-clinic-default.svg
+            │   └── avatar-system-default.svg
+            ├── empty-states/
+            │   ├── empty-appointments.svg
+            │   ├── empty-search.svg
+            │   ├── empty-patients.svg
+            │   ├── empty-doctors.svg
+            │   ├── empty-billing.svg
+            │   ├── empty-inventory.svg
+            │   ├── empty-analytics.svg
+            │   └── empty-medical-records.svg
+            ├── system-states/
+            │   ├── state-offline.svg
+            │   ├── state-permission.svg
+            │   └── state-success.svg
+            └── index.ts
+```
+
+The runtime folder is the single source of truth for approved built-in
+application artwork. The design handoff folder remains the source of truth for
+the original delivery and future design revisions.
+
+### Why `client/src/assets` is preferred
+
+The current frontend uses Vite with `client/` as its root. Imported files under
+`client/src/assets` are processed by Vite and emitted into the production
+asset directory with hashed filenames.
+
+This gives the application:
+
+- Correct production bundling.
+- Cache-safe filenames when an SVG changes.
+- No stale long-lived browser cache after an asset replacement.
+- TypeScript-compatible imports through the existing `@/` source alias.
+- A clear relationship between a component and the asset it uses.
+- No need to create fixed public URLs for internal UI illustrations.
+
+The production server serves generated Vite assets from `dist/public/assets`
+with a long immutable cache lifetime. Hashed filenames make that long cache
+safe: a changed SVG gets a new filename.
+
+### Why these assets should not stay only in `attached_assets`
+
+The repository's `attached_assets/` directory is currently a mixed intake and
+handoff location. It contains screenshots, audit files, design references,
+large images, and uploaded packages in addition to application images.
+
+Keeping the runtime suite only there would make it difficult to determine:
+
+- Which files are actually used by the application.
+- Which files are design references only.
+- Which files can be safely removed.
+- Which assets should be included in the production build.
+- Which asset should be updated when a design revision arrives.
+
+The existing Vite alias also maps `@assets` to the broad `attached_assets`
+directory. That alias is useful for existing legacy imports, but it should not
+become the convention for new platform artwork. The TypeScript path
+configuration already supports `@/*` for `client/src/*`, so new imports should
+use `@/assets/...`.
+
+### Why these assets should not go in `client/public`
+
+The application already uses `client/public` for stable root-level files such
+as:
+
+```text
+client/public/icons/
+client/public/ads/
+client/public/doctor-hero.png
+```
+
+That location is appropriate for:
+
+- Favicons.
+- Apple touch icons.
+- PWA icons.
+- Open Graph images.
+- Stable public files referenced directly by HTML.
+
+The avatar and empty-state suite is component-owned application artwork. It
+does not need a manually typed URL such as:
+
+```tsx
+<img src="/assets/platform-avatar-system/empty-appointments.svg" />
+```
+
+Using `client/src/assets` imports lets Vite manage the final URL and cache
+identity automatically.
+
+### Central catalog file
+
+All approved built-in artwork should be re-exported from:
+
+```text
+client/src/assets/platform-avatar-system/index.ts
+```
+
+The catalog should use named exports:
+
+```ts
+export { default as avatarDoctorDefault } from "./avatars/avatar-doctor-default.svg";
+export { default as avatarPersonDefault } from "./avatars/avatar-person-default.svg";
+export { default as avatarClinicDefault } from "./avatars/avatar-clinic-default.svg";
+export { default as avatarSystemDefault } from "./avatars/avatar-system-default.svg";
+
+export { default as emptyAppointments } from "./empty-states/empty-appointments.svg";
+export { default as emptySearch } from "./empty-states/empty-search.svg";
+export { default as emptyPatients } from "./empty-states/empty-patients.svg";
+export { default as emptyDoctors } from "./empty-states/empty-doctors.svg";
+export { default as emptyBilling } from "./empty-states/empty-billing.svg";
+export { default as emptyInventory } from "./empty-states/empty-inventory.svg";
+export { default as emptyAnalytics } from "./empty-states/empty-analytics.svg";
+export { default as emptyMedicalRecords } from "./empty-states/empty-medical-records.svg";
+
+export { default as stateOffline } from "./system-states/state-offline.svg";
+export { default as statePermission } from "./system-states/state-permission.svg";
+export { default as stateSuccess } from "./system-states/state-success.svg";
+```
+
+Components should import from the catalog:
+
+```tsx
+import { emptyAppointments } from "@/assets/platform-avatar-system";
+```
+
+The catalog must not be imported globally from `App.tsx` or another always
+loaded application-shell file. Each feature should import only the asset it
+needs. This keeps asset ownership clear and prevents future artwork additions
+from becoming part of every route's initial dependency graph.
+
+### Feature ownership rules
+
+Use the following ownership mapping:
+
+| Feature | Allowed asset import |
+|---|---|
+| `BookingsPanel.tsx` | `emptyAppointments` |
+| `PatientDirectoryPanel.tsx` | `emptyPatients` or `emptySearch` |
+| `ManageDoctorsPanel.tsx` | `emptyDoctors` and `avatarDoctorDefault` |
+| `ClinicAnalyticsPanel.tsx` | `emptyAnalytics` |
+| `AccountsPanel.tsx` or billing views | `emptyBilling` |
+| `InventoryPanel.tsx` or `PharmacyStockPanel.tsx` | `emptyInventory` |
+| `MedicalHistoryTab.tsx` or clinical record views | `emptyMedicalRecords` |
+| `NetworkStatusBanner.tsx` or a retry state | `stateOffline` |
+| Restricted feature surfaces | `statePermission` |
+| Save/completion feedback | `stateSuccess` |
+
+This mapping is guidance for future implementation. It does not authorize
+moving or editing files by itself.
+
+### Keep user-uploaded images separate
+
+The runtime SVG suite is for built-in product artwork only. It must not be used
+as a storage location for uploaded content.
+
+Keep these outside `client/src/assets`:
+
+- Doctor-uploaded profile photographs.
+- Clinic-uploaded logos.
+- Clinic hero images.
+- Social gallery images.
+- Patient documents.
+- Any image whose URL or content is controlled by a clinic user.
+
+Those images should continue to be represented by their stored URL and handled
+through the existing upload/storage flow. A component may use a built-in SVG
+fallback when the stored URL is missing, but the uploaded image itself does
+not become part of the frontend source tree.
+
+### Runtime placement decision
+
+For this suite, the approved decision is:
+
+```text
+Design archive:
+attached_assets/platform-avatar-system/
+
+Runtime application source:
+client/src/assets/platform-avatar-system/
+
+Existing browser/application icons:
+client/public/icons/
+
+User-uploaded images:
+existing storage/R2 URL flow
+```
+
+Do not create a second runtime copy under `client/public/assets/` unless a
+future requirement specifically needs a stable URL outside the React bundle.
 
 ## 13. Accessibility requirements
 
@@ -1022,7 +1359,9 @@ The design handoff is complete when:
 - [ ] Standard illustrations are preferably under 50 KB.
 - [ ] Real profile photos are preferably under 100 KB.
 - [ ] Light, dark, and intended-size preview sheets are supplied.
-- [ ] The final files are in `attached_assets/platform-avatar-system/final/`.
+- [ ] The design handoff files are in `attached_assets/platform-avatar-system/final/`.
+- [ ] Approved runtime copies are in `client/src/assets/platform-avatar-system/`.
+- [ ] The runtime catalog is in `client/src/assets/platform-avatar-system/index.ts`.
 - [ ] A `README.md` explains the purpose and intended usage of every file.
 
 ## 15. Recommended first delivery
