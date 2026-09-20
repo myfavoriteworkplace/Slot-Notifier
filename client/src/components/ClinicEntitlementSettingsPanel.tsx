@@ -8,6 +8,7 @@ import {
   CreditCard,
   Database,
   Gift,
+  Gauge,
   HardDrive,
   Mail,
   MessageSquare,
@@ -150,7 +151,7 @@ const getUsageStatus = (
   };
 };
 
-function UsageCard({ item }: { item: EffectiveEntitlementItem }) {
+export function UsageCard({ item }: { item: EffectiveEntitlementItem }) {
   const Icon = CAPABILITY_ICONS[item.capability] ?? Database;
   const used = item.usage?.value;
   const percent = used !== null && used !== undefined && item.limit !== null && item.limit > 0
@@ -223,7 +224,11 @@ function DateSummary({
   );
 }
 
-export default function ClinicEntitlementSettingsPanel() {
+export default function ClinicEntitlementSettingsPanel({
+  mode = "plan",
+}: {
+  mode?: "plan" | "usage";
+}) {
   const [, setLocation] = useLocation();
   const { data, isLoading, isFetching, isError, refetch } = useQuery<EffectiveEntitlementReport>({
     queryKey: ["/api/auth/clinic/settings/entitlements"],
@@ -272,6 +277,39 @@ export default function ClinicEntitlementSettingsPanel() {
     : data.plan.source === "plan"
       ? "Based on your clinic plan"
       : "Plan source needs review";
+
+  if (mode === "usage") {
+    return (
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b bg-emerald-50/40 pb-4 dark:bg-emerald-950/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wide">
+                <Gauge className="h-4 w-4 text-emerald-600" />Usage &amp; quotas
+              </CardTitle>
+              <CardDescription className="mt-1.5 max-w-2xl">
+                Review measured usage against the limits included with your current plan.
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching} className="h-8 text-xs">
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-background/50 p-3">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <p className="text-sm text-muted-foreground">
+              Usage is reported for the current plan period. Values marked as unavailable are not currently measured by the platform.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {usageItems.map(item => <UsageCard key={item.capability} item={item} />)}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden">
