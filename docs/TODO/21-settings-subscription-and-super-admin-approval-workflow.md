@@ -262,7 +262,7 @@ It must not be implemented by:
 
 ---
 
-## 5. Centralized approval decision table
+## 5. Centralized approval process and decision table
 
 Every approval entry point must use the same decision model.
 
@@ -279,6 +279,730 @@ The same outcomes must be available from:
 1. New registration approval.
 2. Upgrade-request approval.
 3. Existing-clinic access management where a plan transition is permitted.
+
+### 5.1 Implementation objective
+
+The approval workflow must have one server-side decision model, one state
+transition contract, and one audit shape. The registration screen, upgrade
+request screen, provider renewal handlers, offline renewal actions, and Clinics
+& Access controls may have different entry points, but they must not implement
+different meanings for approval or payment.
+
+The implementation must enforce this distinction:
+
+```text
+Requested plan
+  -> what the clinic asked for
+
+Assigned plan
+  -> what Super Admin selected
+
+Current access plan
+  -> the plan currently enforced by entitlements
+
+Payment status and payment basis
+  -> whether paid-level access is financially supported
+
+Renewal mode
+  -> how the next period will be obtained
+```
+
+The central operation must never infer active paid access from the requested
+plan, assigned plan, provider subscription existence, generated payment link,
+or a generic manual override.
+
+### 5.2 Step 0 — Inventory and freeze the current behavior
+
+Before changing any route or UI, record the current behavior and identify
+clinics that would be affected by the new state rules.
+
+#### Current entry points to inventory
+
+```text
+PATCH /api/clinics/:id/approve
+POST  /api/admin/clinic-upgrade-requests/:id/approve
+POST  /api/admin/clinic-upgrade-requests/:id/reject
+POST  /api/admin/clinics/:id/paid-plan
+POST  /api/admin/clinics/:id/trial
+POST  /api/admin/clinics/:id/sponsored-access
+POST  /api/admin/clinics/:id/entitlement-exception
+Razorpay subscription webhook handlers
+Clinics & Access actions
+```
+
+#### Current data to classify
+
+Create a read-only report that counts clinics by:
+
+- Account status
+- `plan`
+- `subscriptionStatus`
+- Trial dates
+- Paid access expiry
+- Provider subscription ID
+- Activation-token status
+- Sponsored-grant presence
+- Lifecycle history
+- Upgrade-request status
+
+The report must identify ambiguous records such as:
+
+- `pending_payment` clinics whose Trial dates were cleared.
+- `manual_override` clinics without a verified offline record.
+- Paid plans without a provider subscription or payment evidence.
+- Sponsored access without a valid end date.
+- Provider events that were received but not applied.
+
+Do not automatically activate, expire, or downgrade ambiguous clinics during
+this step. They must enter a reconciliation queue.
+
+#### Exit criteria
+
+- Current routes and mutations are mapped.
+- Existing state counts are available.
+- Ambiguous clinics are listed.
+- No data has been changed.
+- The old paid-plan assignment behavior is documented as a compatibility gap.
+
+### 5.3 Step 1 — Define the shared approval contract
+
+Add shared types and validation for the central operation. The exact file
+names may follow the existing project structure, but the contract should
+contain these concepts:
+
+```ts
+type ApprovalContext =
+  | "registration"
+  | "upgrade_request"
+  | "renewal"
+  | "access_management";
+
+type ApprovalOutcome =
+  | "trial"
+  | "online_payment_required"
+  | "verified_offline_payment"
+  | "complimentary"
+  | "reject";
+
+type PaymentBasis =
+  | "none"
+  | "provider"
+  | "offline_verified"
+  | "complimentary";
+
+type RenewalMode =
+  | "trial_expiry"
+  | "provider_auto"
+  | "manual"
+  | "admin_review";
+```
+
+The input contract should include:
+
+```text
+clinicId
+approvalContext
+outcome
+requestedPlan
+approvedPlan
+requestedBillingCycle
+approvedBillingCycle
+reason
+actor
+transitionId
+sourceRequestId
+effectiveAt
+```
+
+Outcome-specific input must be explicit:
+
+```text
+online_payment_required:
+  provider
+  payment-link metadata
+
+verified_offline_payment:
+  amount
+  currency
+  receivedAt
+  paymentMethod
+  externalReference
+  evidenceReference
+  verifiedBy
+  verifiedAt
+
+complimentary:
+  startsAt
+  endsAt
+  sponsorReference
+```
+
+Validation rules:
+
+1. Paid plans require a valid monthly or annual billing cycle.
+2. Trial approval cannot include a paid billing cycle.
+3. Offline activation requires complete payment evidence and verification.
+4. Complimentary access requires a reason, start date, and end date.
+5. The end date must be after the start date.
+6. A plan or cycle override requires a reason.
+7. Rejection requires a reason.
+8. Online payment never produces active paid access at approval time.
+9. A provider subscription ID is not valid offline evidence.
+10. The same transition ID must be idempotent.
+
+#### Exit criteria
+
+- All entry points can express their decision using the same contract.
+- Invalid combinations fail before any database write.
+- The contract distinguishes approval outcome from current access state.
+
+### 5.4 Step 2 — Add append-only approval and payment records
+
+Add durable records rather than placing all meaning in the clinic snapshot.
+Existing lifecycle, assignment, provider-event, access-grant, and upgrade
+request records should remain available for compatibility and history.
+
+#### Approval decision record
+
+The approval decision record should contain:
+
+```text
+clinicId
+approvalContext
+approvalOutcome
+requestedPlan
+approvedPlan
+requestedBillingCycle
+approvedBillingCycle
+paymentBasis
+renewalMode
+fromAccessState
+toAccessState
+reason
+actorType
+actorId
+sourceRequestId
+transitionId
+effectiveAt
+createdAt
+```
+
+Use a unique constraint that prevents the same clinic and transition ID from
+creating duplicate approval decisions.
+
+#### Offline payment record
+
+Use a first-class record for money received outside the provider:
+
+```text
+clinicId
+approvalDecisionId
+plan
+billingCycle
+amount
+currency
+receivedAt
+paymentMethod
+externalReference
+evidenceReference
+verificationStatus
+verifiedBy
+verifiedAt
+reason
+reversalStatus
+reversedAt
+reversalReason
+createdAt
+```
+
+Offline records are immutable financial evidence. Corrections and reversals
+must append new events or status records; they must not erase the original
+receipt or change its amount.
+
+#### Online payment intent
+
+The existing activation-token/provider flow may be reused, but it must be
+linked to the central approval decision. The intent should expose:
+
+```text
+approvalDecisionId
+provider
+providerSubscriptionId
+activationTokenId
+linkStatus
+linkCreatedAt
+linkSentAt
+linkExpiresAt
+providerConfirmationStatus
+```
+
+#### Complimentary grant link
+
+The access grant should reference the approval decision and retain:
+
+```text
+approvalDecisionId
+startsAt
+endsAt
+reason
+sponsorReference
+revokedAt
+revokedBy
+```
+
+#### Exit criteria
+
+- Latest approval basis can be queried without parsing free-form metadata.
+- Offline payment can be audited without provider records.
+- Online payment and complimentary access remain separate.
+- Historical records are append-only.
+
+### 5.5 Step 3 — Build the central server-side transition operation
+
+Implement one transactional service, conceptually:
+
+```text
+applySubscriptionApproval(input)
+```
+
+The service must run these steps in order:
+
+1. Authenticate and authorize the actor at the route boundary.
+2. Load the clinic and lock or re-check its current state.
+3. Resolve the requested and approved plans.
+4. Validate the outcome-specific fields.
+5. Reject illegal state transitions.
+6. Check the transition ID for an existing result.
+7. Create any provider intent, offline payment record, or grant record.
+8. Create the approval decision.
+9. Update the clinic snapshot with the resulting current access state.
+10. Create or update the plan assignment.
+11. Create the lifecycle event.
+12. Create notification/outbox work if required.
+13. Commit the transaction.
+14. Return the decision, resulting access summary, next action, and audit IDs.
+
+Provider API calls should be handled so a provider failure leaves the clinic
+unchanged. If provider creation must occur before the database transaction,
+the implementation must record and reconcile provider-created-but-unlinked
+subscriptions rather than silently losing them.
+
+The service must return a state such as:
+
+```ts
+{
+  requestedPlan,
+  assignedPlan,
+  currentAccessPlan,
+  accessState,
+  paymentStatus,
+  paymentBasis,
+  renewalMode,
+  dates,
+  nextAction,
+  approvalDecisionId,
+  transitionId,
+}
+```
+
+#### Idempotency rules
+
+- Repeating a completed transition returns the original result.
+- Repeating an online approval must not create a second provider subscription.
+- Repeating an offline approval must not create a second paid period.
+- Repeating a complimentary grant must not extend it silently.
+- A reused transition ID with different input must fail.
+
+#### Exit criteria
+
+- One operation owns state changes for all approval outcomes.
+- Every write has an audit decision and transition ID.
+- Failure and retry behavior is defined.
+
+### 5.6 Step 4 — Migrate registration approval
+
+Update `PATCH /api/clinics/:id/approve` to become a thin adapter over the
+central operation.
+
+#### Registration adapter responsibilities
+
+1. Validate the pending clinic and registration permissions.
+2. Resolve the clinic's requested plan.
+3. Translate the selected UI option into an approval outcome.
+4. Pass Trial, online, offline, complimentary, or rejection data to the
+   central operation.
+5. Return the shared result shape.
+
+#### Result by outcome
+
+Trial:
+
+```text
+status = approved
+currentAccessPlan = trial
+accessState = trial
+paymentStatus = not_required
+```
+
+Online:
+
+```text
+status = approved
+currentAccessPlan = trial
+assignedPlan = selected paid plan
+accessState = trial
+paymentStatus = pending
+paymentBasis = provider
+paidAccess = false
+```
+
+Offline:
+
+```text
+status = approved
+currentAccessPlan = selected paid plan
+accessState = active_paid
+paymentStatus = verified_offline
+paymentBasis = offline_verified
+renewalMode = manual
+```
+
+Complimentary:
+
+```text
+status = approved
+currentAccessPlan = selected paid plan
+accessState = sponsored
+paymentStatus = waived
+paymentBasis = complimentary
+renewalMode = admin_review
+```
+
+Reject:
+
+```text
+status = rejected
+accessState = no_access
+```
+
+The UI must display the resulting state in the confirmation and result card.
+It must never label online approval as Active paid.
+
+#### Exit criteria
+
+- Registration approval no longer directly mutates subscription state.
+- Online approval preserves Trial dates.
+- All five outcomes use the same server operation.
+
+### 5.7 Step 5 — Migrate upgrade-request approval
+
+Update `POST /api/admin/clinic-upgrade-requests/:id/approve` to use the
+central operation rather than calling the old paid-plan assignment behavior
+directly.
+
+#### Upgrade adapter responsibilities
+
+1. Load the upgrade request and clinic.
+2. Confirm the request is still pending.
+3. Show current access, requested plan, and requested billing cycle.
+4. Accept an approved plan and cycle separately from the request.
+5. Require a reason when either value changes.
+6. Translate the selected outcome to the central operation.
+7. Link the approval decision to the upgrade request.
+8. Mark the request approved only after the central operation succeeds.
+9. Return the shared resulting access summary.
+
+Rejection should use the same decision record and must leave the clinic's
+current Trial, grace, sponsored, or paid state unchanged.
+
+#### Exit criteria
+
+- Registration and upgrade approvals produce the same state shape.
+- Pending requests cannot be approved twice.
+- Request history displays payment basis and resulting access state.
+
+### 5.8 Step 6 — Migrate provider activation and renewal
+
+Provider webhook handlers must become event adapters, not independent
+subscription state machines.
+
+#### Activation event
+
+For a confirmed provider payment:
+
+```text
+trial -> active_paid
+paymentStatus: pending -> confirmed
+paymentBasis: provider
+renewalMode: provider_auto
+```
+
+The handler should call a central confirmation operation that:
+
+1. Deduplicates the provider event.
+2. Finds the linked approval/payment intent.
+3. Verifies the clinic and plan match the provider record.
+4. Sets paid access dates from the confirmed provider period.
+5. Marks the activation token used.
+6. Writes a provider-backed lifecycle event.
+7. Updates the approval/payment intent status.
+
+Provider subscription existence without a successful confirmation event must
+not activate access.
+
+#### Renewal event
+
+For a successful recurring payment:
+
+1. Deduplicate by provider event ID.
+2. Verify the provider subscription and clinic match.
+3. Extend the paid period.
+4. Keep the current plan unchanged unless a separate plan change exists.
+5. Write a `renewal` lifecycle event.
+6. Update the next provider renewal date.
+
+#### Failure and expiry
+
+Provider failure should move the clinic to the documented past-due or grace
+state. Provider completion/expiry should use the existing recovery policy
+through the central transition operation. Recovery must preserve:
+
+- Previous paid plan
+- Previous paid expiry
+- Provider event reference
+- New Trial dates
+- Recovery reason
+
+#### Exit criteria
+
+- Provider activation and renewal are idempotent.
+- Webhooks no longer bypass approval history.
+- Delayed, duplicate, and out-of-order events have defined behavior.
+
+### 5.9 Step 7 — Add verified offline payment and renewal
+
+Add an explicit offline-payment route and UI flow. It must not reuse a generic
+manual override or provider activation mutation.
+
+#### Initial offline activation
+
+1. Super Admin chooses verified offline payment.
+2. The server validates the plan and billing cycle.
+3. The operator enters amount, currency, date, method, and external reference.
+4. Evidence is attached or referenced.
+5. The operator confirms verification.
+6. The central operation creates the offline payment record.
+7. The central operation activates paid access.
+8. The next manual renewal date is calculated.
+9. The approval decision and lifecycle event are written.
+
+#### Offline renewal
+
+1. Show renewal due or expiry attention in Clinics & Access.
+2. Open the same verified-payment form.
+3. Create a new offline payment record.
+4. Reject duplicate external references.
+5. Extend access only after verification.
+6. Create a new renewal decision and transition.
+7. Preserve all prior payment records.
+
+#### Reversal/refund
+
+1. Restrict the action to authorized Super Admin operators.
+2. Require reversal/refund reason and effective date.
+3. Append the reversal event.
+4. Recalculate access according to policy.
+5. Mark the payment record reversed.
+6. Do not delete the original evidence.
+
+#### Exit criteria
+
+- Offline payment is visible as verified offline, not provider-paid.
+- Offline renewal is manual and auditable.
+- Duplicate, partial, rejected, and reversed payments are handled safely.
+
+### 5.10 Step 8 — Add complimentary access and expiry
+
+Use the central operation for a paid-level grant without payment.
+
+Grant flow:
+
+1. Super Admin selects complimentary/sponsored.
+2. Selects the paid-level access plan.
+3. Enters start date, end date, reason, and optional sponsor reference.
+4. Reviews the “no payment / no auto-renewal” confirmation.
+5. Creates the grant and approval decision.
+6. Sets access state to `sponsored`.
+7. Schedules an expiry reminder.
+
+Extension flow:
+
+1. Show the existing grant and end date.
+2. Require a new reason and new end date.
+3. Create a new approval decision.
+4. Extend the grant without creating payment history.
+
+Conversion flow:
+
+1. End or supersede the sponsored grant.
+2. Choose online payment or verified offline payment.
+3. Keep the transition visible as a new basis.
+4. Do not rewrite the original complimentary decision.
+
+#### Exit criteria
+
+- Complimentary access always has a finite end date.
+- Complimentary access never auto-renews.
+- Sponsored access is excluded from payment/revenue reporting.
+
+### 5.11 Step 9 — Update Clinics & Access around the central result
+
+The directory and detail view should consume the shared access summary rather
+than independently deriving status from `plan` and `subscriptionStatus`.
+
+#### Directory fields
+
+Expose:
+
+- Current access state
+- Current access plan
+- Assigned plan
+- Latest approval outcome
+- Payment basis
+- Payment status
+- Renewal mode
+- Next important date
+- Attention code
+- Latest approval date and actor
+
+#### Detail actions
+
+Actions should call the central operation or a central provider/offline
+confirmation operation:
+
+| State | Action |
+|---|---|
+| Pending registration | Approve or reject |
+| Trial | Extend Trial, approve payment path |
+| Trial with payment pending | Resend link, reconcile, cancel activation |
+| Active provider-paid | Reconcile or provider-aware plan change |
+| Active offline-paid | Record verified renewal or reversal |
+| Sponsored | Extend, convert, or revoke |
+| Past due | Reconcile or apply grace policy |
+| Expired | Recovery Trial or new payment path |
+| Unknown | Reconciliation only |
+
+The generic `Mark Paid` action remains unavailable.
+
+#### Exit criteria
+
+- Clinics & Access shows latest approval basis without manual interpretation.
+- Every action produces the same audit and result shape.
+- Unknown states cannot be activated blindly.
+
+### 5.12 Step 10 — Reconcile existing data and roll out safely
+
+Do not switch all clinics to the new interpretation without a reconciliation
+pass.
+
+#### Classification rules
+
+```text
+active + provider subscription
+  -> provider-paid
+
+pending_payment + usable activation token
+  -> online payment pending
+
+pending_payment without Trial dates or usable token
+  -> manual reconciliation required
+
+manual_override + sponsored grant
+  -> sponsored
+
+manual_override without grant or payment evidence
+  -> unknown/reconciliation required
+
+active paid without provider reference
+  -> review for legacy/offline evidence
+```
+
+For `pending_payment` clinics whose Trial dates were previously cleared, do
+not invent dates. A Super Admin must choose a documented recovery action:
+
+- Restore a Trial period using an explicit new approval.
+- Confirm provider payment if independently verified.
+- Create a verified offline record if evidence exists.
+- Cancel the pending activation.
+- Mark the clinic for further reconciliation.
+
+#### Rollout order
+
+1. Deploy shared types and read-only state computation.
+2. Run the classification report.
+3. Add database records and backfill only unambiguous history.
+4. Deploy the central service behind route-level guards.
+5. Migrate registration approval.
+6. Migrate upgrade approval.
+7. Migrate provider handlers.
+8. Enable offline and complimentary actions.
+9. Enable Clinics & Access filters and actions.
+10. Review reconciliation queue.
+11. Remove or retire the old direct paid-assignment path.
+
+#### Exit criteria
+
+- No clinic is silently granted or removed access.
+- Ambiguous records are visible to Super Admin.
+- Old and new state reports reconcile for known clinics.
+- Rollback can disable new mutations without deleting history.
+
+### 5.13 Step 11 — Verify the complete state matrix
+
+Before release, test every combination that can affect access:
+
+| Context | Trial | Online pending | Offline verified | Complimentary | Reject |
+|---|---:|---:|---:|---:|---:|
+| Registration | Required | Required | Required | Required | Required |
+| Upgrade request | Required | Required | Required | Required | Required |
+| Provider activation | — | Required | — | — | — |
+| Provider renewal | — | — | — | — | — |
+| Offline renewal | — | — | Required | — | — |
+| Complimentary extension | — | — | — | Required | — |
+
+Also verify:
+
+- Duplicate transition IDs
+- Duplicate provider events
+- Delayed provider events
+- Provider failure
+- Payment-link expiry
+- Duplicate offline references
+- Partial offline payments
+- Payment reversal/refund
+- Complimentary expiry
+- Concurrent approval attempts
+- Permission boundaries
+- Notification wording
+- Access enforcement after every transition
+
+Run the Build Check workflow after frontend implementation and perform a
+browser verification of each approval outcome and result card.
+
+### 5.14 Centralized process completion criteria
+
+The centralized process is complete only when all of the following are true:
+
+- Registration, upgrades, and renewals use the same outcome vocabulary.
+- One server-side operation owns approval state transitions.
+- Requested, assigned, and current access plans remain separate.
+- Online approval keeps Trial access until provider confirmation.
+- Offline payment has independent evidence and verification.
+- Complimentary access has an end date and no automatic renewal.
+- Provider events are idempotent and auditable.
+- Clinics & Access shows the latest approval basis and next action.
+- Existing ambiguous states are reconciled rather than guessed.
+- Every state transition has an actor, reason, effective date, and transition ID.
 
 ---
 
@@ -1119,7 +1843,11 @@ workflow logic must not infer all of these dimensions from `plan` or
 
 ---
 
-## 14. Implementation plan
+## 14. Implementation phase index
+
+The detailed operational sequence is defined in Section 5. This section is a
+short delivery index for tracking implementation work; it must not introduce
+a second approval model or a different state interpretation.
 
 ### Phase 1: Shared approval model
 
