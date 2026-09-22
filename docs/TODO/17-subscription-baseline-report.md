@@ -1,6 +1,6 @@
 # Subscription Baseline Report
 
-- Generated: 2026-09-12T07:40:33.749Z
+- Generated: 2026-09-22T18:43:30.097Z
 - Environment: development
 - Scope: All clinic rows in the configured database, including archived clinics. No patient names, clinic names, emails, phone numbers, or provider identifiers are emitted.
 
@@ -13,6 +13,8 @@
 - Unattributed bookings: 0
 - Plan distribution: starter=1
 - Subscription states: pending_payment=1
+- Inventory classifications: reconciliation_required=1
+- Reconciliation queue: 1
 
 ## Data availability
 
@@ -22,37 +24,49 @@
 | clinicDoctors | available |
 | bookingsAndSlots | available |
 | smileDeals | available |
-| communicationUsage | available |
+| communicationUsage | unavailable |
 | patientDocuments | available |
-| subscriptionProviderEvents | available |
+| subscriptionProviderEvents | unavailable |
 | patients | available |
-| trialLifecycle | unavailable: no explicit Trial lifecycle fields or table exist |
-| manualExceptions | unavailable: no dedicated exception history table or fields exist |
-| policyVersion | unavailable: no persisted versioned plan-policy catalog exists |
+| activationTokens | available |
+| lifecycleHistory | unavailable |
+| planAssignments | unavailable |
+| sponsoredAccess | unavailable |
+| manualExceptions | unavailable |
+| upgradeRequests | unavailable |
+| offlinePaymentEvidence | unavailable: no dedicated offline payment record table exists |
+| trialLifecycle | unavailable: Trial snapshot fields are missing |
+| policyVersion | unavailable: no versioned plan-policy catalog exists |
 | activeDoctorDefinition | partial: clinic_doctors links have no active flag |
 | smileDealDraftDefinition | partial: no draft/published status exists |
 | bookingAttribution | complete |
+
+## Subscription inventory
+
+| Clinic ID | Account status | Requested plan | Current/legacy plan | Subscription status | Inventory classification | Trial dates | Paid expiry | Provider link | Activation tokens | Sponsored grants | Lifecycle events | Upgrade requests | Flags |
+|---:|---|---|---|---|---|---|---|---|---|---|---:|---|---|
+| 1 | approved | <null> | starter | unpaid | reconciliation_required | none | none | not_linked | 0 usable / 0 total | unavailable | 0 | unavailable | legacy_unpaid_maps_to_pending_payment, paid_plan_without_provider_link, above_proposed_trial_limit, pending_payment_trial_dates_cleared, paid_plan_without_provider_or_payment_evidence |
 
 ## Clinic baseline
 
 | Clinic ID | Status | Archived | Plan | Subscription state | Provider link | Billing | Bookings (month/all) | Doctors | Smile Deals (live/total) | Storage bytes | Messages (SMS/WA/email) | Flags |
 |---:|---|---|---|---|---|---|---:|---:|---:|---:|---|---|
-| 1 | approved | no | starter | pending_payment | not_linked | monthly | 0/17 | 1 | 0/0 | 0 | 0/0/0 | legacy_unpaid_maps_to_pending_payment, paid_plan_without_provider_link, above_proposed_trial_limit |
+| 1 | approved | no | starter | pending_payment | not_linked | monthly | 0/17 | 1 | 0/0 | 0 | 0/0/0 | legacy_unpaid_maps_to_pending_payment, paid_plan_without_provider_link, above_proposed_trial_limit, pending_payment_trial_dates_cleared, paid_plan_without_provider_or_payment_evidence |
+
+## Reconciliation queue
+
+| Clinic ID | Classification | Flags | Recommended actions |
+|---:|---|---|---|
+| 1 | reconciliation_required | legacy_unpaid_maps_to_pending_payment, paid_plan_without_provider_link, above_proposed_trial_limit, pending_payment_trial_dates_cleared, paid_plan_without_provider_or_payment_evidence | reconcile_pending_payment, reconcile_paid_access_evidence |
 
 ## Limitations and migration decisions
 
-- The configured Replit development database contains one active development clinic for this report.
-- The application is deployed on Render with a separate PostgreSQL database, but this report was not run against that Render database. That full Render-clinic baseline is intentionally deferred until pre-production rollout preparation.
-- The development clinic is a baseline-validation row, not evidence that all production clinics are within limits. It is currently above the proposed Trial booking limit and has a legacy unpaid subscription state mapped to pending payment.
-- Trial dates, Trial origin, previous paid plan, paid-expiry history, exception history, and policy versions are not currently stored.
+- This report classifies existing snapshots and evidence; it does not infer active paid access from a plan, provider subscription ID, payment link, or generic manual override.
+- The configured project does not have a production database attached, so a live production baseline cannot be generated here until deployment creates one or an approved production snapshot is supplied.
+- Trial dates, Trial origin, previous paid plan, paid-expiry history, exception history, and policy versions may be absent on older clinic rows even when the current schema supports them.
+- There is no dedicated offline-payment evidence table, so manual overrides cannot be treated as verified offline payment.
 - Active doctor counts are based on clinic_doctors links because the current schema has no active/inactive doctor field.
 - Smile Deal live-post counts are a proxy based on is_active and the starts_at/expires_at window because draft and published states are not separate fields.
-
-## Production baseline gate attempt
-
-On **2026-09-12 (Asia/Calcutta)**, the approved production read-only database path was checked before running the baseline. The platform reported that this Repl has no production database attached and that publishing the app is required to create one. The production baseline therefore could not run, and no production records were read or changed.
-
-This report remains development-environment evidence only and must not be treated as the current-clinic Render baseline. The shared catalog and baseline policy have passing representative tests. After an approved production database or populated production snapshot becomes available, the same generator must be run read-only and the report must record each clinic’s migration or exception decision before production rollout or enforcement.
 
 This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits.
 

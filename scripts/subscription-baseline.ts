@@ -13,11 +13,19 @@ type ClinicRow = {
   status: string | null;
   is_archived: boolean;
   plan: string | null;
+  requested_plan: string | null;
   storage_limit_bytes: number | string | null;
   timezone: string | null;
   subscription_status: string | null;
   billing_cycle: string | null;
   razorpay_subscription_id: string | null;
+  trial_started_at: Date | string | null;
+  trial_ends_at: Date | string | null;
+  trial_grace_ends_at: Date | string | null;
+  trial_origin: string | null;
+  previous_paid_plan: string | null;
+  paid_access_expires_at: Date | string | null;
+  subscription_policy_version: string | null;
 };
 
 type BookingRow = {
@@ -37,6 +45,101 @@ type MessageRow = {
   sent_at: Date | string | null;
 };
 
+type ActivationTokenRow = {
+  clinic_id: number;
+  plan: string;
+  billing_cycle: string;
+  expires_at: Date | string | null;
+  used: boolean;
+  created_at: Date | string | null;
+};
+
+type LifecycleRow = {
+  clinic_id: number;
+  event_type: string;
+  to_status: string | null;
+  effective_at: Date | string | null;
+};
+
+type AssignmentRow = {
+  clinic_id: number;
+  plan: string;
+  billing_cycle: string;
+  source: string;
+  starts_at: Date | string | null;
+  ends_at: Date | string | null;
+};
+
+type GrantRow = {
+  clinic_id: number;
+  plan: string;
+  starts_at: Date | string | null;
+  ends_at: Date | string | null;
+  revoked_at: Date | string | null;
+};
+
+type ExceptionRow = {
+  clinic_id: number;
+  starts_at: Date | string | null;
+  ends_at: Date | string | null;
+  revoked_at: Date | string | null;
+};
+
+type UpgradeRequestRow = {
+  clinic_id: number;
+  status: string;
+  requested_at: Date | string | null;
+};
+
+type SubscriptionEvidence = {
+  activationTokens: {
+    tableAvailable: boolean;
+    total: number;
+    usable: number;
+    used: number;
+    expired: number;
+    latestExpiresAt: string | null;
+  };
+  lifecycle: {
+    tableAvailable: boolean;
+    count: number;
+    latestEventType: string | null;
+    latestEffectiveAt: string | null;
+  };
+  assignments: {
+    tableAvailable: boolean;
+    count: number;
+    latestPlan: string | null;
+    latestSource: string | null;
+    latestStartsAt: string | null;
+  };
+  sponsoredAccess: {
+    tableAvailable: boolean;
+    count: number;
+    active: number;
+    invalid: number;
+    latestEndsAt: string | null;
+  };
+  entitlementExceptions: {
+    tableAvailable: boolean;
+    count: number;
+    active: number;
+    invalid: number;
+  };
+  upgradeRequests: {
+    tableAvailable: boolean;
+    count: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    latestStatus: string | null;
+  };
+  offlinePaymentEvidence: {
+    tableAvailable: boolean;
+    verified: number;
+  };
+};
+
 type MetricBucket = {
   rows: number;
   totalUnits: number;
@@ -52,11 +155,41 @@ type ClinicBaseline = {
   clinicId: number;
   status: string | null;
   archived: boolean;
+  requestedPlan: string | null;
   plan: string | null;
   rawSubscriptionStatus: string | null;
   subscriptionState: string;
   billingCycle: string | null;
+  trial: {
+    startedAt: string | null;
+    endsAt: string | null;
+    graceEndsAt: string | null;
+    origin: string | null;
+  };
+  previousPaidPlan: string | null;
+  paidAccessExpiresAt: string | null;
+  subscriptionPolicyVersion: string | null;
   providerLink: "linked" | "not_linked";
+  inventoryClassification:
+    | "pending_registration"
+    | "trial"
+    | "trial_grace"
+    | "online_payment_pending"
+    | "provider_paid_candidate"
+    | "offline_paid_candidate"
+    | "sponsored_candidate"
+    | "expired"
+    | "cancelled"
+    | "unknown"
+    | "reconciliation_required";
+  recommendedActions: string[];
+  activationTokens: SubscriptionEvidence["activationTokens"];
+  lifecycleHistory: SubscriptionEvidence["lifecycle"];
+  planAssignments: SubscriptionEvidence["assignments"];
+  sponsoredAccess: SubscriptionEvidence["sponsoredAccess"];
+  entitlementExceptions: SubscriptionEvidence["entitlementExceptions"];
+  upgradeRequests: SubscriptionEvidence["upgradeRequests"];
+  offlinePaymentEvidence: SubscriptionEvidence["offlinePaymentEvidence"];
   timezone: string;
   doctors: {
     linkedCount: number | null;
@@ -118,6 +251,128 @@ function isoDate(value: unknown): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(String(value));
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function dateMs(value: Date | string | null | undefined): number | null {
+  const normalized = isoDate(value);
+  if (!normalized) return null;
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function latestIsoDate(values: Array<Date | string | null | undefined>): string | null {
+  const valid = values
+    .map((value) => ({ value: isoDate(value), ms: dateMs(value) }))
+    .filter((entry): entry is { value: string; ms: number } => entry.value !== null && entry.ms !== null)
+    .sort((a, b) => b.ms - a.ms);
+  return valid[0]?.value ?? null;
+}
+
+type SubscriptionClassificationInput = {
+  status: string | null;
+  archived: boolean;
+  plan: string | null;
+  subscriptionStatus: string | null;
+  trialEndsAt: string | null;
+  trialGraceEndsAt: string | null;
+  paidAccessExpiresAt: string | null;
+  providerLinked: boolean;
+  activationTokens: SubscriptionEvidence["activationTokens"];
+  sponsoredAccess: SubscriptionEvidence["sponsoredAccess"];
+  offlinePaymentEvidence: SubscriptionEvidence["offlinePaymentEvidence"];
+  providerEvents: {
+    tableAvailable: boolean;
+    unresolvedCount: number | null;
+  };
+};
+
+function classifySubscriptionInventory(
+  input: SubscriptionClassificationInput,
+  now = new Date(),
+): Pick<ClinicBaseline, "inventoryClassification" | "recommendedActions" | "flags"> {
+  const flags: string[] = [];
+  const recommendedActions: string[] = [];
+  const rawStatus = input.subscriptionStatus?.trim().toLowerCase() || "";
+  const normalizedStatus = rawStatus === "unpaid" ? "pending_payment" : rawStatus;
+  const plan = input.plan?.trim().toLowerCase() || null;
+  const nowMs = now.getTime();
+  const trialEndsMs = dateMs(input.trialEndsAt);
+  const trialGraceEndsMs = dateMs(input.trialGraceEndsAt);
+  const paidExpiryMs = dateMs(input.paidAccessExpiresAt);
+  const hasPaidPlan = Boolean(plan && isPaidPlanKey(plan));
+  const hasActiveSponsoredAccess = input.sponsoredAccess.active > 0;
+  const hasVerifiedOfflineEvidence = input.offlinePaymentEvidence.verified > 0;
+
+  if (normalizedStatus === "pending_payment" && input.trialEndsAt === null && input.trialGraceEndsAt === null) {
+    flags.push("pending_payment_trial_dates_cleared");
+    recommendedActions.push("reconcile_pending_payment");
+  }
+
+  if (normalizedStatus === "manual_override" && !hasVerifiedOfflineEvidence) {
+    flags.push("manual_override_without_verified_offline_record");
+    recommendedActions.push("verify_offline_payment_or_reconcile");
+  }
+
+  if (hasPaidPlan && !input.providerLinked && !hasActiveSponsoredAccess && !hasVerifiedOfflineEvidence) {
+    flags.push("paid_plan_without_provider_or_payment_evidence");
+    recommendedActions.push("reconcile_paid_access_evidence");
+  }
+
+  if (input.sponsoredAccess.invalid > 0) {
+    flags.push("sponsored_access_without_valid_end_date");
+    recommendedActions.push("repair_or_revoke_invalid_sponsored_access");
+  }
+
+  if (input.providerEvents.tableAvailable && (input.providerEvents.unresolvedCount ?? 0) > 0) {
+    flags.push("provider_events_received_but_not_applied");
+    recommendedActions.push("reconcile_provider_events");
+  }
+
+  if (input.status === "pending") {
+    return {
+      inventoryClassification: flags.length ? "reconciliation_required" : "pending_registration",
+      recommendedActions: [...new Set(recommendedActions)],
+      flags,
+    };
+  }
+
+  let inventoryClassification: ClinicBaseline["inventoryClassification"];
+  if (normalizedStatus === "pending_payment" && input.activationTokens.usable > 0) {
+    inventoryClassification = "online_payment_pending";
+  } else if (normalizedStatus === "trialing" || normalizedStatus === "trial") {
+    inventoryClassification =
+      trialEndsMs !== null && trialEndsMs <= nowMs && trialGraceEndsMs !== null && trialGraceEndsMs > nowMs
+        ? "trial_grace"
+        : "trial";
+  } else if (normalizedStatus === "active" && input.providerLinked) {
+    inventoryClassification = "provider_paid_candidate";
+  } else if (normalizedStatus === "manual_override" && hasVerifiedOfflineEvidence) {
+    inventoryClassification = "offline_paid_candidate";
+  } else if (hasActiveSponsoredAccess) {
+    inventoryClassification = "sponsored_candidate";
+  } else if (["expired", "past_due"].includes(normalizedStatus) || (paidExpiryMs !== null && paidExpiryMs <= nowMs)) {
+    inventoryClassification = "expired";
+  } else if (["cancelled", "canceled"].includes(normalizedStatus)) {
+    inventoryClassification = "cancelled";
+  } else {
+    inventoryClassification = "unknown";
+  }
+
+  if (inventoryClassification === "unknown" || flags.length > 0) {
+    inventoryClassification = "reconciliation_required";
+    if (!recommendedActions.length) recommendedActions.push("reconcile_subscription_state");
+  }
+
+  if (input.archived && normalizedStatus === "active") {
+    flags.push("archived_with_active_subscription");
+    recommendedActions.push("review_archived_active_clinic");
+  }
+
+  return {
+    inventoryClassification,
+    recommendedActions: [...new Set(recommendedActions)],
+    flags: [...new Set(flags)],
+  };
 }
 
 function emptyMetricBucket(): MetricBucket {
@@ -222,6 +477,7 @@ function compareImpact(
 }
 
 async function main() {
+  const now = new Date();
   const tableRows = await query<{ table_name: string }>(
     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
   );
@@ -230,9 +486,28 @@ async function main() {
     throw new Error("The clinics table is unavailable. Run the existing development schema setup before generating the baseline.");
   }
 
+  const clinicColumnRows = await query<{ column_name: string }>(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'clinics'`,
+  );
+  const clinicColumns = new Set(clinicColumnRows.map((row) => row.column_name));
+  const optionalClinicColumn = (column: string, cast: "varchar" | "timestamp") =>
+    clinicColumns.has(column) ? `"${column}"` : `NULL::${cast}`;
+
   const clinics = await query<ClinicRow>(
-    `SELECT id, name, status, is_archived, plan, storage_limit_bytes, timezone,
-            subscription_status, billing_cycle, razorpay_subscription_id
+    `SELECT id, name, status, is_archived, plan,
+            ${optionalClinicColumn("requested_plan", "varchar")} AS requested_plan,
+            storage_limit_bytes, timezone,
+            subscription_status, billing_cycle, razorpay_subscription_id,
+            ${optionalClinicColumn("trial_started_at", "timestamp")} AS trial_started_at,
+            ${optionalClinicColumn("trial_ends_at", "timestamp")} AS trial_ends_at,
+            ${optionalClinicColumn("trial_grace_ends_at", "timestamp")} AS trial_grace_ends_at,
+            ${optionalClinicColumn("trial_origin", "varchar")} AS trial_origin,
+            ${optionalClinicColumn("previous_paid_plan", "varchar")} AS previous_paid_plan,
+            ${optionalClinicColumn("paid_access_expires_at", "timestamp")} AS paid_access_expires_at,
+            ${optionalClinicColumn("subscription_policy_version", "varchar")} AS subscription_policy_version
        FROM clinics
       ORDER BY id`,
   );
@@ -343,7 +618,9 @@ async function main() {
     ? await query<{ clinic_id: number | null; event_count: number | string; unresolved_count: number | string; latest_received_at: Date | string | null }>(
         `SELECT clinic_id,
                 COUNT(*)::int AS event_count,
-                COUNT(*) FILTER (WHERE processing_status <> 'processed')::int AS unresolved_count,
+                COUNT(*) FILTER (
+                  WHERE processing_status NOT IN ('applied', 'ignored', 'unmatched', 'processed')
+                )::int AS unresolved_count,
                 MAX(received_at) AS latest_received_at
            FROM subscription_provider_events
           GROUP BY clinic_id`,
@@ -358,6 +635,179 @@ async function main() {
         latestReceivedAt: isoDate(row.latest_received_at),
       }]),
   );
+
+  const activationTokensAvailable = tables.has("activation_tokens");
+  const activationTokenRows = activationTokensAvailable
+    ? await query<ActivationTokenRow>(
+        `SELECT clinic_id, plan, billing_cycle, expires_at, used, created_at
+           FROM activation_tokens`,
+      )
+    : [];
+  const activationTokensByClinic = new Map<number, SubscriptionEvidence["activationTokens"]>();
+  for (const row of activationTokenRows) {
+    const current = activationTokensByClinic.get(row.clinic_id) ?? {
+      tableAvailable: true,
+      total: 0,
+      usable: 0,
+      used: 0,
+      expired: 0,
+      latestExpiresAt: null,
+    };
+    current.total += 1;
+    if (row.used) {
+      current.used += 1;
+    } else if ((dateMs(row.expires_at) ?? Number.NEGATIVE_INFINITY) > now.getTime()) {
+      current.usable += 1;
+    } else {
+      current.expired += 1;
+    }
+    current.latestExpiresAt = latestIsoDate([current.latestExpiresAt, row.expires_at]);
+    activationTokensByClinic.set(row.clinic_id, current);
+  }
+
+  const lifecycleAvailable = tables.has("subscription_lifecycle_events");
+  const lifecycleRows = lifecycleAvailable
+    ? await query<LifecycleRow>(
+        `SELECT clinic_id, event_type, to_status, effective_at
+           FROM subscription_lifecycle_events
+          ORDER BY effective_at DESC, id DESC`,
+      )
+    : [];
+  const lifecycleByClinic = new Map<number, SubscriptionEvidence["lifecycle"]>();
+  for (const row of lifecycleRows) {
+    const current = lifecycleByClinic.get(row.clinic_id);
+    if (!current) {
+      lifecycleByClinic.set(row.clinic_id, {
+        tableAvailable: true,
+        count: 1,
+        latestEventType: row.event_type,
+        latestEffectiveAt: isoDate(row.effective_at),
+      });
+    } else {
+      current.count += 1;
+    }
+  }
+
+  const assignmentsAvailable = tables.has("subscription_plan_assignments");
+  const assignmentRows = assignmentsAvailable
+    ? await query<AssignmentRow>(
+        `SELECT clinic_id, plan, billing_cycle, source, starts_at, ends_at
+           FROM subscription_plan_assignments
+          ORDER BY starts_at DESC, id DESC`,
+      )
+    : [];
+  const assignmentsByClinic = new Map<number, SubscriptionEvidence["assignments"]>();
+  for (const row of assignmentRows) {
+    const current = assignmentsByClinic.get(row.clinic_id);
+    if (!current) {
+      assignmentsByClinic.set(row.clinic_id, {
+        tableAvailable: true,
+        count: 1,
+        latestPlan: row.plan,
+        latestSource: row.source,
+        latestStartsAt: isoDate(row.starts_at),
+      });
+    } else {
+      current.count += 1;
+    }
+  }
+
+  const sponsoredAccessAvailable = tables.has("subscription_access_grants");
+  const sponsoredRows = sponsoredAccessAvailable
+    ? await query<GrantRow>(
+        `SELECT clinic_id, plan, starts_at, ends_at, revoked_at
+           FROM subscription_access_grants`,
+      )
+    : [];
+  const sponsoredByClinic = new Map<number, SubscriptionEvidence["sponsoredAccess"]>();
+  for (const row of sponsoredRows) {
+    const current = sponsoredByClinic.get(row.clinic_id) ?? {
+      tableAvailable: true,
+      count: 0,
+      active: 0,
+      invalid: 0,
+      latestEndsAt: null,
+    };
+    current.count += 1;
+    const startsMs = dateMs(row.starts_at);
+    const endsMs = dateMs(row.ends_at);
+    if (startsMs === null || endsMs === null || endsMs <= startsMs) {
+      current.invalid += 1;
+    } else if (!row.revoked_at && startsMs <= now.getTime() && endsMs > now.getTime()) {
+      current.active += 1;
+    }
+    current.latestEndsAt = latestIsoDate([current.latestEndsAt, row.ends_at]);
+    sponsoredByClinic.set(row.clinic_id, current);
+  }
+
+  const entitlementExceptionsAvailable = tables.has("subscription_access_exceptions");
+  const exceptionRows = entitlementExceptionsAvailable
+    ? await query<ExceptionRow>(
+        `SELECT clinic_id, starts_at, ends_at, revoked_at
+           FROM subscription_access_exceptions`,
+      )
+    : [];
+  const exceptionsByClinic = new Map<number, SubscriptionEvidence["entitlementExceptions"]>();
+  for (const row of exceptionRows) {
+    const current = exceptionsByClinic.get(row.clinic_id) ?? {
+      tableAvailable: true,
+      count: 0,
+      active: 0,
+      invalid: 0,
+    };
+    current.count += 1;
+    const startsMs = dateMs(row.starts_at);
+    const endsMs = dateMs(row.ends_at);
+    if (startsMs === null || endsMs === null || endsMs <= startsMs) {
+      current.invalid += 1;
+    } else if (!row.revoked_at && startsMs <= now.getTime() && endsMs > now.getTime()) {
+      current.active += 1;
+    }
+    exceptionsByClinic.set(row.clinic_id, current);
+  }
+
+  const upgradeRequestsAvailable = tables.has("clinic_upgrade_requests");
+  const upgradeRequestRows = upgradeRequestsAvailable
+    ? await query<UpgradeRequestRow>(
+        `SELECT clinic_id, status, requested_at
+           FROM clinic_upgrade_requests
+          ORDER BY requested_at DESC, id DESC`,
+      )
+    : [];
+  const upgradesByClinic = new Map<number, SubscriptionEvidence["upgradeRequests"]>();
+  for (const row of upgradeRequestRows) {
+    const current = upgradesByClinic.get(row.clinic_id) ?? {
+      tableAvailable: true,
+      count: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      latestStatus: null,
+    };
+    current.count += 1;
+    if (row.status === "pending") current.pending += 1;
+    if (row.status === "approved") current.approved += 1;
+    if (row.status === "rejected") current.rejected += 1;
+    if (!current.latestStatus) current.latestStatus = row.status;
+    upgradesByClinic.set(row.clinic_id, current);
+  }
+
+  const offlinePaymentEvidenceAvailable = tables.has("subscription_offline_payments");
+  const offlinePaymentRows = offlinePaymentEvidenceAvailable
+    ? await query<{ clinic_id: number; verification_status: string }>(
+        `SELECT clinic_id, verification_status
+           FROM subscription_offline_payments`,
+      )
+    : [];
+  const offlineEvidenceByClinic = new Map<number, SubscriptionEvidence["offlinePaymentEvidence"]>();
+  for (const row of offlinePaymentRows) {
+    const current = offlineEvidenceByClinic.get(row.clinic_id) ?? {
+      tableAvailable: true,
+      verified: 0,
+    };
+    if (row.verification_status === "verified") current.verified += 1;
+    offlineEvidenceByClinic.set(row.clinic_id, current);
+  }
 
   const patientsAvailable = tables.has("patients");
   const patientRows = patientsAvailable
@@ -379,17 +829,99 @@ async function main() {
     const deals = smileDealsByClinic.get(clinic.id);
     const storage = storageByClinic.get(clinic.id);
     const provider = providerByClinic.get(clinic.id);
+    const activationTokens = activationTokensByClinic.get(clinic.id) ?? {
+      tableAvailable: activationTokensAvailable,
+      total: 0,
+      usable: 0,
+      used: 0,
+      expired: 0,
+      latestExpiresAt: null,
+    };
+    const lifecycleHistory = lifecycleByClinic.get(clinic.id) ?? {
+      tableAvailable: lifecycleAvailable,
+      count: 0,
+      latestEventType: null,
+      latestEffectiveAt: null,
+    };
+    const planAssignments = assignmentsByClinic.get(clinic.id) ?? {
+      tableAvailable: assignmentsAvailable,
+      count: 0,
+      latestPlan: null,
+      latestSource: null,
+      latestStartsAt: null,
+    };
+    const sponsoredAccess = sponsoredByClinic.get(clinic.id) ?? {
+      tableAvailable: sponsoredAccessAvailable,
+      count: 0,
+      active: 0,
+      invalid: 0,
+      latestEndsAt: null,
+    };
+    const entitlementExceptions = exceptionsByClinic.get(clinic.id) ?? {
+      tableAvailable: entitlementExceptionsAvailable,
+      count: 0,
+      active: 0,
+      invalid: 0,
+    };
+    const upgradeRequests = upgradesByClinic.get(clinic.id) ?? {
+      tableAvailable: upgradeRequestsAvailable,
+      count: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      latestStatus: null,
+    };
+    const offlinePaymentEvidence = offlineEvidenceByClinic.get(clinic.id) ?? {
+      tableAvailable: offlinePaymentEvidenceAvailable,
+      verified: 0,
+    };
+    const inventory = classifySubscriptionInventory({
+      status: clinic.status,
+      archived: clinic.is_archived,
+      plan: rawPlan,
+      subscriptionStatus: clinic.subscription_status,
+      trialEndsAt: isoDate(clinic.trial_ends_at),
+      trialGraceEndsAt: isoDate(clinic.trial_grace_ends_at),
+      paidAccessExpiresAt: isoDate(clinic.paid_access_expires_at),
+      providerLinked: Boolean(clinic.razorpay_subscription_id),
+      activationTokens,
+      sponsoredAccess,
+      offlinePaymentEvidence,
+      providerEvents: {
+        tableAvailable: providerEventsAvailable,
+        unresolvedCount: provider?.unresolvedCount ?? 0,
+      },
+    }, now);
     const allTime = ensureChannels(allTimeMessages.get(clinic.id) ?? {});
     const currentLocalMonth = ensureChannels(currentMonthMessages.get(clinic.id) ?? {});
     const baseline: ClinicBaseline = {
       clinicId: clinic.id,
       status: clinic.status,
       archived: clinic.is_archived,
+      requestedPlan: clinic.requested_plan?.toLowerCase() || null,
       plan: rawPlan,
       rawSubscriptionStatus: clinic.subscription_status,
       subscriptionState: subscriptionInfo.state,
       billingCycle: clinic.billing_cycle ?? null,
+      trial: {
+        startedAt: isoDate(clinic.trial_started_at),
+        endsAt: isoDate(clinic.trial_ends_at),
+        graceEndsAt: isoDate(clinic.trial_grace_ends_at),
+        origin: clinic.trial_origin,
+      },
+      previousPaidPlan: clinic.previous_paid_plan,
+      paidAccessExpiresAt: isoDate(clinic.paid_access_expires_at),
+      subscriptionPolicyVersion: clinic.subscription_policy_version,
       providerLink: clinic.razorpay_subscription_id ? "linked" : "not_linked",
+      inventoryClassification: inventory.inventoryClassification,
+      recommendedActions: inventory.recommendedActions,
+      activationTokens,
+      lifecycleHistory,
+      planAssignments,
+      sponsoredAccess,
+      entitlementExceptions,
+      upgradeRequests,
+      offlinePaymentEvidence,
       timezone,
       doctors: {
         linkedCount: doctorsAvailable ? doctorCounts.get(clinic.id) ?? 0 : null,
@@ -445,6 +977,11 @@ async function main() {
     if (baseline.impact.assignedPlan.length) baseline.flags.push("above_assigned_plan_limit");
     if (baseline.bookings.attribution === "partial") baseline.flags.push("booking_attribution_partial");
     if (baseline.storage.status === "partial") baseline.flags.push("storage_file_size_partial");
+    baseline.flags = [...new Set([...baseline.flags, ...inventory.flags])];
+    if (baseline.flags.length && baseline.inventoryClassification !== "pending_registration") {
+      baseline.inventoryClassification = "reconciliation_required";
+      if (!baseline.recommendedActions.length) baseline.recommendedActions.push("reconcile_subscription_state");
+    }
     return baseline;
   });
 
@@ -460,7 +997,12 @@ async function main() {
       state,
       baselines.filter((clinic) => clinic.subscriptionState === state).length,
     ])),
+    inventoryClassifications: Object.fromEntries([...new Set(baselines.map((clinic) => clinic.inventoryClassification))].sort().map((classification) => [
+      classification,
+      baselines.filter((clinic) => clinic.inventoryClassification === classification).length,
+    ])),
     clinicsWithFlags: baselines.filter((clinic) => clinic.flags.length).length,
+    reconciliationQueue: baselines.filter((clinic) => clinic.inventoryClassification === "reconciliation_required").length,
     unattributedBookings,
   };
 
@@ -478,17 +1020,30 @@ async function main() {
       patientDocuments: storageAvailable ? "available" : "unavailable",
       subscriptionProviderEvents: providerEventsAvailable ? "available" : "unavailable",
       patients: patientsAvailable ? "available" : "unavailable",
-      trialLifecycle: "unavailable: no explicit Trial lifecycle fields or table exist",
-      manualExceptions: "unavailable: no dedicated exception history table or fields exist",
-      policyVersion: "unavailable: no versioned plan-policy catalog exists",
+      activationTokens: activationTokensAvailable ? "available" : "unavailable",
+      lifecycleHistory: lifecycleAvailable ? "available" : "unavailable",
+      planAssignments: assignmentsAvailable ? "available" : "unavailable",
+      sponsoredAccess: sponsoredAccessAvailable ? "available" : "unavailable",
+      manualExceptions: entitlementExceptionsAvailable ? "available" : "unavailable",
+      upgradeRequests: upgradeRequestsAvailable ? "available" : "unavailable",
+      offlinePaymentEvidence: offlinePaymentEvidenceAvailable
+        ? "available"
+        : "unavailable: no dedicated offline payment record table exists",
+      trialLifecycle: clinicColumns.has("trial_started_at") && clinicColumns.has("trial_ends_at") && clinicColumns.has("trial_grace_ends_at")
+        ? "partial: clinic Trial snapshot fields are available; no separate Trial history table exists"
+        : "unavailable: Trial snapshot fields are missing",
+      policyVersion: clinicColumns.has("subscription_policy_version") || tables.has("plan_policy_versions")
+        ? "partial: current policy reference or policy-version table is available"
+        : "unavailable: no versioned plan-policy catalog exists",
       activeDoctorDefinition: doctorsAvailable ? "partial: clinic_doctors links have no active flag" : "unavailable",
       smileDealDraftDefinition: smileDealsAvailable ? "partial: no draft/published status exists" : "unavailable",
       bookingAttribution: bookingsAvailable && unattributedBookings === 0 ? "complete" : "partial",
     },
     limitations: [
-      "The configured development database currently has no clinic rows.",
-      "This project has no production database attached, so a live production baseline cannot be generated here until deployment creates one.",
-      "Trial dates, Trial origin, previous paid plan, paid-expiry history, exception history, and policy versions are not currently stored.",
+      "This report classifies existing snapshots and evidence; it does not infer active paid access from a plan, provider subscription ID, payment link, or generic manual override.",
+      "The configured project does not have a production database attached, so a live production baseline cannot be generated here until deployment creates one or an approved production snapshot is supplied.",
+      "Trial dates, Trial origin, previous paid plan, paid-expiry history, exception history, and policy versions may be absent on older clinic rows even when the current schema supports them.",
+      "There is no dedicated offline-payment evidence table, so manual overrides cannot be treated as verified offline payment.",
       "Active doctor counts are based on clinic_doctors links because the current schema has no active/inactive doctor field.",
       "Smile Deal live-post counts are a proxy based on is_active and the starts_at/expires_at window because draft and published states are not separate fields.",
     ],
@@ -517,6 +1072,8 @@ async function main() {
     `- Unattributed bookings: ${summary.unattributedBookings}`,
     `- Plan distribution: ${Object.entries(summary.plans).map(([key, value]) => `${key}=${value}`).join(", ") || "none"}`,
     `- Subscription states: ${Object.entries(summary.subscriptionStates).map(([key, value]) => `${key}=${value}`).join(", ") || "none"}`,
+    `- Inventory classifications: ${Object.entries(summary.inventoryClassifications).map(([key, value]) => `${key}=${value}`).join(", ") || "none"}`,
+    `- Reconciliation queue: ${summary.reconciliationQueue}`,
     "",
     "## Data availability",
     "",
@@ -524,11 +1081,39 @@ async function main() {
     "|---|---|",
     ...Object.entries(report.dataAvailability).map(([key, value]) => `| ${key} | ${value} |`),
     "",
+    "## Subscription inventory",
+    "",
+    "| Clinic ID | Account status | Requested plan | Current/legacy plan | Subscription status | Inventory classification | Trial dates | Paid expiry | Provider link | Activation tokens | Sponsored grants | Lifecycle events | Upgrade requests | Flags |",
+    "|---:|---|---|---|---|---|---|---|---|---|---|---:|---|---|",
+  ];
+
+  if (!baselines.length) {
+    lines.push("| — | No clinic rows are present in the configured database | — | — | — | — | — | — | — | — | — | — | — | — |");
+  } else {
+    for (const clinic of baselines) {
+      const trialDates = clinic.trial.endsAt
+        ? `${clinic.trial.endsAt}${clinic.trial.graceEndsAt ? ` / grace ${clinic.trial.graceEndsAt}` : ""}`
+        : "none";
+      const activationTokens = clinic.activationTokens.tableAvailable
+        ? `${clinic.activationTokens.usable} usable / ${clinic.activationTokens.total} total`
+        : "unavailable";
+      const sponsoredGrants = clinic.sponsoredAccess.tableAvailable
+        ? `${clinic.sponsoredAccess.active} active / ${clinic.sponsoredAccess.count} total`
+        : "unavailable";
+      const upgradeRequests = clinic.upgradeRequests.tableAvailable
+        ? `${clinic.upgradeRequests.pending} pending / ${clinic.upgradeRequests.count} total`
+        : "unavailable";
+      lines.push(`| ${clinic.clinicId} | ${clinic.status ?? "<null>"} | ${clinic.requestedPlan ?? "<null>"} | ${clinic.plan ?? "<null>"} | ${clinic.rawSubscriptionStatus ?? "<null>"} | ${clinic.inventoryClassification} | ${trialDates} | ${clinic.paidAccessExpiresAt ?? "none"} | ${clinic.providerLink} | ${activationTokens} | ${sponsoredGrants} | ${clinic.lifecycleHistory.count} | ${upgradeRequests} | ${clinic.flags.join(", ") || "none"} |`);
+    }
+  }
+
+  lines.push(
+    "",
     "## Clinic baseline",
     "",
     "| Clinic ID | Status | Archived | Plan | Subscription state | Provider link | Billing | Bookings (month/all) | Doctors | Smile Deals (live/total) | Storage bytes | Messages (SMS/WA/email) | Flags |",
     "|---:|---|---|---|---|---|---|---:|---:|---:|---:|---|---|",
-  ];
+  );
 
   if (!baselines.length) {
     lines.push("| — | No clinic rows are present in the configured database | — | — | — | — | — | — | — | — | — | — |");
@@ -536,6 +1121,22 @@ async function main() {
     for (const clinic of baselines) {
       const messages = MESSAGE_CHANNELS.map((channel) => clinic.messaging.currentLocalMonth[channel]?.countedUnits ?? 0).join("/");
       lines.push(`| ${clinic.clinicId} | ${clinic.status ?? "<null>"} | ${clinic.archived ? "yes" : "no"} | ${clinic.plan ?? "<null>"} | ${clinic.subscriptionState} | ${clinic.providerLink} | ${clinic.billingCycle ?? "<null>"} | ${clinic.bookings.currentLocalMonth ?? "unavailable"}/${clinic.bookings.allTime ?? "unavailable"} | ${clinic.doctors.linkedCount ?? "unavailable"} | ${clinic.smileDeals.activePublishedProxy ?? "unavailable"}/${clinic.smileDeals.total ?? "unavailable"} | ${clinic.storage.trackedBytes ?? "unavailable"} | ${messages} | ${clinic.flags.join(", ") || "none"} |`);
+    }
+  }
+
+  lines.push(
+    "",
+    "## Reconciliation queue",
+    "",
+    "| Clinic ID | Classification | Flags | Recommended actions |",
+    "|---:|---|---|---|",
+  );
+  const queue = baselines.filter((clinic) => clinic.inventoryClassification === "reconciliation_required");
+  if (!queue.length) {
+    lines.push("| — | No clinics require reconciliation based on the available evidence | — | — |");
+  } else {
+    for (const clinic of queue) {
+      lines.push(`| ${clinic.clinicId} | ${clinic.inventoryClassification} | ${clinic.flags.join(", ") || "none"} | ${clinic.recommendedActions.join(", ") || "reconcile_subscription_state"} |`);
     }
   }
 

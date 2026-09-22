@@ -364,6 +364,43 @@ this step. They must enter a reconciliation queue.
 - No data has been changed.
 - The old paid-plan assignment behavior is documented as a compatibility gap.
 
+#### Step 0 completion record
+
+**Status:** Complete for the configured development database; production execution remains blocked by the missing production database/snapshot.
+
+The read-only inventory is implemented by:
+
+```text
+npm run audit:subscription-baseline
+```
+
+The generator now reports:
+
+- Account status, requested/current plan, subscription status, Trial dates,
+  paid-access expiry, provider-link presence, and billing cycle.
+- Activation-token totals and usable/used/expired status.
+- Lifecycle-event, plan-assignment, sponsored-grant, entitlement-exception,
+  upgrade-request, and provider-event availability and counts.
+- Inventory classifications and a reconciliation queue without inferring active
+  paid access from a plan, provider subscription ID, payment link, or generic
+  manual override.
+- The required ambiguity flags:
+  `pending_payment_trial_dates_cleared`,
+  `manual_override_without_verified_offline_record`,
+  `paid_plan_without_provider_or_payment_evidence`,
+  `sponsored_access_without_valid_end_date`, and
+  `provider_events_received_but_not_applied`.
+
+The latest development report is recorded in
+`docs/TODO/17-subscription-baseline-report.md`. It found one active development
+clinic in `reconciliation_required` with a legacy unpaid/pending-payment state,
+cleared Trial dates, no provider link, and no offline-payment evidence table.
+No clinic, subscription, payment, grant, or lifecycle data was changed.
+
+The production baseline still requires an approved production database or
+populated production snapshot. Until then, the development report must not be
+treated as the production-clinic baseline.
+
 ### 5.3 Step 1 — Define the shared approval contract
 
 Add shared types and validation for the central operation. The exact file
