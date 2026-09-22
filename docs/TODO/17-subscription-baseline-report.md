@@ -68,5 +68,20 @@
 - Active doctor counts are based on clinic_doctors links because the current schema has no active/inactive doctor field.
 - Smile Deal live-post counts are a proxy based on is_active and the starts_at/expires_at window because draft and published states are not separate fields.
 
+## Production baseline gate attempt
+
+On **2026-09-23 (Asia/Calcutta)**, the production read-only database path was
+checked before running the inventory. Both the production schema and clinic
+metadata queries returned:
+
+```text
+PRODUCTION_DATABASE_ERROR:
+This Repl does not have a production database. Deploy your app first to create a production database.
+```
+
+The production inventory therefore could not run. No production records were
+read or changed. The development results above remain development-only evidence
+and must not be treated as the production-clinic baseline.
+
 This report is read-only. It does not assign plans, change subscription state, create exceptions, or enforce limits.
 

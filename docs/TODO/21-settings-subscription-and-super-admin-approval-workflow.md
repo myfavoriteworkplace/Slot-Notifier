@@ -397,9 +397,13 @@ clinic in `reconciliation_required` with a legacy unpaid/pending-payment state,
 cleared Trial dates, no provider link, and no offline-payment evidence table.
 No clinic, subscription, payment, grant, or lifecycle data was changed.
 
-The production baseline still requires an approved production database or
-populated production snapshot. Until then, the development report must not be
-treated as the production-clinic baseline.
+The latest production read-only gate attempt was made on **2026-09-23
+(Asia/Calcutta)**. The platform returned
+`PRODUCTION_DATABASE_ERROR` because this Repl does not have a production
+database; deployment is required to create one. No production records were
+read or changed. Until an approved production database or populated production
+snapshot is available, the development report must not be treated as the
+production-clinic baseline.
 
 ### 5.3 Step 1 — Define the shared approval contract
 
