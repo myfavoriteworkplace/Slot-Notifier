@@ -628,6 +628,29 @@ revokedBy
 - Online payment and complimentary access remain separate.
 - Historical records are append-only.
 
+#### Step 2 completion record
+
+**Status:** Complete for the append-only development schema boundary. Route
+adapters and the central transition service remain intentionally deferred to
+Steps 3–8.
+
+Implemented in `shared/schema.ts`, with idempotent development schema checks in
+`server/index.ts` and `server/db.ts`:
+
+- `subscription_approval_decisions` stores the approval context, outcome,
+  requested and approved plan/cycle, payment basis, renewal mode, policy
+  version, access-state transition, actor, reason, source request, effective
+  date, and transition ID.
+- `subscription_offline_payments` stores independent offline evidence,
+  verification and reversal status, and links to exactly one approval decision.
+- Unique clinic/transition and external-reference constraints protect
+  idempotency and duplicate offline receipts.
+- Activation tokens, lifecycle events, plan assignments, upgrade requests, and
+  sponsored grants now have nullable `approvalDecisionId` links so existing
+  history remains compatible while new central decisions can be connected.
+- Existing records were not backfilled or changed. Production schema changes
+  remain subject to the normal publish flow.
+
 ### 5.5 Step 3 — Build the central server-side transition operation
 
 Implement one transactional service, conceptually:

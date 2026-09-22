@@ -590,6 +590,70 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error ensuring subscription_provider_events table:", err.message);
   }
 
+  // Central subscription approval records preserve the commercial decision
+  // separately from the clinic's compatibility snapshot.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subscription_approval_decisions (
+        id                       SERIAL PRIMARY KEY,
+        clinic_id                integer NOT NULL REFERENCES clinics(id),
+        approval_context         varchar(30) NOT NULL,
+        approval_outcome         varchar(40) NOT NULL,
+        requested_plan           varchar(20),
+        approved_plan            varchar(20),
+        requested_billing_cycle  varchar(10),
+        approved_billing_cycle   varchar(10),
+        payment_basis            varchar(30) NOT NULL,
+        renewal_mode             varchar(30) NOT NULL,
+        policy_version           varchar(40),
+        from_access_state        varchar(30),
+        to_access_state          varchar(30),
+        reason                   text,
+        actor_type               varchar(30) NOT NULL,
+        actor_id                 varchar(255),
+        source_request_id        varchar(120),
+        transition_id            varchar(120) NOT NULL,
+        effective_at             timestamp NOT NULL DEFAULT NOW(),
+        created_at               timestamp NOT NULL DEFAULT NOW(),
+        CONSTRAINT subscription_approval_decisions_clinic_transition_uidx
+          UNIQUE (clinic_id, transition_id)
+      );
+      CREATE INDEX IF NOT EXISTS subscription_approval_decisions_clinic_effective_idx
+        ON subscription_approval_decisions (clinic_id, effective_at);
+      CREATE INDEX IF NOT EXISTS subscription_approval_decisions_source_request_idx
+        ON subscription_approval_decisions (source_request_id);
+
+      CREATE TABLE IF NOT EXISTS subscription_offline_payments (
+        id                    SERIAL PRIMARY KEY,
+        clinic_id             integer NOT NULL REFERENCES clinics(id),
+        approval_decision_id  integer NOT NULL REFERENCES subscription_approval_decisions(id),
+        plan                  varchar(20) NOT NULL,
+        billing_cycle         varchar(10) NOT NULL,
+        amount                integer NOT NULL,
+        currency              varchar(3) NOT NULL DEFAULT 'INR',
+        received_at           timestamp NOT NULL,
+        payment_method        varchar(30) NOT NULL,
+        external_reference    varchar(160) NOT NULL UNIQUE,
+        evidence_reference    varchar(160) NOT NULL,
+        verification_status   varchar(20) NOT NULL DEFAULT 'pending',
+        verified_by           varchar(255),
+        verified_at           timestamp,
+        reason                text NOT NULL,
+        reversal_status       varchar(20) NOT NULL DEFAULT 'not_reversed',
+        reversed_at           timestamp,
+        reversal_reason       text,
+        created_at            timestamp NOT NULL DEFAULT NOW(),
+        CONSTRAINT subscription_offline_payments_approval_decision_uidx
+          UNIQUE (approval_decision_id)
+      );
+      CREATE INDEX IF NOT EXISTS subscription_offline_payments_clinic_received_idx
+        ON subscription_offline_payments (clinic_id, received_at);
+    `);
+    console.log("[DATABASE] central subscription approval/payment tables ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring central subscription approval/payment tables:", err.message);
+  }
+
   // subscription lifecycle/history — append-only records for future transitions
   try {
     await pool.query(`
@@ -704,5 +768,29 @@ export async function ensureSessionTable() {
     console.log("[DATABASE] subscription lifecycle/history tables ready.");
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring subscription lifecycle/history tables:", err.message);
+  }
+
+  // Link compatibility records after their legacy tables have been ensured.
+  try {
+    await pool.query(`
+      ALTER TABLE activation_tokens
+        ADD COLUMN IF NOT EXISTS approval_decision_id integer
+          REFERENCES subscription_approval_decisions(id);
+      ALTER TABLE subscription_lifecycle_events
+        ADD COLUMN IF NOT EXISTS approval_decision_id integer
+          REFERENCES subscription_approval_decisions(id);
+      ALTER TABLE subscription_plan_assignments
+        ADD COLUMN IF NOT EXISTS approval_decision_id integer
+          REFERENCES subscription_approval_decisions(id);
+      ALTER TABLE clinic_upgrade_requests
+        ADD COLUMN IF NOT EXISTS approval_decision_id integer
+          REFERENCES subscription_approval_decisions(id);
+      ALTER TABLE subscription_access_grants
+        ADD COLUMN IF NOT EXISTS approval_decision_id integer
+          REFERENCES subscription_approval_decisions(id);
+    `);
+    console.log("[DATABASE] subscription approval links ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring subscription approval links:", err.message);
   }
 }

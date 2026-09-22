@@ -491,10 +491,86 @@ export const consentTokens = pgTable("consent_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ── CENTRAL SUBSCRIPTION APPROVAL RECORDS ───────────────────────────────────
+// These records preserve the decision that produced a subscription state.
+// Clinic columns remain compatibility snapshots until the central transition
+// service is introduced.
+export const subscriptionApprovalDecisions = pgTable("subscription_approval_decisions", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  approvalContext: varchar("approval_context", { length: 30 }).notNull(),
+  approvalOutcome: varchar("approval_outcome", { length: 40 }).notNull(),
+  requestedPlan: varchar("requested_plan", { length: 20 }),
+  approvedPlan: varchar("approved_plan", { length: 20 }),
+  requestedBillingCycle: varchar("requested_billing_cycle", { length: 10 }),
+  approvedBillingCycle: varchar("approved_billing_cycle", { length: 10 }),
+  paymentBasis: varchar("payment_basis", { length: 30 }).notNull(),
+  renewalMode: varchar("renewal_mode", { length: 30 }).notNull(),
+  policyVersion: varchar("policy_version", { length: 40 }),
+  fromAccessState: varchar("from_access_state", { length: 30 }),
+  toAccessState: varchar("to_access_state", { length: 30 }),
+  reason: text("reason"),
+  actorType: varchar("actor_type", { length: 30 }).notNull(),
+  actorId: varchar("actor_id", { length: 255 }),
+  sourceRequestId: varchar("source_request_id", { length: 120 }),
+  transitionId: varchar("transition_id", { length: 120 }).notNull(),
+  effectiveAt: timestamp("effective_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicEffectiveIdx: index("subscription_approval_decisions_clinic_effective_idx")
+    .on(table.clinicId, table.effectiveAt),
+  sourceRequestIdx: index("subscription_approval_decisions_source_request_idx")
+    .on(table.sourceRequestId),
+  clinicTransitionUnique: uniqueIndex("subscription_approval_decisions_clinic_transition_uidx")
+    .on(table.clinicId, table.transitionId),
+}));
+
+export const insertSubscriptionApprovalDecisionSchema = createInsertSchema(subscriptionApprovalDecisions).omit({
+  id: true,
+  createdAt: true,
+});
+export type SubscriptionApprovalDecision = typeof subscriptionApprovalDecisions.$inferSelect;
+export type InsertSubscriptionApprovalDecision = z.infer<typeof insertSubscriptionApprovalDecisionSchema>;
+
+export const subscriptionOfflinePayments = pgTable("subscription_offline_payments", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  approvalDecisionId: integer("approval_decision_id").notNull().references(() => subscriptionApprovalDecisions.id),
+  plan: varchar("plan", { length: 20 }).notNull(),
+  billingCycle: varchar("billing_cycle", { length: 10 }).notNull(),
+  amount: integer("amount").notNull(),
+  currency: varchar("currency", { length: 3 }).notNull().default("INR"),
+  receivedAt: timestamp("received_at").notNull(),
+  paymentMethod: varchar("payment_method", { length: 30 }).notNull(),
+  externalReference: varchar("external_reference", { length: 160 }).notNull().unique(),
+  evidenceReference: varchar("evidence_reference", { length: 160 }).notNull(),
+  verificationStatus: varchar("verification_status", { length: 20 }).notNull().default("pending"),
+  verifiedBy: varchar("verified_by", { length: 255 }),
+  verifiedAt: timestamp("verified_at"),
+  reason: text("reason").notNull(),
+  reversalStatus: varchar("reversal_status", { length: 20 }).notNull().default("not_reversed"),
+  reversedAt: timestamp("reversed_at"),
+  reversalReason: text("reversal_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  clinicReceivedIdx: index("subscription_offline_payments_clinic_received_idx")
+    .on(table.clinicId, table.receivedAt),
+  approvalDecisionUnique: uniqueIndex("subscription_offline_payments_approval_decision_uidx")
+    .on(table.approvalDecisionId),
+}));
+
+export const insertSubscriptionOfflinePaymentSchema = createInsertSchema(subscriptionOfflinePayments).omit({
+  id: true,
+  createdAt: true,
+});
+export type SubscriptionOfflinePayment = typeof subscriptionOfflinePayments.$inferSelect;
+export type InsertSubscriptionOfflinePayment = z.infer<typeof insertSubscriptionOfflinePaymentSchema>;
+
 export const activationTokens = pgTable("activation_tokens", {
   id: serial("id").primaryKey(),
   token: varchar("token", { length: 255 }).notNull().unique(),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  approvalDecisionId: integer("approval_decision_id").references(() => subscriptionApprovalDecisions.id),
   plan: varchar("plan", { length: 20 }).notNull(),
   billingCycle: varchar("billing_cycle", { length: 10 }).notNull(),
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
@@ -875,6 +951,7 @@ export type SubscriptionActorType = (typeof SUBSCRIPTION_ACTOR_TYPES)[number];
 export const subscriptionLifecycleEvents = pgTable("subscription_lifecycle_events", {
   id: serial("id").primaryKey(),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  approvalDecisionId: integer("approval_decision_id").references(() => subscriptionApprovalDecisions.id),
   eventType: varchar("event_type", { length: 50 }).notNull(),
   fromPlan: varchar("from_plan", { length: 20 }),
   toPlan: varchar("to_plan", { length: 20 }),
@@ -903,6 +980,7 @@ export type InsertSubscriptionLifecycleEvent = z.infer<typeof insertSubscription
 export const subscriptionPlanAssignments = pgTable("subscription_plan_assignments", {
   id: serial("id").primaryKey(),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  approvalDecisionId: integer("approval_decision_id").references(() => subscriptionApprovalDecisions.id),
   plan: varchar("plan", { length: 20 }).notNull(),
   billingCycle: varchar("billing_cycle", { length: 10 }).notNull().default("monthly"),
   source: varchar("source", { length: 30 }).notNull(),
@@ -937,6 +1015,7 @@ export type ClinicUpgradeRequestStatus = (typeof CLINIC_UPGRADE_REQUEST_STATUSES
 export const clinicUpgradeRequests = pgTable("clinic_upgrade_requests", {
   id: serial("id").primaryKey(),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  approvalDecisionId: integer("approval_decision_id").references(() => subscriptionApprovalDecisions.id),
   requestedPlan: varchar("requested_plan", { length: 20 }).notNull(),
   billingCycle: varchar("billing_cycle", { length: 10 }).notNull(),
   status: varchar("status", { length: 20 }).notNull().default("pending"),
@@ -970,6 +1049,7 @@ export type InsertClinicUpgradeRequest = z.infer<typeof insertClinicUpgradeReque
 export const subscriptionAccessGrants = pgTable("subscription_access_grants", {
   id: serial("id").primaryKey(),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  approvalDecisionId: integer("approval_decision_id").references(() => subscriptionApprovalDecisions.id),
   grantId: varchar("grant_id", { length: 120 }).notNull(),
   plan: varchar("plan", { length: 20 }).notNull(),
   policyVersion: varchar("policy_version", { length: 40 }),
