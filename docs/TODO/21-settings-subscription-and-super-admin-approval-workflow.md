@@ -497,6 +497,36 @@ Validation rules:
 - Invalid combinations fail before any database write.
 - The contract distinguishes approval outcome from current access state.
 
+#### Step 1 completion record
+
+**Status:** Complete as a pure shared validation boundary for development.
+
+Implemented in `shared/subscription-approval.ts` with tests in
+`shared/subscription-approval.test.ts` and the dedicated command:
+
+```text
+npm run test:subscription-approval
+```
+
+The contract now defines and validates:
+
+- Approval context, outcome, payment basis, renewal mode, actor, transition
+  ID, source request, effective date, requested plan, approved plan, and
+  billing-cycle fields.
+- Trial, online-payment-required, verified-offline-payment, complimentary,
+  and rejection outcomes.
+- Provider/payment-link metadata for online payment.
+- Complete offline-payment evidence with verification timing; a provider
+  subscription ID cannot be used as offline evidence.
+- Bounded complimentary-access dates and sponsor reference.
+- Paid-plan billing cycles, Trial/billing incompatibility, reason requirements
+  for overrides and rejection, and strict unknown-field rejection.
+
+The schema is pure and does not write clinic or subscription data. Transition
+ID uniqueness and replay handling will be enforced when the append-only
+approval records are added in Step 2. The production baseline remains
+intentionally deferred while the application is in development mode.
+
 ### 5.4 Step 2 — Add append-only approval and payment records
 
 Add durable records rather than placing all meaning in the clinic snapshot.
