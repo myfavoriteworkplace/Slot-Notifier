@@ -718,6 +718,7 @@ export async function ensureSessionTable() {
         list_price_minor integer,
         currency         varchar(3) NOT NULL DEFAULT 'INR',
         reason           text NOT NULL,
+        sponsor_reference varchar(160),
         granted_by_type  varchar(30) NOT NULL,
         granted_by_id    varchar(255),
         starts_at        timestamp NOT NULL,
@@ -791,6 +792,8 @@ export async function ensureSessionTable() {
       ALTER TABLE subscription_access_grants
         ADD COLUMN IF NOT EXISTS approval_decision_id integer
           REFERENCES subscription_approval_decisions(id);
+      ALTER TABLE subscription_access_grants
+        ADD COLUMN IF NOT EXISTS sponsor_reference varchar(160);
     `);
     console.log("[DATABASE] subscription approval links ready.");
   } catch (err: any) {

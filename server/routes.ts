@@ -63,6 +63,8 @@ import {
   applyProviderSubscriptionEvent,
   applyOfflinePaymentReversal,
   applySubscriptionApproval,
+  reconcileExpiredSponsoredAccess,
+  revokeSubscriptionAccessGrant,
   type CreateOnlinePaymentIntent,
 } from "./subscription-approval";
 import { resolveRequestedPlan } from "@shared/clinic-registration";
@@ -1401,7 +1403,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ message: "Invalid subscription lifecycle scheduler credentials" });
     }
     try {
-      return res.json(await reconcileExpiredTrials());
+      const [trialResult, sponsoredResult] = await Promise.all([
+        reconcileExpiredTrials(),
+        reconcileExpiredSponsoredAccess(),
+      ]);
+      return res.json({ trial: trialResult, sponsored: sponsoredResult });
     } catch (error) {
       console.error("[SUBSCRIPTION LIFECYCLE] Reconcile failed:", error);
       return res.status(500).json({ message: "Subscription lifecycle reconciliation failed" });
@@ -3266,96 +3272,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can grant sponsored access" });
     const parsed = z.object({
       plan: z.enum(["starter", "growth", "pro"]),
+      billingCycle: z.enum(["monthly", "annual"]).optional(),
       startsAt: z.string().datetime().optional(),
       endsAt: z.string().datetime(),
       reason: z.string().trim().min(10).max(500),
+      sponsorReference: z.string().trim().min(1).max(160).optional(),
+      transitionId: z.string().trim().min(1).max(120).regex(/^\S+$/).optional(),
+      // Kept temporarily so older admin clients can retry without losing their
+      // idempotency key. New clients should send transitionId.
       grantId: z.string().uuid().optional(),
     }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Sponsored plan, dates, and a reason are required" });
 
     const clinicId = Number(req.params.id);
     if (!Number.isInteger(clinicId) || clinicId <= 0) return res.status(400).json({ message: "Invalid clinic ID" });
-    const grantId = parsed.data.grantId || crypto.randomUUID();
     const startsAt = parsed.data.startsAt ? new Date(parsed.data.startsAt) : new Date();
     const endsAt = new Date(parsed.data.endsAt);
     if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) {
       return res.status(400).json({ message: "Sponsored access must have a valid end date after its start date" });
     }
     const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+    const transitionId = parsed.data.transitionId || parsed.data.grantId || `complimentary:${clinicId}:${crypto.randomUUID()}`;
     try {
       const clinic = await storage.getClinic(clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
-      const policy = resolvePlanPolicy(parsed.data.plan).policy;
-      const result = await db.transaction(async (tx) => {
-        const [currentClinic] = await tx.select().from(clinics).where(eq(clinics.id, clinicId)).limit(1);
-        if (!currentClinic) {
-          const error = new Error("Clinic not found");
-          (error as any).statusCode = 404;
-          throw error;
-        }
-
-        const existing = await tx.select()
-          .from(subscriptionAccessGrants)
-          .where(eq(subscriptionAccessGrants.clinicId, clinicId));
-        if (existing.some(grant => !grant.revokedAt && new Date(grant.startsAt) <= endsAt && new Date(grant.endsAt) > startsAt)) {
-          const error = new Error("This clinic already has sponsored access during the requested period. End it before creating another grant.");
-          (error as any).statusCode = 409;
-          throw error;
-        }
-
-        const paidStatuses = new Set(["active", "past_due", "manual_override"]);
-        const currentStatus = String(currentClinic.subscriptionStatus || "").toLowerCase();
-        const currentPlan = String(currentClinic.plan || "").toLowerCase();
-        const paidAccessEndsAt = currentClinic.paidAccessExpiresAt ? new Date(currentClinic.paidAccessExpiresAt) : null;
-        const overlapsActivePaidAccess =
-          (PAID_PLAN_KEYS as readonly string[]).includes(currentPlan) &&
-          paidStatuses.has(currentStatus) &&
-          (!paidAccessEndsAt || paidAccessEndsAt > startsAt);
-        if (overlapsActivePaidAccess) {
-          const error = new Error("Sponsored access cannot overlap the clinic's active paid subscription.");
-          (error as any).statusCode = 409;
-          throw error;
-        }
-
-        const [grant] = await tx.insert(subscriptionAccessGrants).values({
-          clinicId,
-          grantId,
-          plan: parsed.data.plan,
-          policyVersion: PUBLISHED_PLAN_POLICY.version,
-          listPriceMinor: policy?.pricing.monthly ?? null,
-          currency: "INR",
-          reason: parsed.data.reason,
-          grantedByType: "superuser",
-          grantedById: actorId,
+      const currentPlan = ["trial", "starter", "growth", "pro"].includes(String(clinic.plan))
+        ? clinic.plan as "trial" | "starter" | "growth" | "pro"
+        : null;
+      const currentCycle = clinic.billingCycle === "annual" ? "annual" : "monthly";
+      const result = await applySubscriptionApproval({
+        clinicId,
+        approvalContext: "access_management",
+        outcome: "complimentary",
+        requestedPlan: currentPlan,
+        approvedPlan: parsed.data.plan,
+        requestedBillingCycle: PAID_PLAN_KEYS.includes(currentPlan as typeof PAID_PLAN_KEYS[number]) ? currentCycle : null,
+        approvedBillingCycle: parsed.data.billingCycle || currentCycle,
+        paymentBasis: "complimentary",
+        renewalMode: "admin_review",
+        reason: parsed.data.reason,
+        actor: { type: "superadmin", id: actorId },
+        transitionId,
+        sourceRequestId: null,
+        effectiveAt: startsAt,
+        complimentaryAccess: {
           startsAt,
           endsAt,
-        }).returning();
-        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
-          clinicId,
-          eventType: "sponsored_access_granted",
-          fromPlan: currentClinic.plan,
-          toPlan: parsed.data.plan,
-          fromStatus: currentClinic.subscriptionStatus,
-          toStatus: currentClinic.subscriptionStatus,
-          policyVersion: PUBLISHED_PLAN_POLICY.version,
-          transitionId: grantId,
-          actorType: "superuser",
-          actorId,
-          reason: parsed.data.reason,
-          metadata: { grantId, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() },
-          effectiveAt: startsAt,
-        }).returning();
-        return { grant, event };
+          sponsorReference: parsed.data.sponsorReference || "superadmin-complimentary-access",
+        },
       });
-      res.status(201).json(result);
+      const { activationToken: _activationToken, ...publicApprovalResult } = result;
+      res.status(result.idempotent ? 200 : 201).json({
+        approval: publicApprovalResult,
+        idempotent: result.idempotent,
+      });
     } catch (error: any) {
       const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
       console.error("[ADMIN SPONSORED ACCESS]", error?.message || error);
       res.status(statusCode).json({
         message: statusCode === 500
-          ? "Unable to grant sponsored access"
+          ? "Unable to grant complimentary access"
           : error?.code === "23505"
-            ? "This grant ID has already been used"
+            ? "This complimentary transition has already been recorded"
             : error.message,
       });
     }
@@ -3377,56 +3355,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const transitionId = parsed.data.transitionId || crypto.randomUUID();
     const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
-    const now = new Date();
     try {
-      const result = await db.transaction(async (tx) => {
-        const [existingEvent] = await tx.select()
-          .from(subscriptionLifecycleEvents)
-          .where(and(eq(subscriptionLifecycleEvents.clinicId, clinicId), eq(subscriptionLifecycleEvents.transitionId, transitionId)))
-          .limit(1);
-        const [grant] = await tx.select()
-          .from(subscriptionAccessGrants)
-          .where(and(eq(subscriptionAccessGrants.clinicId, clinicId), eq(subscriptionAccessGrants.grantId, grantId)))
-          .limit(1);
-        if (!grant) return null;
-        if (existingEvent || grant.revokedAt) return { grant, event: existingEvent ?? null, idempotent: true };
-        if (!isAccessRevocable(grant, now)) {
-          const error = new Error("Sponsored access has already ended and cannot be revoked");
-          (error as any).statusCode = 409;
-          throw error;
-        }
-
-        const [revokedGrant] = await tx.update(subscriptionAccessGrants)
-          .set({ revokedAt: now })
-          .where(and(
-            eq(subscriptionAccessGrants.clinicId, clinicId),
-            eq(subscriptionAccessGrants.grantId, grantId),
-            isNull(subscriptionAccessGrants.revokedAt),
-          ))
-          .returning();
-        if (!revokedGrant) return { grant, event: null, idempotent: true };
-
-        const clinic = await storage.getClinic(clinicId);
-        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
-          clinicId,
-          eventType: getAccessRevocationEventType("sponsored_access"),
-          fromPlan: clinic?.plan ?? grant.plan,
-          toPlan: clinic?.plan ?? grant.plan,
-          fromStatus: clinic?.subscriptionStatus ?? null,
-          toStatus: clinic?.subscriptionStatus ?? null,
-          policyVersion: grant.policyVersion ?? PUBLISHED_PLAN_POLICY.version,
-          transitionId,
-          actorType: "superuser",
-          actorId,
-          reason: parsed.data.reason,
-          metadata: { grantId, revokedAt: now.toISOString() },
-          effectiveAt: now,
-        }).returning();
-        return { grant: revokedGrant, event, idempotent: false };
+      const result = await revokeSubscriptionAccessGrant({
+        clinicId,
+        grantId,
+        transitionId,
+        reason: parsed.data.reason,
+        actorId,
       });
-
-      if (!result) return res.status(404).json({ message: "Sponsored access grant not found" });
-      res.status(result.idempotent ? 200 : 201).json(result);
+      if (result.status === "not_found") return res.status(404).json({ message: "Sponsored access grant not found" });
+      if (result.status === "ended") return res.status(409).json({ message: "Sponsored access has already ended and cannot be revoked" });
+      res.status(result.status === "already_revoked" ? 200 : 201).json({
+        ...result,
+        idempotent: result.status === "already_revoked",
+      });
     } catch (error: any) {
       const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
       console.error("[ADMIN SPONSORED ACCESS REVOCATION]", error?.message || error);

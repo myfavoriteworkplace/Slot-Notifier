@@ -327,7 +327,7 @@ later steps may still depend on it.
 | 5 | Migrate upgrade-request approval | **Complete** | Upgrade approval and rejection now use `applySubscriptionApproval()`; online approvals preserve the clinic's current Trial/grace access while payment is pending, and the request is reviewed only after the central decision succeeds. | Add the dedicated verified-offline and complimentary upgrade/access-management entry points in Steps 7–8. |
 | 6 | Migrate provider activation and renewal | **Complete** | Razorpay webhook signature/raw-event handling remains at the route boundary, while central provider transition logic now owns confirmation, renewal, past-due handling, expiry recovery, activation-token use, lifecycle history, and provider-event status. | Add dedicated verified-offline and complimentary access flows in Steps 7–8. |
 | 7 | Add verified offline payment and renewal | **Complete** | Super Admin can verify an initial offline payment or manual renewal through the centralized approval operation. The workflow stores immutable evidence, rejects duplicate external references, shows payment history, and reverses payments conservatively without deleting evidence. | Add complimentary access and expiry handling in Step 8. |
-| 8 | Add complimentary access and expiry | **Not started** | The central service can create sponsored grants, but the dedicated access-management flow is not migrated. | Add grant/revoke/expiry actions with sponsor references and lifecycle history. |
+| 8 | Add complimentary access and expiry | **Complete** | Super Admin grant, extension, revoke, and expiry reconciliation now use central approval/lifecycle services. Grants retain sponsor references, finite dates, no payment records, and no automatic renewal. | Move the broader directory/detail state presentation to the shared result in Step 9. |
 | 9 | Update Clinics & Access around the central result | **Not started** | Existing screens and actions are not yet fully driven by the shared access/payment dimensions. | Display requested plan, assigned plan, current access, payment basis/status, dates, and next action separately. |
 | 10 | Reconcile existing data and roll out safely | **Not started** | No production backfill or reconciliation has been run. | Classify legacy clinics, preview changes, backfill only with an approved report, and monitor rollout. |
 | 11 | Verify the complete state matrix | **Not started** | Contract and focused transition tests pass; the complete registration/upgrade/renewal matrix is not yet covered. | Add end-to-end checks for every outcome, retry, provider failure, expiry, reversal, and authorization path. |
@@ -1074,6 +1074,31 @@ Conversion flow:
 - Complimentary access always has a finite end date.
 - Complimentary access never auto-renews.
 - Sponsored access is excluded from payment/revenue reporting.
+
+#### Step 8 completion record
+
+**Status:** Complete for the Super Admin access-management flow and lifecycle
+reconciliation.
+
+- `POST /api/admin/clinics/:id/sponsored-access` now translates grants and
+  extensions into the central `complimentary` approval outcome. It records a
+  sponsor reference, approval decision, plan assignment, sponsored grant, and
+  lifecycle event without creating payment evidence.
+- Grant validation is centralized and rejects overlapping sponsored grants or
+  overlap with active paid access. The transition ID makes retries idempotent.
+- The Clinics & Access dialog now shows the no-payment/no-auto-renewal
+  confirmation, accepts an optional sponsor reference, and can extend an
+  existing grant by creating a new complimentary decision from the prior end
+  date.
+- Sponsored revocation now uses the transactional central revocation service.
+  It retains the original grant and approval decision and appends a separate
+  revocation lifecycle event.
+- The scheduler-only subscription lifecycle reconciliation endpoint now records
+  idempotent `sponsored_access_expired` events for grants past their finite end
+  date. Expiry does not rewrite or delete the original grant.
+- The development schema now stores `sponsor_reference` on
+  `subscription_access_grants`. Existing databases receive the column through
+  the normal idempotent startup schema check.
 
 ### 5.11 Step 9 — Update Clinics & Access around the central result
 

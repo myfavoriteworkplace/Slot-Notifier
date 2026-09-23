@@ -31,6 +31,7 @@ import {
   buildRecoveryTrialTransition,
   buildTrialWindow,
 } from "@shared/subscription-lifecycle";
+import { getAccessRevocationEventType, isAccessRevocable } from "@shared/subscription-access-revocation";
 
 export type ApprovalAccessState =
   | "trial"
@@ -120,6 +121,13 @@ export type OfflinePaymentReversalResult = {
   clinic: Clinic | null;
   lifecycleEvent: SubscriptionLifecycleEvent | null;
   accessChanged: boolean;
+};
+
+export type SponsoredAccessMutationResult = {
+  status: "revoked" | "already_revoked" | "ended" | "not_found";
+  grant: SubscriptionAccessGrant | null;
+  clinic: Clinic | null;
+  lifecycleEvent: SubscriptionLifecycleEvent | null;
 };
 
 function normalizeStatus(value: string | null | undefined): string {
@@ -275,7 +283,9 @@ async function hydrateResult(
     idempotent,
     requestedPlan: decision.requestedPlan,
     assignedPlan: decision.approvedPlan,
-    currentAccessPlan: clinic.plan,
+    currentAccessPlan: decision.approvalOutcome === "complimentary"
+      ? accessGrant?.plan ?? clinic.plan
+      : clinic.plan,
     accessState: (decision.toAccessState as ApprovalAccessState) || resolveApprovalAccessState(clinic, new Date()),
     paymentStatus: paymentStatusForOutcome(decision.approvalOutcome as SubscriptionApprovalInput["outcome"]),
     paymentBasis: decision.paymentBasis as SubscriptionApprovalInput["paymentBasis"],
@@ -450,6 +460,39 @@ export async function applySubscriptionApproval(
         );
       }
 
+      if (input.outcome === "complimentary" && input.complimentaryAccess) {
+        const startsAt = input.complimentaryAccess.startsAt;
+        const endsAt = input.complimentaryAccess.endsAt;
+        const existingGrants = await tx.select()
+          .from(subscriptionAccessGrants)
+          .where(eq(subscriptionAccessGrants.clinicId, input.clinicId));
+        const overlapsExistingGrant = existingGrants.some((grant: SubscriptionAccessGrant) =>
+          !grant.revokedAt &&
+          new Date(grant.startsAt) < endsAt &&
+          new Date(grant.endsAt) > startsAt,
+        );
+        if (overlapsExistingGrant) {
+          throw new SubscriptionApprovalError(
+            "This clinic already has sponsored access during the requested period. End or extend the existing grant instead.",
+            409,
+          );
+        }
+
+        const currentStatus = normalizeStatus(current.subscriptionStatus);
+        const currentPlanIsPaid = PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number]);
+        const currentPaidEndsAt = current.paidAccessExpiresAt ? new Date(current.paidAccessExpiresAt) : null;
+        const overlapsActivePaidAccess =
+          currentPlanIsPaid &&
+          ["active", "past_due", "manual_override"].includes(currentStatus) &&
+          (!currentPaidEndsAt || currentPaidEndsAt > startsAt);
+        if (overlapsActivePaidAccess) {
+          throw new SubscriptionApprovalError(
+            "Sponsored access cannot overlap the clinic's active paid subscription.",
+            409,
+          );
+        }
+      }
+
       const startsPaidAccess = input.outcome === "verified_offline_payment";
       const isPendingRegistration = current.status === "pending";
       const approvedPlan = input.approvedPlan;
@@ -594,6 +637,7 @@ export async function applySubscriptionApproval(
           listPriceMinor: policy?.pricing.monthly ?? null,
           currency: "INR",
           reason: input.reason!,
+          sponsorReference: input.complimentaryAccess.sponsorReference,
           grantedByType: input.actor.type,
           grantedById: input.actor.id,
           startsAt: input.complimentaryAccess.startsAt,
@@ -708,6 +752,177 @@ export async function applySubscriptionApproval(
     }
     throw error;
   }
+}
+
+/**
+ * Revokes a sponsored grant without rewriting its approval decision. The grant
+ * remains in history and the revocation is recorded as a separate lifecycle
+ * transition so retries are safe and the original complimentary decision is
+ * preserved.
+ */
+export async function revokeSubscriptionAccessGrant(input: {
+  clinicId: number;
+  grantId: string;
+  transitionId: string;
+  reason: string;
+  actorId: string;
+  now?: Date;
+}): Promise<SponsoredAccessMutationResult> {
+  const now = input.now ?? new Date();
+
+  return db.transaction(async (tx: any) => {
+    await tx.execute(sql`SELECT id FROM clinics WHERE id = ${input.clinicId} FOR UPDATE`);
+    const [clinic] = await tx.select()
+      .from(clinics)
+      .where(eq(clinics.id, input.clinicId))
+      .limit(1);
+    if (!clinic) {
+      return { status: "not_found" as const, grant: null, clinic: null, lifecycleEvent: null };
+    }
+
+    const [grant] = await tx.select()
+      .from(subscriptionAccessGrants)
+      .where(and(
+        eq(subscriptionAccessGrants.clinicId, input.clinicId),
+        eq(subscriptionAccessGrants.grantId, input.grantId),
+      ))
+      .limit(1);
+    if (!grant) {
+      return { status: "not_found" as const, grant: null, clinic, lifecycleEvent: null };
+    }
+
+    const [existingEvent] = await tx.select()
+      .from(subscriptionLifecycleEvents)
+      .where(and(
+        eq(subscriptionLifecycleEvents.clinicId, input.clinicId),
+        eq(subscriptionLifecycleEvents.transitionId, input.transitionId),
+      ))
+      .limit(1);
+    if (existingEvent || grant.revokedAt) {
+      return {
+        status: "already_revoked" as const,
+        grant,
+        clinic,
+        lifecycleEvent: existingEvent ?? null,
+      };
+    }
+    if (!isAccessRevocable(grant, now)) {
+      return { status: "ended" as const, grant, clinic, lifecycleEvent: null };
+    }
+
+    const [revokedGrant] = await tx.update(subscriptionAccessGrants)
+      .set({ revokedAt: now })
+      .where(and(
+        eq(subscriptionAccessGrants.clinicId, input.clinicId),
+        eq(subscriptionAccessGrants.grantId, input.grantId),
+        isNull(subscriptionAccessGrants.revokedAt),
+      ))
+      .returning();
+    if (!revokedGrant) {
+      return { status: "already_revoked" as const, grant, clinic, lifecycleEvent: existingEvent ?? null };
+    }
+
+    const [lifecycleEvent] = await tx.insert(subscriptionLifecycleEvents).values({
+      clinicId: input.clinicId,
+      approvalDecisionId: grant.approvalDecisionId,
+      eventType: getAccessRevocationEventType("sponsored_access"),
+      fromPlan: clinic.plan ?? grant.plan,
+      toPlan: clinic.plan ?? grant.plan,
+      fromStatus: clinic.subscriptionStatus ?? null,
+      toStatus: clinic.subscriptionStatus ?? null,
+      policyVersion: grant.policyVersion ?? PUBLISHED_PLAN_POLICY.version,
+      transitionId: input.transitionId,
+      actorType: "superuser",
+      actorId: input.actorId,
+      reason: input.reason,
+      metadata: {
+        grantId: grant.grantId,
+        approvalDecisionId: grant.approvalDecisionId,
+        revokedAt: now.toISOString(),
+      },
+      effectiveAt: now,
+    }).returning();
+
+    return { status: "revoked" as const, grant: revokedGrant, clinic, lifecycleEvent };
+  });
+}
+
+/**
+ * Records expiry for sponsored grants that have passed their finite end date.
+ * Expiry is intentionally not represented as revocation: the original grant
+ * and its dates remain immutable evidence, while the lifecycle event makes the
+ * transition visible to operators and makes scheduler retries idempotent.
+ */
+export async function reconcileExpiredSponsoredAccess(now = new Date()) {
+  const candidates = await db.select()
+    .from(subscriptionAccessGrants)
+    .where(and(
+      isNull(subscriptionAccessGrants.revokedAt),
+      sql`${subscriptionAccessGrants.endsAt} <= ${now}`,
+    ));
+  const results: Array<{ grantId: string; status: "processed" | "idempotent" | "missing" }> = [];
+
+  for (const candidate of candidates) {
+    const transitionId = `sponsored-access-expiry:${candidate.grantId}:${new Date(candidate.endsAt).toISOString()}`;
+    const result = await db.transaction(async (tx: any) => {
+      await tx.execute(sql`SELECT id FROM clinics WHERE id = ${candidate.clinicId} FOR UPDATE`);
+      const [clinic] = await tx.select()
+        .from(clinics)
+        .where(eq(clinics.id, candidate.clinicId))
+        .limit(1);
+      if (!clinic) return { status: "missing" as const };
+
+      const [existingEvent] = await tx.select()
+        .from(subscriptionLifecycleEvents)
+        .where(and(
+          eq(subscriptionLifecycleEvents.clinicId, candidate.clinicId),
+          eq(subscriptionLifecycleEvents.transitionId, transitionId),
+        ))
+        .limit(1);
+      if (existingEvent) return { status: "idempotent" as const };
+
+      const [grant] = await tx.select()
+        .from(subscriptionAccessGrants)
+        .where(and(
+          eq(subscriptionAccessGrants.id, candidate.id),
+          isNull(subscriptionAccessGrants.revokedAt),
+        ))
+        .limit(1);
+      if (!grant || new Date(grant.endsAt) > now) return { status: "idempotent" as const };
+
+      await tx.insert(subscriptionLifecycleEvents).values({
+        clinicId: candidate.clinicId,
+        approvalDecisionId: candidate.approvalDecisionId,
+        eventType: "sponsored_access_expired",
+        fromPlan: clinic.plan ?? candidate.plan,
+        toPlan: clinic.plan ?? candidate.plan,
+        fromStatus: clinic.subscriptionStatus ?? null,
+        toStatus: clinic.subscriptionStatus ?? null,
+        policyVersion: candidate.policyVersion ?? PUBLISHED_PLAN_POLICY.version,
+        transitionId,
+        actorType: "system",
+        actorId: "sponsored_access_lifecycle",
+        reason: "Complimentary access reached its scheduled end date",
+        metadata: {
+          grantId: candidate.grantId,
+          approvalDecisionId: candidate.approvalDecisionId,
+          endsAt: new Date(candidate.endsAt).toISOString(),
+        },
+        effectiveAt: candidate.endsAt,
+      });
+      return { status: "processed" as const };
+    });
+    results.push({ grantId: candidate.grantId, ...result });
+  }
+
+  return {
+    measuredAt: now.toISOString(),
+    candidates: candidates.length,
+    processed: results.filter(result => result.status === "processed").length,
+    idempotent: results.filter(result => result.status === "idempotent").length,
+    missing: results.filter(result => result.status === "missing").length,
+    results,
+  };
 }
 
 /**

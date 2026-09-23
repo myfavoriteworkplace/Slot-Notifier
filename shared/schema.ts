@@ -1058,6 +1058,7 @@ export const subscriptionAccessGrants = pgTable("subscription_access_grants", {
   listPriceMinor: integer("list_price_minor"),
   currency: varchar("currency", { length: 3 }).notNull().default("INR"),
   reason: text("reason").notNull(),
+  sponsorReference: varchar("sponsor_reference", { length: 160 }),
   grantedByType: varchar("granted_by_type", { length: 30 }).notNull(),
   grantedById: varchar("granted_by_id", { length: 255 }),
   startsAt: timestamp("starts_at").notNull(),

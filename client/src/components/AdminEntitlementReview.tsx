@@ -64,7 +64,7 @@ type SubscriptionHistory = {
     effectiveAt: string;
   }>;
   assignments: Array<{ id: number; plan: string; billingCycle: string; source: string; reason: string | null; startsAt: string; endsAt: string | null }>;
-  grants: Array<{ id: number; grantId: string; plan: string; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
+  grants: Array<{ id: number; grantId: string; plan: string; reason: string; sponsorReference: string | null; startsAt: string; endsAt: string; revokedAt: string | null }>;
   exceptions: Array<{ id: number; exceptionId: string; entitlementKey: string; overrideValue: unknown; reason: string; startsAt: string; endsAt: string; revokedAt: string | null }>;
   providerEvents?: Array<{
     id: number;
@@ -113,6 +113,7 @@ type AccessHistoryEntry = {
   reason: string | null;
   status: string | null;
   revokeTarget?: RevokeTarget;
+  extendTarget?: { grantId: string; plan: "starter" | "growth" | "pro"; endsAt: string; sponsorReference: string | null };
   offlinePaymentId?: number;
 };
 
@@ -220,11 +221,14 @@ export default function AdminEntitlementReview({
   const [accessDialogOpen, setAccessDialogOpen] = useState(false);
   const [accessAction, setAccessAction] = useState<AccessAction>("sponsored");
   const [accessPlan, setAccessPlan] = useState<"starter" | "growth" | "pro">("growth");
+  const [accessBillingCycle, setAccessBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [accessEntitlement, setAccessEntitlement] = useState("bookings");
   const [accessOverrideValue, setAccessOverrideValue] = useState("true");
   const [accessStartsAt, setAccessStartsAt] = useState("");
   const [accessEndsAt, setAccessEndsAt] = useState("");
   const [accessReason, setAccessReason] = useState("");
+  const [accessSponsorReference, setAccessSponsorReference] = useState("");
+  const [extensionTarget, setExtensionTarget] = useState<AccessHistoryEntry["extendTarget"] | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<RevokeTarget | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
   const [auditTrailOpen, setAuditTrailOpen] = useState(false);
@@ -358,9 +362,15 @@ export default function AdminEntitlementReview({
         occurredAt: grant.startsAt,
         detail: grant.revokedAt
           ? `Started ${formatDate(grant.startsAt)} · Revoked ${formatDate(grant.revokedAt)}`
-          : `Ends ${formatDate(grant.endsAt)}`,
+          : `Ends ${formatDate(grant.endsAt)}${grant.sponsorReference ? ` · Sponsor: ${grant.sponsorReference}` : ""}`,
         reason: grant.reason,
         status: temporalHistoryStatus(grant.startsAt, grant.endsAt, grant.revokedAt),
+        extendTarget: {
+          grantId: grant.grantId,
+          plan: grant.plan as "starter" | "growth" | "pro",
+          endsAt: grant.endsAt,
+          sponsorReference: grant.sponsorReference,
+        },
         revokeTarget: {
           kind: "sponsored_access" as const,
           id: grant.grantId,
@@ -553,7 +563,13 @@ export default function AdminEntitlementReview({
         ? `/api/admin/clinics/${selectedClinicId}/sponsored-access`
         : `/api/admin/clinics/${selectedClinicId}/entitlement-exceptions`;
       const body = accessAction === "sponsored"
-        ? { ...payload, plan: accessPlan, grantId: crypto.randomUUID() }
+        ? {
+            ...payload,
+            plan: accessPlan,
+            billingCycle: accessBillingCycle,
+            sponsorReference: accessSponsorReference.trim() || undefined,
+            transitionId: crypto.randomUUID(),
+          }
         : { ...payload, entitlementKey: accessEntitlement, overrideValue: accessOverrideValue === "true" ? true : accessOverrideValue === "false" ? false : Number(accessOverrideValue) || accessOverrideValue, exceptionId: crypto.randomUUID() };
       const response = await apiRequest("POST", path, body);
       return response.json();
@@ -563,7 +579,11 @@ export default function AdminEntitlementReview({
       setAccessReason("");
       setAccessStartsAt("");
       setAccessEndsAt("");
-      notify.success(accessAction === "sponsored" ? "Sponsored access granted" : "Entitlement exception granted");
+      setAccessSponsorReference("");
+      setExtensionTarget(null);
+      notify.success(accessAction === "sponsored" ? (extensionTarget ? "Sponsored access extended" : "Sponsored access granted") : "Entitlement exception granted", {
+        description: accessAction === "sponsored" ? "No payment was recorded and this access will not renew automatically." : undefined,
+      });
       await refreshSubscriptionQueries();
     },
     onError: (error: Error) => notify.error(error.message || "Could not grant access"),
@@ -599,10 +619,18 @@ export default function AdminEntitlementReview({
     setTrialDialogOpen(true);
   };
 
-  const openAccessDialog = (action: AccessAction) => {
+  const openAccessDialog = (action: AccessAction, extension?: AccessHistoryEntry["extendTarget"]) => {
     setAccessAction(action);
+    setExtensionTarget(extension ?? null);
+    setAccessPlan(extension?.plan ?? "growth");
+    setAccessBillingCycle("monthly");
     setAccessReason("");
-    setAccessStartsAt("");
+    setAccessSponsorReference(extension?.sponsorReference ?? "");
+    setAccessStartsAt(extension ? (() => {
+      const date = new Date(extension.endsAt);
+      const offset = date.getTimezoneOffset();
+      return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
+    })() : "");
     setAccessEndsAt("");
     setAccessDialogOpen(true);
   };
@@ -1079,6 +1107,16 @@ export default function AdminEntitlementReview({
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-2">
                           <time className="font-mono text-[10px] text-muted-foreground">{entry.occurredAt ? formatDate(entry.occurredAt) : "Date unavailable"}</time>
+                          {entry.extendTarget && entry.kind === "sponsored" && entry.status !== "Revoked" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              onClick={() => openAccessDialog("sponsored", entry.extendTarget)}
+                            >
+                              <CalendarDays className="mr-1 h-3 w-3" />Extend
+                            </Button>
+                          )}
                           {entry.revokeTarget && entry.status === "Active" && (
                             <Button
                               size="sm"
@@ -1305,19 +1343,30 @@ export default function AdminEntitlementReview({
               {accessAction === "sponsored" ? "Grant sponsored access" : "Grant entitlement exception"}
             </DialogTitle>
             <DialogDescription>
-              This is temporary complimentary access and is kept separate from paid subscription status.
+              {extensionTarget
+                ? "This creates a new complimentary decision starting when the existing grant ends. No payment is recorded and it will not renew automatically."
+                : "This creates a finite complimentary grant. No payment is recorded and it will not renew automatically."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             {accessAction === "sponsored" ? (
-              <div className="space-y-2 sm:col-span-2">
-                <label htmlFor="sponsored-plan" className="text-sm font-semibold">Effective plan</label>
-                <select id="sponsored-plan" value={accessPlan} onChange={event => setAccessPlan(event.target.value as typeof accessPlan)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
-                  <option value="starter">Starter</option>
-                  <option value="growth">Growth</option>
-                  <option value="pro">Pro</option>
-                </select>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <label htmlFor="sponsored-plan" className="text-sm font-semibold">Effective plan</label>
+                  <select id="sponsored-plan" value={accessPlan} onChange={event => setAccessPlan(event.target.value as typeof accessPlan)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                    <option value="starter">Starter</option>
+                    <option value="growth">Growth</option>
+                    <option value="pro">Pro</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="sponsored-cycle" className="text-sm font-semibold">Reference cycle</label>
+                  <select id="sponsored-cycle" value={accessBillingCycle} onChange={event => setAccessBillingCycle(event.target.value as typeof accessBillingCycle)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                    <option value="monthly">Monthly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+              </>
             ) : (
               <>
                 <div className="space-y-2 sm:col-span-2">
@@ -1340,6 +1389,12 @@ export default function AdminEntitlementReview({
               <label htmlFor="access-end" className="text-sm font-semibold">Ends <span className="text-destructive">*</span></label>
               <Input id="access-end" type="datetime-local" value={accessEndsAt} onChange={event => setAccessEndsAt(event.target.value)} />
             </div>
+            {accessAction === "sponsored" && (
+              <div className="space-y-2 sm:col-span-2">
+                <label htmlFor="sponsor-reference" className="text-sm font-semibold">Sponsor reference <span className="text-muted-foreground">(optional)</span></label>
+                <Input id="sponsor-reference" value={accessSponsorReference} onChange={event => setAccessSponsorReference(event.target.value)} placeholder="Partner, program, or internal reference" maxLength={160} />
+              </div>
+            )}
             <div className="space-y-2 sm:col-span-2">
               <label htmlFor="access-reason" className="text-sm font-semibold">Reason <span className="text-destructive">*</span></label>
               <Textarea id="access-reason" value={accessReason} onChange={event => setAccessReason(event.target.value)} placeholder="Record why this temporary access is being granted." maxLength={500} className="min-h-[100px] text-sm" />
@@ -1348,8 +1403,8 @@ export default function AdminEntitlementReview({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAccessDialogOpen(false)} disabled={accessMutation.isPending}>Cancel</Button>
-            <Button onClick={() => accessMutation.mutate()} disabled={accessMutation.isPending || accessReason.trim().length < 10 || !accessEndsAt}>
-              {accessMutation.isPending ? "Saving…" : accessAction === "sponsored" ? "Grant sponsored access" : "Grant exception"}
+            <Button onClick={() => accessMutation.mutate()} disabled={accessMutation.isPending || accessReason.trim().length < 10 || !accessEndsAt || (extensionTarget !== null && !accessStartsAt)}>
+              {accessMutation.isPending ? "Saving…" : accessAction === "sponsored" ? extensionTarget ? "Extend sponsored access" : "Grant sponsored access" : "Grant exception"}
             </Button>
           </DialogFooter>
         </DialogContent>
