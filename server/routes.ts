@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte, lt, desc, ne, inArray, isNull } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions, subscriptionApprovalDecisions, planPolicyVersions } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions, subscriptionApprovalDecisions, subscriptionOfflinePayments, planPolicyVersions } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -61,6 +61,7 @@ import {
 } from "@shared/trial-lifecycle";
 import {
   applyProviderSubscriptionEvent,
+  applyOfflinePaymentReversal,
   applySubscriptionApproval,
   type CreateOnlinePaymentIntent,
 } from "./subscription-approval";
@@ -2908,7 +2909,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const clinic = await storage.getClinic(clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
-      const [lifecycleEvents, assignments, grants, exceptions, providerEvents] = await Promise.all([
+       const [lifecycleEvents, assignments, grants, exceptions, providerEvents, offlinePayments] = await Promise.all([
         storage.getSubscriptionLifecycleEvents(clinicId, 100),
         storage.getSubscriptionPlanAssignments(clinicId),
         storage.getSubscriptionAccessGrants(clinicId),
@@ -2929,11 +2930,177 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .where(eq(subscriptionProviderEvents.clinicId, clinicId))
           .orderBy(desc(subscriptionProviderEvents.receivedAt), desc(subscriptionProviderEvents.id))
           .limit(100),
+         db.select({
+           id: subscriptionOfflinePayments.id,
+           clinicId: subscriptionOfflinePayments.clinicId,
+           approvalDecisionId: subscriptionOfflinePayments.approvalDecisionId,
+           plan: subscriptionOfflinePayments.plan,
+           billingCycle: subscriptionOfflinePayments.billingCycle,
+           amount: subscriptionOfflinePayments.amount,
+           currency: subscriptionOfflinePayments.currency,
+           receivedAt: subscriptionOfflinePayments.receivedAt,
+           paymentMethod: subscriptionOfflinePayments.paymentMethod,
+           externalReference: subscriptionOfflinePayments.externalReference,
+           evidenceReference: subscriptionOfflinePayments.evidenceReference,
+           verificationStatus: subscriptionOfflinePayments.verificationStatus,
+           verifiedBy: subscriptionOfflinePayments.verifiedBy,
+           verifiedAt: subscriptionOfflinePayments.verifiedAt,
+           reason: subscriptionOfflinePayments.reason,
+           reversalStatus: subscriptionOfflinePayments.reversalStatus,
+           reversedAt: subscriptionOfflinePayments.reversedAt,
+           reversalReason: subscriptionOfflinePayments.reversalReason,
+           createdAt: subscriptionOfflinePayments.createdAt,
+         })
+           .from(subscriptionOfflinePayments)
+           .where(eq(subscriptionOfflinePayments.clinicId, clinicId))
+           .orderBy(desc(subscriptionOfflinePayments.receivedAt), desc(subscriptionOfflinePayments.id))
+           .limit(100),
       ]);
-      res.json({ lifecycleEvents, assignments, grants, exceptions, providerEvents });
+       res.json({ lifecycleEvents, assignments, grants, exceptions, providerEvents, offlinePayments });
     } catch (error: any) {
       console.error("[ADMIN SUBSCRIPTION HISTORY]", error?.message || error);
       res.status(500).json({ message: "Unable to load subscription history" });
+    }
+  });
+
+  // Verified offline payment activation and manual renewal. This is intentionally
+  // separate from the legacy provider-payment assignment route.
+  app.post("/api/admin/clinics/:id/offline-payment", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") {
+      return res.status(403).json({ message: "Only superusers can record offline payments" });
+    }
+
+    const parsed = z.object({
+      mode: z.enum(["activation", "renewal"]),
+      plan: z.enum(["starter", "growth", "pro"]),
+      billingCycle: z.enum(["monthly", "annual"]),
+      amount: z.number().int().positive(),
+      currency: z.string().trim().regex(/^[A-Z]{3}$/).default("INR"),
+      receivedAt: z.string().datetime(),
+      paymentMethod: z.enum(["bank_transfer", "cash", "upi", "card", "other"]),
+      externalReference: z.string().trim().min(1).max(160),
+      evidenceReference: z.string().trim().min(1).max(160),
+      reason: z.string().trim().min(10).max(500),
+      transitionId: z.string().trim().min(1).max(120).regex(/^\S+$/).optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Plan, billing cycle, whole amount, received date, payment method, payment reference, evidence reference, and a reason are required",
+      });
+    }
+
+    const clinicId = Number(req.params.id);
+    if (!Number.isInteger(clinicId) || clinicId <= 0) {
+      return res.status(400).json({ message: "Invalid clinic ID" });
+    }
+
+    const now = new Date();
+    const receivedAt = new Date(parsed.data.receivedAt);
+    if (!Number.isFinite(receivedAt.getTime()) || receivedAt > now) {
+      return res.status(400).json({ message: "The received date must be valid and cannot be in the future" });
+    }
+
+    const actorId = String((req as any).user?.claims?.email || (req as any).user?.id || "superuser");
+    const transitionId = parsed.data.transitionId || `offline-payment:${clinicId}:${crypto.randomUUID()}`;
+
+    try {
+      const clinic = await storage.getClinic(clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const currentStatus = String(clinic.subscriptionStatus || "").toLowerCase();
+      const currentPlan = String(clinic.plan || "").toLowerCase();
+      const activePaid = PAID_PLAN_KEYS.includes(currentPlan as typeof PAID_PLAN_KEYS[number]) &&
+        ["active", "manual_override"].includes(currentStatus);
+
+      if (parsed.data.mode === "activation" && activePaid) {
+        return res.status(409).json({
+          message: "This clinic already has active paid access. Use manual renewal or a provider-aware plan-change workflow.",
+        });
+      }
+      if (parsed.data.mode === "renewal" && !PAID_PLAN_KEYS.includes(currentPlan as typeof PAID_PLAN_KEYS[number])) {
+        return res.status(409).json({ message: "Manual renewal requires an existing paid plan. Use offline activation instead." });
+      }
+
+      const validRequestedPlan = ["trial", "starter", "growth", "pro"].includes(currentPlan)
+        ? currentPlan as "trial" | "starter" | "growth" | "pro"
+        : null;
+      const approvalResult = await applySubscriptionApproval({
+        clinicId,
+        approvalContext: parsed.data.mode === "renewal" ? "renewal" : "access_management",
+        outcome: "verified_offline_payment",
+        requestedPlan: validRequestedPlan,
+        approvedPlan: parsed.data.plan,
+        requestedBillingCycle: currentPlan === "starter" || currentPlan === "growth" || currentPlan === "pro"
+          ? (clinic.billingCycle === "annual" ? "annual" : "monthly")
+          : null,
+        approvedBillingCycle: parsed.data.billingCycle,
+        paymentBasis: "offline_verified",
+        renewalMode: "manual",
+        reason: parsed.data.reason,
+        actor: { type: "superadmin", id: actorId },
+        transitionId,
+        sourceRequestId: null,
+        effectiveAt: now,
+        offlinePayment: {
+          amount: parsed.data.amount,
+          currency: parsed.data.currency,
+          receivedAt,
+          paymentMethod: parsed.data.paymentMethod,
+          externalReference: parsed.data.externalReference,
+          evidenceReference: parsed.data.evidenceReference,
+          verifiedBy: actorId,
+          verifiedAt: now,
+        },
+      });
+
+      const { activationToken: _activationToken, ...publicApprovalResult } = approvalResult;
+      return res.status(approvalResult.idempotent ? 200 : 201).json({
+        approval: publicApprovalResult,
+        idempotent: approvalResult.idempotent,
+        mode: parsed.data.mode,
+      });
+    } catch (error: any) {
+      const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
+      console.error("[ADMIN OFFLINE PAYMENT]", error?.message || error);
+      return res.status(statusCode).json({
+        message: statusCode === 500
+          ? "Unable to record the verified offline payment"
+          : error?.code === "23505"
+            ? "That external payment reference has already been recorded"
+            : error.message,
+      });
+    }
+  });
+
+  app.post("/api/admin/clinics/:id/offline-payment/:paymentId/reverse", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") {
+      return res.status(403).json({ message: "Only superusers can reverse offline payments" });
+    }
+    const parsed = z.object({
+      reason: z.string().trim().min(10).max(500),
+      transitionId: z.string().trim().min(1).max(120).regex(/^\S+$/).optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "A reversal reason is required" });
+
+    const clinicId = Number(req.params.id);
+    const paymentId = Number(req.params.paymentId);
+    if (!Number.isInteger(clinicId) || clinicId <= 0 || !Number.isInteger(paymentId) || paymentId <= 0) {
+      return res.status(400).json({ message: "Invalid clinic or offline payment ID" });
+    }
+
+    try {
+      const result = await applyOfflinePaymentReversal({
+        clinicId,
+        paymentId,
+        transitionId: parsed.data.transitionId || `offline-reversal:${clinicId}:${paymentId}:${crypto.randomUUID()}`,
+        reason: parsed.data.reason,
+        actorId: String((req as any).user?.claims?.email || (req as any).user?.id || "superuser"),
+      });
+      if (result.status === "not_found") return res.status(404).json({ message: "Offline payment not found" });
+      return res.status(result.status === "reversed" ? 201 : 200).json(result);
+    } catch (error: any) {
+      console.error("[ADMIN OFFLINE PAYMENT REVERSAL]", error?.message || error);
+      return res.status(500).json({ message: "Unable to reverse the offline payment" });
     }
   });
 

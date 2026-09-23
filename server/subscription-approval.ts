@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { addMonths } from "date-fns";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   activationTokens,
@@ -112,6 +112,14 @@ export type ProviderSubscriptionEventResult = {
   status: "applied" | "ignored" | "missing" | "duplicate";
   transitionId: string | null;
   clinic: Clinic | null;
+};
+
+export type OfflinePaymentReversalResult = {
+  status: "reversed" | "already_reversed" | "not_found";
+  payment: SubscriptionOfflinePayment | null;
+  clinic: Clinic | null;
+  lifecycleEvent: SubscriptionLifecycleEvent | null;
+  accessChanged: boolean;
 };
 
 function normalizeStatus(value: string | null | undefined): string {
@@ -700,6 +708,155 @@ export async function applySubscriptionApproval(
     }
     throw error;
   }
+}
+
+/**
+ * Reverses an offline payment without deleting its financial evidence.
+ *
+ * A reversal only changes current access when the payment is still the latest
+ * verified offline payment supporting the clinic's active paid snapshot. Older
+ * payment records remain historical evidence and must not revoke a later
+ * renewal.
+ */
+export async function applyOfflinePaymentReversal(input: {
+  clinicId: number;
+  paymentId: number;
+  transitionId: string;
+  reason: string;
+  actorId: string;
+  now?: Date;
+}): Promise<OfflinePaymentReversalResult> {
+  const now = input.now ?? new Date();
+
+  return db.transaction(async (tx: any) => {
+    await tx.execute(sql`SELECT id FROM clinics WHERE id = ${input.clinicId} FOR UPDATE`);
+    const [clinic] = await tx.select()
+      .from(clinics)
+      .where(eq(clinics.id, input.clinicId))
+      .limit(1);
+    if (!clinic) return {
+      status: "not_found" as const,
+      payment: null,
+      clinic: null,
+      lifecycleEvent: null,
+      accessChanged: false,
+    };
+
+    const [existingEvent] = await tx.select()
+      .from(subscriptionLifecycleEvents)
+      .where(and(
+        eq(subscriptionLifecycleEvents.clinicId, input.clinicId),
+        eq(subscriptionLifecycleEvents.transitionId, input.transitionId),
+      ))
+      .limit(1);
+
+    const [payment] = await tx.select()
+      .from(subscriptionOfflinePayments)
+      .where(and(
+        eq(subscriptionOfflinePayments.id, input.paymentId),
+        eq(subscriptionOfflinePayments.clinicId, input.clinicId),
+      ))
+      .limit(1);
+    if (!payment) return {
+      status: "not_found" as const,
+      payment: null,
+      clinic,
+      lifecycleEvent: existingEvent ?? null,
+      accessChanged: false,
+    };
+
+    if (existingEvent || payment.reversalStatus === "reversed") {
+      return {
+        status: "already_reversed" as const,
+        payment,
+        clinic,
+        lifecycleEvent: existingEvent ?? null,
+        accessChanged: false,
+      };
+    }
+
+    const [latestPayment] = await tx.select()
+      .from(subscriptionOfflinePayments)
+      .where(and(
+        eq(subscriptionOfflinePayments.clinicId, input.clinicId),
+        eq(subscriptionOfflinePayments.verificationStatus, "verified"),
+      ))
+      .orderBy(desc(subscriptionOfflinePayments.receivedAt), desc(subscriptionOfflinePayments.id))
+      .limit(1);
+
+    const currentStatus = normalizeStatus(clinic.subscriptionStatus);
+    const isCurrentActiveSnapshot =
+      latestPayment?.id === payment.id &&
+      PAID_PLAN_KEYS.includes(clinic.plan as typeof PAID_PLAN_KEYS[number]) &&
+      ["active", "manual_override"].includes(currentStatus) &&
+      clinic.plan === payment.plan &&
+      clinic.billingCycle === payment.billingCycle &&
+      (!clinic.paidAccessExpiresAt || new Date(clinic.paidAccessExpiresAt) > now);
+
+    const [reversedPayment] = await tx.update(subscriptionOfflinePayments)
+      .set({
+        reversalStatus: "reversed",
+        reversedAt: now,
+        reversalReason: input.reason,
+      })
+      .where(and(
+        eq(subscriptionOfflinePayments.id, input.paymentId),
+        eq(subscriptionOfflinePayments.clinicId, input.clinicId),
+        isNull(subscriptionOfflinePayments.reversedAt),
+      ))
+      .returning();
+    if (!reversedPayment) {
+      return {
+        status: "already_reversed" as const,
+        payment,
+        clinic,
+        lifecycleEvent: existingEvent ?? null,
+        accessChanged: false,
+      };
+    }
+
+    let updatedClinic = clinic;
+    if (isCurrentActiveSnapshot) {
+      const [updated] = await tx.update(clinics)
+        .set({
+          subscriptionStatus: "expired",
+          paidAccessExpiresAt: now,
+          previousPaidPlan: clinic.plan,
+        })
+        .where(eq(clinics.id, input.clinicId))
+        .returning();
+      if (updated) updatedClinic = updated;
+    }
+
+    const [lifecycleEvent] = await tx.insert(subscriptionLifecycleEvents).values({
+      clinicId: input.clinicId,
+      eventType: "offline_payment_reversed",
+      fromPlan: clinic.plan,
+      toPlan: updatedClinic.plan,
+      fromStatus: clinic.subscriptionStatus,
+      toStatus: updatedClinic.subscriptionStatus,
+      policyVersion: clinic.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
+      transitionId: input.transitionId,
+      actorType: "superuser",
+      actorId: input.actorId,
+      reason: input.reason,
+      metadata: {
+        offlinePaymentId: payment.id,
+        externalReference: payment.externalReference,
+        accessChanged: isCurrentActiveSnapshot,
+        reversedAt: now.toISOString(),
+      },
+      effectiveAt: now,
+    }).returning();
+
+    return {
+      status: "reversed" as const,
+      payment: reversedPayment,
+      clinic: updatedClinic,
+      lifecycleEvent,
+      accessChanged: isCurrentActiveSnapshot,
+    };
+  });
 }
 
 const PROVIDER_CONFIRMATION_EVENTS = new Set([

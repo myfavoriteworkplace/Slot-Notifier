@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Banknote,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -77,6 +78,24 @@ type SubscriptionHistory = {
     occurredAt: string | null;
     receivedAt: string | null;
   }>;
+  offlinePayments?: Array<{
+    id: number;
+    plan: string;
+    billingCycle: string;
+    amount: number;
+    currency: string;
+    receivedAt: string;
+    paymentMethod: string;
+    externalReference: string;
+    evidenceReference: string;
+    verificationStatus: string;
+    verifiedBy: string | null;
+    verifiedAt: string | null;
+    reason: string;
+    reversalStatus: string;
+    reversedAt: string | null;
+    reversalReason: string | null;
+  }>;
 };
 
 type RevokeTarget = {
@@ -87,16 +106,17 @@ type RevokeTarget = {
 
 type AccessHistoryEntry = {
   id: string;
-  kind: "lifecycle" | "assignment" | "sponsored" | "exception" | "provider";
+  kind: "lifecycle" | "assignment" | "sponsored" | "exception" | "provider" | "offline";
   title: string;
   occurredAt: string | null;
   detail: string;
   reason: string | null;
   status: string | null;
   revokeTarget?: RevokeTarget;
+  offlinePaymentId?: number;
 };
 
-type HistoryFilter = "all" | "lifecycle" | "plan" | "temporary" | "provider";
+type HistoryFilter = "all" | "lifecycle" | "plan" | "temporary" | "provider" | "offline";
 
 const HISTORY_FILTER_OPTIONS: { value: HistoryFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -104,6 +124,7 @@ const HISTORY_FILTER_OPTIONS: { value: HistoryFilter; label: string }[] = [
   { value: "plan", label: "Plan changes" },
   { value: "temporary", label: "Temporary access" },
   { value: "provider", label: "Provider events" },
+  { value: "offline", label: "Offline payments" },
 ];
 
 const formatDate = (value: string | null) => {
@@ -124,6 +145,12 @@ const labelFor = (value: string | null | undefined) => {
 };
 
 const historyDateValue = (value: string | null) => value ? new Date(value).getTime() : 0;
+
+const localDateTimeValue = () => {
+  const date = new Date();
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
+};
 
 const temporalHistoryStatus = (startsAt: string, endsAt: string | null, revokedAt: string | null) => {
   if (revokedAt) return "Revoked";
@@ -178,6 +205,18 @@ export default function AdminEntitlementReview({
   const [paidPlan, setPaidPlan] = useState<"starter" | "growth" | "pro">("starter");
   const [paidBillingCycle, setPaidBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [paidReason, setPaidReason] = useState("");
+  const [offlineDialogOpen, setOfflineDialogOpen] = useState(false);
+  const [offlineMode, setOfflineMode] = useState<"activation" | "renewal">("activation");
+  const [offlinePlan, setOfflinePlan] = useState<"starter" | "growth" | "pro">("starter");
+  const [offlineBillingCycle, setOfflineBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [offlineAmount, setOfflineAmount] = useState("");
+  const [offlinePaymentMethod, setOfflinePaymentMethod] = useState<"bank_transfer" | "cash" | "upi" | "card" | "other">("bank_transfer");
+  const [offlineExternalReference, setOfflineExternalReference] = useState("");
+  const [offlineEvidenceReference, setOfflineEvidenceReference] = useState("");
+  const [offlineReceivedAt, setOfflineReceivedAt] = useState("");
+  const [offlineReason, setOfflineReason] = useState("");
+  const [offlineReversalTarget, setOfflineReversalTarget] = useState<{ id: number; label: string } | null>(null);
+  const [offlineReversalReason, setOfflineReversalReason] = useState("");
   const [accessDialogOpen, setAccessDialogOpen] = useState(false);
   const [accessAction, setAccessAction] = useState<AccessAction>("sponsored");
   const [accessPlan, setAccessPlan] = useState<"starter" | "growth" | "pro">("growth");
@@ -361,6 +400,25 @@ export default function AdminEntitlementReview({
             ? "Unmatched"
             : labelFor(event.processingStatus),
       })),
+      ...(data.offlinePayments ?? []).map(payment => ({
+        id: `offline-${payment.id}`,
+        kind: "offline" as const,
+        title: `Verified offline payment · ${labelFor(payment.plan)}`,
+        occurredAt: payment.receivedAt,
+        detail: [
+          `₹${payment.amount.toLocaleString("en-IN")} ${payment.currency}`,
+          labelFor(payment.billingCycle),
+          labelFor(payment.paymentMethod),
+          `Reference: ${payment.externalReference}`,
+          `Evidence: ${payment.evidenceReference}`,
+          payment.reversalStatus === "reversed" ? `Reversed ${formatDate(payment.reversedAt)}` : "Verified",
+        ].join(" · "),
+        reason: payment.reversalStatus === "reversed"
+          ? payment.reversalReason || payment.reason
+          : payment.reason,
+        status: payment.reversalStatus === "reversed" ? "Reversed" : "Verified",
+        offlinePaymentId: payment.id,
+      })),
     ];
 
     return entries.sort((a, b) => historyDateValue(b.occurredAt) - historyDateValue(a.occurredAt) || b.id.localeCompare(a.id));
@@ -371,7 +429,8 @@ export default function AdminEntitlementReview({
       || historyFilter === "lifecycle" && entry.kind === "lifecycle"
       || historyFilter === "plan" && entry.kind === "assignment"
       || historyFilter === "temporary" && (entry.kind === "sponsored" || entry.kind === "exception")
-      || historyFilter === "provider" && entry.kind === "provider"
+       || historyFilter === "provider" && entry.kind === "provider"
+       || historyFilter === "offline" && entry.kind === "offline"
     ),
     [historyEntries, historyFilter],
   );
@@ -426,6 +485,59 @@ export default function AdminEntitlementReview({
       await refreshSubscriptionQueries();
     },
     onError: (error: Error) => notify.error(error.message || "Could not assign paid plan"),
+  });
+
+  const offlinePaymentMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedClinicId === null) throw new Error("Select a clinic first");
+      if (!offlineReceivedAt) throw new Error("Choose when the payment was received");
+      const response = await apiRequest("POST", `/api/admin/clinics/${selectedClinicId}/offline-payment`, {
+        mode: offlineMode,
+        plan: offlinePlan,
+        billingCycle: offlineBillingCycle,
+        amount: Number(offlineAmount),
+        currency: "INR",
+        receivedAt: new Date(offlineReceivedAt).toISOString(),
+        paymentMethod: offlinePaymentMethod,
+        externalReference: offlineExternalReference.trim(),
+        evidenceReference: offlineEvidenceReference.trim(),
+        reason: offlineReason.trim(),
+        transitionId: crypto.randomUUID(),
+      });
+      return response.json();
+    },
+    onSuccess: async () => {
+      setOfflineDialogOpen(false);
+      setOfflineExternalReference("");
+      setOfflineEvidenceReference("");
+      setOfflineReason("");
+      setOfflineAmount("");
+      notify.success(offlineMode === "activation" ? "Offline payment verified" : "Offline renewal recorded", {
+        description: "Paid access and immutable payment evidence were recorded in subscription history.",
+      });
+      await refreshSubscriptionQueries();
+    },
+    onError: (error: Error) => notify.error(error.message || "Could not record offline payment"),
+  });
+
+  const offlineReversalMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedClinicId === null || !offlineReversalTarget) throw new Error("Select an offline payment first");
+      const response = await apiRequest("POST", `/api/admin/clinics/${selectedClinicId}/offline-payment/${offlineReversalTarget.id}/reverse`, {
+        reason: offlineReversalReason.trim(),
+        transitionId: crypto.randomUUID(),
+      });
+      return response.json();
+    },
+    onSuccess: async (result) => {
+      setOfflineReversalTarget(null);
+      setOfflineReversalReason("");
+      notify.success("Offline payment reversed", {
+        description: result.accessChanged ? "Current paid access was moved to an expired attention state." : "Historical payment evidence was retained without changing later access.",
+      });
+      await refreshSubscriptionQueries();
+    },
+    onError: (error: Error) => notify.error(error.message || "Could not reverse offline payment"),
   });
 
   const accessMutation = useMutation({
@@ -493,6 +605,19 @@ export default function AdminEntitlementReview({
     setAccessStartsAt("");
     setAccessEndsAt("");
     setAccessDialogOpen(true);
+  };
+
+  const openOfflineDialog = (mode: "activation" | "renewal") => {
+    setOfflineMode(mode);
+    setOfflinePlan((selectedClinic?.plan === "growth" || selectedClinic?.plan === "pro" || selectedClinic?.plan === "starter") ? selectedClinic.plan : "starter");
+    setOfflineBillingCycle(selectedClinic?.billingCycle === "annual" ? "annual" : "monthly");
+    setOfflineAmount("");
+    setOfflinePaymentMethod("bank_transfer");
+    setOfflineExternalReference("");
+    setOfflineEvidenceReference("");
+    setOfflineReceivedAt(localDateTimeValue());
+    setOfflineReason("");
+    setOfflineDialogOpen(true);
   };
 
   const selectClinicFromDirectory = (clinicId: number) => {
@@ -813,6 +938,7 @@ export default function AdminEntitlementReview({
                onRetryReport={() => reportQuery.refetch()}
                onStartTrial={() => openTrialDialog(hasTrialHistory ? "extend" : "start")}
                onAssignPaidPlan={() => setPaidDialogOpen(true)}
+                onRecordOfflinePayment={openOfflineDialog}
                onOpenAccessDialog={openAccessDialog}
                 onOpenAuditTrail={() => setAuditTrailOpen(true)}
                onCopyClinicUrl={onCopyClinicUrl}
@@ -920,6 +1046,8 @@ export default function AdminEntitlementReview({
                     ? Radio
                     : entry.kind === "assignment"
                       ? CreditCard
+                      : entry.kind === "offline"
+                        ? Banknote
                       : entry.kind === "sponsored"
                         ? Gift
                         : entry.kind === "exception"
@@ -931,6 +1059,8 @@ export default function AdminEntitlementReview({
                       ? "Temporary access"
                       : entry.kind === "provider"
                         ? "Provider event"
+                      : entry.kind === "offline"
+                        ? "Offline payment"
                         : "Lifecycle";
                   return (
                     <article key={entry.id} className="relative rounded-xl border bg-background p-3 shadow-sm">
@@ -957,6 +1087,16 @@ export default function AdminEntitlementReview({
                               onClick={() => { setRevokeTarget(entry.revokeTarget!); setRevokeReason(""); }}
                             >
                               <XCircle className="mr-1 h-3 w-3" />Revoke
+                            </Button>
+                          )}
+                          {entry.kind === "offline" && entry.offlinePaymentId && entry.status === "Verified" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] text-destructive hover:text-destructive"
+                              onClick={() => { setOfflineReversalTarget({ id: entry.offlinePaymentId!, label: entry.title }); setOfflineReversalReason(""); }}
+                            >
+                              <XCircle className="mr-1 h-3 w-3" />Reverse payment
                             </Button>
                           )}
                         </div>
@@ -1059,6 +1199,99 @@ export default function AdminEntitlementReview({
             <Button variant="outline" onClick={() => setPaidDialogOpen(false)} disabled={paidPlanMutation.isPending}>Cancel</Button>
             <Button onClick={() => paidPlanMutation.mutate()} disabled={paidPlanMutation.isPending || paidReason.trim().length < 10}>
               {paidPlanMutation.isPending ? "Preparing…" : "Assign and prepare payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={offlineDialogOpen} onOpenChange={setOfflineDialogOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Banknote className="h-5 w-5 text-primary" />
+              {offlineMode === "activation" ? "Verify offline payment" : "Record offline renewal"}
+            </DialogTitle>
+            <DialogDescription>
+              This marks the payment as verified, activates the paid period, and retains the original evidence as immutable audit history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="offline-plan" className="text-sm font-semibold">Plan</label>
+              <select id="offline-plan" value={offlinePlan} onChange={event => setOfflinePlan(event.target.value as typeof offlinePlan)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                <option value="starter">Starter</option>
+                <option value="growth">Growth</option>
+                <option value="pro">Pro</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="offline-cycle" className="text-sm font-semibold">Billing cycle</label>
+              <select id="offline-cycle" value={offlineBillingCycle} onChange={event => setOfflineBillingCycle(event.target.value as typeof offlineBillingCycle)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                <option value="monthly">Monthly</option>
+                <option value="annual">Annual</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="offline-amount" className="text-sm font-semibold">Amount (INR)</label>
+              <Input id="offline-amount" type="number" min={1} step={1} value={offlineAmount} onChange={event => setOfflineAmount(event.target.value)} placeholder="e.g. 12000" />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="offline-method" className="text-sm font-semibold">Payment method</label>
+              <select id="offline-method" value={offlinePaymentMethod} onChange={event => setOfflinePaymentMethod(event.target.value as typeof offlinePaymentMethod)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="upi">UPI</option>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="offline-received-at" className="text-sm font-semibold">Received at</label>
+              <Input id="offline-received-at" type="datetime-local" value={offlineReceivedAt} onChange={event => setOfflineReceivedAt(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="offline-reference" className="text-sm font-semibold">Payment reference <span className="text-destructive">*</span></label>
+              <Input id="offline-reference" value={offlineExternalReference} onChange={event => setOfflineExternalReference(event.target.value)} placeholder="Bank/UPI receipt reference" />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label htmlFor="offline-evidence" className="text-sm font-semibold">Evidence reference <span className="text-destructive">*</span></label>
+              <Input id="offline-evidence" value={offlineEvidenceReference} onChange={event => setOfflineEvidenceReference(event.target.value)} placeholder="Receipt location, document ID, or internal evidence reference" />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <label htmlFor="offline-reason" className="text-sm font-semibold">Verification reason <span className="text-destructive">*</span></label>
+              <Textarea id="offline-reason" value={offlineReason} onChange={event => setOfflineReason(event.target.value)} placeholder="Record how this offline payment was verified." maxLength={500} className="min-h-[90px] text-sm" />
+              <p className="text-xs text-muted-foreground">{offlineReason.trim().length}/10 minimum characters · {offlineReason.length}/500</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOfflineDialogOpen(false)} disabled={offlinePaymentMutation.isPending}>Cancel</Button>
+            <Button
+              onClick={() => offlinePaymentMutation.mutate()}
+              disabled={offlinePaymentMutation.isPending || !offlineReceivedAt || !Number.isInteger(Number(offlineAmount)) || Number(offlineAmount) <= 0 || !offlineExternalReference.trim() || !offlineEvidenceReference.trim() || offlineReason.trim().length < 10}
+            >
+              {offlinePaymentMutation.isPending ? "Saving…" : offlineMode === "activation" ? "Verify and activate" : "Verify renewal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(offlineReversalTarget)} onOpenChange={open => { if (!open && !offlineReversalMutation.isPending) { setOfflineReversalTarget(null); setOfflineReversalReason(""); } }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><XCircle className="h-5 w-5 text-destructive" />Reverse offline payment</DialogTitle>
+            <DialogDescription>
+              Reverse {offlineReversalTarget?.label || "this payment"} without deleting the original payment evidence. If it is the current paid period, access will move to an expired attention state.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label htmlFor="offline-reversal-reason" className="text-sm font-semibold">Reversal reason <span className="text-destructive">*</span></label>
+            <Textarea id="offline-reversal-reason" value={offlineReversalReason} onChange={event => setOfflineReversalReason(event.target.value)} placeholder="Record why the payment is being reversed." maxLength={500} className="min-h-[100px] text-sm" />
+            <p className="text-xs text-muted-foreground">{offlineReversalReason.trim().length}/10 minimum characters · {offlineReversalReason.length}/500</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOfflineReversalTarget(null)} disabled={offlineReversalMutation.isPending}>Cancel</Button>
+            <Button variant="destructive" onClick={() => offlineReversalMutation.mutate()} disabled={offlineReversalMutation.isPending || offlineReversalReason.trim().length < 10}>
+              {offlineReversalMutation.isPending ? "Reversing…" : "Reverse payment"}
             </Button>
           </DialogFooter>
         </DialogContent>

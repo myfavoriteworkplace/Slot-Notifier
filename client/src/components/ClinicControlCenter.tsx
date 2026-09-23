@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Archive,
   ArchiveRestore,
+  Banknote,
   CalendarDays,
   CheckCircle2,
   CreditCard,
@@ -18,6 +19,7 @@ import {
   Phone,
   Play,
   Plus,
+  RefreshCw,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -220,6 +222,7 @@ export default function ClinicControlCenter({
   onRetryReport,
   onStartTrial,
   onAssignPaidPlan,
+  onRecordOfflinePayment,
   onOpenAccessDialog,
   auditEventCount,
   auditHistoryLoading,
@@ -241,6 +244,7 @@ export default function ClinicControlCenter({
   onRetryReport: () => void;
   onStartTrial: () => void;
   onAssignPaidPlan: () => void;
+  onRecordOfflinePayment: (mode: "activation" | "renewal") => void;
   onOpenAccessDialog: (action: AccessAction) => void;
   auditEventCount: number;
   auditHistoryLoading: boolean;
@@ -408,6 +412,12 @@ export default function ClinicControlCenter({
                   </Button>
                   <Button size="sm" variant="outline" className="h-9 text-xs" onClick={onAssignPaidPlan}>
                     <CreditCard className="mr-1.5 h-3.5 w-3.5" />Assign paid plan
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 text-xs" onClick={() => onRecordOfflinePayment("activation")}>
+                    <Banknote className="mr-1.5 h-3.5 w-3.5" />Verify offline payment
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 text-xs" onClick={() => onRecordOfflinePayment("renewal")}>
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />Record renewal
                   </Button>
                 </div>
               </div>
