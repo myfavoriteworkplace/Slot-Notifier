@@ -317,6 +317,9 @@ export async function applySubscriptionApproval(
     .where(eq(clinics.id, input.clinicId))
     .limit(1);
   if (!initialClinic) throw new SubscriptionApprovalError("Clinic not found", 404);
+  if (input.approvalContext === "registration" && initialClinic.status !== "pending") {
+    throw new SubscriptionApprovalError("Only pending clinics can be approved", 409);
+  }
 
   const initialAccessState = resolveApprovalAccessState(initialClinic, now);
   if (input.outcome === "trial" && initialAccessState === "active_paid") {
@@ -372,13 +375,22 @@ export async function applySubscriptionApproval(
         .where(eq(clinics.id, input.clinicId))
         .limit(1);
       if (!current) throw new SubscriptionApprovalError("Clinic not found", 404);
+      if (input.approvalContext === "registration" && current.status !== "pending") {
+        throw new SubscriptionApprovalError("Only pending clinics can be approved", 409);
+      }
 
       const currentAccessState = resolveApprovalAccessState(current, now);
       if (input.outcome === "trial" && currentAccessState === "active_paid") {
         throw new SubscriptionApprovalError("An active paid clinic cannot be replaced by a Trial", 409);
       }
 
-      const trialWindow = buildTrialWindow(input.effectiveAt);
+      const trialWindow = input.trialSchedule
+        ? {
+            startedAt: input.trialSchedule.startedAt,
+            endsAt: input.trialSchedule.endsAt,
+            graceEndsAt: input.trialSchedule.graceEndsAt,
+          }
+        : buildTrialWindow(input.effectiveAt);
       const hasTrialHistory = Boolean(current.trialStartedAt);
       if (input.outcome === "trial" && hasTrialHistory && current.status !== "pending") {
         throw new SubscriptionApprovalError(
@@ -421,7 +433,9 @@ export async function applySubscriptionApproval(
           trialStartedAt: trialWindow.startedAt,
           trialEndsAt: trialWindow.endsAt,
           trialGraceEndsAt: trialWindow.graceEndsAt,
-          trialOrigin: current.trialOrigin || "admin_granted",
+          trialOrigin: input.approvalContext === "registration"
+            ? "initial_signup"
+            : current.trialOrigin || "admin_granted",
           paidAccessExpiresAt: null,
           razorpaySubscriptionId: null,
         });
@@ -434,7 +448,9 @@ export async function applySubscriptionApproval(
             trialStartedAt: current.trialStartedAt || trialWindow.startedAt,
             trialEndsAt: current.trialEndsAt || trialWindow.endsAt,
             trialGraceEndsAt: current.trialGraceEndsAt || trialWindow.graceEndsAt,
-            trialOrigin: current.trialOrigin || "admin_granted",
+            trialOrigin: input.approvalContext === "registration"
+              ? "initial_signup"
+              : current.trialOrigin || "admin_granted",
           });
         }
       } else if (input.outcome === "verified_offline_payment") {
@@ -574,6 +590,13 @@ export async function applySubscriptionApproval(
         providerSubscriptionId: providerIntent?.providerSubscriptionId ?? null,
         activationToken: activationToken ?? null,
         providerLinkMetadata: providerIntent?.paymentLinkMetadata ?? null,
+        trialSchedule: input.trialSchedule
+          ? {
+              startedAt: input.trialSchedule.startedAt.toISOString(),
+              endsAt: input.trialSchedule.endsAt.toISOString(),
+              graceEndsAt: input.trialSchedule.graceEndsAt.toISOString(),
+            }
+          : null,
       };
       const [lifecycleEvent] = await tx.insert(subscriptionLifecycleEvents).values({
         clinicId: input.clinicId,

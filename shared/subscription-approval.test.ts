@@ -30,6 +30,34 @@ test("accepts a Trial approval without paid billing or payment evidence", () => 
   assert.equal(result.success, true);
 });
 
+test("accepts a bounded custom Trial schedule and rejects it for paid approval", () => {
+  const trialSchedule = {
+    startedAt: "2026-09-22T08:00:00.000Z",
+    endsAt: "2026-10-06T08:00:00.000Z",
+    graceEndsAt: "2026-10-13T08:00:00.000Z",
+  };
+  assert.equal(subscriptionApprovalInputSchema.safeParse({
+    ...baseApproval,
+    outcome: "trial",
+    approvedPlan: "trial",
+    approvedBillingCycle: null,
+    trialSchedule,
+  }).success, true);
+  assert.equal(subscriptionApprovalInputSchema.safeParse({
+    ...baseApproval,
+    outcome: "online_payment_required",
+    approvedPlan: "growth",
+    approvedBillingCycle: "annual",
+    paymentBasis: "provider",
+    reason: "Approved paid plan after registration review",
+    trialSchedule,
+    onlinePayment: {
+      provider: "razorpay",
+      paymentLinkMetadata: { paymentLinkId: "plink_123" },
+    },
+  }).success, false);
+});
+
 test("accepts online payment required without activating paid access", () => {
   const result = subscriptionApprovalInputSchema.safeParse({
     ...baseApproval,

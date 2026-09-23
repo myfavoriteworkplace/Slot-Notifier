@@ -57,10 +57,12 @@ import {
 import { validatePlanPolicyDocument } from "@shared/plan-policy-validation";
 import {
   buildInitialTrialTransition,
-  buildCustomTrialTransition,
   buildPaidExpiryRecoveryTransition,
   isTrialExpiredAfterGrace,
 } from "@shared/trial-lifecycle";
+import {
+  applySubscriptionApproval,
+} from "./subscription-approval";
 import { resolveRequestedPlan } from "@shared/clinic-registration";
 import {
   resolveInitialApprovalSelection,
@@ -2006,12 +2008,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     try {
-      const clinicId = parseInt(req.params.id);
+      const clinicId = Number(req.params.id);
+      if (!Number.isInteger(clinicId) || clinicId <= 0) {
+        return res.status(400).json({ message: "Invalid clinic ID" });
+      }
       const existing = await storage.getClinic(clinicId);
       if (!existing) return res.status(404).json({ message: "Clinic not found" });
-      if (existing.status !== "pending") {
-        return res.status(409).json({ message: "Only pending clinics can be approved" });
-      }
 
       const now = new Date();
       const approvalSelection = resolveInitialApprovalSelection(
@@ -2034,75 +2036,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const transitionId = parsed.data.transitionId ||
         `initial-approval:${clinicId}:${approvedPlan}:${parsed.data.billingCycle || "none"}:${parsed.data.trialStartDate || "default"}:${parsed.data.trialEndDate || "default"}:${parsed.data.trialGraceDays ?? "default"}`;
-      const [existingEvent] = await db.select()
-        .from(subscriptionLifecycleEvents)
-        .where(and(
-          eq(subscriptionLifecycleEvents.clinicId, clinicId),
-          eq(subscriptionLifecycleEvents.transitionId, transitionId),
-        ))
-        .limit(1);
-      if (existingEvent) {
-        return res.json({ clinic: existing, event: existingEvent, idempotent: true });
-      }
-
-      // Generate a meaningful username from the clinic name
-      const base = existing.name
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, "")
-        .trim()
-        .replace(/\s+/g, "_")
-        .slice(0, 30);
-
-      let username = base;
-      let suffix = 2;
-      while (await storage.getClinicByUsername(username)) {
-        username = `${base}_${suffix}`;
-        suffix++;
-      }
-
-      // Generate a secure readable temporary password
-      const adjectives = ["bright", "swift", "clear", "smart", "care", "prime", "vital", "safe"];
-      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-      const digits = Math.floor(1000 + Math.random() * 9000).toString();
-      const symbols = ["@", "#", "!"];
-      const sym = symbols[Math.floor(Math.random() * symbols.length)];
-      const plainPassword = `${adj.charAt(0).toUpperCase()}${adj.slice(1)}${digits}${sym}`;
-
-      const passwordHash = await bcrypt.hash(plainPassword, 10);
-      if (approvedPlan !== "trial") {
-        const paidReason = reason || "Initial approval for the requested paid plan";
-        const paidResult = await assignPaidPlanForAdmin({
-          clinicId,
-          plan: approvedPlan,
-          billingCycle: parsed.data.billingCycle!,
-          reason: paidReason,
-          transitionId,
-          actorId: String((req as any).user?.claims?.email || (req as any).user?.id || "superuser"),
-          requirePending: true,
-          metadata: {
-            approvalType: "initial_registration",
-            requestedPlan,
-            approvedPlan,
-            planOverridden: isOverride,
-          },
-        });
-        if (!paidResult.idempotent) {
-          await storage.updateClinicCredentials(clinicId, username, passwordHash);
-          if (existing.email) {
-            await sendClinicApprovalEmail(
-              existing.name,
-              existing.email,
-              username,
-              plainPassword,
-              paidResult.activationUrl || undefined,
-              approvedPlan,
-            );
-          }
-        }
-        return res.status(paidResult.idempotent ? 200 : 201).json(paidResult);
-      }
-
-      const trialPolicy = resolvePlanPolicy("trial", PUBLISHED_PLAN_POLICY).policy;
       const hasCustomDates = parsed.data.trialStartDate !== undefined ||
         parsed.data.trialEndDate !== undefined ||
         parsed.data.trialGraceDays !== undefined;
@@ -2114,98 +2047,177 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ message: "Custom Trial approval requires a start date, end date, and grace period" });
       }
 
-      let trial;
-      if (hasCustomDates) {
-        const trialStartedAt = getUtcInstantForCalendarDate(parsed.data.trialStartDate!, existing.timezone || "Asia/Kolkata");
-        const trialEndsAt = getUtcInstantForCalendarDate(parsed.data.trialEndDate!, existing.timezone || "Asia/Kolkata", true);
-        if (trialStartedAt.getTime() > now.getTime()) {
-          return res.status(400).json({ message: "Custom Trial start cannot be after the approval time" });
-        }
-        if (trialEndsAt.getTime() <= now.getTime()) {
-          return res.status(400).json({ message: "Custom Trial end must be after the approval time" });
-        }
-        trial = buildCustomTrialTransition(trialStartedAt, trialEndsAt, parsed.data.trialGraceDays!);
-      } else {
-        trial = buildInitialTrialTransition(
-          now,
-          trialPolicy?.trial.durationDays ?? 14,
-          trialPolicy?.trial.graceDays ?? 7,
-        );
+      const trialSchedule = hasCustomDates
+        ? (() => {
+            const trialStartedAt = getUtcInstantForCalendarDate(
+              parsed.data.trialStartDate!,
+              existing.timezone || "Asia/Kolkata",
+            );
+            const trialEndsAt = getUtcInstantForCalendarDate(
+              parsed.data.trialEndDate!,
+              existing.timezone || "Asia/Kolkata",
+              true,
+            );
+            const trialGraceEndsAt = new Date(
+              trialEndsAt.getTime() + parsed.data.trialGraceDays! * 24 * 60 * 60 * 1000,
+            );
+            return { startedAt: trialStartedAt, endsAt: trialEndsAt, graceEndsAt: trialGraceEndsAt };
+          })()
+        : undefined;
+
+      if (trialSchedule && trialSchedule.startedAt.getTime() > now.getTime()) {
+        return res.status(400).json({ message: "Custom Trial start cannot be after the approval time" });
+      }
+      if (trialSchedule && trialSchedule.endsAt.getTime() <= now.getTime()) {
+        return res.status(400).json({ message: "Custom Trial end must be after the approval time" });
       }
 
-      await storage.updateClinicCredentials(clinicId, username, passwordHash);
-      const approvalReason = reason || "Initial Trial started on clinic approval";
-      const [clinic] = await db.transaction(async (tx) => {
-        const [updatedClinic] = await tx.update(clinics).set({
-          status: "approved",
-          plan: "trial",
-          subscriptionStatus: "trialing",
-          billingCycle: existing.billingCycle || "monthly",
-          razorpaySubscriptionId: null,
-          trialStartedAt: trial.trialStartedAt,
-          trialEndsAt: trial.trialEndsAt,
-          trialGraceEndsAt: trial.trialGraceEndsAt,
-          trialOrigin: trial.origin,
-          previousPaidPlan: null,
-          paidAccessExpiresAt: null,
-          subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
-        }).where(and(eq(clinics.id, clinicId), eq(clinics.status, "pending"))).returning();
-        if (!updatedClinic) {
-          const error = new Error("Only pending clinics can be approved");
-          (error as any).statusCode = 409;
-          throw error;
-        }
+      const actorId = String(
+        (req as any).user?.claims?.email ||
+        (req as any).user?.id ||
+        "superuser",
+      );
+      const approvalInput = {
+        clinicId,
+        approvalContext: "registration" as const,
+        outcome: approvedPlan === "trial"
+          ? "trial" as const
+          : "online_payment_required" as const,
+        requestedPlan,
+        approvedPlan,
+        requestedBillingCycle: parsed.data.billingCycle || null,
+        approvedBillingCycle: approvedPlan === "trial" ? null : parsed.data.billingCycle!,
+        paymentBasis: approvedPlan === "trial"
+          ? "none" as const
+          : "provider" as const,
+        renewalMode: approvedPlan === "trial"
+          ? "trial_expiry" as const
+          : "provider_auto" as const,
+        reason: reason || null,
+        actor: { type: "superadmin" as const, id: actorId },
+        transitionId,
+        sourceRequestId: null,
+        effectiveAt: now,
+        ...(trialSchedule ? { trialSchedule } : {}),
+        ...(approvedPlan !== "trial"
+          ? {
+              onlinePayment: {
+                provider: "razorpay",
+                paymentLinkMetadata: {
+                  approvalType: "initial_registration",
+                  requestedPlan,
+                  approvedPlan,
+                  billingCycle: parsed.data.billingCycle!,
+                  planOverridden: isOverride,
+                },
+              },
+            }
+          : {}),
+      };
 
-        await tx.insert(subscriptionPlanAssignments).values({
-          clinicId,
-          plan: "trial",
-          billingCycle: existing.billingCycle || "monthly",
-          source: "initial_trial",
-          policyVersion: PUBLISHED_PLAN_POLICY.version,
-          transitionId,
-          assignedByType: "superuser",
-          assignedById: String((req as any).user?.claims?.email || (req as any).user?.id || "superuser"),
-          reason: approvalReason,
-          startsAt: trial.trialStartedAt,
-          endsAt: trial.trialGraceEndsAt,
-        });
-        await tx.insert(subscriptionLifecycleEvents).values({
-          clinicId,
-          eventType: "trial_started",
-          fromPlan: existing.plan,
-          toPlan: "trial",
-          fromStatus: existing.subscriptionStatus,
-          toStatus: "trialing",
-          policyVersion: PUBLISHED_PLAN_POLICY.version,
-          transitionId,
-          actorType: "superuser",
-          actorId: String((req as any).user?.claims?.email || (req as any).user?.id || "superuser"),
-          reason: approvalReason,
-          metadata: {
-            approvalType: "initial_registration",
-            requestedPlan,
-            approvedPlan,
-            planOverridden: isOverride,
-            trialOrigin: trial.origin,
-            trialStartedAt: trial.trialStartedAt.toISOString(),
-            trialEndsAt: trial.trialEndsAt.toISOString(),
-            trialGraceEndsAt: trial.trialGraceEndsAt.toISOString(),
-            trialGraceDays: hasCustomDates ? parsed.data.trialGraceDays : trialPolicy?.trial.graceDays ?? 7,
-            customSchedule: hasCustomDates,
-          },
-          effectiveAt: now,
-        });
-        return [updatedClinic];
+      const approvalResult = await applySubscriptionApproval(approvalInput, {
+        now,
+        createOnlinePaymentIntent: approvedPlan === "trial"
+          ? undefined
+          : async ({ clinic, approval, activationToken, linkExpiresAt }) => {
+              const billingCycle = approval.approvedBillingCycle!;
+              const planId = RAZORPAY_PLAN_IDS[approval.approvedPlan!]?.[billingCycle];
+              if (!razorpay || !planId) {
+                throw new Error("Razorpay is not configured for this plan and billing cycle");
+              }
+              try {
+                const subscription = await (razorpay as any).subscriptions.create({
+                  plan_id: planId,
+                  quantity: 1,
+                  total_count: billingCycle === "annual" ? 1 : 12,
+                  customer_notify: 0,
+                  notes: {
+                    clinicId: clinic.id.toString(),
+                    clinicName: clinic.name,
+                    plan: approval.approvedPlan,
+                    billingCycle,
+                    transitionId: approval.transitionId,
+                    activationToken,
+                  },
+                });
+                return {
+                  provider: "razorpay",
+                  providerSubscriptionId: subscription.id,
+                  shortUrl: subscription.short_url || null,
+                  linkExpiresAt,
+                  paymentLinkMetadata: {
+                    planId,
+                    providerSubscriptionId: subscription.id,
+                    shortUrl: subscription.short_url || null,
+                  },
+                };
+              } catch (error: any) {
+                console.error("[RAZORPAY] Registration approval preparation failed:", error?.error?.description || error?.message);
+                throw error;
+              }
+            },
       });
 
-      if (existing.email) {
-        await sendClinicApprovalEmail(existing.name, existing.email, username, plainPassword);
+      const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";
+      const activationUrl = approvalResult.activationToken
+        ? `${frontendBase}/activate/${approvalResult.activationToken.token}`
+        : null;
+
+      if (!approvalResult.idempotent) {
+        // Generate credentials only after the central transition commits. A
+        // replay must not rotate credentials or send a second welcome email.
+        const base = existing.name
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, "")
+          .trim()
+          .replace(/\s+/g, "_")
+          .slice(0, 30);
+
+        let username = base;
+        let suffix = 2;
+        while (await storage.getClinicByUsername(username)) {
+          username = `${base}_${suffix}`;
+          suffix++;
+        }
+
+        const adjectives = ["bright", "swift", "clear", "smart", "care", "prime", "vital", "safe"];
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const digits = Math.floor(1000 + Math.random() * 9000).toString();
+        const symbols = ["@", "#", "!"];
+        const sym = symbols[Math.floor(Math.random() * symbols.length)];
+        const plainPassword = `${adj.charAt(0).toUpperCase()}${adj.slice(1)}${digits}${sym}`;
+        const passwordHash = await bcrypt.hash(plainPassword, 10);
+
+        await storage.updateClinicCredentials(clinicId, username, passwordHash);
+        if (existing.email) {
+          await sendClinicApprovalEmail(
+            existing.name,
+            existing.email,
+            username,
+            plainPassword,
+            activationUrl || undefined,
+            approvedPlan,
+          );
+        }
       }
 
-      res.status(201).json({ ...clinic, trial });
+      const { activationToken: _activationToken, ...publicApprovalResult } = approvalResult;
+      return res.status(approvalResult.idempotent ? 200 : 201).json({
+        ...publicApprovalResult,
+        activationUrl,
+        providerConfigured: approvedPlan === "trial" || Boolean(razorpay),
+        trial: approvalResult.clinic.plan === "trial"
+          ? {
+              trialStartedAt: approvalResult.clinic.trialStartedAt,
+              trialEndsAt: approvalResult.clinic.trialEndsAt,
+              trialGraceEndsAt: approvalResult.clinic.trialGraceEndsAt,
+            }
+          : null,
+      });
     } catch (error: any) {
-      const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 400);
-      res.status(statusCode).json({ message: error.message });
+      const statusCode = Number(error?.statusCode) ||
+        (error?.code === "23505" ? 409 : 400);
+      res.status(statusCode).json({ message: error.message || "Unable to approve clinic" });
     }
   });
 

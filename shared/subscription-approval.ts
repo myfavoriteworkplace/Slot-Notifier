@@ -81,6 +81,12 @@ const complimentaryAccessSchema = z.object({
   sponsorReference: nonEmptyReferenceSchema,
 }).strict();
 
+const trialScheduleSchema = z.object({
+  startedAt: dateSchema,
+  endsAt: dateSchema,
+  graceEndsAt: dateSchema,
+}).strict();
+
 export const subscriptionApprovalInputSchema = z.object({
   clinicId: z.number().int().positive(),
   approvalContext: z.enum(APPROVAL_CONTEXTS),
@@ -96,6 +102,7 @@ export const subscriptionApprovalInputSchema = z.object({
   transitionId: z.string().trim().min(1).max(120).regex(/^\S+$/),
   sourceRequestId: nonEmptyReferenceSchema.nullable(),
   effectiveAt: dateSchema,
+  trialSchedule: trialScheduleSchema.optional(),
   onlinePayment: onlinePaymentSchema.optional(),
   offlinePayment: offlinePaymentSchema.optional(),
   complimentaryAccess: complimentaryAccessSchema.optional(),
@@ -149,6 +156,19 @@ export const subscriptionApprovalInputSchema = z.object({
     if (hasOnlinePayment || hasOfflinePayment || hasComplimentaryAccess) {
       addIssue("Trial approval cannot include payment or complimentary-access evidence");
     }
+    if (input.trialSchedule) {
+      if (input.trialSchedule.startedAt > input.effectiveAt) {
+        addIssue("Trial start cannot be after the approval time", ["trialSchedule", "startedAt"]);
+      }
+      if (input.trialSchedule.endsAt <= input.trialSchedule.startedAt) {
+        addIssue("Trial end must be after the start", ["trialSchedule", "endsAt"]);
+      }
+      if (input.trialSchedule.graceEndsAt <= input.trialSchedule.endsAt) {
+        addIssue("Trial grace end must be after the Trial end", ["trialSchedule", "graceEndsAt"]);
+      }
+    }
+  } else if (input.trialSchedule) {
+    addIssue("Trial schedule can only be provided for a Trial approval", ["trialSchedule"]);
   }
 
   if (input.outcome === "online_payment_required") {

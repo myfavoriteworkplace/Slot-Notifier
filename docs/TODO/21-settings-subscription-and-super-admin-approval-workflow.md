@@ -715,9 +715,9 @@ The service must return a state such as:
 
 #### Step 3 completion record
 
-**Status:** Complete as a reusable server-side operation. The existing
-registration, upgrade, and renewal routes remain legacy adapters until their
-respective migration steps.
+**Status:** Complete as a reusable server-side operation. The existing upgrade
+and renewal routes remain legacy adapters until their respective migration
+steps.
 
 Implemented in `server/subscription-approval.ts`:
 
@@ -813,6 +813,33 @@ It must never label online approval as Active paid.
 - Registration approval no longer directly mutates subscription state.
 - Online approval preserves Trial dates.
 - All five outcomes use the same server operation.
+
+#### Step 4 completion record
+
+**Status:** Complete for `PATCH /api/clinics/:id/approve`.
+
+- The route remains responsible for Super Admin authorization, pending-clinic
+  input validation, requested-plan resolution, and clinic-timezone conversion
+  of custom Trial dates.
+- Trial registration approvals and paid registration approvals now translate
+  to `applySubscriptionApproval()` as `trial` and
+  `online_payment_required`. The central service owns the approval decision,
+  clinic snapshot, assignment, activation token, and lifecycle event.
+- Razorpay subscription creation is supplied through the service's injected
+  `createOnlinePaymentIntent` callback. Missing provider configuration returns
+  a provider error without changing the clinic.
+- Credentials and the approval email are sent only after the central
+  transition commits. Replayed transition IDs return the original result
+  without rotating credentials or sending a second email, and the activation
+  token is not exposed as a raw database row in the response.
+- Custom Trial schedules are passed through the shared approval contract and
+  remain timezone-aware. The route does not directly write subscription
+  tables anymore.
+
+The registration UI currently exposes Trial and provider-payment choices.
+Offline, complimentary, and rejection outcomes are supported by the central
+operation and remain available for the later access-management and
+upgrade/rejection adapters.
 
 ### 5.7 Step 5 — Migrate upgrade-request approval
 
