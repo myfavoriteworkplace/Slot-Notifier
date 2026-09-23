@@ -57,10 +57,10 @@ import {
 import { validatePlanPolicyDocument } from "@shared/plan-policy-validation";
 import {
   buildInitialTrialTransition,
-  buildPaidExpiryRecoveryTransition,
   isTrialExpiredAfterGrace,
 } from "@shared/trial-lifecycle";
 import {
+  applyProviderSubscriptionEvent,
   applySubscriptionApproval,
   type CreateOnlinePaymentIntent,
 } from "./subscription-approval";
@@ -2400,175 +2400,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           },
           occurredAt: subscriptionEntity?.created_at ? new Date(Number(subscriptionEntity.created_at) * 1000) : null,
         }).returning({ id: subscriptionProviderEvents.id });
-      if ((event === "subscription.charged" || event === "subscription.activated") && clinic) {
+      if (clinic && subscriptionId) {
         const providerCurrentEnd = subscriptionEntity?.current_end
           ? new Date(Number(subscriptionEntity.current_end) * 1000)
           : null;
-        const activationTransitionId = `razorpay:activation:${eventId || subscriptionId || "unknown"}:${event}`;
-        const activationResult = await db.transaction(async (tx) => {
-          const [current] = await tx.select().from(clinics).where(eq(clinics.id, clinic.id)).limit(1);
-          if (!current) return { status: "missing" as const };
-          if (!PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number])) {
-            return { status: "ignored" as const };
-          }
-
-          const wasPendingPayment = current.subscriptionStatus === "pending_payment";
-          const [updatedClinic] = await tx.update(clinics)
-            .set({
-              subscriptionStatus: "active",
-              paidAccessExpiresAt: providerCurrentEnd || current.paidAccessExpiresAt,
-              trialStartedAt: null,
-              trialEndsAt: null,
-              trialGraceEndsAt: null,
-              trialOrigin: null,
-            })
-            .where(and(
-              eq(clinics.id, clinic.id),
-              inArray(clinics.subscriptionStatus, ["pending_payment", "active", "past_due"] as string[]),
-            ))
-            .returning();
-          if (!updatedClinic) return { status: "race" as const };
-
-          const [existingActivation] = await tx.select({ id: subscriptionLifecycleEvents.id })
-            .from(subscriptionLifecycleEvents)
-            .where(and(
-              eq(subscriptionLifecycleEvents.clinicId, clinic.id),
-              eq(subscriptionLifecycleEvents.transitionId, activationTransitionId),
-            ))
-            .limit(1);
-          if (!existingActivation) {
-            await tx.insert(subscriptionLifecycleEvents).values({
-              clinicId: clinic.id,
-              eventType: wasPendingPayment ? "converted" : "renewed",
-              fromPlan: current.plan,
-              toPlan: current.plan,
-              fromStatus: current.subscriptionStatus,
-              toStatus: "active",
-              policyVersion: current.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
-              transitionId: activationTransitionId,
-              actorType: "provider",
-              actorId: "razorpay",
-              reason: wasPendingPayment
-                ? "Provider confirmed paid access after Trial or recovery assignment"
-                : "Provider confirmed subscription payment",
-              metadata: {
-                providerEventId: eventId ?? null,
-                providerSubscriptionId: subscriptionId ?? null,
-                currentEnd: providerCurrentEnd?.toISOString() ?? null,
-              },
-              effectiveAt: providerCurrentEnd || new Date(),
-            });
-          }
-
-          await tx.update(activationTokens)
-            .set({ used: true })
-            .where(eq(activationTokens.razorpaySubscriptionId, subscriptionId!));
-          return { status: "applied" as const, clinic: updatedClinic };
+        const providerResult = await applyProviderSubscriptionEvent({
+          providerEventRecordId: providerEvent.id,
+          clinicId: clinic.id,
+          provider: "razorpay",
+          providerSubscriptionId: subscriptionId,
+          providerEventId: eventId ?? null,
+          providerEventType: event || "unknown",
+          providerCurrentEnd,
         });
-
-        await db.update(subscriptionProviderEvents)
-          .set({ processingStatus: activationResult.status === "applied" ? "applied" : "ignored" })
-          .where(eq(subscriptionProviderEvents.id, providerEvent.id));
-        if (activationResult.status === "applied") {
-          console.log(`[WEBHOOK] Clinic ${clinic.id} subscription activated`);
-        }
-      }
-
-      const isPaidExpiryEvent = ["subscription.completed", "subscription.expired"].includes(event);
-      if (isPaidExpiryEvent && clinic) {
-        const now = new Date();
-        const trialPolicy = resolvePlanPolicy("trial", PUBLISHED_PLAN_POLICY).policy;
-        const transitionId = `razorpay:${eventId || subscriptionId || "unknown"}:${event}`;
-        const recovery = buildPaidExpiryRecoveryTransition(
-          clinic,
-          now,
-          trialPolicy?.trial.durationDays ?? 14,
-          trialPolicy?.trial.graceDays ?? 7,
-        );
-
-        if (recovery) {
-          const [existingTransition] = await db.select({ id: subscriptionLifecycleEvents.id })
-            .from(subscriptionLifecycleEvents)
-            .where(and(
-              eq(subscriptionLifecycleEvents.clinicId, clinic.id),
-              eq(subscriptionLifecycleEvents.transitionId, transitionId),
-            ))
-            .limit(1);
-
-          if (!existingTransition) {
-            await db.transaction(async (tx) => {
-              const [current] = await tx.select().from(clinics).where(eq(clinics.id, clinic.id)).limit(1);
-              if (!current) return;
-              const currentRecovery = buildPaidExpiryRecoveryTransition(
-                current,
-                now,
-                trialPolicy?.trial.durationDays ?? 14,
-                trialPolicy?.trial.graceDays ?? 7,
-              );
-              if (!currentRecovery) return;
-
-              const [updatedClinic] = await tx.update(clinics)
-                .set({
-                  plan: "trial",
-                  subscriptionStatus: "trialing",
-                  trialStartedAt: currentRecovery.trialStartedAt,
-                  trialEndsAt: currentRecovery.trialEndsAt,
-                  trialGraceEndsAt: currentRecovery.trialGraceEndsAt,
-                  trialOrigin: currentRecovery.origin,
-                  previousPaidPlan: currentRecovery.previousPaidPlan,
-                  paidAccessExpiresAt: subscriptionEntity?.current_end
-                    ? new Date(Number(subscriptionEntity.current_end) * 1000)
-                    : current.paidAccessExpiresAt,
-                  subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
-                })
-                .where(eq(clinics.id, clinic.id))
-                .returning();
-
-              await tx.insert(subscriptionPlanAssignments).values({
-                clinicId: clinic.id,
-                plan: "trial",
-                billingCycle: current.billingCycle || "monthly",
-                source: "paid_expiry_recovery",
-                policyVersion: PUBLISHED_PLAN_POLICY.version,
-                transitionId,
-                assignedByType: "provider",
-                assignedById: "razorpay",
-                reason: "Paid subscription expiry recovery Trial",
-                startsAt: now,
-                endsAt: currentRecovery.trialGraceEndsAt,
-              });
-              await tx.insert(subscriptionLifecycleEvents).values({
-                clinicId: clinic.id,
-                eventType: "recovered",
-                fromPlan: current.plan,
-                toPlan: "trial",
-                fromStatus: current.subscriptionStatus,
-                toStatus: "trialing",
-                policyVersion: PUBLISHED_PLAN_POLICY.version,
-                transitionId,
-                actorType: "provider",
-                actorId: "razorpay",
-                reason: "Paid subscription expiry recovery Trial",
-                metadata: {
-                  providerEventId: eventId ?? null,
-                  providerSubscriptionId: subscriptionId ?? null,
-                  trialOrigin: currentRecovery.origin,
-                  trialStartedAt: currentRecovery.trialStartedAt.toISOString(),
-                  trialEndsAt: currentRecovery.trialEndsAt.toISOString(),
-                  trialGraceEndsAt: currentRecovery.trialGraceEndsAt.toISOString(),
-                  previousPaidPlan: currentRecovery.previousPaidPlan,
-                  updatedClinicId: updatedClinic?.id ?? null,
-                },
-                effectiveAt: now,
-              });
-            });
-            console.log(`[WEBHOOK] Clinic ${clinic.id} recovered into Trial after ${event}`);
-          }
-        }
-
-        await db.update(subscriptionProviderEvents)
-          .set({ processingStatus: recovery ? "applied" : "ignored" })
-          .where(eq(subscriptionProviderEvents.id, providerEvent.id));
+        console.log(`[WEBHOOK] Provider transition ${providerResult.status} for clinic ${clinic.id} (${event})`);
       }
       res.json({ received: true });
     } catch (err: any) {

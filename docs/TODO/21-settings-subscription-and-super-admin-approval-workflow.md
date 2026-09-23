@@ -325,7 +325,7 @@ later steps may still depend on it.
 | 3 | Build the central server-side transition operation | **Complete** | `applySubscriptionApproval()` owns validation, locking/re-checking, idempotency, provider-intent reconciliation, clinic snapshots, assignments, decisions, and lifecycle events. | Migrate every entry point to the operation. |
 | 4 | Migrate registration approval | **Complete** | `PATCH /api/clinics/:id/approve` is a thin adapter for Trial and provider-payment registration approvals, including custom Trial schedules and post-commit credentials/email. | Preserve the shared result shape as other adapters migrate. |
 | 5 | Migrate upgrade-request approval | **Complete** | Upgrade approval and rejection now use `applySubscriptionApproval()`; online approvals preserve the clinic's current Trial/grace access while payment is pending, and the request is reviewed only after the central decision succeeds. | Add the dedicated verified-offline and complimentary upgrade/access-management entry points in Steps 7–8. |
-| 6 | Migrate provider activation and renewal | **Not started** | Provider webhook handlers still contain independent subscription state transitions. | Make provider events adapters that call the central activation/renewal transition logic. |
+| 6 | Migrate provider activation and renewal | **Complete** | Razorpay webhook signature/raw-event handling remains at the route boundary, while central provider transition logic now owns confirmation, renewal, past-due handling, expiry recovery, activation-token use, lifecycle history, and provider-event status. | Add dedicated verified-offline and complimentary access flows in Steps 7–8. |
 | 7 | Add verified offline payment and renewal | **Not started** | The central service can record verified offline evidence, but no dedicated production entry point is migrated. | Add Super Admin offline-payment and renewal actions with immutable evidence and reversal handling. |
 | 8 | Add complimentary access and expiry | **Not started** | The central service can create sponsored grants, but the dedicated access-management flow is not migrated. | Add grant/revoke/expiry actions with sponsor references and lifecycle history. |
 | 9 | Update Clinics & Access around the central result | **Not started** | Existing screens and actions are not yet fully driven by the shared access/payment dimensions. | Display requested plan, assigned plan, current access, payment basis/status, dates, and next action separately. |
@@ -967,6 +967,37 @@ through the central transition operation. Recovery must preserve:
 - Provider activation and renewal are idempotent.
 - Webhooks no longer bypass approval history.
 - Delayed, duplicate, and out-of-order events have defined behavior.
+
+#### Step 6 completion record
+
+**Status:** Complete for the Razorpay provider adapter.
+
+Implemented in `server/subscription-approval.ts`:
+
+- `applyProviderSubscriptionEvent()` is the central provider transition
+  operation. The webhook route only validates the Razorpay signature, stores
+  the raw provider event, resolves the linked clinic, and delegates.
+- Confirmed `subscription.charged` and `subscription.activated` events lock
+  the clinic, validate the provider subscription against the clinic or linked
+  activation token, move the approved paid plan from pending payment to active,
+  set the confirmed paid-period end, clear Trial dates, mark the activation
+  token used, and write a provider-backed lifecycle event linked to the central
+  approval decision.
+- Recurring confirmations keep the current paid plan and write a `renewed`
+  lifecycle event. Provider event IDs and lifecycle transition IDs make
+  retries idempotent.
+- Provider pending, halted, cancelled, completed, and expired events now move
+  an unexpired paid subscription to `past_due` with lifecycle history, or use
+  the central recovery policy after the paid period ends. Recovery preserves
+  the prior paid plan, prior expiry, provider event metadata, Trial window, and
+  recovery reason.
+- Provider subscription existence alone cannot activate access; a confirmation
+  event is required. A mismatched provider subscription is recorded and
+  ignored without changing clinic access.
+
+The shared lifecycle policy now treats `subscription.expired` as a valid
+provider recovery trigger. Focused provider/lifecycle, approval, and upgrade
+policy tests pass.
 
 ### 5.9 Step 7 — Add verified offline payment and renewal
 

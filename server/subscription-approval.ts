@@ -27,7 +27,10 @@ import {
   PAID_PLAN_KEYS,
   PUBLISHED_PLAN_POLICY,
 } from "@shared/plan-catalog";
-import { buildTrialWindow } from "@shared/subscription-lifecycle";
+import {
+  buildRecoveryTrialTransition,
+  buildTrialWindow,
+} from "@shared/subscription-lifecycle";
 
 export type ApprovalAccessState =
   | "trial"
@@ -92,6 +95,23 @@ export type SubscriptionApprovalResult = {
     | "active_paid_access"
     | "review_complimentary_access"
     | "review_rejection";
+};
+
+export type ProviderSubscriptionEventInput = {
+  providerEventRecordId: number;
+  clinicId: number;
+  provider: string;
+  providerSubscriptionId: string;
+  providerEventId: string | null;
+  providerEventType: string;
+  providerCurrentEnd: Date | null;
+  now?: Date;
+};
+
+export type ProviderSubscriptionEventResult = {
+  status: "applied" | "ignored" | "missing" | "duplicate";
+  transitionId: string | null;
+  clinic: Clinic | null;
 };
 
 function normalizeStatus(value: string | null | undefined): string {
@@ -680,4 +700,264 @@ export async function applySubscriptionApproval(
     }
     throw error;
   }
+}
+
+const PROVIDER_CONFIRMATION_EVENTS = new Set([
+  "subscription.charged",
+  "subscription.activated",
+]);
+
+const PROVIDER_FAILURE_EVENTS = new Set([
+  "subscription.pending",
+  "subscription.halted",
+  "subscription.cancelled",
+  "subscription.completed",
+  "subscription.expired",
+]);
+
+function providerTransitionId(input: ProviderSubscriptionEventInput): string {
+  return `provider:${input.provider}:${input.providerEventId || input.providerSubscriptionId}:${input.providerEventType}`;
+}
+
+/**
+ * Central provider-event adapter. The webhook route owns signature validation
+ * and raw event ingestion; all subscription state changes happen here.
+ */
+export async function applyProviderSubscriptionEvent(
+  input: ProviderSubscriptionEventInput,
+): Promise<ProviderSubscriptionEventResult> {
+  const now = input.now ?? new Date();
+  const transitionId = providerTransitionId(input);
+
+  return db.transaction(async (tx: any) => {
+    await tx.execute(sql`SELECT id FROM clinics WHERE id = ${input.clinicId} FOR UPDATE`);
+    const [current] = await tx.select()
+      .from(clinics)
+      .where(eq(clinics.id, input.clinicId))
+      .limit(1);
+    if (!current) {
+      await tx.update(subscriptionProviderEvents)
+        .set({ processingStatus: "unmatched" })
+        .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+      return { status: "missing" as const, transitionId: null, clinic: null };
+    }
+
+    const [activationToken] = await tx.select()
+      .from(activationTokens)
+      .where(and(
+        eq(activationTokens.clinicId, input.clinicId),
+        eq(activationTokens.razorpaySubscriptionId, input.providerSubscriptionId),
+      ))
+      .orderBy(desc(activationTokens.id))
+      .limit(1);
+
+    const providerMatchesClinic =
+      !current.razorpaySubscriptionId ||
+      current.razorpaySubscriptionId === input.providerSubscriptionId ||
+      Boolean(activationToken);
+    if (!providerMatchesClinic) {
+      await tx.update(subscriptionProviderEvents)
+        .set({ processingStatus: "ignored" })
+        .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+      return { status: "ignored" as const, transitionId: null, clinic: current };
+    }
+
+    const [existingLifecycle] = await tx.select({ id: subscriptionLifecycleEvents.id })
+      .from(subscriptionLifecycleEvents)
+      .where(and(
+        eq(subscriptionLifecycleEvents.clinicId, input.clinicId),
+        eq(subscriptionLifecycleEvents.transitionId, transitionId),
+      ))
+      .limit(1);
+    if (existingLifecycle) {
+      await tx.update(subscriptionProviderEvents)
+        .set({ processingStatus: "applied" })
+        .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+      return { status: "duplicate" as const, transitionId, clinic: current };
+    }
+
+    if (PROVIDER_CONFIRMATION_EVENTS.has(input.providerEventType)) {
+      const targetPlan = activationToken?.plan || current.plan;
+      if (!PAID_PLAN_KEYS.includes(targetPlan as typeof PAID_PLAN_KEYS[number])) {
+        await tx.update(subscriptionProviderEvents)
+          .set({ processingStatus: "ignored" })
+          .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+        return { status: "ignored" as const, transitionId: null, clinic: current };
+      }
+
+      const wasPendingActivation =
+        current.subscriptionStatus === "pending_payment" ||
+        (current.plan === "trial" && Boolean(activationToken));
+      const [updatedClinic] = await tx.update(clinics)
+        .set({
+          plan: targetPlan,
+          billingCycle: activationToken?.billingCycle || current.billingCycle || "monthly",
+          subscriptionStatus: "active",
+          razorpaySubscriptionId: input.providerSubscriptionId,
+          paidAccessExpiresAt: input.providerCurrentEnd || current.paidAccessExpiresAt,
+          trialStartedAt: null,
+          trialEndsAt: null,
+          trialGraceEndsAt: null,
+          trialOrigin: null,
+        })
+        .where(eq(clinics.id, input.clinicId))
+        .returning();
+      if (!updatedClinic) {
+        await tx.update(subscriptionProviderEvents)
+          .set({ processingStatus: "ignored" })
+          .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+        return { status: "ignored" as const, transitionId: null, clinic: current };
+      }
+
+      await tx.insert(subscriptionLifecycleEvents).values({
+        clinicId: input.clinicId,
+        approvalDecisionId: activationToken?.approvalDecisionId || null,
+        eventType: wasPendingActivation ? "converted" : "renewed",
+        fromPlan: current.plan,
+        toPlan: targetPlan,
+        fromStatus: current.subscriptionStatus,
+        toStatus: "active",
+        policyVersion: current.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
+        transitionId,
+        actorType: "provider",
+        actorId: input.provider,
+        reason: wasPendingActivation
+          ? "Provider confirmed paid access after Trial or payment approval"
+          : "Provider confirmed subscription payment",
+        metadata: {
+          providerEventId: input.providerEventId,
+          providerSubscriptionId: input.providerSubscriptionId,
+          currentEnd: input.providerCurrentEnd?.toISOString() || null,
+          activationTokenId: activationToken?.id || null,
+        },
+        effectiveAt: input.providerCurrentEnd || now,
+      });
+
+      if (activationToken) {
+        await tx.update(activationTokens)
+          .set({ used: true })
+          .where(eq(activationTokens.id, activationToken.id));
+      }
+      await tx.update(subscriptionProviderEvents)
+        .set({ processingStatus: "applied" })
+        .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+      return { status: "applied" as const, transitionId, clinic: updatedClinic };
+    }
+
+    if (!PROVIDER_FAILURE_EVENTS.has(input.providerEventType) ||
+      !PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number])) {
+      await tx.update(subscriptionProviderEvents)
+        .set({ processingStatus: "ignored" })
+        .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+      return { status: "ignored" as const, transitionId: null, clinic: current };
+    }
+
+    const paidAccessExpiresAt = input.providerCurrentEnd || current.paidAccessExpiresAt;
+    const recovery = buildRecoveryTrialTransition({
+      now,
+      paidPlan: current.plan,
+      subscriptionStatus: current.subscriptionStatus,
+      subscriptionId: input.providerSubscriptionId,
+      provider: input.provider,
+      providerEventId: input.providerEventId,
+      providerEventType: input.providerEventType,
+      paidAccessExpiresAt,
+    });
+
+    if (recovery) {
+      const [updatedClinic] = await tx.update(clinics)
+        .set({
+          plan: "trial",
+          billingCycle: "monthly",
+          subscriptionStatus: "trialing",
+          trialStartedAt: recovery.trialWindow.startedAt,
+          trialEndsAt: recovery.trialWindow.endsAt,
+          trialGraceEndsAt: recovery.trialWindow.graceEndsAt,
+          trialOrigin: "paid_expiry",
+          previousPaidPlan: recovery.previousPaidPlan,
+          paidAccessExpiresAt,
+          subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
+        })
+        .where(eq(clinics.id, input.clinicId))
+        .returning();
+      if (!updatedClinic) {
+        throw new SubscriptionApprovalError("Clinic could not be moved to recovery Trial", 409);
+      }
+
+      await tx.insert(subscriptionPlanAssignments).values({
+        clinicId: input.clinicId,
+        plan: "trial",
+        billingCycle: "monthly",
+        source: "paid_expiry_recovery",
+        policyVersion: PUBLISHED_PLAN_POLICY.version,
+        transitionId: recovery.transitionId,
+        assignedByType: "provider",
+        assignedById: input.provider,
+        reason: recovery.reason,
+        startsAt: recovery.trialWindow.startedAt,
+        endsAt: recovery.trialWindow.graceEndsAt,
+      });
+      await tx.insert(subscriptionLifecycleEvents).values({
+        clinicId: input.clinicId,
+        eventType: "recovered",
+        fromPlan: current.plan,
+        toPlan: "trial",
+        fromStatus: current.subscriptionStatus,
+        toStatus: "trialing",
+        policyVersion: current.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
+        transitionId: recovery.transitionId,
+        actorType: "provider",
+        actorId: input.provider,
+        reason: recovery.reason,
+        metadata: recovery.metadata,
+        effectiveAt: now,
+      });
+      await tx.update(subscriptionProviderEvents)
+        .set({ processingStatus: "applied" })
+        .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+      return { status: "applied" as const, transitionId: recovery.transitionId, clinic: updatedClinic };
+    }
+
+    const shouldRemainPastDue = paidAccessExpiresAt && paidAccessExpiresAt > now;
+    const nextStatus = shouldRemainPastDue ? "past_due" : current.subscriptionStatus;
+    if (nextStatus === "past_due" && current.subscriptionStatus !== "past_due") {
+      const [updatedClinic] = await tx.update(clinics)
+        .set({
+          subscriptionStatus: "past_due",
+          paidAccessExpiresAt,
+          subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
+        })
+        .where(eq(clinics.id, input.clinicId))
+        .returning();
+      if (!updatedClinic) throw new SubscriptionApprovalError("Clinic could not be marked past due", 409);
+      await tx.insert(subscriptionLifecycleEvents).values({
+        clinicId: input.clinicId,
+        eventType: input.providerEventType === "subscription.cancelled" ? "cancelled" : "expired",
+        fromPlan: current.plan,
+        toPlan: current.plan,
+        fromStatus: current.subscriptionStatus,
+        toStatus: "past_due",
+        policyVersion: current.subscriptionPolicyVersion || PUBLISHED_PLAN_POLICY.version,
+        transitionId,
+        actorType: "provider",
+        actorId: input.provider,
+        reason: `Provider reported ${input.providerEventType}`,
+        metadata: {
+          providerEventId: input.providerEventId,
+          providerSubscriptionId: input.providerSubscriptionId,
+          currentEnd: paidAccessExpiresAt?.toISOString() || null,
+        },
+        effectiveAt: now,
+      });
+      await tx.update(subscriptionProviderEvents)
+        .set({ processingStatus: "applied" })
+        .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+      return { status: "applied" as const, transitionId, clinic: updatedClinic };
+    }
+
+    await tx.update(subscriptionProviderEvents)
+      .set({ processingStatus: "ignored" })
+      .where(eq(subscriptionProviderEvents.id, input.providerEventRecordId));
+    return { status: "ignored" as const, transitionId: null, clinic: current };
+  });
 }

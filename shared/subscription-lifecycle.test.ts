@@ -32,6 +32,22 @@ test("creates one provider-subscription-scoped recovery transition", () => {
   assert.equal(transition?.metadata.providerEventId, "evt_123");
 });
 
+test("treats provider expiry as a recovery-triggering event", () => {
+  const transition = buildRecoveryTrialTransition({
+    now,
+    paidPlan: "starter",
+    subscriptionStatus: "active",
+    subscriptionId: "sub_expired",
+    provider: "razorpay",
+    providerEventId: "evt_expired",
+    providerEventType: "subscription.expired",
+    paidAccessExpiresAt: paidExpiry,
+  });
+
+  assert.equal(transition?.transitionId, "recovery:razorpay:sub_expired");
+  assert.equal(transition?.previousPaidPlan, "starter");
+});
+
 test("does not start recovery before the paid period ends", () => {
   const transition = buildRecoveryTrialTransition({
     now,

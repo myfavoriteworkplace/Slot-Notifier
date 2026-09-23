@@ -53,6 +53,7 @@ export function buildRecoveryTrialTransition(
   const paidAccessExpiresAt = input.paidAccessExpiresAt;
   const confirmedExpiryEvent = [
     "subscription.completed",
+    "subscription.expired",
     "subscription.cancelled",
     "subscription.halted",
   ].includes(input.providerEventType);
