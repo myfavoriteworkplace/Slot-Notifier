@@ -23,6 +23,7 @@ export const clinicUpgradeRequestApprovalBodySchema = z.object({
 
 export const clinicUpgradeRequestRejectionBodySchema = z.object({
   reviewReason: z.string().trim().min(1).max(500),
+  transitionId: z.string().uuid().optional(),
 }).strict();
 
 export type ClinicUpgradeRequestApprovalBody = z.infer<typeof clinicUpgradeRequestApprovalBodySchema>;

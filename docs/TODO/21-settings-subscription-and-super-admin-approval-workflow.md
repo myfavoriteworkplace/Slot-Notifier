@@ -324,7 +324,7 @@ later steps may still depend on it.
 | 2 | Add append-only approval and payment records | **Complete** | Approval decisions, offline payments, lifecycle links, assignments, grants, activation tokens, and idempotency constraints exist in the development schema. | Apply schema changes through the normal production publish flow. |
 | 3 | Build the central server-side transition operation | **Complete** | `applySubscriptionApproval()` owns validation, locking/re-checking, idempotency, provider-intent reconciliation, clinic snapshots, assignments, decisions, and lifecycle events. | Migrate every entry point to the operation. |
 | 4 | Migrate registration approval | **Complete** | `PATCH /api/clinics/:id/approve` is a thin adapter for Trial and provider-payment registration approvals, including custom Trial schedules and post-commit credentials/email. | Preserve the shared result shape as other adapters migrate. |
-| 5 | Migrate upgrade-request approval | **Not started** | The upgrade route still calls the legacy paid-plan assignment helper. | Translate pending upgrade approvals and rejections into central decisions, then mark the request reviewed only after success. |
+| 5 | Migrate upgrade-request approval | **Complete** | Upgrade approval and rejection now use `applySubscriptionApproval()`; online approvals preserve the clinic's current Trial/grace access while payment is pending, and the request is reviewed only after the central decision succeeds. | Add the dedicated verified-offline and complimentary upgrade/access-management entry points in Steps 7–8. |
 | 6 | Migrate provider activation and renewal | **Not started** | Provider webhook handlers still contain independent subscription state transitions. | Make provider events adapters that call the central activation/renewal transition logic. |
 | 7 | Add verified offline payment and renewal | **Not started** | The central service can record verified offline evidence, but no dedicated production entry point is migrated. | Add Super Admin offline-payment and renewal actions with immutable evidence and reversal handling. |
 | 8 | Add complimentary access and expiry | **Not started** | The central service can create sponsored grants, but the dedicated access-management flow is not migrated. | Add grant/revoke/expiry actions with sponsor references and lifecycle history. |
@@ -888,6 +888,27 @@ current Trial, grace, sponsored, or paid state unchanged.
 - Registration and upgrade approvals produce the same state shape.
 - Pending requests cannot be approved twice.
 - Request history displays payment basis and resulting access state.
+
+#### Step 5 completion record
+
+**Status:** Complete for the online-payment and rejection upgrade-request
+adapters.
+
+- `POST /api/admin/clinic-upgrade-requests/:id/approve` now translates the
+  approved plan and billing cycle into the shared
+  `online_payment_required` decision and uses the same provider-intent
+  callback as registration approval.
+- `POST /api/admin/clinic-upgrade-requests/:id/reject` now records a central
+  `reject` decision before marking the request rejected.
+- Both decisions link `sourceRequestId` to the upgrade request and return the
+  shared approval result, activation URL, payment basis, access state, and
+  next action without exposing the raw activation token.
+- The central transaction locks the source upgrade request and rejects a
+  second decision for the same pending request. A request is marked reviewed
+  only after the central transition commits.
+- Verified-offline and complimentary outcomes remain intentionally deferred to
+  the dedicated entry points in Steps 7 and 8, while the central operation
+  already validates those outcome contracts.
 
 ### 5.8 Step 6 — Migrate provider activation and renewal
 

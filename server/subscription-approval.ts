@@ -353,6 +353,16 @@ export async function applySubscriptionApproval(
     const transactionResult = await db.transaction(async (tx: any) => {
       await tx.execute(sql`SELECT id FROM clinics WHERE id = ${input.clinicId} FOR UPDATE`);
 
+      const upgradeRequestId = input.approvalContext === "upgrade_request"
+        ? approvalDecisionIdFromSourceRequest(input.sourceRequestId)
+        : null;
+      if (input.approvalContext === "upgrade_request" && !upgradeRequestId) {
+        throw new SubscriptionApprovalError("An upgrade-request approval must reference its source request", 400);
+      }
+      if (upgradeRequestId) {
+        await tx.execute(sql`SELECT id FROM clinic_upgrade_requests WHERE id = ${upgradeRequestId} FOR UPDATE`);
+      }
+
       const [raceDecision] = await tx.select()
         .from(subscriptionApprovalDecisions)
         .where(and(
@@ -368,6 +378,19 @@ export async function applySubscriptionApproval(
           );
         }
         return { kind: "idempotent" as const, decisionId: raceDecision.id };
+      }
+
+      if (upgradeRequestId) {
+        const [sourceRequest] = await tx.select()
+          .from(clinicUpgradeRequests)
+          .where(eq(clinicUpgradeRequests.id, upgradeRequestId))
+          .limit(1);
+        if (!sourceRequest || sourceRequest.clinicId !== input.clinicId) {
+          throw new SubscriptionApprovalError("Upgrade request not found for this clinic", 404);
+        }
+        if (sourceRequest.status !== "pending" || sourceRequest.approvalDecisionId !== null) {
+          throw new SubscriptionApprovalError("Only pending upgrade requests without a prior approval decision can be reviewed", 409);
+        }
       }
 
       const [current] = await tx.select()
@@ -440,6 +463,9 @@ export async function applySubscriptionApproval(
           razorpaySubscriptionId: null,
         });
       } else if (input.outcome === "online_payment_required") {
+        Object.assign(clinicUpdate, {
+          razorpaySubscriptionId: providerIntent?.providerSubscriptionId || current.razorpaySubscriptionId,
+        });
         if (!paymentPendingKeepsCurrentAccess) {
           Object.assign(clinicUpdate, {
             plan: "trial",
@@ -615,7 +641,6 @@ export async function applySubscriptionApproval(
         effectiveAt: input.effectiveAt,
       }).returning();
 
-      const upgradeRequestId = approvalDecisionIdFromSourceRequest(input.sourceRequestId);
       if (upgradeRequestId) {
         await tx.update(clinicUpgradeRequests)
           .set({ approvalDecisionId: decision.id })

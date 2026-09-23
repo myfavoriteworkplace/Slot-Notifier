@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte, lt, desc, ne, inArray, isNull } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions, planPolicyVersions } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens, patientMedicalHistory, patientDocuments, communicationUsage, subscriptionProviderEvents, subscriptionLifecycleEvents, subscriptionPlanAssignments, subscriptionAccessGrants, subscriptionAccessExceptions, subscriptionApprovalDecisions, planPolicyVersions } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -62,6 +62,7 @@ import {
 } from "@shared/trial-lifecycle";
 import {
   applySubscriptionApproval,
+  type CreateOnlinePaymentIntent,
 } from "./subscription-approval";
 import { resolveRequestedPlan } from "@shared/clinic-registration";
 import {
@@ -333,6 +334,49 @@ const RAZORPAY_PLAN_IDS: Record<string, Record<string, string | undefined>> = {
     monthly: process.env.RAZORPAY_PLAN_ID_PRO_MONTHLY,
     annual:  process.env.RAZORPAY_PLAN_ID_PRO_ANNUAL,
   },
+};
+
+const createRazorpayOnlinePaymentIntent: CreateOnlinePaymentIntent = async ({
+  clinic,
+  approval,
+  activationToken,
+  linkExpiresAt,
+}) => {
+  const billingCycle = approval.approvedBillingCycle!;
+  const planId = RAZORPAY_PLAN_IDS[approval.approvedPlan!]?.[billingCycle];
+  if (!razorpay || !planId) {
+    throw new Error("Razorpay is not configured for this plan and billing cycle");
+  }
+  try {
+    const subscription = await (razorpay as any).subscriptions.create({
+      plan_id: planId,
+      quantity: 1,
+      total_count: billingCycle === "annual" ? 1 : 12,
+      customer_notify: 0,
+      notes: {
+        clinicId: clinic.id.toString(),
+        clinicName: clinic.name,
+        plan: approval.approvedPlan,
+        billingCycle,
+        transitionId: approval.transitionId,
+        activationToken,
+      },
+    });
+    return {
+      provider: "razorpay",
+      providerSubscriptionId: subscription.id,
+      shortUrl: subscription.short_url || null,
+      linkExpiresAt,
+      paymentLinkMetadata: {
+        planId,
+        providerSubscriptionId: subscription.id,
+        shortUrl: subscription.short_url || null,
+      },
+    };
+  } catch (error: any) {
+    console.error("[RAZORPAY] Subscription approval preparation failed:", error?.error?.description || error?.message);
+    throw error;
+  }
 };
 
 function makeGoogleCalLink(title: string, start: Date, location?: string | null): string {
@@ -1475,7 +1519,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           storage.getAdminClinicUpgradeRequests(parsedStatus.data),
           storage.countPendingClinicUpgradeRequests(),
         ]);
-        return res.json({ requests, pendingCount });
+        const sourceRequestIds = requests.map(({ request }) => String(request.id));
+        const approvalDecisions = sourceRequestIds.length === 0
+          ? []
+          : await db.select({
+              id: subscriptionApprovalDecisions.id,
+              sourceRequestId: subscriptionApprovalDecisions.sourceRequestId,
+              approvalOutcome: subscriptionApprovalDecisions.approvalOutcome,
+              approvedPlan: subscriptionApprovalDecisions.approvedPlan,
+              approvedBillingCycle: subscriptionApprovalDecisions.approvedBillingCycle,
+              paymentBasis: subscriptionApprovalDecisions.paymentBasis,
+              renewalMode: subscriptionApprovalDecisions.renewalMode,
+              fromAccessState: subscriptionApprovalDecisions.fromAccessState,
+              toAccessState: subscriptionApprovalDecisions.toAccessState,
+              effectiveAt: subscriptionApprovalDecisions.effectiveAt,
+              createdAt: subscriptionApprovalDecisions.createdAt,
+            })
+              .from(subscriptionApprovalDecisions)
+              .where(inArray(subscriptionApprovalDecisions.sourceRequestId, sourceRequestIds));
+        const approvalByRequestId = new Map(
+          approvalDecisions.map((decision) => [decision.sourceRequestId, decision]),
+        );
+        return res.json({
+          requests: requests.map((row) => ({
+            ...row,
+            approval: approvalByRequestId.get(String(row.request.id)) ?? null,
+          })),
+          pendingCount,
+        });
       } catch (error: any) {
         console.error("[ADMIN CLINIC UPGRADE REQUESTS] Load failed:", error?.message || error);
         return res.status(500).json({ message: "Unable to load clinic upgrade requests" });
@@ -1534,24 +1605,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           (req as any).user?.id ||
           "superuser",
         );
-        const paidResult = await assignPaidPlanForAdmin({
+        const approvalInput = {
           clinicId: request.clinicId,
-          plan: approvedPlan,
-          billingCycle: approvedBillingCycle,
-          reason: reviewReason,
+          approvalContext: "upgrade_request" as const,
+          outcome: "online_payment_required" as const,
+          requestedPlan: request.requestedPlan as PaidPlanKey,
+          approvedPlan,
+          requestedBillingCycle: request.billingCycle as BillingCycle,
+          approvedBillingCycle,
+          paymentBasis: "provider" as const,
+          renewalMode: "provider_auto" as const,
+          reason: reviewReason || null,
+          actor: { type: "superadmin" as const, id: actorId },
           transitionId,
-          actorId,
-          metadata: {
-            approvalType: "clinic_upgrade_request",
-            upgradeRequestId: request.id,
-            requestedPlan: request.requestedPlan,
-            requestedBillingCycle: request.billingCycle,
-            approvedPlan,
-            approvedBillingCycle,
-            planOverridden: approvedPlan !== request.requestedPlan,
-            billingCycleOverridden: approvedBillingCycle !== request.billingCycle,
+          sourceRequestId: String(request.id),
+          effectiveAt: new Date(),
+          onlinePayment: {
+            provider: "razorpay",
+            paymentLinkMetadata: {
+              approvalType: "clinic_upgrade_request",
+              upgradeRequestId: request.id,
+              requestedPlan: request.requestedPlan,
+              requestedBillingCycle: request.billingCycle,
+              approvedPlan,
+              approvedBillingCycle,
+              planOverridden: approvedPlan !== request.requestedPlan,
+              billingCycleOverridden: approvedBillingCycle !== request.billingCycle,
+            },
           },
+        };
+        const approvalResult = await applySubscriptionApproval(approvalInput, {
+          createOnlinePaymentIntent: createRazorpayOnlinePaymentIntent,
         });
+        const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";
+        const activationUrl = approvalResult.activationToken
+          ? `${frontendBase}/activate/${approvalResult.activationToken.token}`
+          : null;
+        const { activationToken: _activationToken, ...publicApprovalResult } = approvalResult;
 
         const reviewedRequest = await storage.reviewClinicUpgradeRequest(
           request.id,
@@ -1562,17 +1652,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (!reviewedRequest) {
           const latest = await storage.getClinicUpgradeRequest(request.id);
           if (latest?.status === "approved") {
-            return res.json({ request: latest, paidPlan: paidResult, idempotent: true });
+            return res.json({
+              request: latest,
+              approval: publicApprovalResult,
+              activationUrl,
+              providerConfigured: Boolean(razorpay),
+              idempotent: true,
+            });
           }
           return res.status(409).json({
             message: "The upgrade request was reviewed by another administrator",
           });
         }
 
-        return res.status(paidResult.idempotent ? 200 : 201).json({
+        return res.status(approvalResult.idempotent ? 200 : 201).json({
           request: reviewedRequest,
-          paidPlan: paidResult,
-          idempotent: paidResult.idempotent,
+          approval: publicApprovalResult,
+          activationUrl,
+          providerConfigured: Boolean(razorpay),
+          idempotent: approvalResult.idempotent,
         });
       } catch (error: any) {
         const statusCode = Number(error?.statusCode);
@@ -1618,6 +1716,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           (req as any).user?.id ||
           "superuser",
         );
+        const transitionId = parsed.data.transitionId ||
+          `clinic-upgrade:${request.id}:reject`;
+        const approvalResult = await applySubscriptionApproval({
+          clinicId: request.clinicId,
+          approvalContext: "upgrade_request" as const,
+          outcome: "reject" as const,
+          requestedPlan: request.requestedPlan as PaidPlanKey,
+          approvedPlan: null,
+          requestedBillingCycle: request.billingCycle as BillingCycle,
+          approvedBillingCycle: null,
+          paymentBasis: "none" as const,
+          renewalMode: "admin_review" as const,
+          reason: parsed.data.reviewReason,
+          actor: { type: "superadmin" as const, id: actorId },
+          transitionId,
+          sourceRequestId: String(request.id),
+          effectiveAt: new Date(),
+        });
+        const { activationToken: _activationToken, ...publicApprovalResult } = approvalResult;
+
         const reviewedRequest = await storage.reviewClinicUpgradeRequest(
           request.id,
           "rejected",
@@ -1627,15 +1745,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (!reviewedRequest) {
           const latest = await storage.getClinicUpgradeRequest(request.id);
           if (latest?.status === "rejected") {
-            return res.json({ request: latest, idempotent: true });
+            return res.json({
+              request: latest,
+              approval: publicApprovalResult,
+              idempotent: true,
+            });
           }
           return res.status(409).json({
             message: "The upgrade request was reviewed by another administrator",
           });
         }
 
-        return res.json({ request: reviewedRequest, idempotent: false });
+        return res.json({
+          request: reviewedRequest,
+          approval: publicApprovalResult,
+          idempotent: approvalResult.idempotent,
+        });
       } catch (error: any) {
+        const statusCode = Number(error?.statusCode);
+        if (statusCode >= 400 && statusCode < 600) {
+          return res.status(statusCode).json({ message: error.message });
+        }
         console.error("[ADMIN CLINIC UPGRADE REQUESTS] Rejection failed:", error?.message || error);
         return res.status(500).json({ message: "Unable to reject clinic upgrade request" });
       }
@@ -2119,43 +2249,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         now,
         createOnlinePaymentIntent: approvedPlan === "trial"
           ? undefined
-          : async ({ clinic, approval, activationToken, linkExpiresAt }) => {
-              const billingCycle = approval.approvedBillingCycle!;
-              const planId = RAZORPAY_PLAN_IDS[approval.approvedPlan!]?.[billingCycle];
-              if (!razorpay || !planId) {
-                throw new Error("Razorpay is not configured for this plan and billing cycle");
-              }
-              try {
-                const subscription = await (razorpay as any).subscriptions.create({
-                  plan_id: planId,
-                  quantity: 1,
-                  total_count: billingCycle === "annual" ? 1 : 12,
-                  customer_notify: 0,
-                  notes: {
-                    clinicId: clinic.id.toString(),
-                    clinicName: clinic.name,
-                    plan: approval.approvedPlan,
-                    billingCycle,
-                    transitionId: approval.transitionId,
-                    activationToken,
-                  },
-                });
-                return {
-                  provider: "razorpay",
-                  providerSubscriptionId: subscription.id,
-                  shortUrl: subscription.short_url || null,
-                  linkExpiresAt,
-                  paymentLinkMetadata: {
-                    planId,
-                    providerSubscriptionId: subscription.id,
-                    shortUrl: subscription.short_url || null,
-                  },
-                };
-              } catch (error: any) {
-                console.error("[RAZORPAY] Registration approval preparation failed:", error?.error?.description || error?.message);
-                throw error;
-              }
-            },
+          : createRazorpayOnlinePaymentIntent,
       });
 
       const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";

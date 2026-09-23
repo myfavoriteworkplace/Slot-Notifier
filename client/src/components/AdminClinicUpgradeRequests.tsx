@@ -38,9 +38,20 @@ type ClinicSnapshot = {
   trialGraceEndsAt: string | null;
 };
 
+type ApprovalSummary = {
+  approvalOutcome: string;
+  approvedPlan: string | null;
+  approvedBillingCycle: string | null;
+  paymentBasis: string;
+  renewalMode: string;
+  fromAccessState: string | null;
+  toAccessState: string | null;
+};
+
 type UpgradeRequestRow = {
   request: UpgradeRequest;
   clinic: ClinicSnapshot;
+  approval: ApprovalSummary | null;
 };
 
 type UpgradeRequestListResponse = {
@@ -55,6 +66,16 @@ type AdminClinicUpgradeRequestsProps = {
 
 const formatPlan = (plan: string) => plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase();
 const formatCycle = (cycle: string) => cycle === "annual" ? "Annual" : "Monthly";
+const formatAccessState = (state: string | null | undefined) => {
+  if (!state) return "Not recorded";
+  return state.split("_").map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+};
+const formatPaymentBasis = (basis: string) => {
+  if (basis === "provider") return "Provider pending";
+  if (basis === "offline_verified") return "Verified offline";
+  if (basis === "complimentary") return "Complimentary";
+  return "None";
+};
 
 const formatDate = (value: string | null | undefined) => {
   if (!value) return "Not recorded";
@@ -135,7 +156,10 @@ export default function AdminClinicUpgradeRequests({
             reviewReason: reviewReason.trim() || null,
             transitionId: approvalTransitionId,
           }
-        : { reviewReason: reviewReason.trim() };
+        : {
+            reviewReason: reviewReason.trim(),
+            transitionId: approvalTransitionId,
+          };
       const response = await apiRequest("POST", path, body);
       if (!response.ok) throw new Error(await responseError(response, "Unable to review upgrade request"));
       return response.json();
@@ -246,7 +270,7 @@ export default function AdminClinicUpgradeRequests({
               {scope === "pending" ? "No pending upgrade requests." : "No upgrade request history yet."}
             </div>
           )}
-          {rows.map(({ request, clinic }) => (
+          {rows.map(({ request, clinic, approval }) => (
             <div key={request.id} className="rounded-xl border bg-card p-4 shadow-sm" data-testid={`upgrade-request-row-${request.id}`}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
@@ -258,11 +282,22 @@ export default function AdminClinicUpgradeRequests({
                   <p className="mt-1 text-xs text-muted-foreground">
                     {clinic.city || "Clinic"} · Clinic #{clinic.id} · {clinic.email}
                   </p>
-                  <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-5">
                     <div><span className="text-muted-foreground">Current plan</span><p className="font-medium">{formatPlan(clinic.plan || "unknown")}</p></div>
                     <div><span className="text-muted-foreground">Requested</span><p className="font-medium">{formatPlan(request.requestedPlan)} · {formatCycle(request.billingCycle)}</p></div>
                     <div><span className="text-muted-foreground">Submitted</span><p className="font-medium">{formatDate(request.requestedAt)}</p><p className="text-muted-foreground">{requestAge(request.requestedAt)}</p></div>
                     <div><span className="text-muted-foreground">Trial ends</span><p className="font-medium">{formatDate(clinic.trialEndsAt)}</p></div>
+                    <div>
+                      <span className="text-muted-foreground">Decision</span>
+                      {approval ? (
+                        <>
+                          <p className="font-medium">{formatPaymentBasis(approval.paymentBasis)}</p>
+                          <p className="text-muted-foreground">Access: {formatAccessState(approval.toAccessState)}</p>
+                        </>
+                      ) : (
+                        <p className="font-medium">Awaiting review</p>
+                      )}
+                    </div>
                   </div>
                   {request.clinicReason && (
                     <p className="mt-3 rounded-lg bg-muted/40 px-3 py-2 text-sm">
@@ -277,11 +312,11 @@ export default function AdminClinicUpgradeRequests({
                 </div>
                 {request.status === "pending" && (
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    <Button type="button" size="sm" onClick={() => openReview({ request, clinic }, "approve")} data-testid={`button-approve-upgrade-request-${request.id}`}>
+                    <Button type="button" size="sm" onClick={() => openReview({ request, clinic, approval }, "approve")} data-testid={`button-approve-upgrade-request-${request.id}`}>
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Approve
                     </Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => openReview({ request, clinic }, "reject")} data-testid={`button-reject-upgrade-request-${request.id}`}>
+                    <Button type="button" size="sm" variant="outline" onClick={() => openReview({ request, clinic, approval }, "reject")} data-testid={`button-reject-upgrade-request-${request.id}`}>
                       <XCircle className="h-3.5 w-3.5" />
                       Reject
                     </Button>
