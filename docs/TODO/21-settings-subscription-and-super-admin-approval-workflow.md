@@ -311,6 +311,27 @@ The central operation must never infer active paid access from the requested
 plan, assigned plan, provider subscription existence, generated payment link,
 or a generic manual override.
 
+#### Implementation progress — Make registration, upgrades, and renewals use one approval workflow
+
+This table is the implementation tracker for the independent steps below.
+“Complete” means the documented exit criteria for that step are implemented;
+later steps may still depend on it.
+
+| Step | Workstream | Progress | Current result | Next action |
+|---|---|---|---|---|
+| 0 | Inventory and freeze current behavior | **Complete** | Development inventory and route/state baseline recorded. A production database snapshot was not available, so production classification remains pending. | Obtain a production snapshot before rollout reconciliation. |
+| 1 | Define the shared approval contract | **Complete** | Shared validation covers plans, outcomes, payment bases, renewal modes, actors, overrides, and outcome-specific evidence. | Keep adapters translating into this contract. |
+| 2 | Add append-only approval and payment records | **Complete** | Approval decisions, offline payments, lifecycle links, assignments, grants, activation tokens, and idempotency constraints exist in the development schema. | Apply schema changes through the normal production publish flow. |
+| 3 | Build the central server-side transition operation | **Complete** | `applySubscriptionApproval()` owns validation, locking/re-checking, idempotency, provider-intent reconciliation, clinic snapshots, assignments, decisions, and lifecycle events. | Migrate every entry point to the operation. |
+| 4 | Migrate registration approval | **Complete** | `PATCH /api/clinics/:id/approve` is a thin adapter for Trial and provider-payment registration approvals, including custom Trial schedules and post-commit credentials/email. | Preserve the shared result shape as other adapters migrate. |
+| 5 | Migrate upgrade-request approval | **Not started** | The upgrade route still calls the legacy paid-plan assignment helper. | Translate pending upgrade approvals and rejections into central decisions, then mark the request reviewed only after success. |
+| 6 | Migrate provider activation and renewal | **Not started** | Provider webhook handlers still contain independent subscription state transitions. | Make provider events adapters that call the central activation/renewal transition logic. |
+| 7 | Add verified offline payment and renewal | **Not started** | The central service can record verified offline evidence, but no dedicated production entry point is migrated. | Add Super Admin offline-payment and renewal actions with immutable evidence and reversal handling. |
+| 8 | Add complimentary access and expiry | **Not started** | The central service can create sponsored grants, but the dedicated access-management flow is not migrated. | Add grant/revoke/expiry actions with sponsor references and lifecycle history. |
+| 9 | Update Clinics & Access around the central result | **Not started** | Existing screens and actions are not yet fully driven by the shared access/payment dimensions. | Display requested plan, assigned plan, current access, payment basis/status, dates, and next action separately. |
+| 10 | Reconcile existing data and roll out safely | **Not started** | No production backfill or reconciliation has been run. | Classify legacy clinics, preview changes, backfill only with an approved report, and monitor rollout. |
+| 11 | Verify the complete state matrix | **Not started** | Contract and focused transition tests pass; the complete registration/upgrade/renewal matrix is not yet covered. | Add end-to-end checks for every outcome, retry, provider failure, expiry, reversal, and authorization path. |
+
 ### 5.2 Step 0 — Inventory and freeze the current behavior
 
 Before changing any route or UI, record the current behavior and identify
