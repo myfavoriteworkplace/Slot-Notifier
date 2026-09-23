@@ -366,6 +366,7 @@ app.use((req, res, next) => {
           actor_id                 varchar(255),
           source_request_id        varchar(120),
           transition_id            varchar(120) NOT NULL,
+          input_fingerprint        varchar(64),
           effective_at             timestamp NOT NULL DEFAULT NOW(),
           created_at               timestamp NOT NULL DEFAULT NOW(),
           CONSTRAINT subscription_approval_decisions_clinic_transition_uidx
@@ -375,6 +376,8 @@ app.use((req, res, next) => {
           ON subscription_approval_decisions (clinic_id, effective_at);
         CREATE INDEX IF NOT EXISTS subscription_approval_decisions_source_request_idx
           ON subscription_approval_decisions (source_request_id);
+        ALTER TABLE subscription_approval_decisions
+          ADD COLUMN IF NOT EXISTS input_fingerprint varchar(64);
 
         CREATE TABLE IF NOT EXISTS subscription_offline_payments (
           id                    serial PRIMARY KEY,

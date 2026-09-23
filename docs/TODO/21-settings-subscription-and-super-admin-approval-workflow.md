@@ -713,6 +713,32 @@ The service must return a state such as:
 - Every write has an audit decision and transition ID.
 - Failure and retry behavior is defined.
 
+#### Step 3 completion record
+
+**Status:** Complete as a reusable server-side operation. The existing
+registration, upgrade, and renewal routes remain legacy adapters until their
+respective migration steps.
+
+Implemented in `server/subscription-approval.ts`:
+
+- `applySubscriptionApproval(input)` validates the shared approval contract,
+  re-checks the clinic inside a row-locking transaction, rejects illegal Trial
+  replacement, and writes the decision, evidence/grant, clinic snapshot,
+  assignment, lifecycle event, and applicable upgrade-request link together.
+- Trial approvals create the default Trial window. Online payment approvals
+  preserve active Trial or paid access while leaving payment pending. Verified
+  offline approvals activate the paid plan with a cycle-based expiry.
+  Complimentary approvals create a separate sponsored grant, and rejection
+  records an explicit rejected decision.
+- Online provider creation is injected through
+  `createOnlinePaymentIntent`; provider failures leave the clinic unchanged.
+  A provider intent created before a later database failure is recorded as an
+  unlinked provider event for reconciliation.
+- Replays return the original decision result. A SHA-256 input fingerprint
+  rejects reuse of a transition ID with different approval or payment input.
+- `server/subscription-approval.test.ts` covers the central access-state
+  interpretation and route-facing error contract.
+
 ### 5.6 Step 4 — Migrate registration approval
 
 Update `PATCH /api/clinics/:id/approve` to become a thin adapter over the

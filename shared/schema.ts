@@ -514,6 +514,7 @@ export const subscriptionApprovalDecisions = pgTable("subscription_approval_deci
   actorId: varchar("actor_id", { length: 255 }),
   sourceRequestId: varchar("source_request_id", { length: 120 }),
   transitionId: varchar("transition_id", { length: 120 }).notNull(),
+  inputFingerprint: varchar("input_fingerprint", { length: 64 }),
   effectiveAt: timestamp("effective_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
@@ -932,6 +933,7 @@ export const SUBSCRIPTION_LIFECYCLE_EVENT_TYPES = [
   "exception_granted",
   "exception_expired",
   "manual_payment_recorded",
+  "approval_rejected",
 ] as const;
 export type SubscriptionLifecycleEventType = (typeof SUBSCRIPTION_LIFECYCLE_EVENT_TYPES)[number];
 
