@@ -27,7 +27,7 @@ implementation task.
 
 | ID | Independent step | Status now | Depends on | Why this matters in plain language | Done when |
 |---|---|---|---|---|---|
-| **R1** | Freeze the five registration outcomes and message rules | **Partial** | — | Everyone must agree what happens when a clinic requests Trial, pays online, pays offline, receives complimentary access, or is rejected. | The contract and this document clearly state: Trial sends username/password only; paid online sends a link based on the final Admin selection; offline activates only after verification; complimentary access is finite; rejection grants nothing. |
+| **R1** | Freeze the five registration outcomes and message rules | **Complete** | — | Everyone must agree what happens when a clinic requests Trial, pays online, pays offline, receives complimentary access, or is rejected. | The registration policy below is the source of truth for the outcome, final Admin selection, access state, payment meaning, and message sent for every registration decision. |
 | **R2** | Add a separate registration outcome selector | **Not complete** | R1 | The Admin must choose an outcome separately from the plan. Selecting `Growth` should not automatically mean online payment. | The registration dialog offers Trial, online payment, verified offline payment, complimentary access, and rejection, with only the relevant fields for each choice. |
 | **R3** | Extend the registration approval API to all five outcomes | **Partial** | R1 | The server must receive the complete Admin decision instead of inferring it from `approvedPlan`. | `PATCH /api/clinics/:id/approve` accepts and validates all five outcomes, preserves requested and approved values, and calls the shared transition operation for every outcome. |
 | **R4** | Complete Trial registration and credentials delivery | **Partial** | R3 | A Trial clinic should be able to start using the application without receiving a payment request. | Trial approval creates Trial and grace dates, sends username/password only, creates no payment link or provider subscription, and does not resend or rotate credentials on retry. |
@@ -43,6 +43,93 @@ implementation task.
 | **R14** | Define safe boundaries for remaining lifecycle actions | **Partial** | R9–R12 | Trial extensions, grant expiry, reversals, provider recovery, and entitlement exceptions may remain specialized, but they must not be unsafe bypasses. | Every remaining mutation has documented authorization, locking/re-checking, idempotency, audit history, and a shared result or clearly documented lifecycle result. |
 | **R15** | Run the registration and payment acceptance matrix in Render development | **Not started** | R2–R14 | The application is deployed to Render for testing, so the real deployed development flow must be checked before calling the work complete. | All five registration outcomes, Admin overrides, emails, provider confirmation, offline evidence, retries, permissions, and access enforcement pass in the Render development environment. |
 | **R16** | Prepare production rollout and data reconciliation | **Not started** | R9–R15 and an approved production data source | Development data and Render acceptance data must not be treated as production clinic history. | A production database or approved production snapshot is classified read-only first; ambiguous clinics enter a review queue; approved backfills and rollout monitoring are documented before production release. |
+
+### R1 completion record — frozen registration policy
+
+R1 is complete as a product and documentation decision. The following rules
+are the source of truth for registration approval. Later implementation steps
+must follow these rules; they must not infer a different outcome from a plan
+dropdown or from the clinic snapshot.
+
+#### Common rules
+
+1. A clinic's submitted plan and billing cycle are a **request**, not an active
+   subscription.
+2. Super Admin selects the registration outcome and, for paid outcomes, the
+   final approved plan and billing cycle.
+3. The requested and approved values are both retained:
+
+   ```text
+   Requested plan/cycle -> what the clinic asked for
+   Approved plan/cycle  -> what Super Admin finally selected
+   ```
+
+4. If the approved paid plan or billing cycle differs from the request, the
+   Admin must provide an override reason.
+5. Any online payment link, provider plan ID, activation token, email wording,
+   approval result, and audit record must use the **approved** plan and cycle,
+   not the original request.
+6. Trial access is not paid access. A payment link, provider subscription
+   record, or assigned paid plan is not proof that paid access has started.
+
+#### Registration outcome and message rules
+
+| Registration outcome | What the Admin selects | Access after the decision | Message sent to the clinic | Payment meaning |
+|---|---|---|---|---|
+| **Approve with Trial** | Trial and optional Trial schedule | Trial access, followed by the documented grace period | Username and password only; no payment link | No payment is required at approval |
+| **Approve paid plan — online payment** | Final paid plan and monthly/annual cycle | Trial remains active while payment is pending | Payment link for the final approved plan and cycle | Paid access starts only after provider confirmation |
+| **Activate paid plan — verified offline payment** | Final paid plan, cycle, payment amount, and evidence | Active paid access after verification | Offline-payment confirmation with paid-period dates | Payment was received outside the provider and verified by Super Admin |
+| **Grant paid-level access — complimentary** | Paid-level plan, start date, end date, reason, and optional sponsor reference | Finite sponsored/complimentary access | Complimentary-access confirmation with the end date | No payment is recorded; access does not auto-renew |
+| **Reject registration** | Rejection reason | No active access | Rejection message; no credentials or payment link | No payment and no access |
+
+#### Online payment override example
+
+If the clinic requests:
+
+```text
+Growth · Annual
+```
+
+and Super Admin approves:
+
+```text
+Starter · Monthly
+```
+
+the system must create and send a **Starter Monthly** payment link. It must
+not create a Growth Annual link. The approval history must show both values and
+the reason for the override.
+
+#### Registration result vocabulary
+
+Every registration result must expose these separate dimensions:
+
+```text
+requestedPlan
+requestedBillingCycle
+approvedPlan
+approvedBillingCycle
+approvalOutcome
+currentAccessPlan
+accessState
+paymentStatus
+paymentBasis
+renewalMode
+nextAction
+```
+
+The online-payment result must therefore be representable as:
+
+```text
+approvalOutcome = online_payment_required
+approvedPlan = the final Admin-selected paid plan
+approvedBillingCycle = the final Admin-selected cycle
+currentAccessPlan = trial
+accessState = trial
+paymentStatus = pending
+paymentBasis = provider
+paidAccess = false
+```
 
 ## 1. Purpose
 
@@ -170,7 +257,9 @@ PATCH /api/clinics/:id/approve
 ```
 
 The current screen supports Trial and paid plan selections, billing cycle,
-custom Trial dates, grace dates, and an approval reason.
+custom Trial dates, grace dates, and an approval reason. This is an
+implementation description, not the frozen policy: the target screen must
+select the approval outcome separately from the final approved plan and cycle.
 
 The target approval outcomes are:
 
@@ -1393,12 +1482,20 @@ Approval reason: [required]
 Confirmation:
 
 ```text
-This will approve Growth on an Annual cycle.
+This will approve [the final approved plan] on [the final approved cycle].
 
 The clinic will remain on Trial access until online payment is confirmed.
-A payment activation link will be generated and sent.
+A payment activation link for the final approved plan and cycle will be
+generated and sent.
 Paid access will not begin before provider confirmation.
 ```
+
+The online-payment message is not a credentials-only message. The link must
+match the final Admin selection, including any plan or billing-cycle override.
+Trial approval is the only registration outcome whose message is defined as
+username and password only. The current implementation still includes
+credentials in the paid approval email; aligning that behavior with this
+policy remains part of R4 and R5.
 
 ### 6.6 Offline payment fields
 
