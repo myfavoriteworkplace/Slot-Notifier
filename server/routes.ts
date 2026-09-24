@@ -70,8 +70,8 @@ import {
 } from "./subscription-approval";
 import { resolveRequestedPlan } from "@shared/clinic-registration";
 import {
+  registrationApprovalRequestSchema,
   resolveInitialApprovalSelection,
-  validateInitialApprovalSelection,
 } from "@shared/clinic-approval";
 import {
   clinicUpgradeRequestBodySchema,
@@ -2132,17 +2132,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/clinics/:id/approve", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Only superusers can approve clinics" });
-    const parsed = z.object({
-      approvedPlan: z.enum(["trial", "starter", "growth", "pro"]).optional(),
-      billingCycle: z.enum(["monthly", "annual"]).nullable().optional(),
-      trialStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-      trialEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-      trialGraceDays: z.coerce.number().int().min(0).max(365).optional(),
-      reason: z.string().trim().max(500).optional(),
-      transitionId: z.string().uuid().optional(),
-    }).safeParse(req.body);
+    const parsed = registrationApprovalRequestSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ message: "The approval plan, billing cycle, Trial dates, or reason is invalid" });
+      return res.status(400).json({
+        message: parsed.error.issues[0]?.message || "The registration approval decision is invalid",
+      });
     }
 
     try {
@@ -2154,26 +2148,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!existing) return res.status(404).json({ message: "Clinic not found" });
 
       const now = new Date();
-      const approvalSelection = resolveInitialApprovalSelection(
-        existing.requestedPlan,
-        parsed.data.approvedPlan,
-      );
-      const { requestedPlan, approvedPlan, isOverride } = approvalSelection;
+      const requestedPlan = resolveInitialApprovalSelection(existing.requestedPlan).requestedPlan;
+      const { outcome, approvedPlan } = parsed.data;
+      const isPaidOutcome =
+        outcome === "online_payment_required" ||
+        outcome === "verified_offline_payment" ||
+        outcome === "complimentary";
+      const approvedBillingCycle = isPaidOutcome ? parsed.data.billingCycle : null;
       const reason = parsed.data.reason?.trim() || "";
-      const selectionError = validateInitialApprovalSelection({
-        ...approvalSelection,
-        billingCycle: parsed.data.billingCycle,
-        trialStartDate: parsed.data.trialStartDate,
-        trialEndDate: parsed.data.trialEndDate,
-        trialGraceDays: parsed.data.trialGraceDays,
-        reason,
-      });
-      if (selectionError) {
-        return res.status(400).json({ message: selectionError });
-      }
-
+      const fallbackTransitionId = crypto.createHash("sha256")
+        .update(JSON.stringify(parsed.data))
+        .digest("hex")
+        .slice(0, 40);
       const transitionId = parsed.data.transitionId ||
-        `initial-approval:${clinicId}:${approvedPlan}:${parsed.data.billingCycle || "none"}:${parsed.data.trialStartDate || "default"}:${parsed.data.trialEndDate || "default"}:${parsed.data.trialGraceDays ?? "default"}`;
+        `registration:${clinicId}:${fallbackTransitionId}`;
       const hasCustomDates = parsed.data.trialStartDate !== undefined ||
         parsed.data.trialEndDate !== undefined ||
         parsed.data.trialGraceDays !== undefined;
@@ -2210,6 +2198,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ message: "Custom Trial end must be after the approval time" });
       }
 
+      let offlinePayment: {
+        amount: number;
+        currency: string;
+        receivedAt: Date;
+        paymentMethod: "bank_transfer" | "cash" | "upi" | "card" | "other";
+        externalReference: string;
+        evidenceReference: string;
+        verifiedBy: string;
+        verifiedAt: Date;
+      } | undefined;
+      if (outcome === "verified_offline_payment" && parsed.data.offlinePayment) {
+        const receivedAt = new Date(parsed.data.offlinePayment.receivedAt);
+        if (!Number.isSafeInteger(parsed.data.offlinePayment.amount)) {
+          return res.status(400).json({ message: "Offline payment amount must be a whole number of rupees" });
+        }
+        if (!Number.isFinite(receivedAt.getTime()) || receivedAt > now) {
+          return res.status(400).json({ message: "The offline payment date cannot be in the future" });
+        }
+        if (!approvedPlan || approvedPlan === "trial" || !approvedBillingCycle) {
+          return res.status(400).json({ message: "Offline payment requires a paid plan and billing cycle" });
+        }
+        const expectedAmount = PUBLISHED_PLAN_POLICY.plans[approvedPlan].pricing[approvedBillingCycle];
+        if (expectedAmount === null || parsed.data.offlinePayment.amount !== expectedAmount) {
+          return res.status(400).json({
+            message: `Verified offline payment must match the published full plan price of ₹${expectedAmount ?? "unavailable"}`,
+          });
+        }
+        offlinePayment = {
+          amount: parsed.data.offlinePayment.amount,
+          currency: "INR",
+          receivedAt,
+          paymentMethod: parsed.data.offlinePayment.paymentMethod,
+          externalReference: parsed.data.offlinePayment.externalReference,
+          evidenceReference: parsed.data.offlinePayment.evidenceReference,
+          verifiedBy: String(
+            (req as any).user?.claims?.email ||
+            (req as any).user?.id ||
+            "superuser",
+          ),
+          verifiedAt: now,
+        };
+      }
+
+      const complimentaryAccess = outcome === "complimentary" && parsed.data.complimentaryAccess
+        ? {
+            startsAt: getUtcInstantForCalendarDate(
+              parsed.data.complimentaryAccess.startsAt,
+              existing.timezone || "Asia/Kolkata",
+            ),
+            endsAt: getUtcInstantForCalendarDate(
+              parsed.data.complimentaryAccess.endsAt,
+              existing.timezone || "Asia/Kolkata",
+              true,
+            ),
+            sponsorReference: parsed.data.complimentaryAccess.sponsorReference ||
+              "superadmin-complimentary-access",
+          }
+        : undefined;
+      if (complimentaryAccess && complimentaryAccess.endsAt <= complimentaryAccess.startsAt) {
+        return res.status(400).json({ message: "Complimentary access must end after it starts" });
+      }
+
       const actorId = String(
         (req as any).user?.claims?.email ||
         (req as any).user?.id ||
@@ -2218,26 +2268,39 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const approvalInput = {
         clinicId,
         approvalContext: "registration" as const,
-        outcome: approvedPlan === "trial"
-          ? "trial" as const
-          : "online_payment_required" as const,
+        outcome,
         requestedPlan,
         approvedPlan,
-        requestedBillingCycle: parsed.data.billingCycle || null,
-        approvedBillingCycle: approvedPlan === "trial" ? null : parsed.data.billingCycle!,
-        paymentBasis: approvedPlan === "trial"
-          ? "none" as const
-          : "provider" as const,
-        renewalMode: approvedPlan === "trial"
+        // Registration currently stores a requested plan, but not a requested
+        // billing cycle. Keep that unknown value null instead of copying the
+        // Admin's approved cycle into both sides of the decision.
+        requestedBillingCycle: null,
+        approvedBillingCycle,
+        paymentBasis: outcome === "online_payment_required"
+          ? "provider" as const
+          : outcome === "verified_offline_payment"
+            ? "offline_verified" as const
+            : outcome === "complimentary"
+              ? "complimentary" as const
+              : "none" as const,
+        renewalMode: outcome === "trial"
           ? "trial_expiry" as const
-          : "provider_auto" as const,
+          : outcome === "online_payment_required"
+            ? "provider_auto" as const
+            : outcome === "verified_offline_payment"
+              ? "manual" as const
+              : outcome === "complimentary"
+                ? "admin_review" as const
+                : "manual" as const,
         reason: reason || null,
         actor: { type: "superadmin" as const, id: actorId },
         transitionId,
         sourceRequestId: null,
         effectiveAt: now,
         ...(trialSchedule ? { trialSchedule } : {}),
-        ...(approvedPlan !== "trial"
+        ...(offlinePayment ? { offlinePayment } : {}),
+        ...(complimentaryAccess ? { complimentaryAccess } : {}),
+        ...(outcome === "online_payment_required"
           ? {
               onlinePayment: {
                 provider: "razorpay",
@@ -2245,8 +2308,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                   approvalType: "initial_registration",
                   requestedPlan,
                   approvedPlan,
-                  billingCycle: parsed.data.billingCycle!,
-                  planOverridden: isOverride,
+                  billingCycle: approvedBillingCycle,
+                  planOverridden: approvedPlan !== requestedPlan,
                 },
               },
             }
@@ -2255,9 +2318,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const approvalResult = await applySubscriptionApproval(approvalInput, {
         now,
-        createOnlinePaymentIntent: approvedPlan === "trial"
-          ? undefined
-          : createRazorpayOnlinePaymentIntent,
+        createOnlinePaymentIntent: outcome === "online_payment_required"
+          ? createRazorpayOnlinePaymentIntent
+          : undefined,
       });
 
       const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";
@@ -2265,7 +2328,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ? `${frontendBase}/activate/${approvalResult.activationToken.token}`
         : null;
 
-      if (!approvalResult.idempotent) {
+      if (
+        !approvalResult.idempotent &&
+        (outcome === "trial" || outcome === "online_payment_required")
+      ) {
         // Generate credentials only after the central transition commits. A
         // replay must not rotate credentials or send a second welcome email.
         const base = existing.name
@@ -2298,7 +2364,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             username,
             plainPassword,
             activationUrl || undefined,
-            approvedPlan,
+            approvedPlan || undefined,
           );
         }
       }
@@ -2307,14 +2373,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(approvalResult.idempotent ? 200 : 201).json({
         ...publicApprovalResult,
         activationUrl,
-        providerConfigured: approvedPlan === "trial" || Boolean(razorpay),
-        trial: approvalResult.clinic.plan === "trial"
+        trial: (outcome === "trial" || outcome === "online_payment_required") &&
+          approvalResult.clinic.plan === "trial"
           ? {
               trialStartedAt: approvalResult.clinic.trialStartedAt,
               trialEndsAt: approvalResult.clinic.trialEndsAt,
               trialGraceEndsAt: approvalResult.clinic.trialGraceEndsAt,
             }
           : null,
+        providerConfigured: outcome !== "online_payment_required" || Boolean(razorpay),
       });
     } catch (error: any) {
       const statusCode = Number(error?.statusCode) ||

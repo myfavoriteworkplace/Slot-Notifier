@@ -928,18 +928,27 @@ export default function Admin() {
   const approveClinicMutation = useMutation({
     mutationFn: async () => {
       if (!approvalClinic) throw new Error("Select a clinic to approve");
-      if (approvalOutcome !== "trial" && approvalOutcome !== "online_payment_required") {
-        throw new Error("This registration outcome is ready in the review screen but requires the registration API update in R3 before it can be submitted.");
-      }
       const requestedPlan = (approvalClinic.requestedPlan || "trial") as ApprovalPlan;
-      const selectedPlan = approvalOutcome === "trial" ? "trial" : approvalPlan;
-      const isOverride = selectedPlan !== requestedPlan;
+      const isPaidOutcome = approvalOutcome === "online_payment_required" ||
+        approvalOutcome === "verified_offline_payment" ||
+        approvalOutcome === "complimentary";
+      const selectedPlan = approvalOutcome === "reject"
+        ? null
+        : approvalOutcome === "trial"
+          ? "trial"
+          : approvalPlan;
+      const isOverride = selectedPlan !== null && selectedPlan !== requestedPlan;
       const reason = approvalReason.trim();
       if (isOverride && reason.length < 10) {
         throw new Error("Add a reason of at least 10 characters for this plan override");
       }
+      if ((approvalOutcome === "reject" || approvalOutcome === "complimentary") && !reason) {
+        throw new Error(approvalOutcome === "reject" ? "Add a rejection reason" : "Add a complimentary-access reason");
+      }
       const payload: Record<string, unknown> = {
+        outcome: approvalOutcome,
         approvedPlan: selectedPlan,
+        billingCycle: isPaidOutcome ? approvalBillingCycle : null,
         reason: reason || undefined,
         transitionId: approvalTransitionId || crypto.randomUUID(),
       };
@@ -948,8 +957,36 @@ export default function Admin() {
         payload.trialEndDate = trialEndDate;
         payload.trialGraceDays = Number(trialGraceDays);
       }
-      if (approvalOutcome === "online_payment_required") {
-        payload.billingCycle = approvalBillingCycle;
+      if (approvalOutcome === "verified_offline_payment") {
+        const receivedAt = new Date(offlineReceivedAt);
+        if (!Number.isSafeInteger(Number(offlineAmount)) || Number(offlineAmount) <= 0) {
+          throw new Error("Enter the whole-rupee amount received");
+        }
+        if (!offlineReceivedAt || !Number.isFinite(receivedAt.getTime()) || receivedAt > new Date()) {
+          throw new Error("Enter a valid payment date that is not in the future");
+        }
+        if (!offlineExternalReference.trim() || !offlineEvidenceReference.trim()) {
+          throw new Error("Enter both the payment reference and evidence reference");
+        }
+        payload.offlinePayment = {
+          amount: Number(offlineAmount),
+          receivedAt: receivedAt.toISOString(),
+          paymentMethod: offlinePaymentMethod,
+          externalReference: offlineExternalReference.trim(),
+          evidenceReference: offlineEvidenceReference.trim(),
+        };
+      }
+      if (approvalOutcome === "complimentary") {
+        if (!complimentaryStartsAt || !complimentaryEndsAt || complimentaryEndsAt < complimentaryStartsAt) {
+          throw new Error("Choose valid complimentary-access start and end dates");
+        }
+        payload.complimentaryAccess = {
+          startsAt: complimentaryStartsAt,
+          endsAt: complimentaryEndsAt,
+          ...(complimentarySponsorReference.trim()
+            ? { sponsorReference: complimentarySponsorReference.trim() }
+            : {}),
+        };
       }
       const res = await apiRequest('PATCH', `/api/clinics/${approvalClinic.id}/approve`, payload);
       if (!res.ok) {
@@ -960,17 +997,24 @@ export default function Admin() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      const paid = approvalOutcome === "online_payment_required";
+      const description = approvalOutcome === "reject"
+        ? "The rejection decision was recorded. No credentials or payment link were issued."
+        : approvalOutcome === "verified_offline_payment"
+          ? `${APPROVAL_PLAN_LABELS[approvalPlan]} ${approvalBillingCycle} paid access was activated after offline payment verification.`
+          : approvalOutcome === "complimentary"
+            ? `Complimentary access was recorded through ${complimentaryEndsAt}. No payment was recorded.`
+            : approvalOutcome === "online_payment_required"
+              ? result?.activationUrl
+                ? `${APPROVAL_PLAN_LABELS[approvalPlan]} ${approvalBillingCycle} activation is ready.`
+                : `${APPROVAL_PLAN_LABELS[approvalPlan]} ${approvalBillingCycle} approval is pending payment.`
+              : customTrialSchedule
+                ? "The custom Trial schedule is active."
+                : "The clinic has started its 14-day Trial.";
       closeApprovalDialog();
-      notify.success("Clinic approved", {
-        description: paid
-          ? result?.activationUrl
-            ? `${APPROVAL_PLAN_LABELS[approvalPlan]} ${approvalBillingCycle} activation is ready. Credentials and payment instructions were sent.`
-            : `${APPROVAL_PLAN_LABELS[approvalPlan]} ${approvalBillingCycle} approval is pending payment.`
-          : customTrialSchedule
-            ? "Credentials sent. The custom Trial schedule is active."
-            : "Credentials sent. The clinic has started its 14-day Trial.",
-      });
+      notify.success(
+        approvalOutcome === "reject" ? "Registration rejected" : "Registration decision recorded",
+        { description },
+      );
     },
     onError: (error: any) => notify.apiError(error, "Approval failed"),
   });
@@ -991,11 +1035,31 @@ export default function Admin() {
   const isPaidApprovalOutcome = approvalOutcome === "online_payment_required" ||
     approvalOutcome === "verified_offline_payment" ||
     approvalOutcome === "complimentary";
-  const isSupportedRegistrationOutcome = approvalOutcome === "trial" ||
-    approvalOutcome === "online_payment_required";
   const approvalPlanIsOverridden = isPaidApprovalOutcome
     ? approvalPlan !== requestedApprovalPlan
     : approvalOutcome === "trial" && requestedApprovalPlan !== "trial";
+  const approvalReasonIsRequired =
+    approvalOutcome === "reject" ||
+    approvalOutcome === "complimentary" ||
+    approvalPlanIsOverridden;
+  const approvalReasonIsInvalid = approvalPlanIsOverridden
+    ? approvalReason.trim().length < 10
+    : approvalReasonIsRequired && approvalReason.trim().length === 0;
+  const offlineReceivedDate = offlineReceivedAt ? new Date(offlineReceivedAt) : null;
+  const offlinePaymentFormIsInvalid = approvalOutcome === "verified_offline_payment" && (
+    !Number.isSafeInteger(Number(offlineAmount)) ||
+    Number(offlineAmount) <= 0 ||
+    !offlineReceivedDate ||
+    !Number.isFinite(offlineReceivedDate.getTime()) ||
+    offlineReceivedDate > new Date() ||
+    !offlineExternalReference.trim() ||
+    !offlineEvidenceReference.trim()
+  );
+  const complimentaryFormIsInvalid = approvalOutcome === "complimentary" && (
+    !complimentaryStartsAt ||
+    !complimentaryEndsAt ||
+    complimentaryEndsAt < complimentaryStartsAt
+  );
 
   const [expandedReviewIds, setExpandedReviewIds] = useState<Set<number>>(new Set());
   const toggleReview = (id: number) => {
@@ -3386,15 +3450,9 @@ export default function Admin() {
                 ))}
               </select>
               <p className="text-xs text-muted-foreground">
-                The selected outcome determines what access is granted and what message the clinic receives.
+                The selected outcome determines the recorded access state, payment basis, and next step.
               </p>
             </div>
-
-            {!isSupportedRegistrationOutcome && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
-                This outcome is represented in the review screen. Submission will be enabled after the registration API supports it in R3.
-              </div>
-            )}
 
             {isPaidApprovalOutcome && (
               <div className="space-y-2">
@@ -3446,7 +3504,11 @@ export default function Admin() {
                   <option value="annual">Annual</option>
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Payment will remain pending until the clinic completes the prepared activation.
+                  {approvalOutcome === "online_payment_required"
+                    ? "Payment remains pending until the provider confirms payment."
+                    : approvalOutcome === "verified_offline_payment"
+                      ? "Paid access will activate only after the offline payment evidence is verified."
+                      : "Access is sponsored for the selected date range and will not renew automatically."}
                 </p>
               </div>
             )}
@@ -3496,15 +3558,15 @@ export default function Admin() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="registration-offline-amount" className="text-xs">Amount received</Label>
-                    <Input id="registration-offline-amount" type="number" min={1} step={1} value={offlineAmount} onChange={event => setOfflineAmount(event.target.value)} disabled data-testid="input-registration-offline-amount" />
+                    <Input id="registration-offline-amount" type="number" min={1} step={1} value={offlineAmount} onChange={event => setOfflineAmount(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-registration-offline-amount" />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="registration-offline-received-at" className="text-xs">Payment date</Label>
-                    <Input id="registration-offline-received-at" type="datetime-local" value={offlineReceivedAt} onChange={event => setOfflineReceivedAt(event.target.value)} disabled data-testid="input-registration-offline-received-at" />
+                    <Input id="registration-offline-received-at" type="datetime-local" value={offlineReceivedAt} onChange={event => setOfflineReceivedAt(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-registration-offline-received-at" />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="registration-offline-method" className="text-xs">Payment method</Label>
-                    <select id="registration-offline-method" value={offlinePaymentMethod} onChange={event => setOfflinePaymentMethod(event.target.value)} disabled className="h-9 w-full rounded-md border bg-background px-2 text-sm" data-testid="select-registration-offline-method">
+                    <select id="registration-offline-method" value={offlinePaymentMethod} onChange={event => setOfflinePaymentMethod(event.target.value)} disabled={approveClinicMutation.isPending} className="h-9 w-full rounded-md border bg-background px-2 text-sm" data-testid="select-registration-offline-method">
                       <option value="bank_transfer">Bank transfer</option>
                       <option value="cash">Cash</option>
                       <option value="upi">UPI</option>
@@ -3514,14 +3576,14 @@ export default function Admin() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="registration-offline-reference" className="text-xs">External reference</Label>
-                    <Input id="registration-offline-reference" value={offlineExternalReference} onChange={event => setOfflineExternalReference(event.target.value)} disabled data-testid="input-registration-offline-reference" />
+                    <Input id="registration-offline-reference" value={offlineExternalReference} onChange={event => setOfflineExternalReference(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-registration-offline-reference" />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="registration-offline-evidence" className="text-xs">Evidence reference</Label>
-                    <Input id="registration-offline-evidence" value={offlineEvidenceReference} onChange={event => setOfflineEvidenceReference(event.target.value)} disabled data-testid="input-registration-offline-evidence" />
+                    <Input id="registration-offline-evidence" value={offlineEvidenceReference} onChange={event => setOfflineEvidenceReference(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-registration-offline-evidence" />
                   </div>
                 </div>
-                <p className="text-xs text-amber-800 dark:text-amber-200">These fields are displayed for R2 and will be submitted after the R3 registration API update.</p>
+                <p className="text-xs text-amber-800 dark:text-amber-200">Enter the full published price in INR. Payment must have been received by today.</p>
               </div>
             )}
 
@@ -3531,15 +3593,15 @@ export default function Admin() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="registration-complimentary-start" className="text-xs">Start date</Label>
-                    <Input id="registration-complimentary-start" type="date" value={complimentaryStartsAt} onChange={event => setComplimentaryStartsAt(event.target.value)} disabled data-testid="input-registration-complimentary-start" />
+                    <Input id="registration-complimentary-start" type="date" value={complimentaryStartsAt} onChange={event => setComplimentaryStartsAt(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-registration-complimentary-start" />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="registration-complimentary-end" className="text-xs">End date</Label>
-                    <Input id="registration-complimentary-end" type="date" value={complimentaryEndsAt} min={complimentaryStartsAt} onChange={event => setComplimentaryEndsAt(event.target.value)} disabled data-testid="input-registration-complimentary-end" />
+                    <Input id="registration-complimentary-end" type="date" value={complimentaryEndsAt} min={complimentaryStartsAt} onChange={event => setComplimentaryEndsAt(event.target.value)} disabled={approveClinicMutation.isPending} data-testid="input-registration-complimentary-end" />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="registration-complimentary-reference" className="text-xs">Sponsor/internal reference</Label>
-                    <Input id="registration-complimentary-reference" value={complimentarySponsorReference} onChange={event => setComplimentarySponsorReference(event.target.value)} disabled data-testid="input-registration-complimentary-reference" />
+                    <Label htmlFor="registration-complimentary-reference" className="text-xs">Sponsor/internal reference (optional)</Label>
+                    <Input id="registration-complimentary-reference" value={complimentarySponsorReference} onChange={event => setComplimentarySponsorReference(event.target.value)} disabled={approveClinicMutation.isPending} maxLength={160} data-testid="input-registration-complimentary-reference" />
                   </div>
                 </div>
                 <p className="text-xs text-violet-800 dark:text-violet-200">No payment will be recorded and access will not renew automatically.</p>
@@ -3569,6 +3631,21 @@ export default function Admin() {
               </div>
             )}
 
+            {approvalOutcome === "complimentary" && !approvalPlanIsOverridden && (
+              <div className="space-y-2">
+                <Label htmlFor="approval-reason">Complimentary-access reason <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="approval-reason"
+                  value={approvalReason}
+                  onChange={event => setApprovalReason(event.target.value)}
+                  placeholder="Explain why this access is sponsored"
+                  maxLength={500}
+                  disabled={approveClinicMutation.isPending}
+                  data-testid="textarea-approval-reason"
+                />
+              </div>
+            )}
+
             {approvalOutcome === "reject" && (
               <div className="space-y-2">
                 <Label htmlFor="approval-reason">Rejection reason <span className="text-destructive">*</span></Label>
@@ -3584,7 +3661,10 @@ export default function Admin() {
               </div>
             )}
 
-            {approvalOutcome !== "trial" && approvalOutcome !== "reject" && !approvalPlanIsOverridden && (
+            {approvalOutcome !== "trial" &&
+              approvalOutcome !== "reject" &&
+              approvalOutcome !== "complimentary" &&
+              !approvalPlanIsOverridden && (
               <div className="space-y-2">
                 <Label htmlFor="approval-reason">Approval reason <span className="text-muted-foreground">(optional)</span></Label>
                 <Textarea
@@ -3607,8 +3687,10 @@ export default function Admin() {
               disabled={
                 approveClinicMutation.isPending ||
                 !approvalClinic ||
-                !isSupportedRegistrationOutcome ||
-                ((approvalPlanIsOverridden || approvalOutcome === "reject") && approvalReason.trim().length < 10) ||
+                approvalReasonIsInvalid ||
+                offlinePaymentFormIsInvalid ||
+                complimentaryFormIsInvalid ||
+                (isPaidApprovalOutcome && approvalPlan === "trial") ||
                 (approvalOutcome === "trial" && customTrialSchedule && (
                   !trialStartDate ||
                   !trialEndDate ||
@@ -3623,9 +3705,7 @@ export default function Admin() {
               {approveClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {approveClinicMutation.isPending
                 ? "Saving…"
-                : isSupportedRegistrationOutcome
-                  ? REGISTRATION_OUTCOME_LABELS[approvalOutcome]
-                  : "Requires R3 API support"}
+                : REGISTRATION_OUTCOME_LABELS[approvalOutcome]}
             </Button>
           </DialogFooter>
         </DialogContent>
