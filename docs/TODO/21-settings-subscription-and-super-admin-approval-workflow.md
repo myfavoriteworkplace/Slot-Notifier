@@ -4,6 +4,23 @@
 **Scope:** Clinic registration approval, Trial lifecycle, paid-plan assignment, payment-link delivery, verified offline payment, complimentary access, upgrade requests, renewals, audit history, and the Super Admin Clinics & Access workspace
 **Audience:** Product owner, frontend engineers, backend engineers, Super Admin operations, billing operators, and QA
 
+## Implementation status and pending work — audited 2026-09-24
+
+The shared approval contract and transition service are implemented, and the
+project has working registration, upgrade, provider, offline-payment,
+complimentary-access, and Clinics & Access foundations. The source audit below
+shows that the workflow is **not release-complete**: several documented
+outcomes and actions are absent, some mutation paths bypass the shared
+operation, production data has not been reconciled, and the full test matrix
+has not been verified.
+
+| Priority | Workstream / step | Current implementation evidence | Remaining work | What completion achieves |
+|---|---|---|---|---|
+| **P0** | Centralize access-changing operations — Steps 3–5, 9 | `applySubscriptionApproval()` exists, but the Admin paid-plan route and its UI caller still directly write clinic, token, assignment, and lifecycle state. Trial start/extension and entitlement-exception grant/revoke also have separate write paths. | Route paid-plan assignment through the shared service and retire or guard the legacy endpoint. Decide whether Trial and entitlement-exception operations belong in the same approval boundary; if specialized lifecycle operations remain, document that boundary and require consistent locking, idempotency, audit, and result behavior. | No undocumented plan/access mutation bypasses reviewed transition rules; online payment does not remove valid Trial access. |
+| **P0** | Complete registration and upgrade outcomes — Steps 4–5, 11 | Registration currently offers Trial and provider payment. Upgrade-request approval supports online payment; rejection is a separate shared decision. The document’s matrix requires Trial, online, verified-offline, complimentary, and reject outcomes in both contexts. | Implement missing route and UI choices, or formally narrow the matrix. Preserve upgrade-request linkage and return the same access/payment result for every supported outcome. | Registration and upgrade requests follow the documented outcome vocabulary, with correct access and history for each result. |
+| **P0** | Verify Razorpay webhook requests — Step 6 | Express captures the original bytes as `req.rawBody`, but the webhook computes its HMAC over `JSON.stringify(req.body)`. Verification is skipped when the webhook secret is absent. The provider-event row stores selected fields, not the original request payload. | Verify against captured raw bytes, fail closed in production when the secret is missing, compare signatures safely, and retain enough event data for audit/replay. Test exact bytes, altered payloads, missing signatures/secrets, duplicates, and retries. | Only authentic provider events can change access; verification and resulting transitions can be audited and safely retried. |
+| **P1** | Close offline-payment policy gaps — Step 7 | Offline activation/renewal and reversal routes exist. The route accepts any positive whole-number amount and the shared service only checks that it is a whole number; neither enforces full plan price nor keeps an undocumented partial payment pending. Reversal accepts a reason but no effective date. | Enforce full price or implement an explicit partial-payment state that cannot grant paid access. Add effective-date handling for reversal/refund and test rejected, duplicate, partial, and reversed payments. | A partial or rejected payment cannot accidentally activate a paid plan, and reversals have complete, policy-consistent evidence. |
+
 ## 1. Purpose
 
 This document is the central reference for clinic subscription approval and
