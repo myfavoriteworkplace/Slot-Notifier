@@ -28,7 +28,7 @@ implementation task.
 | ID | Independent step | Status now | Depends on | Why this matters in plain language | Done when |
 |---|---|---|---|---|---|
 | **R1** | Freeze the five registration outcomes and message rules | **Complete** | — | Everyone must agree what happens when a clinic requests Trial, pays online, pays offline, receives complimentary access, or is rejected. | The registration policy below is the source of truth for the outcome, final Admin selection, access state, payment meaning, and message sent for every registration decision. |
-| **R2** | Add a separate registration outcome selector | **Not complete** | R1 | The Admin must choose an outcome separately from the plan. Selecting `Growth` should not automatically mean online payment. | The registration dialog offers Trial, online payment, verified offline payment, complimentary access, and rejection, with only the relevant fields for each choice. |
+| **R2** | Add a separate registration outcome selector | **Complete** | R1 | The Admin must choose an outcome separately from the plan. Selecting `Growth` should not automatically mean online payment. | The registration dialog has a separate five-outcome selector, shows only the relevant plan, cycle, Trial, offline, complimentary, or rejection fields, and prevents unsupported outcomes from submitting through the legacy API. |
 | **R3** | Extend the registration approval API to all five outcomes | **Partial** | R1 | The server must receive the complete Admin decision instead of inferring it from `approvedPlan`. | `PATCH /api/clinics/:id/approve` accepts and validates all five outcomes, preserves requested and approved values, and calls the shared transition operation for every outcome. |
 | **R4** | Complete Trial registration and credentials delivery | **Partial** | R3 | A Trial clinic should be able to start using the application without receiving a payment request. | Trial approval creates Trial and grace dates, sends username/password only, creates no payment link or provider subscription, and does not resend or rotate credentials on retry. |
 | **R5** | Complete online paid registration and Admin overrides | **Partial** | R3 | The clinic must receive a payment link for the plan and cycle the Admin actually approved, not the original request. | An override from Growth Annual to Starter Monthly creates a Starter Monthly provider link, records both requested and approved values, requires an override reason, preserves Trial access, and keeps paid access false until provider confirmation. |
@@ -130,6 +130,26 @@ paymentStatus = pending
 paymentBasis = provider
 paidAccess = false
 ```
+
+### R2 completion record — separate registration outcome selector
+
+R2 is complete for the registration review UI:
+
+- The dialog now has a dedicated approval-outcome selector independent of the
+  approved plan selector.
+- The selector offers Trial, online payment, verified offline payment,
+  complimentary access, and rejection.
+- Trial shows Trial scheduling controls and the credentials-only message rule.
+- Online payment shows the final approved plan, billing cycle, Trial-pending
+  explanation, and payment-link rule.
+- Verified offline payment shows amount, date, method, external reference, and
+  evidence-reference fields.
+- Complimentary access shows paid-level plan, start/end dates, and sponsor or
+  internal reference fields.
+- Rejection shows the rejection state and reason field.
+- The UI does not submit offline, complimentary, or rejection choices through
+  the older Trial/online approval payload. Those choices remain visibly blocked
+  until R3 adds the complete registration API contract.
 
 ## 1. Purpose
 
@@ -256,10 +276,12 @@ The current approval route is:
 PATCH /api/clinics/:id/approve
 ```
 
-The current screen supports Trial and paid plan selections, billing cycle,
-custom Trial dates, grace dates, and an approval reason. This is an
-implementation description, not the frozen policy: the target screen must
-select the approval outcome separately from the final approved plan and cycle.
+The registration review dialog now has a separate approval-outcome selector,
+final approved plan selector, billing-cycle selector, custom Trial controls,
+and outcome-specific fields. Trial and online-payment choices use the current
+approval API. Offline, complimentary, and rejection choices are represented in
+the UI but are blocked from submission until the registration API migration in
+R3. This is an implementation description, not a change to the frozen policy.
 
 The target approval outcomes are:
 

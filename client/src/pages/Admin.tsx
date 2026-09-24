@@ -261,12 +261,26 @@ function AdminClinicSummaryMetrics({ clinic, status }: { clinic: Clinic; status:
 
 type ApprovalPlan = "trial" | "starter" | "growth" | "pro";
 type ApprovalBillingCycle = "monthly" | "annual";
+type RegistrationApprovalOutcome =
+  | "trial"
+  | "online_payment_required"
+  | "verified_offline_payment"
+  | "complimentary"
+  | "reject";
 
 const APPROVAL_PLAN_LABELS: Record<ApprovalPlan, string> = {
   trial: "Trial",
   starter: "Starter",
   growth: "Growth",
   pro: "Pro",
+};
+
+const REGISTRATION_OUTCOME_LABELS: Record<RegistrationApprovalOutcome, string> = {
+  trial: "Approve with Trial",
+  online_payment_required: "Approve paid plan — online payment",
+  verified_offline_payment: "Activate paid plan — verified offline payment",
+  complimentary: "Grant paid-level access — complimentary",
+  reject: "Reject registration",
 };
 
 function localDateInputValue(date: Date): string {
@@ -329,6 +343,7 @@ export default function Admin() {
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [approvalClinic, setApprovalClinic] = useState<Clinic | null>(null);
+  const [approvalOutcome, setApprovalOutcome] = useState<RegistrationApprovalOutcome>("trial");
   const [approvalPlan, setApprovalPlan] = useState<ApprovalPlan>("trial");
   const [approvalBillingCycle, setApprovalBillingCycle] = useState<ApprovalBillingCycle>("monthly");
   const [customTrialSchedule, setCustomTrialSchedule] = useState(false);
@@ -337,6 +352,14 @@ export default function Admin() {
   const [trialGraceDays, setTrialGraceDays] = useState("7");
   const [approvalReason, setApprovalReason] = useState("");
   const [approvalTransitionId, setApprovalTransitionId] = useState("");
+  const [offlineAmount, setOfflineAmount] = useState("");
+  const [offlineReceivedAt, setOfflineReceivedAt] = useState("");
+  const [offlinePaymentMethod, setOfflinePaymentMethod] = useState("bank_transfer");
+  const [offlineExternalReference, setOfflineExternalReference] = useState("");
+  const [offlineEvidenceReference, setOfflineEvidenceReference] = useState("");
+  const [complimentaryStartsAt, setComplimentaryStartsAt] = useState("");
+  const [complimentaryEndsAt, setComplimentaryEndsAt] = useState("");
+  const [complimentarySponsorReference, setComplimentarySponsorReference] = useState("");
 
   // Smile Deals state
   const [dealCreatorTab, setDealCreatorTab] = useState<"deal" | "ad">("deal");
@@ -853,8 +876,12 @@ export default function Admin() {
 
   const openApprovalDialog = (clinic: Clinic) => {
     const requestedPlan = (clinic.requestedPlan || "trial") as ApprovalPlan;
+    const initialOutcome: RegistrationApprovalOutcome = requestedPlan === "trial"
+      ? "trial"
+      : "online_payment_required";
     const today = localDateInputValue(new Date());
     setApprovalClinic(clinic);
+    setApprovalOutcome(initialOutcome);
     setApprovalPlan(Object.prototype.hasOwnProperty.call(APPROVAL_PLAN_LABELS, requestedPlan) ? requestedPlan : "trial");
     setApprovalBillingCycle("monthly");
     setCustomTrialSchedule(false);
@@ -863,35 +890,65 @@ export default function Admin() {
     setTrialGraceDays("7");
     setApprovalReason("");
     setApprovalTransitionId(crypto.randomUUID());
+    setOfflineAmount("");
+    setOfflineReceivedAt("");
+    setOfflinePaymentMethod("bank_transfer");
+    setOfflineExternalReference("");
+    setOfflineEvidenceReference("");
+    setComplimentaryStartsAt(today);
+    setComplimentaryEndsAt(addLocalDays(today, 30));
+    setComplimentarySponsorReference("");
   };
 
   const closeApprovalDialog = () => {
     if (approveClinicMutation.isPending) return;
     setApprovalClinic(null);
+    setApprovalOutcome("trial");
     setApprovalReason("");
     setApprovalTransitionId("");
+  };
+
+  const handleApprovalOutcomeChange = (outcome: RegistrationApprovalOutcome) => {
+    setApprovalOutcome(outcome);
+    if (outcome === "trial") {
+      setApprovalPlan("trial");
+      return;
+    }
+    if (outcome === "reject") return;
+    if (approvalPlan === "trial") {
+      const requestedPlan = approvalClinic?.requestedPlan as ApprovalPlan | null | undefined;
+      setApprovalPlan(
+        requestedPlan && requestedPlan !== "trial" && Object.prototype.hasOwnProperty.call(APPROVAL_PLAN_LABELS, requestedPlan)
+          ? requestedPlan
+          : "starter",
+      );
+    }
   };
 
   const approveClinicMutation = useMutation({
     mutationFn: async () => {
       if (!approvalClinic) throw new Error("Select a clinic to approve");
+      if (approvalOutcome !== "trial" && approvalOutcome !== "online_payment_required") {
+        throw new Error("This registration outcome is ready in the review screen but requires the registration API update in R3 before it can be submitted.");
+      }
       const requestedPlan = (approvalClinic.requestedPlan || "trial") as ApprovalPlan;
-      const isOverride = approvalPlan !== requestedPlan;
+      const selectedPlan = approvalOutcome === "trial" ? "trial" : approvalPlan;
+      const isOverride = selectedPlan !== requestedPlan;
       const reason = approvalReason.trim();
       if (isOverride && reason.length < 10) {
         throw new Error("Add a reason of at least 10 characters for this plan override");
       }
       const payload: Record<string, unknown> = {
-        approvedPlan: approvalPlan,
+        approvedPlan: selectedPlan,
         reason: reason || undefined,
         transitionId: approvalTransitionId || crypto.randomUUID(),
       };
-      if (approvalPlan === "trial" && customTrialSchedule) {
+      if (approvalOutcome === "trial" && customTrialSchedule) {
         payload.trialStartDate = trialStartDate;
         payload.trialEndDate = trialEndDate;
         payload.trialGraceDays = Number(trialGraceDays);
       }
-      if (approvalPlan !== "trial") {
+      if (approvalOutcome === "online_payment_required") {
         payload.billingCycle = approvalBillingCycle;
       }
       const res = await apiRequest('PATCH', `/api/clinics/${approvalClinic.id}/approve`, payload);
@@ -903,7 +960,7 @@ export default function Admin() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      const paid = approvalPlan !== "trial";
+      const paid = approvalOutcome === "online_payment_required";
       closeApprovalDialog();
       notify.success("Clinic approved", {
         description: paid
@@ -929,6 +986,16 @@ export default function Admin() {
       notify.success("Registration rejected", { description: "The clinic has been removed from the pending queue." });
     }
   });
+
+  const requestedApprovalPlan = (approvalClinic?.requestedPlan || "trial") as ApprovalPlan;
+  const isPaidApprovalOutcome = approvalOutcome === "online_payment_required" ||
+    approvalOutcome === "verified_offline_payment" ||
+    approvalOutcome === "complimentary";
+  const isSupportedRegistrationOutcome = approvalOutcome === "trial" ||
+    approvalOutcome === "online_payment_required";
+  const approvalPlanIsOverridden = isPaidApprovalOutcome
+    ? approvalPlan !== requestedApprovalPlan
+    : approvalOutcome === "trial" && requestedApprovalPlan !== "trial";
 
   const [expandedReviewIds, setExpandedReviewIds] = useState<Set<number>>(new Set());
   const toggleReview = (id: number) => {
@@ -3296,7 +3363,7 @@ export default function Admin() {
           <DialogHeader>
             <DialogTitle>Approve clinic registration</DialogTitle>
             <DialogDescription>
-              Choose the effective plan for {approvalClinic?.name}. The clinic requested{" "}
+              Choose the approval outcome and final approved plan for {approvalClinic?.name}. The clinic requested{" "}
               <span className="font-semibold text-foreground">
                 {approvalClinic ? APPROVAL_PLAN_LABELS[(approvalClinic.requestedPlan || "trial") as ApprovalPlan] || "Trial" : "Trial"}
               </span>.
@@ -3305,7 +3372,33 @@ export default function Admin() {
 
           <div className="space-y-5 py-2">
             <div className="space-y-2">
-              <Label htmlFor="approval-plan">Approved plan</Label>
+              <Label htmlFor="approval-outcome">Approval outcome</Label>
+              <select
+                id="approval-outcome"
+                value={approvalOutcome}
+                onChange={event => handleApprovalOutcomeChange(event.target.value as RegistrationApprovalOutcome)}
+                disabled={approveClinicMutation.isPending}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                data-testid="select-approval-outcome"
+              >
+                {(Object.keys(REGISTRATION_OUTCOME_LABELS) as RegistrationApprovalOutcome[]).map(outcome => (
+                  <option key={outcome} value={outcome}>{REGISTRATION_OUTCOME_LABELS[outcome]}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                The selected outcome determines what access is granted and what message the clinic receives.
+              </p>
+            </div>
+
+            {!isSupportedRegistrationOutcome && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
+                This outcome is represented in the review screen. Submission will be enabled after the registration API supports it in R3.
+              </div>
+            )}
+
+            {isPaidApprovalOutcome && (
+              <div className="space-y-2">
+                <Label htmlFor="approval-plan">Approved plan</Label>
               <select
                 id="approval-plan"
                 value={approvalPlan}
@@ -3314,13 +3407,31 @@ export default function Admin() {
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 data-testid="select-approval-plan"
               >
-                {(Object.keys(APPROVAL_PLAN_LABELS) as ApprovalPlan[]).map(plan => (
-                  <option key={plan} value={plan}>{APPROVAL_PLAN_LABELS[plan]}</option>
-                ))}
+                {(Object.keys(APPROVAL_PLAN_LABELS) as ApprovalPlan[])
+                  .filter(plan => plan !== "trial")
+                  .map(plan => (
+                    <option key={plan} value={plan}>{APPROVAL_PLAN_LABELS[plan]}</option>
+                  ))}
               </select>
-            </div>
+                <p className="text-xs text-muted-foreground">
+                  Requested plan: {APPROVAL_PLAN_LABELS[requestedApprovalPlan] || "Not recorded"}.
+                </p>
+              </div>
+            )}
 
-            {approvalPlan !== "trial" && (
+            {approvalOutcome === "trial" && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-200">
+                Trial approval sends the clinic username and password only. No payment link is created.
+              </div>
+            )}
+
+            {approvalOutcome === "online_payment_required" && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/20 dark:text-blue-200">
+                The payment link will use the final approved plan and billing cycle. Trial remains active until the provider confirms payment.
+              </div>
+            )}
+
+            {isPaidApprovalOutcome && (
               <div className="space-y-2">
                 <Label htmlFor="approval-billing-cycle">Billing cycle</Label>
                 <select
@@ -3340,7 +3451,7 @@ export default function Admin() {
               </div>
             )}
 
-            {approvalPlan === "trial" && (
+            {approvalOutcome === "trial" && (
               <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -3379,7 +3490,70 @@ export default function Admin() {
               </div>
             )}
 
-            {approvalClinic && approvalPlan !== (approvalClinic.requestedPlan || "trial") && (
+            {approvalOutcome === "verified_offline_payment" && (
+              <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+                <p className="text-sm font-semibold">Offline payment details</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="registration-offline-amount" className="text-xs">Amount received</Label>
+                    <Input id="registration-offline-amount" type="number" min={1} step={1} value={offlineAmount} onChange={event => setOfflineAmount(event.target.value)} disabled data-testid="input-registration-offline-amount" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="registration-offline-received-at" className="text-xs">Payment date</Label>
+                    <Input id="registration-offline-received-at" type="datetime-local" value={offlineReceivedAt} onChange={event => setOfflineReceivedAt(event.target.value)} disabled data-testid="input-registration-offline-received-at" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="registration-offline-method" className="text-xs">Payment method</Label>
+                    <select id="registration-offline-method" value={offlinePaymentMethod} onChange={event => setOfflinePaymentMethod(event.target.value)} disabled className="h-9 w-full rounded-md border bg-background px-2 text-sm" data-testid="select-registration-offline-method">
+                      <option value="bank_transfer">Bank transfer</option>
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI</option>
+                      <option value="card">Card</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="registration-offline-reference" className="text-xs">External reference</Label>
+                    <Input id="registration-offline-reference" value={offlineExternalReference} onChange={event => setOfflineExternalReference(event.target.value)} disabled data-testid="input-registration-offline-reference" />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="registration-offline-evidence" className="text-xs">Evidence reference</Label>
+                    <Input id="registration-offline-evidence" value={offlineEvidenceReference} onChange={event => setOfflineEvidenceReference(event.target.value)} disabled data-testid="input-registration-offline-evidence" />
+                  </div>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-amber-200">These fields are displayed for R2 and will be submitted after the R3 registration API update.</p>
+              </div>
+            )}
+
+            {approvalOutcome === "complimentary" && (
+              <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900/60 dark:bg-violet-950/20">
+                <p className="text-sm font-semibold">Complimentary access details</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="registration-complimentary-start" className="text-xs">Start date</Label>
+                    <Input id="registration-complimentary-start" type="date" value={complimentaryStartsAt} onChange={event => setComplimentaryStartsAt(event.target.value)} disabled data-testid="input-registration-complimentary-start" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="registration-complimentary-end" className="text-xs">End date</Label>
+                    <Input id="registration-complimentary-end" type="date" value={complimentaryEndsAt} min={complimentaryStartsAt} onChange={event => setComplimentaryEndsAt(event.target.value)} disabled data-testid="input-registration-complimentary-end" />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="registration-complimentary-reference" className="text-xs">Sponsor/internal reference</Label>
+                    <Input id="registration-complimentary-reference" value={complimentarySponsorReference} onChange={event => setComplimentarySponsorReference(event.target.value)} disabled data-testid="input-registration-complimentary-reference" />
+                  </div>
+                </div>
+                <p className="text-xs text-violet-800 dark:text-violet-200">No payment will be recorded and access will not renew automatically.</p>
+              </div>
+            )}
+
+            {approvalOutcome === "reject" && (
+              <div className="rounded-lg border border-red-200 bg-red-50/60 p-3 dark:border-red-900/60 dark:bg-red-950/20">
+                <p className="text-sm font-semibold">Reject registration</p>
+                <p className="mt-1 text-xs text-red-800 dark:text-red-200">The clinic will receive no credentials, payment link, or active access.</p>
+              </div>
+            )}
+
+            {approvalPlanIsOverridden && (
               <div className="space-y-2">
                 <Label htmlFor="approval-reason">Override reason <span className="text-destructive">*</span></Label>
                 <Textarea
@@ -3394,6 +3568,36 @@ export default function Admin() {
                 <p className="text-xs text-muted-foreground">At least 10 characters are required.</p>
               </div>
             )}
+
+            {approvalOutcome === "reject" && (
+              <div className="space-y-2">
+                <Label htmlFor="approval-reason">Rejection reason <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="approval-reason"
+                  value={approvalReason}
+                  onChange={event => setApprovalReason(event.target.value)}
+                  placeholder="Explain why this registration is being rejected"
+                  maxLength={500}
+                  disabled={approveClinicMutation.isPending}
+                  data-testid="textarea-approval-reason"
+                />
+              </div>
+            )}
+
+            {approvalOutcome !== "trial" && approvalOutcome !== "reject" && !approvalPlanIsOverridden && (
+              <div className="space-y-2">
+                <Label htmlFor="approval-reason">Approval reason <span className="text-muted-foreground">(optional)</span></Label>
+                <Textarea
+                  id="approval-reason"
+                  value={approvalReason}
+                  onChange={event => setApprovalReason(event.target.value)}
+                  placeholder="Add context for this approval"
+                  maxLength={500}
+                  disabled={approveClinicMutation.isPending}
+                  data-testid="textarea-approval-reason"
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -3403,8 +3607,9 @@ export default function Admin() {
               disabled={
                 approveClinicMutation.isPending ||
                 !approvalClinic ||
-                (approvalClinic && approvalPlan !== (approvalClinic.requestedPlan || "trial") && approvalReason.trim().length < 10) ||
-                (approvalPlan === "trial" && customTrialSchedule && (
+                !isSupportedRegistrationOutcome ||
+                ((approvalPlanIsOverridden || approvalOutcome === "reject") && approvalReason.trim().length < 10) ||
+                (approvalOutcome === "trial" && customTrialSchedule && (
                   !trialStartDate ||
                   !trialEndDate ||
                   trialEndDate < trialStartDate ||
@@ -3416,7 +3621,11 @@ export default function Admin() {
               data-testid="button-confirm-clinic-approval"
             >
               {approveClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {approveClinicMutation.isPending ? "Approving…" : `Approve as ${APPROVAL_PLAN_LABELS[approvalPlan]}`}
+              {approveClinicMutation.isPending
+                ? "Saving…"
+                : isSupportedRegistrationOutcome
+                  ? REGISTRATION_OUTCOME_LABELS[approvalOutcome]
+                  : "Requires R3 API support"}
             </Button>
           </DialogFooter>
         </DialogContent>
