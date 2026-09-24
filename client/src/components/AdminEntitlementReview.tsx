@@ -25,6 +25,7 @@ import {
   ADMIN_CLINIC_DIRECTORY_FILTER_OPTIONS,
   matchesAdminClinicDirectoryFilter,
   matchesAdminClinicDirectorySearch,
+  type AdminClinicAccessSummary,
   type AdminClinicDirectoryFilter,
   type AdminClinicDirectoryRecord,
 } from "@shared/admin-clinic-directory";
@@ -145,6 +146,29 @@ const labelFor = (value: string | null | undefined) => {
   return value.replace(/_/g, " ").replace(/\b\w/g, character => character.toUpperCase());
 };
 
+const paymentBasisLabel = (value: string | null) => {
+  if (value === "provider") return "Online provider";
+  if (value === "offline_verified") return "Verified offline";
+  if (value === "complimentary") return "Complimentary";
+  if (value === "none") return "Not required";
+  return value ? labelFor(value) : "Legacy / unknown";
+};
+
+const paymentStatusLabel = (value: AdminClinicAccessSummary["paymentStatus"]) => {
+  if (value === "not_required") return "Not required";
+  if (value === "verified_offline") return "Verified offline";
+  if (value === "waived") return "Waived";
+  return labelFor(value);
+};
+
+const importantDateLabel = (value: AdminClinicAccessSummary["nextImportantDateType"]) => {
+  if (value === "trial_ends") return "Trial ends";
+  if (value === "trial_grace_ends") return "Grace ends";
+  if (value === "paid_access_expires") return "Paid access expires";
+  if (value === "sponsored_access_ends") return "Sponsored access ends";
+  return "No next date";
+};
+
 const historyDateValue = (value: string | null) => value ? new Date(value).getTime() : 0;
 
 const localDateTimeValue = () => {
@@ -185,7 +209,7 @@ export default function AdminEntitlementReview({
   onArchiveClinic,
   onRestoreClinic,
 }: {
-  clinics: Clinic[];
+  clinics: AdminClinicDirectoryRecord[];
   clinicsLoading?: boolean;
   clinicsError?: boolean;
   onRetryClinics?: () => void;
@@ -262,7 +286,7 @@ export default function AdminEntitlementReview({
     const needle = search.trim().toLowerCase();
     return clinics
       .filter(clinic => matchesAdminClinicDirectoryFilter(clinic, clinicFilter))
-      .filter(clinic => matchesAdminClinicDirectorySearch(clinic as AdminClinicDirectoryRecord, needle));
+      .filter(clinic => matchesAdminClinicDirectorySearch(clinic, needle));
   }, [clinicFilter, clinics, search]);
 
   const clinicStatusCounts = useMemo(() => {
@@ -446,7 +470,10 @@ export default function AdminEntitlementReview({
   );
 
   const refreshSubscriptionQueries = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] }),
+    ]);
     await Promise.all([reportQuery.refetch(), historyQuery.refetch()]);
   };
 
@@ -467,7 +494,10 @@ export default function AdminEntitlementReview({
       notify.success(trialAction === "start" ? "Trial started" : "Trial extended", {
         description: `${selectedClinic?.name || "Clinic"} now has an audited Trial lifecycle record.`,
       });
-      await queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/clinics"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] }),
+      ]);
       await reportQuery.refetch();
     },
     onError: (error: Error) => notify.error(error.message || "Could not update Trial"),
@@ -823,14 +853,6 @@ export default function AdminEntitlementReview({
               {!clinicsLoading && visibleClinics.map(clinic => {
                 const lifecycle = getAdminClinicLifecycleState(clinic);
                 const hasAttention = matchesAdminClinicDirectoryFilter(clinic, "attention");
-                const timingLabel = clinic.trialEndsAt
-                  ? "Trial access"
-                  : clinic.paidAccessExpiresAt
-                    ? "Paid access"
-                    : "No renewal date";
-                const timingDate = clinic.trialEndsAt || clinic.paidAccessExpiresAt;
-                const accountStatus = hasAttention ? "Attention" : labelFor(lifecycle);
-
                 return (
                   <div
                     key={clinic.id}
@@ -897,13 +919,14 @@ export default function AdminEntitlementReview({
                       </div>
                     </div>
 
-                    <div className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <div className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-6">
                       {[
-                        { label: "Effective plan", value: labelFor(clinic.plan), detail: "Clinic plan" },
-                        { label: "Subscription", value: labelFor(clinic.subscriptionStatus), detail: labelFor(clinic.billingCycle) },
-                        { label: "Plan timing", value: timingLabel, detail: formatClinicDate(timingDate) },
-                        { label: "Policy version", value: clinic.subscriptionPolicyVersion || "Unavailable", detail: `Timezone · ${clinic.timezone}` },
-                        { label: "Account status", value: accountStatus, detail: hasAttention ? "Review required" : "No attention items" },
+                        { label: "Current access", value: labelFor(clinic.currentAccessState), detail: clinic.attentionCode ? `Attention · ${labelFor(clinic.attentionCode)}` : "Central entitlement result" },
+                        { label: "Current plan", value: labelFor(clinic.currentAccessPlan), detail: clinic.currentAccessPlan ? "Enforced access plan" : "No confirmed plan" },
+                        { label: "Assigned plan", value: labelFor(clinic.assignedPlan), detail: clinic.latestApprovalOutcome ? `Latest · ${labelFor(clinic.latestApprovalOutcome)}` : "No approval decision" },
+                        { label: "Payment", value: paymentStatusLabel(clinic.paymentStatus), detail: paymentBasisLabel(clinic.paymentBasis) },
+                        { label: importantDateLabel(clinic.nextImportantDateType), value: clinic.nextImportantDate ? formatClinicDate(clinic.nextImportantDate) : "Not recorded", detail: clinic.renewalMode ? `Renewal · ${labelFor(clinic.renewalMode)}` : "No renewal mode" },
+                        { label: "Latest approval", value: clinic.latestApproval ? formatClinicDate(clinic.latestApproval.effectiveAt) : "Not recorded", detail: clinic.latestApproval ? `${labelFor(clinic.latestApproval.actorType)}${clinic.latestApproval.actorId ? ` · ${clinic.latestApproval.actorId}` : ""}` : "No approval decision" },
                       ].map(metric => (
                         <div key={metric.label} className="min-w-0 rounded-lg bg-muted/30 px-2.5 py-2">
                           <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{metric.label}</p>
@@ -954,6 +977,7 @@ export default function AdminEntitlementReview({
           <div id={`admin-clinic-details-${selectedClinic.id}`} className="min-w-0 space-y-4">
              <ClinicControlCenter
                clinic={selectedClinic}
+               accessSummary={selectedClinic}
                report={report}
                attentionCount={attentionCount}
                numericCapabilities={numericCapabilities}

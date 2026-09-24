@@ -328,7 +328,7 @@ later steps may still depend on it.
 | 6 | Migrate provider activation and renewal | **Complete** | Razorpay webhook signature/raw-event handling remains at the route boundary, while central provider transition logic now owns confirmation, renewal, past-due handling, expiry recovery, activation-token use, lifecycle history, and provider-event status. | Add dedicated verified-offline and complimentary access flows in Steps 7–8. |
 | 7 | Add verified offline payment and renewal | **Complete** | Super Admin can verify an initial offline payment or manual renewal through the centralized approval operation. The workflow stores immutable evidence, rejects duplicate external references, shows payment history, and reverses payments conservatively without deleting evidence. | Add complimentary access and expiry handling in Step 8. |
 | 8 | Add complimentary access and expiry | **Complete** | Super Admin grant, extension, revoke, and expiry reconciliation now use central approval/lifecycle services. Grants retain sponsor references, finite dates, no payment records, and no automatic renewal. | Move the broader directory/detail state presentation to the shared result in Step 9. |
-| 9 | Update Clinics & Access around the central result | **Not started** | Existing screens and actions are not yet fully driven by the shared access/payment dimensions. | Display requested plan, assigned plan, current access, payment basis/status, dates, and next action separately. |
+| 9 | Update Clinics & Access around the central result | **Complete** | Clinics & Access now consumes a server-backed access summary containing current access, assigned/latest approval, payment, renewal, date, attention, actor, and next-action dimensions. | Reconcile existing data and roll out safely in Step 10. |
 | 10 | Reconcile existing data and roll out safely | **Not started** | No production backfill or reconciliation has been run. | Classify legacy clinics, preview changes, backfill only with an approved report, and monitor rollout. |
 | 11 | Verify the complete state matrix | **Not started** | Contract and focused transition tests pass; the complete registration/upgrade/renewal matrix is not yet covered. | Add end-to-end checks for every outcome, retry, provider failure, expiry, reversal, and authorization path. |
 
@@ -1144,6 +1144,32 @@ The generic `Mark Paid` action remains unavailable.
 - Clinics & Access shows latest approval basis without manual interpretation.
 - Every action produces the same audit and result shape.
 - Unknown states cannot be activated blindly.
+
+#### Step 9 completion record
+
+**Status:** Complete for the shared Clinics & Access directory and detail
+presentation.
+
+- `GET /api/admin/clinics/directory` now combines each clinic with the shared
+  effective-entitlement resolver and the latest central approval decision. It
+  returns current access state and plan, assigned plan, latest outcome, payment
+  basis/status, renewal mode, next important date, attention code, latest
+  approval actor/date/reason, and next action.
+- The directory rows no longer interpret `plan` and `subscriptionStatus`
+  independently for access presentation. Trial, paid, sponsored, attention,
+  and unknown filters use the server-resolved access state.
+- The clinic detail header and latest subscription decision card present the
+  same central dimensions separately, including requested/current/assigned
+  distinctions, payment evidence basis, renewal mode, date, actor, reason, and
+  next action. Directory rows also expose the latest approval timestamp and
+  actor.
+- Subscription mutations invalidate the directory summary alongside the
+  compatibility clinic snapshot, so the directory reflects the committed
+  central result after Trial, paid, offline, sponsored, exception, and
+  revocation actions.
+- The generic `Mark Paid` action remains disabled by the existing `410` route;
+  unknown access remains visibly marked for reconciliation instead of being
+  inferred as active paid access.
 
 ### 5.12 Step 10 — Reconcile existing data and roll out safely
 

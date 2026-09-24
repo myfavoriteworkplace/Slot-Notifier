@@ -46,6 +46,7 @@ import {
   validateClinicMonitoringDateRange,
 } from "./clinic-monitoring";
 import { getEffectiveEntitlementReport } from "./effective-entitlement";
+import { getAdminClinicDirectoryRecords } from "./admin-clinic-directory";
 import {
   isBillingCycle,
   resolvePlanPolicy,
@@ -2731,6 +2732,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Super Admin read-only entitlement report. Mutations remain outside this
   // endpoint until the dedicated plan-management workflow is implemented.
+  app.get("/api/admin/clinics/directory", isAuthenticated, async (req, res) => {
+    if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const clinics = await storage.getClinics(true);
+      const directory = await getAdminClinicDirectoryRecords(clinics);
+      res.json(directory);
+    } catch (err: any) {
+      console.error("[ADMIN CLINIC DIRECTORY]", err.message);
+      res.status(500).json({ message: "Unable to calculate the clinic access directory" });
+    }
+  });
+
   app.get("/api/admin/clinics/:id/entitlements", isAuthenticated, async (req, res) => {
     if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Forbidden" });
     try {

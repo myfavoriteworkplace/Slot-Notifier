@@ -18,6 +18,7 @@ import { compressImage } from "@/lib/imageCompression";
 import { API_BASE_URL, apiRequest, queryClient } from "@/lib/queryClient";
 import { Clinic, SmileDeal } from "@shared/schema";
 import { getAdminCurrentMonth, matchesAdminClinicFilter } from "@shared/admin-operations";
+import type { AdminClinicDirectoryRecord } from "@shared/admin-clinic-directory";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -620,6 +621,14 @@ export default function Admin() {
   const { data: clinics = [], isLoading: clinicsLoading, isFetching: clinicsFetching, isError: clinicsError, refetch: refetchClinics } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
   });
+  const {
+    data: clinicDirectory = [],
+    isLoading: clinicDirectoryLoading,
+    isError: clinicDirectoryError,
+    refetch: refetchClinicDirectory,
+  } = useQuery<AdminClinicDirectoryRecord[]>({
+    queryKey: ["/api/admin/clinics/directory"],
+  });
 
   const loginDateBounds = useMemo(() => {
     const now = new Date();
@@ -731,6 +740,7 @@ export default function Admin() {
   const refreshAdminOperations = () => {
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/admin/messaging-usage"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/admin/storage-usage"] }),
     ]);
@@ -749,7 +759,10 @@ export default function Admin() {
           password: newClinicPassword 
         });
       }
-      await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['/api/clinics'] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] }),
+      ]);
       setNewClinicName("");
       setNewClinicAddress("");
       setNewClinicCity("");
@@ -781,6 +794,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] });
       setCredentialsDialogOpen(false);
       setSelectedClinic(null);
       setEditUsername("");
@@ -795,6 +809,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] });
       notify.success("Clinic archived");
     }
   });
@@ -805,6 +820,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] });
       notify.success("Clinic restored");
     }
   });
@@ -828,6 +844,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/clinics/directory"] });
       setEditClinicDialogOpen(false);
       setSelectedClinic(null);
       notify.success("Clinic updated");
@@ -1502,10 +1519,10 @@ export default function Admin() {
             </Button>
           </div>
           <AdminEntitlementReview
-            clinics={clinics}
-            clinicsLoading={clinicsLoading}
-            clinicsError={clinicsError}
-            onRetryClinics={() => refetchClinics()}
+            clinics={clinicDirectory}
+            clinicsLoading={clinicDirectoryLoading}
+            clinicsError={clinicDirectoryError}
+            onRetryClinics={() => refetchClinicDirectory()}
             onEditClinic={openEditClinic}
             onManageCredentials={openClinicCredentials}
             onCopyClinicUrl={copyClinicUrl}

@@ -5,6 +5,66 @@ import {
   type AdminClinicFilterRecord,
   type AdminClinicLifecycleState,
 } from "./admin-operations";
+import type { Clinic } from "./schema";
+
+export type AdminClinicAccessState =
+  | "trial"
+  | "trial_grace"
+  | "active_paid"
+  | "sponsored"
+  | "attention"
+  | "unknown";
+
+export type AdminClinicPaymentStatus =
+  | "not_required"
+  | "pending"
+  | "verified_offline"
+  | "waived"
+  | "rejected"
+  | "unknown";
+
+export type AdminClinicNextImportantDateType =
+  | "trial_ends"
+  | "trial_grace_ends"
+  | "paid_access_expires"
+  | "sponsored_access_ends";
+
+export type AdminClinicNextAction = {
+  code: string;
+  label: string;
+  description: string;
+  action: "none" | "review" | "reconcile" | "contact_support";
+};
+
+export type AdminClinicLatestApproval = {
+  id: number;
+  outcome: string;
+  requestedPlan: string | null;
+  approvedPlan: string | null;
+  paymentBasis: string;
+  renewalMode: string;
+  effectiveAt: string;
+  createdAt: string;
+  actorType: string;
+  actorId: string | null;
+  reason: string | null;
+  transitionId: string;
+};
+
+export type AdminClinicAccessSummary = {
+  currentAccessState: AdminClinicAccessState;
+  currentAccessPlan: string | null;
+  assignedPlan: string | null;
+  latestApprovalOutcome: string | null;
+  paymentBasis: string | null;
+  paymentStatus: AdminClinicPaymentStatus;
+  renewalMode: string | null;
+  nextImportantDate: string | null;
+  nextImportantDateType: AdminClinicNextImportantDateType | null;
+  attentionCode: string | null;
+  nextAction: AdminClinicNextAction;
+  latestApproval: AdminClinicLatestApproval | null;
+};
 
 /**
  * The server-backed summary required by the shared Clinics & Access directory.
@@ -13,12 +73,7 @@ import {
  * not load every clinic's effective access report. Missing access context must
  * remain unknown rather than being inferred in the browser.
  */
-export type AdminClinicDirectoryRecord = AdminClinicFilterRecord & {
-  id: number;
-  name: string;
-  city?: string | null;
-  email?: string | null;
-};
+export type AdminClinicDirectoryRecord = Clinic & AdminClinicAccessSummary & AdminClinicFilterRecord;
 
 export const ADMIN_CLINIC_DIRECTORY_COLUMNS = [
   "identity",
@@ -37,6 +92,9 @@ export const ADMIN_CLINIC_DIRECTORY_SEARCH_FIELDS = [
   "city",
   "email",
   "plan",
+  "currentAccessPlan",
+  "assignedPlan",
+  "currentAccessState",
 ] as const;
 
 export type AdminClinicDirectorySearchField = (typeof ADMIN_CLINIC_DIRECTORY_SEARCH_FIELDS)[number];
@@ -87,7 +145,10 @@ function searchValue(
   if (field === "name") return clinic.name;
   if (field === "city") return clinic.city;
   if (field === "email") return clinic.email;
-  return clinic.plan;
+  if (field === "plan") return clinic.plan;
+  if (field === "currentAccessPlan") return clinic.currentAccessPlan;
+  if (field === "assignedPlan") return clinic.assignedPlan;
+  return clinic.currentAccessState;
 }
 
 export function matchesAdminClinicDirectorySearch(

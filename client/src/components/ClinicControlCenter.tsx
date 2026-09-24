@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
 import type { EffectiveEntitlementItem, EffectiveEntitlementReport } from "@shared/effective-entitlement";
+import type { AdminClinicAccessSummary } from "@shared/admin-clinic-directory";
 import { getAdminClinicLifecycleState } from "@shared/admin-operations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,29 @@ const labelFor = (value: string | null | undefined) => {
   return value.replace(/_/g, " ").replace(/\b\w/g, character => character.toUpperCase());
 };
 
+const paymentBasisLabel = (value: string | null) => {
+  if (value === "provider") return "Online provider";
+  if (value === "offline_verified") return "Verified offline";
+  if (value === "complimentary") return "Complimentary";
+  if (value === "none") return "Not required";
+  return value ? labelFor(value) : "Legacy / unknown";
+};
+
+const paymentStatusLabel = (value: AdminClinicAccessSummary["paymentStatus"]) => {
+  if (value === "not_required") return "Not required";
+  if (value === "verified_offline") return "Verified offline";
+  if (value === "waived") return "Waived";
+  return labelFor(value);
+};
+
+const importantDateLabel = (value: AdminClinicAccessSummary["nextImportantDateType"]) => {
+  if (value === "trial_ends") return "Trial ends";
+  if (value === "trial_grace_ends") return "Grace ends";
+  if (value === "paid_access_expires") return "Paid access expires";
+  if (value === "sponsored_access_ends") return "Sponsored access ends";
+  return "No next date";
+};
+
 const sourceLabel = (source: EffectiveEntitlementReport["plan"]["source"]) => ({
   plan: "Published plan",
   sponsored_access: "Sponsored access",
@@ -111,11 +135,11 @@ const accessStateClass = (state: EffectiveEntitlementReport["access"]["state"]) 
   return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300";
 };
 
-const nextBestActionClass = (action: EffectiveEntitlementReport["nextStep"]["action"]) => {
+const nextBestActionClass = (action: AdminClinicAccessSummary["nextAction"]["action"]) => {
   if (action === "contact_support") {
     return "border-red-200 border-l-red-500 bg-red-50/70 dark:border-red-900/60 dark:border-l-red-500 dark:bg-red-950/20";
   }
-  if (action === "view_plans") {
+  if (action === "review" || action === "reconcile") {
     return "border-amber-200 border-l-amber-500 bg-amber-50/70 dark:border-amber-900/60 dark:border-l-amber-500 dark:bg-amber-950/20";
   }
   return "border-emerald-200 border-l-emerald-500 bg-emerald-50/70 dark:border-emerald-900/60 dark:border-l-emerald-500 dark:bg-emerald-950/20";
@@ -212,6 +236,7 @@ function UsageItem({ item }: { item: EffectiveEntitlementItem }) {
 
 export default function ClinicControlCenter({
   clinic,
+  accessSummary,
   report,
   attentionCount,
   numericCapabilities,
@@ -234,6 +259,7 @@ export default function ClinicControlCenter({
   onRestoreClinic,
 }: {
   clinic: Clinic;
+  accessSummary: AdminClinicAccessSummary;
   report: EffectiveEntitlementReport | null | undefined;
   attentionCount: number;
   numericCapabilities: EffectiveEntitlementItem[];
@@ -314,25 +340,53 @@ export default function ClinicControlCenter({
             </div>
           </div>
           {report && (
-            <div className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2 xl:grid-cols-5">
-              <MetricItem label="Effective plan" value={report.plan.displayName || labelFor(report.plan.effective)} detail={`${sourceLabel(report.plan.source)} · ${report.plan.requested || "not requested"}`} valueClass="text-primary" />
-              <MetricItem label="Subscription" value={report.subscription.label} detail={labelFor(report.access.reasonCode)} />
-              <MetricItem
-                label="Plan timing"
-                value={report.access.trialEndsAt ? "Trial access" : report.access.paidAccessExpiresAt ? "Paid access" : "No renewal date"}
-                detail={formatDate(report.access.trialEndsAt || report.access.paidAccessExpiresAt)}
-              />
-              <MetricItem label="Policy version" value={report.plan.policyVersion || "Unavailable"} detail={`Timezone · ${report.timezone}`} />
-              <MetricItem
-                label="Account status"
-                value={attentionCount ? `${attentionCount} over limit` : labelFor(report.access.state)}
-                detail={`${report.exceptions.active} exception${report.exceptions.active === 1 ? "" : "s"} · ${report.grants.active} grant${report.grants.active === 1 ? "" : "s"}`}
-                valueClass={attentionCount ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}
-              />
-            </div>
+              <div className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2 xl:grid-cols-6">
+                <MetricItem label="Current access" value={labelFor(accessSummary.currentAccessState)} detail={accessSummary.attentionCode ? `Attention · ${labelFor(accessSummary.attentionCode)}` : "Central entitlement result"} valueClass={accessSummary.attentionCode ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"} />
+                <MetricItem label="Current plan" value={labelFor(accessSummary.currentAccessPlan)} detail={report.plan.displayName || "Enforced access plan"} valueClass="text-primary" />
+                <MetricItem label="Assigned plan" value={labelFor(accessSummary.assignedPlan)} detail={accessSummary.latestApprovalOutcome ? `Latest · ${labelFor(accessSummary.latestApprovalOutcome)}` : "No approval decision"} />
+                <MetricItem label="Payment" value={paymentStatusLabel(accessSummary.paymentStatus)} detail={paymentBasisLabel(accessSummary.paymentBasis)} />
+                <MetricItem label="Renewal mode" value={labelFor(accessSummary.renewalMode)} detail={`Policy · ${report.plan.policyVersion || "Unavailable"}`} />
+                <MetricItem label="Next important date" value={accessSummary.nextImportantDate ? formatDate(accessSummary.nextImportantDate) : "Not recorded"} detail={importantDateLabel(accessSummary.nextImportantDateType)} />
+              </div>
           )}
         </CardHeader>
       </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <SectionHeading icon={CreditCard} title="Latest subscription decision" description="Requested, assigned, payment, and approval evidence are kept separate from current access." />
+          </CardHeader>
+          <CardContent className="grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <span className="text-muted-foreground">Outcome</span>
+              <strong className="mt-1 block">{labelFor(accessSummary.latestApprovalOutcome)}</strong>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <span className="text-muted-foreground">Requested / assigned plan</span>
+              <strong className="mt-1 block">{labelFor(accessSummary.latestApproval?.requestedPlan)} / {labelFor(accessSummary.assignedPlan)}</strong>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <span className="text-muted-foreground">Payment basis / status</span>
+              <strong className="mt-1 block">{paymentBasisLabel(accessSummary.paymentBasis)} · {paymentStatusLabel(accessSummary.paymentStatus)}</strong>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <span className="text-muted-foreground">Approved by</span>
+              <strong className="mt-1 block">{accessSummary.latestApproval ? `${labelFor(accessSummary.latestApproval.actorType)}${accessSummary.latestApproval.actorId ? ` · ${accessSummary.latestApproval.actorId}` : ""}` : "Not recorded"}</strong>
+              {accessSummary.latestApproval && <span className="mt-1 block text-[11px] text-muted-foreground">{formatDate(accessSummary.latestApproval.effectiveAt)}</span>}
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <span className="text-muted-foreground">Next action</span>
+              <strong className="mt-1 block">{accessSummary.nextAction.label}</strong>
+              <span className="mt-1 block text-[11px] text-muted-foreground">{accessSummary.nextAction.description}</span>
+            </div>
+            {accessSummary.latestApproval?.reason && (
+              <div className="rounded-lg border bg-muted/20 p-3 sm:col-span-2 xl:col-span-4">
+                <span className="text-muted-foreground">Decision reason</span>
+                <p className="mt-1 leading-5">{accessSummary.latestApproval.reason}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-4">
@@ -435,12 +489,12 @@ export default function ClinicControlCenter({
             </CardContent>
             {report && (
               <CardContent className="border-t pt-4">
-                <div className={`rounded-lg border border-l-4 p-3 ${nextBestActionClass(report.nextStep.action)}`} data-testid={`admin-next-best-action-${clinic.id}`}>
+                <div className={`rounded-lg border border-l-4 p-3 ${nextBestActionClass(accessSummary.nextAction.action)}`} data-testid={`admin-next-best-action-${clinic.id}`}>
                   <div className="flex items-start gap-2.5">
                     <div className="mt-0.5 shrink-0">
-                      {report.nextStep.action === "contact_support"
+                      {accessSummary.nextAction.action === "contact_support"
                         ? <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        : report.nextStep.action === "view_plans"
+                        : accessSummary.nextAction.action !== "none"
                           ? <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           : <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
                     </div>
@@ -448,11 +502,11 @@ export default function ClinicControlCenter({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-xs font-semibold uppercase tracking-wide">Next best action</p>
                         <span className="rounded-full border border-current/15 bg-background/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                          {report.nextStep.action === "none" ? "No action required" : report.nextStep.action === "view_plans" ? "Review" : "Support"}
+                          {accessSummary.nextAction.action === "none" ? "No action required" : accessSummary.nextAction.action === "review" ? "Review" : accessSummary.nextAction.action === "reconcile" ? "Reconcile" : "Support"}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold">{report.nextStep.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{report.nextStep.description}</p>
+                      <p className="mt-1 text-sm font-semibold">{accessSummary.nextAction.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{accessSummary.nextAction.description}</p>
                       {(report.access.trialOrigin || report.access.previousPaidPlan) && (
                         <p className="mt-2 text-[11px] text-muted-foreground">
                           {[
