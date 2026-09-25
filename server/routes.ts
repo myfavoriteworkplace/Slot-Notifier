@@ -1243,25 +1243,41 @@ async function sendRescheduleEmail(
   }
 }
 
+type ClinicApprovalEmailKind = "trial" | "online_payment_required";
+
 async function sendClinicApprovalEmail(
   clinicName: string,
   clinicEmail: string,
   username: string,
   plainPassword: string,
+  kind: ClinicApprovalEmailKind,
   activationUrl?: string,
   planLabel?: string,
 ) {
+  const isTrialApproval = kind === "trial";
+  if (isTrialApproval && activationUrl) {
+    throw new Error("Trial approval emails cannot include a payment activation link");
+  }
   if (!resend) {
-    console.log(`[EMAIL MOCK] Clinic approval email for ${clinicEmail} — username: ${username}, password: ${plainPassword}${activationUrl ? `, activation: ${activationUrl}` : ''}`);
+    console.log(
+      `[EMAIL MOCK] Clinic ${isTrialApproval ? "Trial" : "online payment"} approval email for ${clinicEmail} — ` +
+      `username: ${username}, password: ${plainPassword}${activationUrl ? `, activation: ${activationUrl}` : ''}`,
+    );
     return;
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
   const loginUrl   = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const approvalHeading = isTrialApproval
+    ? 'Your clinic Trial is ready &#127881;'
+    : 'Your clinic is approved — payment required';
+  const approvalIntro = isTrialApproval
+    ? 'Your registration has been reviewed and approved for Trial access. Use the credentials below to log in and start managing your appointments.'
+    : 'Your registration has been reviewed and approved. Use the credentials below to log in after completing the payment step below.';
   const html = emailShell(
     'linear-gradient(90deg,#0f9b6e,#1dbe88)',
-    `${heroBand('linear-gradient(135deg,#085041 0%,#0f9b6e 100%)', 'Your clinic is approved &#127881;', `Welcome to bookMySlot Dental, <strong style="color:rgba(255,255,255,.95);">${clinicName}</strong>`)}
+    `${heroBand('linear-gradient(135deg,#085041 0%,#0f9b6e 100%)', approvalHeading, `Welcome to bookMySlot Dental, <strong style="color:rgba(255,255,255,.95);">${clinicName}</strong>`)}
     <tr><td style="padding:28px 40px 0;">
-      <p style="margin:0 0 20px;font-size:15px;color:#5a7a6a;line-height:1.5;">Your registration has been reviewed and approved. Use the credentials below to log in and start managing your appointments.</p>
+      <p style="margin:0 0 20px;font-size:15px;color:#5a7a6a;line-height:1.5;">${approvalIntro}</p>
       <!-- Credentials card -->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
         style="background:#f8fbf9;border:1px solid #d4ebe0;border-radius:10px;">
@@ -1287,7 +1303,7 @@ async function sendClinicApprovalEmail(
         </td></tr>
       </table>
       <div style="margin-top:16px;">${infoBanner('amber', '&#128274; Keep this email safe and do not share your credentials. Please change your password after your first login.')}</div>
-      ${activationUrl ? `
+      ${!isTrialApproval && activationUrl ? `
       <div style="margin-top:16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
           style="background:linear-gradient(135deg,#085041 0%,#1a9e6f 100%);border-radius:10px;">
@@ -1306,7 +1322,9 @@ async function sendClinicApprovalEmail(
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – Your Clinic is Approved`,
+      subject: isTrialApproval
+        ? `BookMySlot – Your Clinic Trial is Ready`
+        : `BookMySlot – Complete Your Clinic Subscription`,
       html,
     });
   } catch (error) {
@@ -2332,8 +2350,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         !approvalResult.idempotent &&
         (outcome === "trial" || outcome === "online_payment_required")
       ) {
-        // Generate credentials only after the central transition commits. A
-        // replay must not rotate credentials or send a second welcome email.
+        // Generate credentials only after the central transition commits. The
+        // transition ID is the replay gate: a retry must not rotate
+        // credentials or send a second approval email.
         const base = existing.name
           .toLowerCase()
           .replace(/[^a-z0-9\s]/g, "")
@@ -2363,6 +2382,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             existing.email,
             username,
             plainPassword,
+            outcome,
             activationUrl || undefined,
             approvedPlan || undefined,
           );
