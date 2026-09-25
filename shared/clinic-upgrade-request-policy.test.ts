@@ -89,6 +89,44 @@ test("validates Super Admin review bodies and requires a reason for overrides", 
     true,
   );
   assert.equal(
+    clinicUpgradeRequestApprovalBodySchema.safeParse({
+      approvalOutcome: "verified_offline_payment",
+      requestedPlan: "growth",
+      billingCycle: "annual",
+      reviewReason: "Verified bank receipt against the clinic account",
+      offlinePayment: {
+        amount: 15990,
+        receivedAt: "2026-09-22T08:00:00.000Z",
+        paymentMethod: "bank_transfer",
+        externalReference: "bank-ref-123",
+        evidenceReference: "receipt-123",
+      },
+    }).success,
+    true,
+  );
+  assert.equal(
+    clinicUpgradeRequestApprovalBodySchema.safeParse({
+      approvalOutcome: "complimentary",
+      requestedPlan: "growth",
+      billingCycle: "annual",
+      reviewReason: "Sponsored access approved for the clinic pilot",
+      complimentaryAccess: {
+        startsAt: "2026-09-23T08:00:00.000Z",
+        endsAt: "2026-10-23T08:00:00.000Z",
+      },
+    }).success,
+    true,
+  );
+  assert.equal(
+    clinicUpgradeRequestApprovalBodySchema.safeParse({
+      approvalOutcome: "verified_offline_payment",
+      requestedPlan: "growth",
+      billingCycle: "annual",
+      reviewReason: "Missing evidence should be rejected",
+    }).success,
+    false,
+  );
+  assert.equal(
     clinicUpgradeRequestRejectionBodySchema.safeParse({ reviewReason: "" }).success,
     false,
   );

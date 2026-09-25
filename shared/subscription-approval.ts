@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   BILLING_CYCLES,
   PAID_PLAN_KEYS,
+  PUBLISHED_PLAN_POLICY,
   PLAN_KEYS,
 } from "./plan-catalog";
 
@@ -199,6 +200,18 @@ export const subscriptionApprovalInputSchema = z.object({
       }
       if (/^sub[_-]/i.test(input.offlinePayment.evidenceReference)) {
         addIssue("A provider subscription ID is not offline payment evidence", ["offlinePayment", "evidenceReference"]);
+      }
+      if (input.offlinePayment.currency !== "INR") {
+        addIssue("Verified offline payment must be recorded in INR", ["offlinePayment", "currency"]);
+      }
+      if (input.approvedPlan && input.approvedBillingCycle) {
+        const expectedAmount = PUBLISHED_PLAN_POLICY.plans[input.approvedPlan].pricing[input.approvedBillingCycle];
+        if (expectedAmount === null || input.offlinePayment.amount !== expectedAmount) {
+          addIssue(
+            `Verified offline payment must match the published full plan price of ₹${expectedAmount ?? "unavailable"}`,
+            ["offlinePayment", "amount"],
+          );
+        }
       }
     }
   }

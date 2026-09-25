@@ -4,7 +4,7 @@
 **Scope:** Clinic registration approval, Trial lifecycle, paid-plan assignment, payment-link delivery, verified offline payment, complimentary access, upgrade requests, renewals, audit history, and the Super Admin Clinics & Access workspace
 **Audience:** Product owner, frontend engineers, backend engineers, Super Admin operations, billing operators, and QA
 
-## Implementation status and pending work — audited 2026-09-25
+## Implementation status and pending work — audited 2026-09-26
 
 The application is still in development mode and is deployed to Render for
 development, acceptance, and integration testing. A Render deployment does not
@@ -32,15 +32,15 @@ implementation task.
 | **R3** | Extend the registration approval API to all five outcomes | **Complete** | R1 | The server must receive the complete Admin decision instead of inferring it from `approvedPlan`. | `PATCH /api/clinics/:id/approve` accepts and validates all five outcomes, preserves requested and approved values, and calls the shared transition operation for every outcome. |
 | **R4** | Complete Trial registration and credentials delivery | **Complete** | R3 | A Trial clinic should be able to start using the application without receiving a payment request. | Trial approval creates Trial and grace dates, sends username/password only, creates no payment link or provider subscription, and does not resend or rotate credentials on retry. |
 | **R5** | Complete online paid registration and Admin overrides | **Complete** | R3 | The clinic must receive a payment link for the plan and cycle the Admin actually approved, not the original request. | An override from Growth Annual to Starter Monthly creates a Starter Monthly provider link, records both requested and approved values, requires an override reason, preserves Trial access, and keeps paid access false until provider confirmation. |
-| **R6** | Add verified offline payment to registration approval | **Partial** | R3 and existing offline-payment foundation | Admins need to approve a clinic whose payment was received outside Razorpay without pretending it was an online payment. | Registration collects evidence and verification details, creates an immutable offline record, activates the approved paid plan only after full payment verification, creates no provider subscription or webhook event, and sends the offline confirmation with paid-period dates. |
-| **R7** | Add complimentary access to registration approval | **Partial** | R3 and existing complimentary-access foundation | Free paid-level access must be deliberate and must not look like captured revenue. | Registration creates a finite sponsored grant with reason and dates, records waived payment, creates no payment evidence, never auto-renews, and sends the complimentary confirmation with its end date. |
-| **R8** | Move registration rejection into the shared decision history | **Partial** | R3 | Rejection should be recorded with the same actor, reason, and transition history as approval. | Rejection from the registration dialog requires a reason, creates a shared rejection decision, sends no credentials or payment link, and leaves the clinic without active access. |
+| **R6** | Add verified offline payment to registration approval | **Complete** | R3 and existing offline-payment foundation | Admins need to approve a clinic whose payment was received outside Razorpay without pretending it was an online payment. | Registration collects evidence and verification details, creates an immutable offline record, activates the approved paid plan only after full payment verification, creates no provider subscription or webhook event, and sends the offline confirmation with paid-period dates. |
+| **R7** | Add complimentary access to registration approval | **Complete** | R3 and existing complimentary-access foundation | Free paid-level access must be deliberate and must not look like captured revenue. | Registration creates a finite sponsored grant with reason and dates, records waived payment, creates no payment evidence, never auto-renews, and sends the complimentary confirmation with its end date. |
+| **R8** | Move registration rejection into the shared decision history | **Complete** | R3 | Rejection should be recorded with the same actor, reason, and transition history as approval. | Rejection from the registration dialog requires a reason, creates a shared rejection decision, sends no credentials or payment link, and leaves the clinic without active access. |
 | **R9** | Retire or guard the legacy paid-plan mutation | **Complete** | R3 and R5 | There must not be a second route that can erase Trial dates or create a paid assignment with different rules. | The legacy paid-plan route is removed, disabled, or reduced to a thin adapter over the shared operation, and its Admin UI caller is replaced. |
-| **R10** | Fix Razorpay webhook verification and event evidence | **Not complete** | R5 | Only an authentic provider confirmation may activate paid access. | HMAC uses the original request bytes, missing production configuration fails closed, signatures are compared safely, the full event is retained, and duplicate/retry behavior is tested. |
-| **R11** | Finish provider confirmation for overridden plans | **Partial** | R5 and R10 | A payment confirmation must activate the final approved plan, even when it differs from the clinic request. | Provider events match the activation token, provider subscription, approved plan, and billing cycle before moving Trial access to active paid access. |
-| **R12** | Complete offline amount and reversal rules | **Partial** | R6 | A partial or reversed payment must not accidentally grant or preserve paid access. | The server enforces the full plan price or defines a non-activating partial-payment state; reversal has an effective date; duplicate, rejected, partial, and reversed cases are tested. |
-| **R13** | Align Admin result cards and subscription history | **Partial** | R4–R8 | Admins need to see exactly what happened after each registration decision. | Result cards show requested plan, approved plan, current access, payment status, payment basis, dates, link status, actor, and next action without calling pending payment “Active paid”. |
-| **R14** | Define safe boundaries for remaining lifecycle actions | **Partial** | R9–R12 | Trial extensions, grant expiry, reversals, provider recovery, and entitlement exceptions may remain specialized, but they must not be unsafe bypasses. | Every remaining mutation has documented authorization, locking/re-checking, idempotency, audit history, and a shared result or clearly documented lifecycle result. |
+| **R10** | Fix Razorpay webhook verification and event evidence | **Complete** | R5 | Only an authentic provider confirmation may activate paid access. | HMAC uses the original request bytes, missing production configuration fails closed, signatures are compared safely, the full event is retained, and duplicate/retry behavior is tested. |
+| **R11** | Finish provider confirmation for overridden plans | **Complete** | R5 and R10 | A payment confirmation must activate the final approved plan, even when it differs from the clinic request. | Provider events match the activation token, provider subscription, approved plan, and billing cycle before moving Trial access to active paid access. |
+| **R12** | Complete offline amount and reversal rules | **Complete** | R6 | A partial or reversed payment must not accidentally grant or preserve paid access. | The server enforces the full plan price or defines a non-activating partial-payment state; reversal has an effective date; duplicate, rejected, partial, and reversed cases are tested. |
+| **R13** | Align Admin result cards and subscription history | **Complete** | R4–R8 | Admins need to see exactly what happened after each registration decision. | Result cards show requested plan, approved plan, current access, payment status, payment basis, dates, link status, actor, and next action without calling pending payment “Active paid”. |
+| **R14** | Define safe boundaries for remaining lifecycle actions | **Complete** | R9–R12 | Trial extensions, grant expiry, reversals, provider recovery, and entitlement exceptions may remain specialized, but they must not be unsafe bypasses. | Every remaining mutation has documented authorization, locking/re-checking, idempotency, audit history, and a shared result or clearly documented lifecycle result. |
 | **R15** | Run the registration and payment acceptance matrix in Render development | **Not started** | R2–R14 | The application is deployed to Render for testing, so the real deployed development flow must be checked before calling the work complete. | All five registration outcomes, Admin overrides, emails, provider confirmation, offline evidence, retries, permissions, and access enforcement pass in the Render development environment. |
 | **R16** | Prepare production rollout and data reconciliation | **Not started** | R9–R15 and an approved production data source | Development data and Render acceptance data must not be treated as production clinic history. | A production database or approved production snapshot is classified read-only first; ambiguous clinics enter a review queue; approved backfills and rollout monitoring are documented before production release. |
 
@@ -481,8 +481,8 @@ later steps may still depend on it.
 | 2 | Add append-only approval and payment records | **Complete** | Approval decisions, offline payments, lifecycle links, assignments, grants, activation tokens, and idempotency constraints exist in the development schema. | Apply schema changes through the normal production publish flow. |
 | 3 | Build the central server-side transition operation | **Complete** | `applySubscriptionApproval()` owns validation, locking/re-checking, idempotency, provider-intent reconciliation, clinic snapshots, assignments, decisions, and lifecycle events. | Migrate every entry point to the operation. |
 | 4 | Migrate registration approval | **Complete** | `PATCH /api/clinics/:id/approve` is a thin adapter for Trial, online payment, verified offline payment, complimentary access, and rejection; each decision is recorded by the central operation. | Keep outcome-specific messages and remaining registration acceptance coverage aligned with R4–R8 and R15. |
-| 5 | Migrate upgrade-request approval | **Complete** | Upgrade approval and rejection now use `applySubscriptionApproval()`; online approvals preserve the clinic's current Trial/grace access while payment is pending, and the request is reviewed only after the central decision succeeds. | Add the dedicated verified-offline and complimentary upgrade/access-management entry points in Steps 7–8. |
-| 6 | Migrate provider activation and renewal | **Complete** | Razorpay webhook signature/raw-event handling remains at the route boundary, while central provider transition logic now owns confirmation, renewal, past-due handling, expiry recovery, activation-token use, lifecycle history, and provider-event status. | Add dedicated verified-offline and complimentary access flows in Steps 7–8. |
+| 5 | Migrate upgrade-request approval | **Complete** | Upgrade approval and rejection now use `applySubscriptionApproval()`; online approvals preserve the clinic's current Trial/grace access while payment is pending, and verified-offline and complimentary upgrade approvals use explicit evidence/date fields through the same operation. | Keep all upgrade outcomes aligned with the shared result and Render acceptance matrix. |
+| 6 | Migrate provider activation and renewal | **Complete** | Razorpay webhook signature/raw-event handling remains at the route boundary, while central provider transition logic now owns confirmation, renewal, past-due handling, expiry recovery, activation-token use, lifecycle history, and provider-event status. | Keep provider events tied to the approved plan/cycle and verify the complete matrix in Render. |
 | 7 | Add verified offline payment and renewal | **Complete** | Super Admin can verify an initial offline payment or manual renewal through the centralized approval operation. The workflow stores immutable evidence, rejects duplicate external references, shows payment history, and reverses payments conservatively without deleting evidence. | Add complimentary access and expiry handling in Step 8. |
 | 8 | Add complimentary access and expiry | **Complete** | Super Admin grant, extension, revoke, and expiry reconciliation now use central approval/lifecycle services. Grants retain sponsor references, finite dates, no payment records, and no automatic renewal. | Move the broader directory/detail state presentation to the shared result in Step 9. |
 | 9 | Update Clinics & Access around the central result | **Complete** | Clinics & Access now consumes a server-backed access summary containing current access, assigned/latest approval, payment, renewal, date, attention, actor, and next-action dimensions. | Reconcile existing data and roll out safely in Step 10. |
@@ -1075,8 +1075,8 @@ current Trial, grace, sponsored, or paid state unchanged.
 
 #### Step 5 completion record
 
-**Status:** Complete for the online-payment and rejection upgrade-request
-adapters.
+**Status:** Complete for online-payment, verified-offline, complimentary, and
+rejection upgrade-request adapters.
 
 - `POST /api/admin/clinic-upgrade-requests/:id/approve` now translates the
   approved plan and billing cycle into the shared
@@ -1090,9 +1090,10 @@ adapters.
 - The central transaction locks the source upgrade request and rejects a
   second decision for the same pending request. A request is marked reviewed
   only after the central transition commits.
-- Verified-offline and complimentary outcomes remain intentionally deferred to
-  the dedicated entry points in Steps 7 and 8, while the central operation
-  already validates those outcome contracts.
+- Verified-offline approvals collect full-amount INR evidence and use the
+  authenticated Super Admin as verifier; complimentary approvals collect
+  bounded dates and a sponsor reference. Neither path creates provider
+  payment evidence.
 
 ### 5.8 Step 6 — Migrate provider activation and renewal
 
@@ -1369,6 +1370,8 @@ presentation.
   compatibility clinic snapshot, so the directory reflects the committed
   central result after Trial, paid, offline, sponsored, exception, and
   revocation actions.
+- Reversed offline payments remain visible as reversed with a reconciliation
+  next action; the original evidence is retained.
 - The generic `Mark Paid` action remains disabled by the existing `410` route;
   unknown access remains visibly marked for reconciliation instead of being
   inferred as active paid access.

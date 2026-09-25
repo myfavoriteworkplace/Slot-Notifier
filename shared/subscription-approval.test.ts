@@ -110,6 +110,20 @@ test("requires complete, verified offline evidence and rejects provider IDs as e
     }).success,
     false,
   );
+  assert.equal(
+    subscriptionApprovalInputSchema.safeParse({
+      ...valid,
+      offlinePayment: { ...valid.offlinePayment, amount: 1 },
+    }).success,
+    false,
+  );
+  assert.equal(
+    subscriptionApprovalInputSchema.safeParse({
+      ...valid,
+      offlinePayment: { ...valid.offlinePayment, currency: "USD" },
+    }).success,
+    false,
+  );
 });
 
 test("requires bounded complimentary access and a reason", () => {

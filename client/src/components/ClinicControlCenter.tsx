@@ -103,6 +103,7 @@ const paymentBasisLabel = (value: string | null) => {
 const paymentStatusLabel = (value: AdminClinicAccessSummary["paymentStatus"]) => {
   if (value === "not_required") return "Not required";
   if (value === "verified_offline") return "Verified offline";
+  if (value === "reversed") return "Reversed";
   if (value === "waived") return "Waived";
   return labelFor(value);
 };

@@ -86,6 +86,10 @@ import { ENTITLEMENT_CAPABILITIES } from "@shared/effective-entitlement";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
+import {
+  isRazorpayProviderEventTerminal,
+  verifyRazorpayWebhookSignature,
+} from "./razorpay-webhook";
 import { wakeAndAnalyse } from "./aiService";
 import {
   assertBookingTransition,
@@ -1243,7 +1247,11 @@ async function sendRescheduleEmail(
   }
 }
 
-type ClinicApprovalEmailKind = "trial" | "online_payment_required";
+type ClinicApprovalEmailKind =
+  | "trial"
+  | "online_payment_required"
+  | "verified_offline_payment"
+  | "complimentary";
 
 async function sendClinicApprovalEmail(
   clinicName: string,
@@ -1254,29 +1262,47 @@ async function sendClinicApprovalEmail(
   activationUrl?: string,
   planLabel?: string,
   billingCycle?: BillingCycle,
+  periodEndsAt?: Date | null,
 ) {
   const isTrialApproval = kind === "trial";
+  const isOnlinePaymentApproval = kind === "online_payment_required";
+  const isOfflinePaymentApproval = kind === "verified_offline_payment";
+  const isComplimentaryApproval = kind === "complimentary";
   const approvedSubscriptionLabel = planLabel
     ? `${planLabel}${billingCycle ? ` · ${billingCycle === "annual" ? "Annual" : "Monthly"}` : ""}`
     : "";
-  if (isTrialApproval && activationUrl) {
-    throw new Error("Trial approval emails cannot include a payment activation link");
+  if (!isOnlinePaymentApproval && activationUrl) {
+    throw new Error("Only online-payment approval emails can include a payment activation link");
   }
   if (!resend) {
     console.log(
-      `[EMAIL MOCK] Clinic ${isTrialApproval ? "Trial" : "online payment"} approval email for ${clinicEmail} — ` +
+      `[EMAIL MOCK] Clinic ${kind} approval email for ${clinicEmail} — ` +
       `username: ${username}, password: ${plainPassword}${activationUrl ? `, activation: ${activationUrl}` : ''}`,
     );
     return;
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
   const loginUrl   = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const periodEndLabel = periodEndsAt
+    ? periodEndsAt.toLocaleDateString("en-IN", {
+        dateStyle: "medium",
+        timeZone: "Asia/Kolkata",
+      })
+    : null;
   const approvalHeading = isTrialApproval
     ? 'Your clinic Trial is ready &#127881;'
-    : 'Your clinic is approved — payment required';
+    : isOnlinePaymentApproval
+      ? 'Your clinic is approved — payment required'
+      : isOfflinePaymentApproval
+        ? 'Your clinic is approved — payment verified'
+        : 'Your clinic has complimentary access';
   const approvalIntro = isTrialApproval
     ? 'Your registration has been reviewed and approved for Trial access. Use the credentials below to log in and start managing your appointments.'
-    : 'Your registration has been reviewed and approved. Use the credentials below to log in after completing the payment step below.';
+    : isOnlinePaymentApproval
+      ? 'Your registration has been reviewed and approved. Use the credentials below to log in after completing the payment step below.'
+      : isOfflinePaymentApproval
+        ? `Your registration has been reviewed and approved. Your ${approvedSubscriptionLabel || "paid"} access is active after verification of the offline payment.`
+        : `Your registration has been approved for complimentary ${approvedSubscriptionLabel || "paid-level"} access. No payment was recorded and this access will not renew automatically.`;
   const html = emailShell(
     'linear-gradient(90deg,#0f9b6e,#1dbe88)',
     `${heroBand('linear-gradient(135deg,#085041 0%,#0f9b6e 100%)', approvalHeading, `Welcome to bookMySlot Dental, <strong style="color:rgba(255,255,255,.95);">${clinicName}</strong>`)}
@@ -1307,7 +1333,13 @@ async function sendClinicApprovalEmail(
         </td></tr>
       </table>
       <div style="margin-top:16px;">${infoBanner('amber', '&#128274; Keep this email safe and do not share your credentials. Please change your password after your first login.')}</div>
-      ${!isTrialApproval && activationUrl ? `
+      ${isOfflinePaymentApproval && periodEndLabel ? `
+      <div style="margin-top:16px;">${infoBanner('green', `&#10003; Your verified offline payment has activated ${approvedSubscriptionLabel || "paid"} access through <strong>${periodEndLabel}</strong>. Renewal will be handled manually.`)}</div>
+      ` : ''}
+      ${isComplimentaryApproval && periodEndLabel ? `
+      <div style="margin-top:16px;">${infoBanner('green', `&#10003; Your complimentary ${approvedSubscriptionLabel || "paid-level"} access is available through <strong>${periodEndLabel}</strong>. It will not renew automatically.`)}</div>
+      ` : ''}
+      ${isOnlinePaymentApproval && activationUrl ? `
       <div style="margin-top:16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
           style="background:linear-gradient(135deg,#085041 0%,#1a9e6f 100%);border-radius:10px;">
@@ -1328,7 +1360,11 @@ async function sendClinicApprovalEmail(
       from: EMAIL_FROM, to: finalEmail,
       subject: isTrialApproval
         ? `BookMySlot – Your Clinic Trial is Ready`
-        : `BookMySlot – Complete Your Clinic Subscription`,
+        : isOnlinePaymentApproval
+          ? `BookMySlot – Complete Your Clinic Subscription`
+          : isOfflinePaymentApproval
+            ? `BookMySlot – Your Offline Payment Was Verified`
+            : `BookMySlot – Your Complimentary Clinic Access`,
       html,
     });
   } catch (error) {
@@ -1612,6 +1648,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           return res.status(409).json({ message: "Only pending upgrade requests can be approved" });
         }
 
+        const outcome = parsed.data.approvalOutcome;
         const approvedPlan = (parsed.data.requestedPlan || request.requestedPlan) as PaidPlanKey;
         const approvedBillingCycle = (parsed.data.billingCycle || request.billingCycle) as BillingCycle;
         if (!PAID_PLAN_KEYS.includes(approvedPlan) || !isBillingCycle(approvedBillingCycle)) {
@@ -1619,6 +1656,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
         const reviewReason = parsed.data.reviewReason?.trim() ||
           "Approved clinic upgrade request";
+        if (outcome !== "online_payment_required" && reviewReason.length < 10) {
+          return res.status(400).json({ message: "A reason of at least 10 characters is required for offline or complimentary approval" });
+        }
         const approvalError = validateClinicUpgradeRequestApproval({
           approvedPlan,
           approvedBillingCycle,
@@ -1629,44 +1669,85 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (approvalError) return res.status(400).json({ message: approvalError });
 
         const transitionId = parsed.data.transitionId ||
-          `clinic-upgrade:${request.id}:${approvedPlan}:${approvedBillingCycle}`;
+          `clinic-upgrade:${request.id}:${outcome}:${approvedPlan}:${approvedBillingCycle}`;
         const actorId = String(
           (req as any).user?.claims?.email ||
           (req as any).user?.id ||
           "superuser",
         );
+        const now = new Date();
+        const offlinePayment = parsed.data.offlinePayment
+          ? {
+              amount: parsed.data.offlinePayment.amount,
+              currency: "INR",
+              receivedAt: new Date(parsed.data.offlinePayment.receivedAt),
+              paymentMethod: parsed.data.offlinePayment.paymentMethod,
+              externalReference: parsed.data.offlinePayment.externalReference,
+              evidenceReference: parsed.data.offlinePayment.evidenceReference,
+              verifiedBy: actorId,
+              verifiedAt: now,
+            }
+          : undefined;
+        if (offlinePayment && offlinePayment.receivedAt > now) {
+          return res.status(400).json({ message: "The offline payment date cannot be in the future" });
+        }
+        const complimentaryAccess = parsed.data.complimentaryAccess
+          ? {
+              startsAt: new Date(parsed.data.complimentaryAccess.startsAt),
+              endsAt: new Date(parsed.data.complimentaryAccess.endsAt),
+              sponsorReference: parsed.data.complimentaryAccess.sponsorReference ||
+                "superadmin-complimentary-access",
+            }
+          : undefined;
         const approvalInput = {
           clinicId: request.clinicId,
           approvalContext: "upgrade_request" as const,
-          outcome: "online_payment_required" as const,
+          outcome,
           requestedPlan: request.requestedPlan as PaidPlanKey,
           approvedPlan,
           requestedBillingCycle: request.billingCycle as BillingCycle,
           approvedBillingCycle,
-          paymentBasis: "provider" as const,
-          renewalMode: "provider_auto" as const,
+          paymentBasis: outcome === "online_payment_required"
+            ? "provider" as const
+            : outcome === "verified_offline_payment"
+              ? "offline_verified" as const
+              : "complimentary" as const,
+          renewalMode: outcome === "online_payment_required"
+            ? "provider_auto" as const
+            : outcome === "verified_offline_payment"
+              ? "manual" as const
+              : "admin_review" as const,
           reason: reviewReason || null,
           actor: { type: "superadmin" as const, id: actorId },
           transitionId,
           sourceRequestId: String(request.id),
-          effectiveAt: new Date(),
-          onlinePayment: {
-            provider: "razorpay",
-            paymentLinkMetadata: {
-              approvalType: "clinic_upgrade_request",
-              upgradeRequestId: request.id,
-              requestedPlan: request.requestedPlan,
-              requestedBillingCycle: request.billingCycle,
-              approvedPlan,
-              approvedBillingCycle,
-              planOverridden: approvedPlan !== request.requestedPlan,
-              billingCycleOverridden: approvedBillingCycle !== request.billingCycle,
-            },
-          },
+          effectiveAt: now,
+          ...(offlinePayment ? { offlinePayment } : {}),
+          ...(complimentaryAccess ? { complimentaryAccess } : {}),
+          ...(outcome === "online_payment_required"
+            ? {
+                onlinePayment: {
+                  provider: "razorpay",
+                  paymentLinkMetadata: {
+                    approvalType: "clinic_upgrade_request",
+                    upgradeRequestId: request.id,
+                    requestedPlan: request.requestedPlan,
+                    requestedBillingCycle: request.billingCycle,
+                    approvedPlan,
+                    approvedBillingCycle,
+                    planOverridden: approvedPlan !== request.requestedPlan,
+                    billingCycleOverridden: approvedBillingCycle !== request.billingCycle,
+                  },
+                },
+              }
+            : {}),
         };
-        const approvalResult = await applySubscriptionApproval(approvalInput, {
-          createOnlinePaymentIntent: createRazorpayOnlinePaymentIntent,
-        });
+        const approvalResult = await applySubscriptionApproval(
+          approvalInput,
+          outcome === "online_payment_required"
+            ? { createOnlinePaymentIntent: createRazorpayOnlinePaymentIntent }
+            : undefined,
+        );
         const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";
         const activationUrl = approvalResult.activationToken
           ? `${frontendBase}/activate/${approvalResult.activationToken.token}`
@@ -2193,7 +2274,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (
         !approvalResult.idempotent &&
-        (outcome === "trial" || outcome === "online_payment_required")
+        outcome !== "reject"
       ) {
         // Generate credentials only after the central transition commits. The
         // transition ID is the replay gate: a retry must not rotate
@@ -2231,6 +2312,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             activationUrl || undefined,
             approvedPlan ? PUBLISHED_PLAN_POLICY.plans[approvedPlan].displayName : undefined,
             approvedBillingCycle || undefined,
+            outcome === "verified_offline_payment"
+              ? approvalResult.clinic.paidAccessExpiresAt
+              : outcome === "complimentary"
+                ? approvalResult.accessGrant?.endsAt ?? null
+                : null,
           );
         }
       }
@@ -2290,27 +2376,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/webhooks/razorpay-subscription", async (req, res) => {
     try {
       const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-      if (webhookSecret) {
-        const signature = req.headers['x-razorpay-signature'] as string;
-        const body = JSON.stringify(req.body);
-        const expected = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");
-        if (signature !== expected) {
-          console.warn("[WEBHOOK] Invalid Razorpay signature");
-          return res.status(400).json({ message: "Invalid signature" });
-        }
+      if (!webhookSecret) {
+        console.error("[WEBHOOK] Razorpay webhook secret is not configured");
+        return res.status(503).json({ message: "Webhook verification is not configured" });
+      }
+      const signature = req.headers["x-razorpay-signature"] as string | undefined;
+      if (!verifyRazorpayWebhookSignature({
+        secret: webhookSecret,
+        signature,
+        rawBody: req.rawBody,
+      })) {
+        console.warn("[WEBHOOK] Invalid Razorpay signature");
+        return res.status(400).json({ message: "Invalid signature" });
       }
       const event = req.body?.event as string;
       const subscriptionEntity = req.body?.payload?.subscription?.entity;
       const subscriptionId = subscriptionEntity?.id as string | undefined;
       const eventId = req.body?.id as string | undefined;
+      if (!eventId) {
+        console.warn("[WEBHOOK] Razorpay event is missing its event ID");
+        return res.status(400).json({ message: "Webhook event ID is required" });
+      }
       console.log(`[WEBHOOK] Razorpay event: ${event}, subscriptionId: ${subscriptionId}`);
       const [clinic] = subscriptionId
         ? await db.select().from(clinics)
           .where(eq(clinics.razorpaySubscriptionId, subscriptionId))
           .limit(1)
         : [];
-      const [duplicateProviderEvent] = eventId
-        ? await db.select({
+      const [duplicateProviderEvent] = await db.select({
           id: subscriptionProviderEvents.id,
           processingStatus: subscriptionProviderEvents.processingStatus,
         })
@@ -2320,8 +2413,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             eq(subscriptionProviderEvents.eventId, eventId),
           ))
           .limit(1)
-        : [];
-      if (duplicateProviderEvent && ["applied", "ignored", "unmatched"].includes(duplicateProviderEvent.processingStatus)) {
+        ;
+      if (duplicateProviderEvent && isRazorpayProviderEventTerminal(duplicateProviderEvent.processingStatus)) {
         return res.json({ received: true, duplicate: true });
       }
 
@@ -2331,10 +2424,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinicId: clinic?.id ?? null,
           provider: "razorpay",
           subscriptionId: subscriptionId ?? null,
-          eventId: eventId ?? null,
+          eventId,
           eventType: event || "unknown",
           processingStatus: clinic ? "received" : "unmatched",
           details: {
+            rawEvent: req.body,
             providerStatus: subscriptionEntity?.status ?? null,
             currentStart: subscriptionEntity?.current_start ?? null,
             currentEnd: subscriptionEntity?.current_end ?? null,
@@ -2350,7 +2444,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinicId: clinic.id,
           provider: "razorpay",
           providerSubscriptionId: subscriptionId,
-          providerEventId: eventId ?? null,
+          providerEventId: eventId,
           providerEventType: event || "unknown",
           providerCurrentEnd,
         });

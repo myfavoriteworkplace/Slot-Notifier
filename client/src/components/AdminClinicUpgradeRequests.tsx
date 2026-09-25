@@ -64,6 +64,8 @@ type AdminClinicUpgradeRequestsProps = {
   pendingCount: number;
 };
 
+type UpgradeApprovalOutcome = "online_payment_required" | "verified_offline_payment" | "complimentary";
+
 const formatPlan = (plan: string) => plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase();
 const formatCycle = (cycle: string) => cycle === "annual" ? "Annual" : "Monthly";
 const formatAccessState = (state: string | null | undefined) => {
@@ -89,6 +91,11 @@ const requestAge = (value: string) => {
   if (Number.isNaN(date.getTime())) return "Age unavailable";
   const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / (24 * 60 * 60 * 1000)));
   return days === 0 ? "Today" : `${days} day${days === 1 ? "" : "s"} ago`;
+};
+
+const localDateTimeValue = (date = new Date()) => {
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
 };
 
 const trialState = (clinic: ClinicSnapshot) => {
@@ -120,8 +127,17 @@ export default function AdminClinicUpgradeRequests({
   const [reviewMode, setReviewMode] = useState<"approve" | "reject" | null>(null);
   const [approvedPlan, setApprovedPlan] = useState<PaidPlanKey>("starter");
   const [approvedBillingCycle, setApprovedBillingCycle] = useState<BillingCycle>("monthly");
+  const [approvalOutcome, setApprovalOutcome] = useState<UpgradeApprovalOutcome>("online_payment_required");
   const [reviewReason, setReviewReason] = useState("");
   const [approvalTransitionId, setApprovalTransitionId] = useState("");
+  const [offlineAmount, setOfflineAmount] = useState("");
+  const [offlineReceivedAt, setOfflineReceivedAt] = useState("");
+  const [offlinePaymentMethod, setOfflinePaymentMethod] = useState<"bank_transfer" | "cash" | "upi" | "card" | "other">("bank_transfer");
+  const [offlineExternalReference, setOfflineExternalReference] = useState("");
+  const [offlineEvidenceReference, setOfflineEvidenceReference] = useState("");
+  const [complimentaryStartsAt, setComplimentaryStartsAt] = useState("");
+  const [complimentaryEndsAt, setComplimentaryEndsAt] = useState("");
+  const [complimentarySponsorReference, setComplimentarySponsorReference] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
 
   const requestsQuery = useQuery<UpgradeRequestListResponse>({
@@ -149,18 +165,61 @@ export default function AdminClinicUpgradeRequests({
     mutationFn: async () => {
       if (!selectedRequest || !reviewMode) throw new Error("Select an upgrade request first");
       const path = `/api/admin/clinic-upgrade-requests/${selectedRequest.request.id}/${reviewMode}`;
-      const body = reviewMode === "approve"
-        ? {
-            requestedPlan: approvedPlan,
-            billingCycle: approvedBillingCycle,
-            reviewReason: reviewReason.trim() || null,
-            transitionId: approvalTransitionId,
+      if (reviewMode === "approve") {
+        const requestedPlan = selectedRequest.request.requestedPlan;
+        const requestedCycle = selectedRequest.request.billingCycle;
+        const planChanged = approvedPlan !== requestedPlan;
+        const cycleChanged = approvedBillingCycle !== requestedCycle;
+        if ((planChanged || cycleChanged || approvalOutcome !== "online_payment_required") &&
+          reviewReason.trim().length < 10) {
+          throw new Error("Add a reason of at least 10 characters for this approval");
+        }
+        const body: Record<string, unknown> = {
+          approvalOutcome,
+          requestedPlan: approvedPlan,
+          billingCycle: approvedBillingCycle,
+          reviewReason: reviewReason.trim() || null,
+          transitionId: approvalTransitionId,
+        };
+        if (approvalOutcome === "verified_offline_payment") {
+          const receivedAt = new Date(offlineReceivedAt);
+          if (!Number.isSafeInteger(Number(offlineAmount)) || Number(offlineAmount) <= 0) {
+            throw new Error("Enter the whole-rupee amount received");
           }
-        : {
-            reviewReason: reviewReason.trim(),
-            transitionId: approvalTransitionId,
+          if (!offlineReceivedAt || !Number.isFinite(receivedAt.getTime()) || receivedAt > new Date()) {
+            throw new Error("Enter a valid payment date that is not in the future");
+          }
+          if (!offlineExternalReference.trim() || !offlineEvidenceReference.trim()) {
+            throw new Error("Enter both the payment reference and evidence reference");
+          }
+          body.offlinePayment = {
+            amount: Number(offlineAmount),
+            receivedAt: receivedAt.toISOString(),
+            paymentMethod: offlinePaymentMethod,
+            externalReference: offlineExternalReference.trim(),
+            evidenceReference: offlineEvidenceReference.trim(),
           };
-      const response = await apiRequest("POST", path, body);
+        }
+        if (approvalOutcome === "complimentary") {
+          if (!complimentaryStartsAt || !complimentaryEndsAt || complimentaryEndsAt <= complimentaryStartsAt) {
+            throw new Error("Choose valid complimentary-access start and end dates");
+          }
+          body.complimentaryAccess = {
+            startsAt: new Date(complimentaryStartsAt).toISOString(),
+            endsAt: new Date(complimentaryEndsAt).toISOString(),
+            ...(complimentarySponsorReference.trim()
+              ? { sponsorReference: complimentarySponsorReference.trim() }
+              : {}),
+          };
+        }
+        const response = await apiRequest("POST", path, body);
+        if (!response.ok) throw new Error(await responseError(response, "Unable to review upgrade request"));
+        return response.json();
+      }
+      const response = await apiRequest("POST", path, {
+        reviewReason: reviewReason.trim(),
+        transitionId: approvalTransitionId,
+      });
       if (!response.ok) throw new Error(await responseError(response, "Unable to review upgrade request"));
       return response.json();
     },
@@ -168,6 +227,13 @@ export default function AdminClinicUpgradeRequests({
       setSelectedRequest(null);
       setReviewMode(null);
       setReviewReason("");
+      setApprovalOutcome("online_payment_required");
+      setOfflineAmount("");
+      setOfflineExternalReference("");
+      setOfflineEvidenceReference("");
+      setComplimentaryStartsAt("");
+      setComplimentaryEndsAt("");
+      setComplimentarySponsorReference("");
       setReviewError(null);
       notify.success("Upgrade request reviewed");
       await refresh();
@@ -186,8 +252,17 @@ export default function AdminClinicUpgradeRequests({
     setApprovedBillingCycle((BILLING_CYCLES as readonly string[]).includes(row.request.billingCycle)
       ? row.request.billingCycle as BillingCycle
       : "monthly");
+    setApprovalOutcome("online_payment_required");
     setReviewReason("");
     setApprovalTransitionId(crypto.randomUUID());
+    setOfflineAmount("");
+    setOfflineReceivedAt(localDateTimeValue());
+    setOfflinePaymentMethod("bank_transfer");
+    setOfflineExternalReference("");
+    setOfflineEvidenceReference("");
+    setComplimentaryStartsAt(localDateTimeValue());
+    setComplimentaryEndsAt(localDateTimeValue(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
+    setComplimentarySponsorReference("");
     setReviewError(null);
   };
 
@@ -197,6 +272,13 @@ export default function AdminClinicUpgradeRequests({
     setReviewMode(null);
     setReviewReason("");
     setApprovalTransitionId("");
+    setApprovalOutcome("online_payment_required");
+    setOfflineAmount("");
+    setOfflineExternalReference("");
+    setOfflineEvidenceReference("");
+    setComplimentaryStartsAt("");
+    setComplimentaryEndsAt("");
+    setComplimentarySponsorReference("");
     setReviewError(null);
   };
 
@@ -339,6 +421,20 @@ export default function AdminClinicUpgradeRequests({
 
           {reviewMode === "approve" ? (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="admin-upgrade-approval-outcome">Approval outcome</Label>
+                <select
+                  id="admin-upgrade-approval-outcome"
+                  value={approvalOutcome}
+                  onChange={event => setApprovalOutcome(event.target.value as UpgradeApprovalOutcome)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  data-testid="select-admin-upgrade-outcome"
+                >
+                  <option value="online_payment_required">Approve with online payment</option>
+                  <option value="verified_offline_payment">Approve after verified offline payment</option>
+                  <option value="complimentary">Grant complimentary/sponsored access</option>
+                </select>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="admin-upgrade-approved-plan">Approved plan</Label>
@@ -366,7 +462,9 @@ export default function AdminClinicUpgradeRequests({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="admin-upgrade-review-reason">Review note (optional unless changing the request)</Label>
+                <Label htmlFor="admin-upgrade-review-reason">
+                  {approvalOutcome === "online_payment_required" ? "Review note (optional unless changing the request)" : "Reason"}
+                </Label>
                 <Textarea
                   id="admin-upgrade-review-reason"
                   value={reviewReason}
@@ -377,9 +475,59 @@ export default function AdminClinicUpgradeRequests({
                   data-testid="textarea-admin-upgrade-review-reason"
                 />
               </div>
+              {approvalOutcome === "verified_offline_payment" && (
+                <div className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 sm:grid-cols-2 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-upgrade-offline-amount">Amount received (INR)</Label>
+                    <input id="admin-upgrade-offline-amount" type="number" min={1} step={1} value={offlineAmount} onChange={event => setOfflineAmount(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="input-admin-upgrade-offline-amount" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-upgrade-offline-method">Payment method</Label>
+                    <select id="admin-upgrade-offline-method" value={offlinePaymentMethod} onChange={event => setOfflinePaymentMethod(event.target.value as typeof offlinePaymentMethod)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      <option value="bank_transfer">Bank transfer</option>
+                      <option value="upi">UPI</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-upgrade-offline-received-at">Payment date</Label>
+                    <input id="admin-upgrade-offline-received-at" type="datetime-local" value={offlineReceivedAt} onChange={event => setOfflineReceivedAt(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-upgrade-offline-reference">External reference</Label>
+                    <input id="admin-upgrade-offline-reference" value={offlineExternalReference} onChange={event => setOfflineExternalReference(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Bank/UPI receipt reference" />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="admin-upgrade-offline-evidence">Evidence reference</Label>
+                    <input id="admin-upgrade-offline-evidence" value={offlineEvidenceReference} onChange={event => setOfflineEvidenceReference(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Receipt location or evidence ID" />
+                  </div>
+                </div>
+              )}
+              {approvalOutcome === "complimentary" && (
+                <div className="grid gap-3 rounded-lg border border-sky-200 bg-sky-50/50 p-3 sm:grid-cols-2 dark:border-sky-900/60 dark:bg-sky-950/20">
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-upgrade-complimentary-start">Start date</Label>
+                    <input id="admin-upgrade-complimentary-start" type="datetime-local" value={complimentaryStartsAt} onChange={event => setComplimentaryStartsAt(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-upgrade-complimentary-end">End date</Label>
+                    <input id="admin-upgrade-complimentary-end" type="datetime-local" value={complimentaryEndsAt} min={complimentaryStartsAt} onChange={event => setComplimentaryEndsAt(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="admin-upgrade-complimentary-reference">Sponsor/internal reference (optional)</Label>
+                    <input id="admin-upgrade-complimentary-reference" value={complimentarySponsorReference} onChange={event => setComplimentarySponsorReference(event.target.value)} maxLength={160} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                  </div>
+                </div>
+              )}
               <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
                 <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
-                Approval prepares the existing provider payment and activation flow. The clinic remains pending payment until activation succeeds.
+                {approvalOutcome === "online_payment_required"
+                  ? "The clinic remains on Trial until provider confirmation."
+                  : approvalOutcome === "verified_offline_payment"
+                    ? "Full payment evidence is required. No provider subscription will be created."
+                    : "No payment will be recorded. Complimentary access ends on the selected date and does not auto-renew."}
               </p>
             </div>
           ) : (

@@ -19,6 +19,7 @@ export type AdminClinicPaymentStatus =
   | "not_required"
   | "pending"
   | "verified_offline"
+  | "reversed"
   | "waived"
   | "rejected"
   | "unknown";

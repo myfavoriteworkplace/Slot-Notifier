@@ -22,10 +22,18 @@ const clinic: AdminClinicDirectoryRecord = {
 };
 
 test("directory contract exposes the required search fields and lifecycle filters", () => {
-  assert.deepEqual(ADMIN_CLINIC_DIRECTORY_SEARCH_FIELDS, ["name", "city", "email", "plan"]);
+  assert.deepEqual(ADMIN_CLINIC_DIRECTORY_SEARCH_FIELDS, [
+    "name",
+    "city",
+    "email",
+    "plan",
+    "currentAccessPlan",
+    "assignedPlan",
+    "currentAccessState",
+  ]);
   assert.deepEqual(
     ADMIN_CLINIC_DIRECTORY_FILTER_OPTIONS.map(option => option.value),
-    ["all", "active", "attention", "trial", "paid", "pending", "archived", "sponsored", "exception", "unknown"],
+    ["active", "pending", "archived", "all", "attention", "trial", "paid", "sponsored", "exception", "unknown"],
   );
 });
 

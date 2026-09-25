@@ -4,6 +4,7 @@ import {
   subscriptionAccessExceptions,
   subscriptionAccessGrants,
   subscriptionApprovalDecisions,
+  subscriptionOfflinePayments,
   type Clinic,
   type SubscriptionAccessException,
   type SubscriptionAccessGrant,
@@ -22,14 +23,17 @@ import type {
   AdminClinicPaymentStatus,
 } from "@shared/admin-clinic-directory";
 
-function paymentStatusForOutcome(outcome: string | null): AdminClinicPaymentStatus {
+function paymentStatusForOutcome(
+  outcome: string | null,
+  latestOfflinePaymentReversed = false,
+): AdminClinicPaymentStatus {
   switch (outcome) {
     case "trial":
       return "not_required";
     case "online_payment_required":
       return "pending";
     case "verified_offline_payment":
-      return "verified_offline";
+      return latestOfflinePaymentReversed ? "reversed" : "verified_offline";
     case "complimentary":
       return "waived";
     case "reject":
@@ -64,7 +68,16 @@ function nextImportantDate(
 function nextAction(
   report: EffectiveEntitlementReport,
   latestApproval: SubscriptionApprovalDecision | null,
+  latestOfflinePaymentReversed = false,
 ): AdminClinicNextAction {
+  if (latestOfflinePaymentReversed) {
+    return {
+      code: "OFFLINE_PAYMENT_REVERSED",
+      label: "Review reversed offline payment",
+      description: "The latest verified offline payment was reversed and the clinic requires access reconciliation.",
+      action: "reconcile",
+    };
+  }
   if (latestApproval?.approvalOutcome === "online_payment_required") {
     return {
       code: "WAIT_FOR_PAYMENT",
@@ -110,6 +123,7 @@ function latestApprovalSummary(
 function buildAccessSummary(
   report: EffectiveEntitlementReport,
   latestApproval: SubscriptionApprovalDecision | null,
+  latestOfflinePaymentReversed = false,
 ): AdminClinicAccessSummary {
   const importantDate = nextImportantDate(report);
   const attentionCode =
@@ -117,6 +131,8 @@ function buildAccessSummary(
       ? report.access.reasonCode
       : latestApproval?.approvalOutcome === "online_payment_required"
         ? "PAYMENT_PENDING"
+        : latestOfflinePaymentReversed
+          ? "OFFLINE_PAYMENT_REVERSED"
         : null;
 
   return {
@@ -125,12 +141,15 @@ function buildAccessSummary(
     assignedPlan: latestApproval?.approvedPlan ?? null,
     latestApprovalOutcome: latestApproval?.approvalOutcome ?? null,
     paymentBasis: latestApproval?.paymentBasis ?? null,
-    paymentStatus: paymentStatusForOutcome(latestApproval?.approvalOutcome ?? null),
+    paymentStatus: paymentStatusForOutcome(
+      latestApproval?.approvalOutcome ?? null,
+      latestOfflinePaymentReversed,
+    ),
     renewalMode: latestApproval?.renewalMode ?? null,
     nextImportantDate: importantDate.date,
     nextImportantDateType: importantDate.type,
     attentionCode,
-    nextAction: nextAction(report, latestApproval),
+    nextAction: nextAction(report, latestApproval, latestOfflinePaymentReversed),
     latestApproval: latestApprovalSummary(latestApproval),
   };
 }
@@ -152,13 +171,17 @@ export async function getAdminClinicDirectoryRecords(
   if (clinics.length === 0) return [];
 
   const clinicIds = clinics.map(clinic => clinic.id);
-  const [grantRows, exceptionRows, approvalRows] = await Promise.all([
+  const [grantRows, exceptionRows, approvalRows, offlinePaymentRows] = await Promise.all([
     db.select().from(subscriptionAccessGrants).where(inArray(subscriptionAccessGrants.clinicId, clinicIds)),
     db.select().from(subscriptionAccessExceptions).where(inArray(subscriptionAccessExceptions.clinicId, clinicIds)),
     db.select()
       .from(subscriptionApprovalDecisions)
       .where(inArray(subscriptionApprovalDecisions.clinicId, clinicIds))
       .orderBy(desc(subscriptionApprovalDecisions.effectiveAt), desc(subscriptionApprovalDecisions.id)),
+    db.select()
+      .from(subscriptionOfflinePayments)
+      .where(inArray(subscriptionOfflinePayments.clinicId, clinicIds))
+      .orderBy(desc(subscriptionOfflinePayments.receivedAt), desc(subscriptionOfflinePayments.id)),
   ]);
 
   const grantsByClinic = groupByClinic(grantRows);
@@ -167,6 +190,12 @@ export async function getAdminClinicDirectoryRecords(
   for (const decision of approvalRows) {
     if (!latestApprovalByClinic.has(decision.clinicId)) {
       latestApprovalByClinic.set(decision.clinicId, decision);
+    }
+  }
+  const latestOfflinePaymentByClinic = new Map<number, (typeof offlinePaymentRows)[number]>();
+  for (const payment of offlinePaymentRows) {
+    if (!latestOfflinePaymentByClinic.has(payment.clinicId)) {
+      latestOfflinePaymentByClinic.set(payment.clinicId, payment);
     }
   }
 
@@ -187,7 +216,12 @@ export async function getAdminClinicDirectoryRecords(
       now,
     });
     const latestApproval = latestApprovalByClinic.get(clinic.id) ?? null;
-    const access = buildAccessSummary(report, latestApproval);
+    const latestOfflinePayment = latestOfflinePaymentByClinic.get(clinic.id);
+    const latestOfflinePaymentReversed =
+      latestApproval?.approvalOutcome === "verified_offline_payment" &&
+      latestOfflinePayment?.approvalDecisionId === latestApproval.id &&
+      latestOfflinePayment.reversalStatus === "reversed";
+    const access = buildAccessSummary(report, latestApproval, latestOfflinePaymentReversed);
 
     return {
       ...clinic,

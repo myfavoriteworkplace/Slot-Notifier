@@ -338,6 +338,14 @@ export async function applySubscriptionApproval(
 
   const input = parsed.data;
   const now = options.now ?? new Date();
+  if (input.offlinePayment) {
+    if (input.offlinePayment.receivedAt > now) {
+      throw new SubscriptionApprovalError("Offline payment receipt cannot be in the future", 400);
+    }
+    if (input.offlinePayment.verifiedAt > now) {
+      throw new SubscriptionApprovalError("Offline payment verification cannot be in the future", 400);
+    }
+  }
   const inputFingerprint = buildInputFingerprint(input);
   const existing = await getExistingDecision(input.clinicId, input.transitionId);
   if (existing) {
