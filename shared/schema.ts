@@ -70,6 +70,7 @@ export const clinics = pgTable("clinics", {
   trustScore: integer("trust_score").default(0),
   plan: varchar("plan", { length: 20 }).default("starter"),
   requestedPlan: varchar("requested_plan", { length: 20 }),
+  requestedBillingCycle: varchar("requested_billing_cycle", { length: 10 }),
   storageLimitBytes: integer("storage_limit_bytes"),
   timezone: varchar("timezone", { length: 100 }).notNull().default("Asia/Kolkata"),
   subscriptionStatus: varchar("subscription_status", { length: 20 }).default("unpaid"), // unpaid, active, expired

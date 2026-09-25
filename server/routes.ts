@@ -1253,8 +1253,12 @@ async function sendClinicApprovalEmail(
   kind: ClinicApprovalEmailKind,
   activationUrl?: string,
   planLabel?: string,
+  billingCycle?: BillingCycle,
 ) {
   const isTrialApproval = kind === "trial";
+  const approvedSubscriptionLabel = planLabel
+    ? `${planLabel}${billingCycle ? ` · ${billingCycle === "annual" ? "Annual" : "Monthly"}` : ""}`
+    : "";
   if (isTrialApproval && activationUrl) {
     throw new Error("Trial approval emails cannot include a payment activation link");
   }
@@ -1308,7 +1312,7 @@ async function sendClinicApprovalEmail(
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
           style="background:linear-gradient(135deg,#085041 0%,#1a9e6f 100%);border-radius:10px;">
           <tr><td style="padding:20px 24px;text-align:center;">
-            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:rgba(255,255,255,.9);">Next step — Activate your subscription${planLabel ? ` (${planLabel})` : ''}</p>
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:rgba(255,255,255,.9);">Next step — Activate your subscription${approvedSubscriptionLabel ? ` (${approvedSubscriptionLabel})` : ''}</p>
             <p style="margin:0 0 16px;font-size:12px;color:rgba(255,255,255,.7);line-height:1.5;">Complete your payment to unlock all dashboard features. This link expires in 7 days.</p>
             <a href="${activationUrl}" style="display:inline-block;background:white;color:#085041;text-decoration:none;font-size:13px;font-weight:700;padding:11px 28px;border-radius:8px;">Activate &amp; Pay</a>
           </td></tr>
@@ -1888,6 +1892,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         username: _u, passwordHash: _p,
         plan: legacyPlan,
         requestedPlan: requestedPlanInput,
+        requestedBillingCycle: requestedBillingCycleInput,
         status: _status,
         isArchived: _isArchived,
         registeredBy: _registeredBy,
@@ -1932,6 +1937,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!requestedPlanResult.ok) {
         return res.status(400).json({ message: requestedPlanResult.message });
       }
+      let requestedBillingCycle: BillingCycle | null = null;
+      if (requestedPlanResult.requestedPlan === "trial") {
+        if (requestedBillingCycleInput !== undefined && requestedBillingCycleInput !== null) {
+          return res.status(400).json({ message: "Trial registration cannot include a paid billing cycle" });
+        }
+      } else {
+        if (!isBillingCycle(requestedBillingCycleInput)) {
+          return res.status(400).json({ message: "Choose a monthly or annual billing cycle for the requested paid plan" });
+        }
+        requestedBillingCycle = requestedBillingCycleInput;
+      }
 
       // Compute trust score server-side
       const trustScore = (() => {
@@ -1955,7 +1971,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ...rest, email,
         status: "pending", isArchived: false,
         username: null, passwordHash: null,
-         requestedPlan: requestedPlanResult.requestedPlan,
+        requestedPlan: requestedPlanResult.requestedPlan,
+        requestedBillingCycle,
         googleBusinessUrl: googleBusinessUrl || null,
         gstNumber: gstNumber || null,
         medicalLicenseUrl: medicalLicenseUrl || null,
@@ -2167,6 +2184,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const now = new Date();
       const requestedPlan = resolveInitialApprovalSelection(existing.requestedPlan).requestedPlan;
+      const requestedBillingCycle = isBillingCycle(existing.requestedBillingCycle)
+        ? existing.requestedBillingCycle
+        : null;
       const { outcome, approvedPlan } = parsed.data;
       const isPaidOutcome =
         outcome === "online_payment_required" ||
@@ -2289,10 +2309,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         outcome,
         requestedPlan,
         approvedPlan,
-        // Registration currently stores a requested plan, but not a requested
-        // billing cycle. Keep that unknown value null instead of copying the
-        // Admin's approved cycle into both sides of the decision.
-        requestedBillingCycle: null,
+        requestedBillingCycle,
         approvedBillingCycle,
         paymentBasis: outcome === "online_payment_required"
           ? "provider" as const
@@ -2325,9 +2342,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 paymentLinkMetadata: {
                   approvalType: "initial_registration",
                   requestedPlan,
+                  requestedBillingCycle,
                   approvedPlan,
+                  approvedBillingCycle,
                   billingCycle: approvedBillingCycle,
                   planOverridden: approvedPlan !== requestedPlan,
+                  billingCycleOverridden: requestedBillingCycle !== null &&
+                    requestedBillingCycle !== approvedBillingCycle,
                 },
               },
             }
@@ -2384,7 +2405,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             plainPassword,
             outcome,
             activationUrl || undefined,
-            approvedPlan || undefined,
+            approvedPlan ? PUBLISHED_PLAN_POLICY.plans[approvedPlan].displayName : undefined,
+            approvedBillingCycle || undefined,
           );
         }
       }

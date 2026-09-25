@@ -4,7 +4,7 @@
 **Scope:** Clinic registration approval, Trial lifecycle, paid-plan assignment, payment-link delivery, verified offline payment, complimentary access, upgrade requests, renewals, audit history, and the Super Admin Clinics & Access workspace
 **Audience:** Product owner, frontend engineers, backend engineers, Super Admin operations, billing operators, and QA
 
-## Implementation status and pending work — audited 2026-09-24
+## Implementation status and pending work — audited 2026-09-25
 
 The application is still in development mode and is deployed to Render for
 development, acceptance, and integration testing. A Render deployment does not
@@ -31,7 +31,7 @@ implementation task.
 | **R2** | Add a separate registration outcome selector | **Complete** | R1 | The Admin must choose an outcome separately from the plan. Selecting `Growth` should not automatically mean online payment. | The dialog shows the relevant plan, cycle, Trial, offline, complimentary, or rejection fields and prevents submission when required outcome-specific values are missing. |
 | **R3** | Extend the registration approval API to all five outcomes | **Complete** | R1 | The server must receive the complete Admin decision instead of inferring it from `approvedPlan`. | `PATCH /api/clinics/:id/approve` accepts and validates all five outcomes, preserves requested and approved values, and calls the shared transition operation for every outcome. |
 | **R4** | Complete Trial registration and credentials delivery | **Complete** | R3 | A Trial clinic should be able to start using the application without receiving a payment request. | Trial approval creates Trial and grace dates, sends username/password only, creates no payment link or provider subscription, and does not resend or rotate credentials on retry. |
-| **R5** | Complete online paid registration and Admin overrides | **Partial** | R3 | The clinic must receive a payment link for the plan and cycle the Admin actually approved, not the original request. | An override from Growth Annual to Starter Monthly creates a Starter Monthly provider link, records both requested and approved values, requires an override reason, preserves Trial access, and keeps paid access false until provider confirmation. |
+| **R5** | Complete online paid registration and Admin overrides | **Complete** | R3 | The clinic must receive a payment link for the plan and cycle the Admin actually approved, not the original request. | An override from Growth Annual to Starter Monthly creates a Starter Monthly provider link, records both requested and approved values, requires an override reason, preserves Trial access, and keeps paid access false until provider confirmation. |
 | **R6** | Add verified offline payment to registration approval | **Partial** | R3 and existing offline-payment foundation | Admins need to approve a clinic whose payment was received outside Razorpay without pretending it was an online payment. | Registration collects evidence and verification details, creates an immutable offline record, activates the approved paid plan only after full payment verification, creates no provider subscription or webhook event, and sends the offline confirmation with paid-period dates. |
 | **R7** | Add complimentary access to registration approval | **Partial** | R3 and existing complimentary-access foundation | Free paid-level access must be deliberate and must not look like captured revenue. | Registration creates a finite sponsored grant with reason and dates, records waived payment, creates no payment evidence, never auto-renews, and sends the complimentary confirmation with its end date. |
 | **R8** | Move registration rejection into the shared decision history | **Partial** | R3 | Rejection should be recorded with the same actor, reason, and transition history as approval. | Rejection from the registration dialog requires a reason, creates a shared rejection decision, sends no credentials or payment link, and leaves the clinic without active access. |
@@ -999,10 +999,9 @@ It must never label online approval as Active paid.
   `applySubscriptionApproval()`; the central service owns the decision,
   clinic snapshot, evidence/grant, assignment, activation token, and lifecycle
   event as applicable.
-- The clinic registration record stores a requested plan but no requested
-  billing cycle. The adapter records `requestedBillingCycle: null` and keeps
-  the approved cycle separate instead of copying the Admin's choice into both
-  fields.
+- The registration record stores requested plan and billing cycle separately
+  from the Admin's approved values. Trial and legacy registrations without a
+  recorded cycle retain `requestedBillingCycle: null`.
 - Verified offline registration requires the full published plan price,
   payment method, received date, external reference, and evidence reference;
   verifier identity and verification time are taken from the authenticated
@@ -1019,6 +1018,26 @@ It must never label online approval as Active paid.
 - Custom Trial schedules are passed through the shared approval contract and
   remain timezone-aware. The route does not directly write subscription
   tables anymore.
+
+### R5 completion record — online paid registration and overrides
+
+**Status:** Complete for registration capture, Admin approval, provider-link
+selection, and pending-Trial behavior.
+
+- Paid registration requires an explicit monthly or annual requested cycle and
+  persists it alongside the requested plan. Trial registrations store no
+  requested paid cycle.
+- The pending-registration review shows the saved request and defaults the
+  proposed paid cycle to it. Changing the requested plan or a recorded cycle
+  requires an override reason of at least 10 characters; the server validates
+  the same rule.
+- Requested plan/cycle and approved plan/cycle are passed separately to the
+  central decision record. Razorpay selects its provider plan ID from the final
+  approved plan and cycle, and the approval email identifies that same pair.
+- Online approval keeps an existing Trial plan, Trial status, and Trial dates
+  while payment is pending. The assigned paid plan and active paid status are
+  not written until a provider-confirmed transition. Webhook authenticity and
+  provider-event matching for overrides remain tracked separately in R10/R11.
 
 ### 5.7 Step 5 — Migrate upgrade-request approval
 
@@ -1519,12 +1538,10 @@ generated and sent.
 Paid access will not begin before provider confirmation.
 ```
 
-The online-payment message is not a credentials-only message. The link must
-match the final Admin selection, including any plan or billing-cycle override.
-Trial approval is the only registration outcome whose message is defined as
-username and password only. The current implementation still includes
-credentials in the paid approval email; aligning that behavior with this
-policy remains part of R4 and R5.
+The online-payment message is not a credentials-only message: it includes the
+login credentials and a payment activation link labeled with the final
+Admin-approved plan and cycle. Trial approval is the only registration outcome
+whose message is defined as username and password only.
 
 ### 6.6 Offline payment fields
 

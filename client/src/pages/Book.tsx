@@ -346,6 +346,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     trustScore: 0,
     plan: "starter",
     requestedPlan: null,
+    requestedBillingCycle: null,
     subscriptionStatus: "unpaid",
     billingCycle: "monthly",
     razorpaySubscriptionId: null,

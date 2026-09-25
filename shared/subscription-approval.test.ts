@@ -181,6 +181,39 @@ test("requires reasons for rejection and plan or cycle overrides", () => {
     }).success,
     false,
   );
+
+  const cycleOverride = {
+    ...baseApproval,
+    outcome: "online_payment_required" as const,
+    requestedPlan: "growth" as const,
+    requestedBillingCycle: "annual" as const,
+    approvedPlan: "growth" as const,
+    approvedBillingCycle: "monthly" as const,
+    paymentBasis: "provider" as const,
+    renewalMode: "provider_auto" as const,
+    onlinePayment: {
+      provider: "razorpay",
+      paymentLinkMetadata: { paymentLinkId: "plink_123" },
+    },
+  };
+  assert.equal(subscriptionApprovalInputSchema.safeParse({
+    ...cycleOverride,
+    reason: null,
+  }).success, false);
+  assert.equal(subscriptionApprovalInputSchema.safeParse({
+    ...cycleOverride,
+    reason: "Clinic requested annual, approved monthly after review",
+  }).success, true);
+  assert.equal(subscriptionApprovalInputSchema.safeParse({
+    ...cycleOverride,
+    approvedPlan: "starter",
+    reason: null,
+  }).success, false);
+  assert.equal(subscriptionApprovalInputSchema.safeParse({
+    ...cycleOverride,
+    approvedPlan: "starter",
+    reason: "Approved Starter Monthly after reviewing the clinic application",
+  }).success, true);
 });
 
 test("rejects paid plans without a billing cycle and preserves strict boundaries", () => {

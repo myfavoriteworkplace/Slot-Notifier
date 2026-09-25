@@ -284,6 +284,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='requested_plan') THEN
             ALTER TABLE clinics ADD COLUMN requested_plan varchar(20);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='requested_billing_cycle') THEN
+            ALTER TABLE clinics ADD COLUMN requested_billing_cycle varchar(10);
+          END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='storage_limit_bytes') THEN
             ALTER TABLE clinics ADD COLUMN storage_limit_bytes integer;
           END IF;

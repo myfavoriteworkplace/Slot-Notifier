@@ -883,7 +883,7 @@ export default function Admin() {
     setApprovalClinic(clinic);
     setApprovalOutcome(initialOutcome);
     setApprovalPlan(Object.prototype.hasOwnProperty.call(APPROVAL_PLAN_LABELS, requestedPlan) ? requestedPlan : "trial");
-    setApprovalBillingCycle("monthly");
+    setApprovalBillingCycle(clinic.requestedBillingCycle === "annual" ? "annual" : "monthly");
     setCustomTrialSchedule(false);
     setTrialStartDate(today);
     setTrialEndDate(addLocalDays(today, 14));
@@ -937,10 +937,17 @@ export default function Admin() {
         : approvalOutcome === "trial"
           ? "trial"
           : approvalPlan;
-      const isOverride = selectedPlan !== null && selectedPlan !== requestedPlan;
+      const requestedCycle = approvalClinic.requestedBillingCycle === "monthly" ||
+        approvalClinic.requestedBillingCycle === "annual"
+        ? approvalClinic.requestedBillingCycle
+        : null;
+      const planIsOverridden = selectedPlan !== null && selectedPlan !== requestedPlan;
+      const cycleIsOverridden = isPaidOutcome &&
+        requestedCycle !== null &&
+        approvalBillingCycle !== requestedCycle;
       const reason = approvalReason.trim();
-      if (isOverride && reason.length < 10) {
-        throw new Error("Add a reason of at least 10 characters for this plan override");
+      if ((planIsOverridden || cycleIsOverridden) && reason.length < 10) {
+        throw new Error("Add a reason of at least 10 characters for this plan or billing-cycle override");
       }
       if ((approvalOutcome === "reject" || approvalOutcome === "complimentary") && !reason) {
         throw new Error(approvalOutcome === "reject" ? "Add a rejection reason" : "Add a complimentary-access reason");
@@ -1032,17 +1039,26 @@ export default function Admin() {
   });
 
   const requestedApprovalPlan = (approvalClinic?.requestedPlan || "trial") as ApprovalPlan;
+  const requestedApprovalCycle: ApprovalBillingCycle | null =
+    approvalClinic?.requestedBillingCycle === "monthly" ||
+    approvalClinic?.requestedBillingCycle === "annual"
+      ? approvalClinic.requestedBillingCycle
+      : null;
   const isPaidApprovalOutcome = approvalOutcome === "online_payment_required" ||
     approvalOutcome === "verified_offline_payment" ||
     approvalOutcome === "complimentary";
   const approvalPlanIsOverridden = isPaidApprovalOutcome
     ? approvalPlan !== requestedApprovalPlan
     : approvalOutcome === "trial" && requestedApprovalPlan !== "trial";
+  const approvalCycleIsOverridden = isPaidApprovalOutcome &&
+    requestedApprovalCycle !== null &&
+    approvalBillingCycle !== requestedApprovalCycle;
+  const approvalDecisionIsOverridden = approvalPlanIsOverridden || approvalCycleIsOverridden;
   const approvalReasonIsRequired =
     approvalOutcome === "reject" ||
     approvalOutcome === "complimentary" ||
-    approvalPlanIsOverridden;
-  const approvalReasonIsInvalid = approvalPlanIsOverridden
+    approvalDecisionIsOverridden;
+  const approvalReasonIsInvalid = approvalDecisionIsOverridden
     ? approvalReason.trim().length < 10
     : approvalReasonIsRequired && approvalReason.trim().length === 0;
   const offlineReceivedDate = offlineReceivedAt ? new Date(offlineReceivedAt) : null;
@@ -2094,7 +2110,9 @@ export default function Admin() {
                                 </div>
                                 <div className="p-4 space-y-3">
                                     <p className="text-xs text-muted-foreground">
-                                      Requested plan: <span className="font-semibold text-foreground">{APPROVAL_PLAN_LABELS[((clinic.requestedPlan || "trial") as ApprovalPlan)] || "Trial"}</span>. Choose the effective plan, billing cycle, and Trial dates before approving.
+                                      Requested plan: <span className="font-semibold text-foreground">{APPROVAL_PLAN_LABELS[((clinic.requestedPlan || "trial") as ApprovalPlan)] || "Trial"}</span>
+                                      {clinic.requestedBillingCycle ? <> · Requested cycle: <span className="font-semibold text-foreground">{clinic.requestedBillingCycle}</span></> : " · Requested cycle: not recorded"}
+                                      . Choose the effective plan, billing cycle, and Trial dates before approving.
                                     </p>
                                   </div>
                                 <div className="grid grid-cols-3 gap-2">
@@ -3430,7 +3448,8 @@ export default function Admin() {
               Choose the approval outcome and final approved plan for {approvalClinic?.name}. The clinic requested{" "}
               <span className="font-semibold text-foreground">
                 {approvalClinic ? APPROVAL_PLAN_LABELS[(approvalClinic.requestedPlan || "trial") as ApprovalPlan] || "Trial" : "Trial"}
-              </span>.
+              </span>
+              {requestedApprovalCycle ? <> with {requestedApprovalCycle} billing</> : " (billing cycle not recorded)"}.
             </DialogDescription>
           </DialogHeader>
 
@@ -3473,6 +3492,9 @@ export default function Admin() {
               </select>
                 <p className="text-xs text-muted-foreground">
                   Requested plan: {APPROVAL_PLAN_LABELS[requestedApprovalPlan] || "Not recorded"}.
+                  {requestedApprovalCycle
+                    ? ` Requested cycle: ${requestedApprovalCycle}.`
+                    : " Requested cycle was not recorded for this registration."}
                 </p>
               </div>
             )}
@@ -3504,6 +3526,9 @@ export default function Admin() {
                   <option value="annual">Annual</option>
                 </select>
                 <p className="text-xs text-muted-foreground">
+                  {requestedApprovalCycle
+                    ? `Requested cycle: ${requestedApprovalCycle}. `
+                    : "No requested cycle was recorded. "}
                   {approvalOutcome === "online_payment_required"
                     ? "Payment remains pending until the provider confirms payment."
                     : approvalOutcome === "verified_offline_payment"
@@ -3615,14 +3640,14 @@ export default function Admin() {
               </div>
             )}
 
-            {approvalPlanIsOverridden && (
+            {approvalDecisionIsOverridden && (
               <div className="space-y-2">
                 <Label htmlFor="approval-reason">Override reason <span className="text-destructive">*</span></Label>
                 <Textarea
                   id="approval-reason"
                   value={approvalReason}
                   onChange={event => setApprovalReason(event.target.value)}
-                  placeholder="Explain why the approved plan differs from the clinic request"
+                  placeholder="Explain why the approved plan or cycle differs from the clinic request"
                   maxLength={500}
                   disabled={approveClinicMutation.isPending}
                   data-testid="textarea-approval-reason"
@@ -3631,7 +3656,7 @@ export default function Admin() {
               </div>
             )}
 
-            {approvalOutcome === "complimentary" && !approvalPlanIsOverridden && (
+            {approvalOutcome === "complimentary" && !approvalDecisionIsOverridden && (
               <div className="space-y-2">
                 <Label htmlFor="approval-reason">Complimentary-access reason <span className="text-destructive">*</span></Label>
                 <Textarea
@@ -3664,7 +3689,7 @@ export default function Admin() {
             {approvalOutcome !== "trial" &&
               approvalOutcome !== "reject" &&
               approvalOutcome !== "complimentary" &&
-              !approvalPlanIsOverridden && (
+              !approvalDecisionIsOverridden && (
               <div className="space-y-2">
                 <Label htmlFor="approval-reason">Approval reason <span className="text-muted-foreground">(optional)</span></Label>
                 <Textarea

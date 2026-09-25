@@ -17,7 +17,7 @@ import {
   Upload, X, Star, Zap, ShieldCheck, ExternalLink, Info,
 } from "lucide-react";
 import { z } from "zod";
-import { PUBLISHED_PLAN_POLICY, type PlanKey } from "@shared/plan-catalog";
+import { PUBLISHED_PLAN_POLICY, type BillingCycle, type PlanKey } from "@shared/plan-catalog";
 
 // ─── Small reusables ──────────────────────────────────────────────────────────
 
@@ -370,6 +370,7 @@ export default function RegisterClinic() {
 
   // Plan selection
   const [selectedPlan, setSelectedPlan] = useState<PlanKey | "">("");
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<BillingCycle>("monthly");
 
   // Optional boost fields (outside RHF — not in InsertClinic)
   const [medicalLicenseUrl, setMedicalLicenseUrl] = useState("");
@@ -492,6 +493,10 @@ export default function RegisterClinic() {
       notify.warning("Plan selection required", { description: "Please choose a subscription plan before submitting." });
       return;
     }
+    if (selectedPlan !== "trial" && !selectedBillingCycle) {
+      notify.warning("Billing cycle required", { description: "Please choose monthly or annual billing for your requested plan." });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await apiRequest("POST", "/api/clinics/register", {
@@ -501,6 +506,7 @@ export default function RegisterClinic() {
         medicalLicenseUrl: medicalLicenseUrl || undefined,
         clinicRegCertUrl: clinicRegCertUrl || undefined,
         requestedPlan: selectedPlan,
+        requestedBillingCycle: selectedPlan === "trial" ? null : selectedBillingCycle,
       });
       notify.success("Registration submitted", { description: "We'll review your details and email your login credentials once approved." });
       setLocation("/getting-started");
@@ -988,6 +994,43 @@ export default function RegisterClinic() {
                         );
                       })}
                     </div>
+
+                    {selectedPlan && selectedPlan !== "trial" && (
+                      <fieldset className="space-y-2 rounded-xl border border-border/60 bg-card/70 p-3" data-testid="requested-billing-cycle">
+                        <legend className="px-1 text-xs font-semibold text-foreground">Requested billing cycle</legend>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["monthly", "annual"] as const).map((cycle) => {
+                            const price = PUBLISHED_PLAN_POLICY.plans[selectedPlan].pricing[cycle];
+                            return (
+                              <button
+                                key={cycle}
+                                type="button"
+                                role="radio"
+                                aria-checked={selectedBillingCycle === cycle}
+                                onClick={() => setSelectedBillingCycle(cycle)}
+                                disabled={isSubmitting}
+                                data-testid={`requested-cycle-${cycle}`}
+                                className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                                  selectedBillingCycle === cycle
+                                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                    : "border-border/60 bg-background hover:border-primary/40"
+                                }`}
+                              >
+                                <span className="block text-xs font-semibold text-foreground">
+                                  {cycle === "monthly" ? "Monthly" : "Annual"}
+                                </span>
+                                <span className="block text-[11px] text-muted-foreground">
+                                  ₹{price?.toLocaleString("en-IN")}/{cycle === "monthly" ? "month" : "year"}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          This is your request only. No payment is taken now; Super Admin confirms the final plan and cycle.
+                        </p>
+                      </fieldset>
+                    )}
 
                     {!selectedPlan && (
                       <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
