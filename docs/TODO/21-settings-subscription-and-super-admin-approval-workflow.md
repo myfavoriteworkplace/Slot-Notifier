@@ -35,7 +35,7 @@ implementation task.
 | **R6** | Add verified offline payment to registration approval | **Partial** | R3 and existing offline-payment foundation | Admins need to approve a clinic whose payment was received outside Razorpay without pretending it was an online payment. | Registration collects evidence and verification details, creates an immutable offline record, activates the approved paid plan only after full payment verification, creates no provider subscription or webhook event, and sends the offline confirmation with paid-period dates. |
 | **R7** | Add complimentary access to registration approval | **Partial** | R3 and existing complimentary-access foundation | Free paid-level access must be deliberate and must not look like captured revenue. | Registration creates a finite sponsored grant with reason and dates, records waived payment, creates no payment evidence, never auto-renews, and sends the complimentary confirmation with its end date. |
 | **R8** | Move registration rejection into the shared decision history | **Partial** | R3 | Rejection should be recorded with the same actor, reason, and transition history as approval. | Rejection from the registration dialog requires a reason, creates a shared rejection decision, sends no credentials or payment link, and leaves the clinic without active access. |
-| **R9** | Retire or guard the legacy paid-plan mutation | **Not complete** | R3 and R5 | There must not be a second route that can erase Trial dates or create a paid assignment with different rules. | The legacy paid-plan route is removed, disabled, or reduced to a thin adapter over the shared operation, and its Admin UI caller is replaced. |
+| **R9** | Retire or guard the legacy paid-plan mutation | **Complete** | R3 and R5 | There must not be a second route that can erase Trial dates or create a paid assignment with different rules. | The legacy paid-plan route is removed, disabled, or reduced to a thin adapter over the shared operation, and its Admin UI caller is replaced. |
 | **R10** | Fix Razorpay webhook verification and event evidence | **Not complete** | R5 | Only an authentic provider confirmation may activate paid access. | HMAC uses the original request bytes, missing production configuration fails closed, signatures are compared safely, the full event is retained, and duplicate/retry behavior is tested. |
 | **R11** | Finish provider confirmation for overridden plans | **Partial** | R5 and R10 | A payment confirmation must activate the final approved plan, even when it differs from the clinic request. | Provider events match the activation token, provider subscription, approved plan, and billing cycle before moving Trial access to active paid access. |
 | **R12** | Complete offline amount and reversal rules | **Partial** | R6 | A partial or reversed payment must not accidentally grant or preserve paid access. | The server enforces the full plan price or defines a non-activating partial-payment state; reversal has an effective date; duplicate, rejected, partial, and reversed cases are tested. |
@@ -175,10 +175,10 @@ Clinic registers with Growth
   -> clinic becomes active paid Growth
 ```
 
-The current paid-plan route does not fully follow this target behavior: it
-currently writes `pending_payment` and clears Trial dates. That is an
-implementation gap documented here for correction; it is not the desired
-business policy.
+The legacy paid-plan route previously wrote `pending_payment` and cleared Trial
+dates. That implementation gap has now been retired. The replacement access
+management adapter records the approval through the shared operation, which
+preserves eligible Trial access until provider confirmation.
 
 ---
 
@@ -291,25 +291,31 @@ The target approval outcomes are:
 4. Paid-level access granted as complimentary/sponsored
 5. Rejection
 
-### 4.3 Current paid-plan assignment gap
+### 4.3 Paid-plan assignment migration
 
-The current route is:
+The retired legacy route was:
 
 ```text
 POST /api/admin/clinics/:id/paid-plan
 ```
 
-It currently:
+The current Admin access-management route is:
+
+```text
+POST /api/admin/clinics/:id/online-payment-approval
+```
+
+It validates the paid plan, billing cycle, and reason, then delegates to
+`applySubscriptionApproval()` with the `access_management` context and
+`online_payment_required` outcome. The shared operation owns:
 
 - Validates the paid plan and billing cycle.
 - Creates a provider subscription when configured.
 - Creates an activation token.
-- Writes a lifecycle record.
-- Writes a plan assignment.
-- Sets the clinic to `pending_payment`.
-- Clears Trial dates.
+- Writes the approval decision, lifecycle record, and plan assignment.
+- Preserves eligible Trial access while payment is pending.
 
-The target behavior is different:
+The target behavior is now enforced:
 
 ```text
 currentAccessPlan = trial
@@ -494,7 +500,7 @@ clinics that would be affected by the new state rules.
 PATCH /api/clinics/:id/approve
 POST  /api/admin/clinic-upgrade-requests/:id/approve
 POST  /api/admin/clinic-upgrade-requests/:id/reject
-POST  /api/admin/clinics/:id/paid-plan
+POST  /api/admin/clinics/:id/online-payment-approval
 POST  /api/admin/clinics/:id/trial
 POST  /api/admin/clinics/:id/sponsored-access
 POST  /api/admin/clinics/:id/entitlement-exception
@@ -534,7 +540,8 @@ this step. They must enter a reconciliation queue.
 - Existing state counts are available.
 - Ambiguous clinics are listed.
 - No data has been changed.
-- The old paid-plan assignment behavior is documented as a compatibility gap.
+- The retired paid-plan assignment route and its independent mutation logic are
+  documented before migration.
 
 #### Step 0 completion record
 
@@ -1175,6 +1182,24 @@ Implemented in `server/subscription-approval.ts`:
 The shared lifecycle policy now treats `subscription.expired` as a valid
 provider recovery trigger. Focused provider/lifecycle, approval, and upgrade
 policy tests pass.
+
+#### R9 completion record — retire the legacy paid-plan mutation
+
+**Status:** Complete.
+
+- `POST /api/admin/clinics/:id/paid-plan` and its duplicated direct mutation
+  logic have been removed.
+- The Admin Clinics & Access action now calls
+  `POST /api/admin/clinics/:id/online-payment-approval`.
+- The replacement route is a thin adapter over `applySubscriptionApproval()`
+  using `access_management`, `online_payment_required`, provider payment
+  evidence, and the authenticated Super Admin actor.
+- Provider intent creation, activation-token creation, approval history,
+  assignment history, lifecycle history, Trial preservation, and idempotency
+  are owned by the shared operation.
+- The active-paid guard remains at the adapter boundary so existing paid
+  subscriptions must use the provider-aware plan-change workflow.
+- No `admin_paid_assignment` mutation path remains in the server or Admin UI.
 
 ### 5.9 Step 7 — Add verified offline payment and renewal
 

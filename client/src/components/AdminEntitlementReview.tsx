@@ -506,7 +506,7 @@ export default function AdminEntitlementReview({
   const paidPlanMutation = useMutation({
     mutationFn: async () => {
       if (selectedClinicId === null) throw new Error("Select a clinic first");
-      const response = await apiRequest("POST", `/api/admin/clinics/${selectedClinicId}/paid-plan`, {
+      const response = await apiRequest("POST", `/api/admin/clinics/${selectedClinicId}/online-payment-approval`, {
         plan: paidPlan,
         billingCycle: paidBillingCycle,
         reason: paidReason.trim(),

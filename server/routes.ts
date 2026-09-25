@@ -1989,182 +1989,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  type PaidPlanKey = "starter" | "growth" | "pro";
-  type BillingCycle = "monthly" | "annual";
-  type AdminPaidPlanAssignmentInput = {
-    clinicId: number;
-    plan: PaidPlanKey;
-    billingCycle: BillingCycle;
-    reason: string;
-    transitionId: string;
-    actorId: string;
-    requirePending?: boolean;
-    metadata?: Record<string, unknown>;
-  };
-
-  const assignPaidPlanForAdmin = async ({
-    clinicId,
-    plan,
-    billingCycle,
-    reason,
-    transitionId,
-    actorId,
-    requirePending = false,
-    metadata = {},
-  }: AdminPaidPlanAssignmentInput) => {
-    const current = await storage.getClinic(clinicId);
-    if (!current) {
-      const error = new Error("Clinic not found");
-      (error as any).statusCode = 404;
-      throw error;
-    }
-
-    const currentStatus = (current.subscriptionStatus || "").toLowerCase();
-    const activePaidPlan = PAID_PLAN_KEYS.includes(current.plan as typeof PAID_PLAN_KEYS[number]) &&
-      ["active", "manual_override"].includes(currentStatus);
-    if (activePaidPlan) {
-      const error = new Error("An active paid plan must be changed through a provider-aware upgrade or downgrade workflow.");
-      (error as any).statusCode = 409;
-      throw error;
-    }
-
-    const [existingEvent] = await db.select()
-      .from(subscriptionLifecycleEvents)
-      .where(and(
-        eq(subscriptionLifecycleEvents.clinicId, clinicId),
-        eq(subscriptionLifecycleEvents.transitionId, transitionId),
-      ))
-      .limit(1);
-    if (existingEvent) {
-      return { clinic: current, event: existingEvent, idempotent: true, activationUrl: null, providerConfigured: Boolean(razorpay) };
-    }
-
-    let razorpaySubId: string | undefined;
-    let shortUrl: string | undefined;
-    const planId = RAZORPAY_PLAN_IDS[plan]?.[billingCycle];
-    if (razorpay && planId) {
-      try {
-        const subscription = await (razorpay as any).subscriptions.create({
-          plan_id: planId,
-          quantity: 1,
-          total_count: billingCycle === "annual" ? 1 : 12,
-          customer_notify: 0,
-          notes: {
-            clinicId: clinicId.toString(),
-            clinicName: current.name,
-            plan,
-            billingCycle,
-            transitionId,
-          },
-        });
-        razorpaySubId = subscription.id;
-        shortUrl = subscription.short_url;
-      } catch (error: any) {
-        console.error("[RAZORPAY] Paid-plan assignment failed:", error?.error?.description || error?.message);
-        const providerError = new Error("The payment provider could not prepare this subscription. The clinic was not changed.");
-        (providerError as any).statusCode = 502;
-        throw providerError;
-      }
-    }
-
-    const now = new Date();
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const result = await db.transaction(async (tx) => {
-      const [raceEvent] = await tx.select()
-        .from(subscriptionLifecycleEvents)
-        .where(and(
-          eq(subscriptionLifecycleEvents.clinicId, clinicId),
-          eq(subscriptionLifecycleEvents.transitionId, transitionId),
-        ))
-        .limit(1);
-      if (raceEvent) return { clinic: current, event: raceEvent, idempotent: true };
-
-      await tx.insert(activationTokens).values({
-        token,
-        clinicId,
-        plan,
-        billingCycle,
-        razorpaySubscriptionId: razorpaySubId || null,
-        shortUrl: shortUrl || null,
-        expiresAt,
-        used: false,
-      });
-
-      const clinicWhere = requirePending
-        ? and(eq(clinics.id, clinicId), eq(clinics.status, "pending"))
-        : eq(clinics.id, clinicId);
-      const [updatedClinic] = await tx.update(clinics)
-        .set({
-          status: "approved",
-          plan,
-          billingCycle,
-          subscriptionStatus: "pending_payment",
-          razorpaySubscriptionId: razorpaySubId || null,
-          trialStartedAt: null,
-          trialEndsAt: null,
-          trialGraceEndsAt: null,
-          trialOrigin: null,
-          paidAccessExpiresAt: null,
-          subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
-        })
-        .where(clinicWhere)
-        .returning();
-      if (!updatedClinic) {
-        const error = new Error("Only pending clinics can be approved");
-        (error as any).statusCode = 409;
-        throw error;
-      }
-
-      const convertingFromTrial = current.plan === "trial";
-      const [assignment] = await tx.insert(subscriptionPlanAssignments).values({
-        clinicId,
-        plan,
-        billingCycle,
-        source: "admin_paid_assignment",
-        policyVersion: PUBLISHED_PLAN_POLICY.version,
-        transitionId,
-        assignedByType: "superuser",
-        assignedById: actorId,
-        reason,
-        startsAt: now,
-      }).returning();
-
-      const [event] = await tx.insert(subscriptionLifecycleEvents).values({
-        clinicId,
-        eventType: convertingFromTrial ? "converted" : "plan_assigned",
-        fromPlan: current.plan,
-        toPlan: plan,
-        fromStatus: current.subscriptionStatus,
-        toStatus: "pending_payment",
-        policyVersion: PUBLISHED_PLAN_POLICY.version,
-        transitionId,
-        actorType: "superuser",
-        actorId,
-        reason,
-        metadata: {
-          ...metadata,
-          billingCycle,
-          provider: razorpaySubId ? "razorpay" : "not_configured",
-          providerSubscriptionId: razorpaySubId || null,
-          activationTokenId: token,
-          assignmentId: assignment.id,
-          conversionState: convertingFromTrial ? "pending_payment" : null,
-        },
-        effectiveAt: now,
-      }).returning();
-
-      return { clinic: updatedClinic, event, idempotent: false };
-    });
-
-    const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";
-    return {
-      ...result,
-      activationUrl: result.idempotent ? null : `${frontendBase}/activate/${token}`,
-      providerConfigured: Boolean(razorpay && planId),
-    };
-  };
-
   app.patch("/api/clinics/:id/approve", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Only superusers can approve clinics" });
     const parsed = registrationApprovalRequestSchema.safeParse(req.body);
@@ -3232,7 +3056,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/admin/clinics/:id/paid-plan", isAuthenticated, async (req, res) => {
+  app.post("/api/admin/clinics/:id/online-payment-approval", isAuthenticated, async (req, res) => {
     if ((req as any).user?.role !== "superuser") return res.status(403).json({ message: "Only superusers can assign paid plans" });
 
     const parsed = z.object({
@@ -3260,128 +3084,55 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (activePaidPlan) {
         return res.status(409).json({ message: "An active paid plan must be changed through a provider-aware upgrade or downgrade workflow." });
       }
-      const [existingEvent] = await db.select()
-        .from(subscriptionLifecycleEvents)
-        .where(and(
-          eq(subscriptionLifecycleEvents.clinicId, clinicId),
-          eq(subscriptionLifecycleEvents.transitionId, transitionId),
-        ))
-        .limit(1);
-      if (existingEvent) {
-        return res.json({ clinic: current, event: existingEvent, idempotent: true, activationUrl: null, providerConfigured: Boolean(razorpay) });
-      }
-
-      let razorpaySubId: string | undefined;
-      let shortUrl: string | undefined;
-      const planId = RAZORPAY_PLAN_IDS[parsed.data.plan]?.[parsed.data.billingCycle];
-      if (razorpay && planId) {
-        try {
-          const subscription = await (razorpay as any).subscriptions.create({
-            plan_id: planId,
-            quantity: 1,
-            total_count: parsed.data.billingCycle === "annual" ? 1 : 12,
-            customer_notify: 0,
-            notes: {
-              clinicId: clinicId.toString(),
-              clinicName: current.name,
-              plan: parsed.data.plan,
-              billingCycle: parsed.data.billingCycle,
-              transitionId,
-            },
-          });
-          razorpaySubId = subscription.id;
-          shortUrl = subscription.short_url;
-        } catch (error: any) {
-          console.error("[RAZORPAY] Paid-plan assignment failed:", error?.error?.description || error?.message);
-          return res.status(502).json({ message: "The payment provider could not prepare this subscription. The clinic was not changed." });
-        }
-      }
-
-      const token = crypto.randomUUID();
-      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const result = await db.transaction(async (tx) => {
-        const [raceEvent] = await tx.select()
-          .from(subscriptionLifecycleEvents)
-          .where(and(
-            eq(subscriptionLifecycleEvents.clinicId, clinicId),
-            eq(subscriptionLifecycleEvents.transitionId, transitionId),
-          ))
-          .limit(1);
-        if (raceEvent) return { clinic: current, event: raceEvent, idempotent: true };
-
-        await tx.insert(activationTokens).values({
-          token,
-          clinicId,
-          plan: parsed.data.plan,
-          billingCycle: parsed.data.billingCycle,
-          razorpaySubscriptionId: razorpaySubId || null,
-          shortUrl: shortUrl || null,
-          expiresAt,
-          used: false,
-        });
-
-        const [updatedClinic] = await tx.update(clinics)
-          .set({
-            status: "approved",
-            plan: parsed.data.plan,
-            billingCycle: parsed.data.billingCycle,
-            subscriptionStatus: "pending_payment",
-            razorpaySubscriptionId: razorpaySubId || null,
-            trialStartedAt: null,
-            trialEndsAt: null,
-            trialGraceEndsAt: null,
-            trialOrigin: null,
-            paidAccessExpiresAt: null,
-            subscriptionPolicyVersion: PUBLISHED_PLAN_POLICY.version,
-          })
-          .where(eq(clinics.id, clinicId))
-          .returning();
-
-        const [assignment] = await tx.insert(subscriptionPlanAssignments).values({
-          clinicId,
-          plan: parsed.data.plan,
-          billingCycle: parsed.data.billingCycle,
-          source: "admin_paid_assignment",
-          policyVersion: PUBLISHED_PLAN_POLICY.version,
-          transitionId,
-          assignedByType: "superuser",
-          assignedById: actorId,
-          reason: parsed.data.reason,
-          startsAt: now,
-        }).returning();
-
-        const convertingFromTrial = current.plan === "trial";
-        const [event] = await tx.insert(subscriptionLifecycleEvents).values({
-          clinicId,
-          eventType: convertingFromTrial ? "converted" : "plan_assigned",
-          fromPlan: current.plan,
-          toPlan: parsed.data.plan,
-          fromStatus: current.subscriptionStatus,
-          toStatus: "pending_payment",
-          policyVersion: PUBLISHED_PLAN_POLICY.version,
-          transitionId,
-          actorType: "superuser",
-          actorId,
-          reason: parsed.data.reason,
-          metadata: {
-            billingCycle: parsed.data.billingCycle,
-            provider: razorpaySubId ? "razorpay" : "not_configured",
-            providerSubscriptionId: razorpaySubId || null,
-            activationTokenId: token,
-            assignmentId: assignment.id,
-            conversionState: convertingFromTrial ? "pending_payment" : null,
+      const currentPlan = ["trial", "starter", "growth", "pro"].includes(String(current.plan))
+        ? current.plan as "trial" | "starter" | "growth" | "pro"
+        : null;
+      const requestedBillingCycle = PAID_PLAN_KEYS.includes(currentPlan as typeof PAID_PLAN_KEYS[number]) &&
+        isBillingCycle(current.billingCycle)
+        ? current.billingCycle
+        : null;
+      const approvalResult = await applySubscriptionApproval({
+        clinicId,
+        approvalContext: "access_management",
+        outcome: "online_payment_required",
+        requestedPlan: currentPlan,
+        approvedPlan: parsed.data.plan,
+        requestedBillingCycle,
+        approvedBillingCycle: parsed.data.billingCycle,
+        paymentBasis: "provider",
+        renewalMode: "provider_auto",
+        reason: parsed.data.reason,
+        actor: { type: "superadmin", id: actorId },
+        transitionId,
+        sourceRequestId: null,
+        effectiveAt: now,
+        onlinePayment: {
+          provider: "razorpay",
+          paymentLinkMetadata: {
+            approvalType: "admin_paid_plan_assignment",
+            requestedPlan: currentPlan,
+            requestedBillingCycle,
+            approvedPlan: parsed.data.plan,
+            approvedBillingCycle: parsed.data.billingCycle,
+            planOverridden: currentPlan !== parsed.data.plan,
+            billingCycleOverridden: requestedBillingCycle !== null &&
+              requestedBillingCycle !== parsed.data.billingCycle,
           },
-          effectiveAt: now,
-        }).returning();
-
-        return { clinic: updatedClinic, event, idempotent: false };
+        },
+      }, {
+        now,
+        createOnlinePaymentIntent: createRazorpayOnlinePaymentIntent,
       });
 
       const frontendBase = process.env.FRONTEND_URL || "https://bookmyslot.dental.mossaic.in";
-      res.status(result.idempotent ? 200 : 201).json({
-        ...result,
-        activationUrl: result.idempotent ? null : `${frontendBase}/activate/${token}`,
-        providerConfigured: Boolean(razorpay && planId),
+      const activationUrl = approvalResult.activationToken
+        ? `${frontendBase}/activate/${approvalResult.activationToken.token}`
+        : null;
+      const { activationToken: _activationToken, ...publicApprovalResult } = approvalResult;
+      return res.status(approvalResult.idempotent ? 200 : 201).json({
+        ...publicApprovalResult,
+        activationUrl,
+        providerConfigured: Boolean(razorpay),
       });
     } catch (error: any) {
       const statusCode = Number(error?.statusCode) || (error?.code === "23505" ? 409 : 500);
