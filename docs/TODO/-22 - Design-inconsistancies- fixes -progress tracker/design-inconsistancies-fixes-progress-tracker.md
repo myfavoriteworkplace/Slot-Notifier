@@ -1,7 +1,7 @@
 # Homepage and Pricing Design Inconsistencies — Fixes and Progress Tracker
 
 **Workstream:** -22  
-**Status:** Steps 1–8 and Step 10 complete; Step 9 intentionally deferred
+**Status:** Steps 1–8 and Step 10 complete; Step 9 audit documented and implementation pending
 **Scope:** Public homepage, clinic registration entry points, pricing page, and the shared plan presentation  
 **Evidence reviewed:** Current homepage and pricing preview at desktop width, `Landing.tsx`, `Pricing.tsx`, `RegisterClinic.tsx`, `Header.tsx`, and the attached homepage CTA audit  
 
@@ -28,7 +28,7 @@ The wording is intentionally non-technical so product, design, and implementatio
 | Pricing-to-registration continuity | 100% | Complete |
 | Responsive pricing layout | 100% | Complete |
 | Comparison table mobile behavior | 100% | Complete |
-| Marketing copy and demo-data review | 0% | Intentionally deferred; Step 9 |
+| Marketing copy and demo-data review | 0% | 41-item audit documented; implementation pending |
 | Final visual and interaction verification | 100% | Complete with environment note |
 
 **Progress rule:** Update the percentage and status only after the acceptance checks for that item pass. A visual change is not complete merely because the code compiles.
@@ -128,15 +128,9 @@ The following work was completed in this pass:
 - The preview still reports the existing Vite WebSocket/CSP warning and logged-out clinic-auth `401`; neither was introduced by these changes.
 - A separate automated phone screenshot could not be run because Playwright is not installed in the workspace. Phone behavior was verified through the responsive CSS and layout rules.
 
-### Deliberately excluded
+### Step 9 documentation update
 
-Step 9 remains unchanged apart from the Trial reassurance text required by Steps 2 and 4. The following content was not reviewed or rewritten:
-
-- Static clinic-count claims
-- Geographic demo examples
-- Fixed demo dates
-- Usage counters
-- WhatsApp availability claims
+No Step 9 homepage or marketing code was changed in this documentation update. The detailed audit and the agreed direction for each item are recorded in the Step 9 table below. Fictitious people, booking IDs, clinic names, dashboard values, and marketplace examples may continue to look like current product data; the agreed requirement is that the visible claims and dates are kept consistent.
 
 ## Independent implementation steps
 
@@ -392,31 +386,72 @@ Alternative:
 
 ### Step 9 — Reconcile homepage claims and demo content
 
-**Status:** Deferred by request
+**Status:** Audit documented; implementation pending
 **Progress:** 0%
-**Priority:** Medium  
-**Can run independently:** Yes  
+**Priority:** Medium
+**Can run independently:** Yes
 **Dependencies:** None
 
-**Exact issue:** Some static claims and examples may be stale, geographically inconsistent, or stronger than the currently configured service behavior.
+**Exact issue:** The public marketing surfaces contain fixed claims, sample values, dates, locations, product promises, and marketplace messages. Some need product confirmation, some need consistent wording, and some should become current platform data.
 
-**What will be achieved:** The homepage will make one consistent and trustworthy promise.
+**Agreed direction:** Keep fictitious demo people, clinic names, booking IDs, dashboard values, and marketplace cards looking like current product data. Update the claims and wording listed below so the public message is consistent. The 50-clinic baseline and 500-booking baseline are the requested defaults, with the actual platform counts added where available.
 
-**Planned work:**
+| # | Item and current situation | Why it needs attention | Suggested improvement or agreed direction | Decision |
+|---:|---|---|---|---|
+| 1 | **Geography:** The page says “50+ verified clinics across Kerala,” while the sample clinic is in Koramangala. | Koramangala is in Bengaluru, not Kerala, so visitors cannot tell where the service operates. | Choose one launch geography. If the service is Kerala-focused, use a Kerala sample location. If it is India-wide, remove the Kerala-only wording and use one India-wide statement everywhere. | Needs product decision |
+| 2 | **Fixed dates:** The demos use Apr 19, Apr 22, Tue Apr 22, and dates 21–25. | These dates will eventually look old even though the page appears current. | Keep the current-looking demo style, but generate dates from the current month or refresh the examples whenever the public copy is reviewed. | Update to current-looking dates |
+| 3 | **Clinic count:** The homepage uses “50+ dental clinics trust us,” “50+ verified clinics across Kerala,” and related supplier wording. | The same number is used for different audiences and may not match the real platform count. | Use 50+ as the requested default baseline, add the actual clinic count from the platform, and show or link to the existing clinics currently on the platform. Keep one consistent count source. | Approved direction |
+| 4 | **Bookings this month:** The hero currently shows “850+ slots booked.” | “This month” makes a fixed number look like a live platform statistic. | Change the baseline to “500+ bookings this month” and add the actual total bookings made during the current month when the count is available. | Approved direction |
+| 5 | **Practice metrics:** The demo shows 128 patients, 24 this week, ₹38k revenue, and a weekly graph. | These values look like a real clinic’s current performance. | Keep the fictitious values looking like current dashboard data, as requested. Refresh them with current-looking values when the marketing page is reviewed, or connect them to real aggregate data later. | Keep as current-looking data |
+| 6 | **Patient and doctor identities:** The demos use Dr. Priya Menon, Dr. Arjun Shah, Anand K., Meera R., Ravi S., and named reference numbers. | These names look like real records, but the request is to keep them as they are. | Keep the names, identities, and booking IDs unchanged. They are accepted as part of the current-looking fictitious product examples. | Keep as is |
+| 7 | **Notification wording:** The page says “Instant WhatsApp confirmation.” | The product can send email, WhatsApp, or SMS depending on configuration, provider availability, clinic settings, and plan access. | Use the agreed wording: “Instant email/WhatsApp/SMS confirmation.” Ensure the same wording is used in the homepage, booking page, and SEO description. | Approved wording |
+| 8 | **Booking speed:** The page says “get confirmed instantly.” | This is a strong promise and must be used consistently with the intended booking flow. | Keep “Confirmed instantly” as requested. | Keep as is |
+| 9 | **Account wording:** The page says “No account needed” and “No sign-up — just email verification.” | The system still verifies email and creates or updates a patient record, but the visitor does not create a normal login account. | Keep “No account needed” as requested. | Keep as is |
+| 10 | **Registration time:** The homepage says setup takes under five minutes, while registration says it takes two minutes. | Two different time promises make the journey look inconsistent. | Use the five-minute promise consistently. Replace “Takes 2 minutes” with “Takes under five minutes” or “Get started in under five minutes.” | Approved direction |
+| 11 | **Clinic readiness:** The page says clinics can be ready to accept bookings in minutes. | A clinic still needs to complete registration and receive approval. | Use: “Set up your clinic in minutes. Start accepting bookings after approval.” | Approved wording |
+| 12 | **Patients start booking:** The three-step section says patients book after the clinic shares its link. | It does not mention that the clinic may need approval first. | Use: “After approval, share your clinic link. Patients can book online and receive reminders.” | Recommended improvement |
+| 13 | **Upgrade wording:** The page says “Upgrade anytime.” | The current plan-change process may involve a request or confirmation rather than an immediate change. | Use: “Request an upgrade whenever you are ready.” | Approved wording |
+| 14 | **Trial grace period:** Registration mentions a 7-day grace period, while pricing only describes a 14-day Trial. | The public pages give different levels of detail about the Trial lifecycle. | Keep the public pricing promise simple and remove the grace-period detail from the public registration copy. | Approved direction |
+| 15 | **Fees:** Pricing says “No hidden fees. No setup charges.” | Usage fees or payment-provider charges may still apply in some situations. | Replace it with: “No setup fee. Payment-provider or usage charges may apply where applicable.” | Approved wording |
+| 16 | **Pro unlimited limits:** Pro is shown as unlimited, while the policy mentions fair-use monitoring. | “Unlimited” can be understood as having no practical limit. | Add a simple note such as “Unlimited subject to fair-use monitoring” or use “High-volume usage with fair-use limits.” | Needs policy confirmation |
+| 17 | **Plan-specific WhatsApp access:** Pricing reduces several WhatsApp capabilities to “WhatsApp notifications.” | The plans do not all include the same WhatsApp capabilities. | Keep the general wording only if the comparison details explain which notification types each plan includes. Otherwise, list the exact WhatsApp coverage per plan. | Needs policy confirmation |
+| 18 | **Role-based access:** The page says every user sees exactly what they need. | This is an absolute claim about permissions and access control. | Use: “Role-based dashboards for clinic teams, doctors, and patients.” | Recommended improvement |
+| 19 | **Clinical records:** The page promises prescriptions, diagnoses, and patient history against every booking. | The wording implies that every booking always contains all three types of records. | Use: “Keep prescriptions, diagnoses, and patient notes organized with each visit,” unless all three are guaranteed for every booking. | Needs feature confirmation |
+| 20 | **Doctor profiles:** The page promises certifications, case studies, and verified credentials. | The public profile experience must support all of these items before they are advertised. | If all are supported, keep the claim. Otherwise use: “Share doctor profiles, specialties, and clinic information before patients book.” | Needs feature confirmation |
+| 21 | **Exports:** The page promises Excel, CSV, and PDF exports. | Visitors may expect every listed format to be available for all relevant records. | Confirm the available formats. Advertise only the formats that work for patient lists and booking history. | Needs feature confirmation |
+| 22 | **Real-time availability:** The page says availability updates instantly and double-bookings are impossible. | “Impossible” is an absolute promise even when the system has safeguards. | Use: “Availability updates in real time, with safeguards against double-booking.” | Recommended improvement |
+| 23 | **Security and privacy:** The page says patient data is encrypted and protected end to end. | This is a technical security promise that requires formal confirmation. | Use the stronger wording only after security review. Otherwise use: “Designed with role-based access and privacy-conscious patient data handling.” | Needs security confirmation |
+| 24 | **Smile Deals:** The page says the offers are exclusive partner-clinic packages that help clinics fill seats faster. | “Exclusive,” “partner,” and “fill seats faster” are all claims that need evidence. | Use: “Discover dental offers from participating clinics,” unless exclusivity and partner status are verified. | Needs marketplace confirmation |
+| 25 | **Backup reminders:** The page says monthly backup reminders are included. | Visitors may assume this is available to every clinic and every plan. | Confirm the plan coverage. If universal, use “Get a monthly reminder to back up your clinic data.” Otherwise say it is available in supported plans. | Needs feature confirmation |
+| 26 | **Clinic dashboard sample:** The dashboard contains LIVE, sample appointments, doctors, slot counts, and status labels. | It looks like a live clinic account rather than a product example. | Keep the sample dashboard looking like current data, as requested. Refresh its dates and values when the content is reviewed. | Keep as current-looking data |
+| 27 | **Patient booking sample:** The patient flow shows a clinic, distance, rating, services, dates, and a confirmed booking. | It looks like a current real booking journey. | Keep it looking current, as requested. Keep the location, rating, and dates consistent with the final chosen geography and current-looking date set. | Keep as current-looking data |
+| 28 | **LIVE label:** The clinic dashboard animation includes a LIVE indicator. | The animation itself is static even though the label implies live data. | Keep the current-looking treatment as requested. If the animation is later used as a literal product screenshot, replace LIVE with data from the platform. | Keep for marketing artwork |
+| 29 | **Today, Tomorrow, and This month labels:** These relative labels surround fixed example values. | The labels become incorrect when the calendar moves forward. | Keep the labels, but update the underlying dates and monthly values so they always match the current-looking period. | Update data, keep style |
+| 30 | **India dental network:** The marketplace section says it reaches India’s dental network. | The statement may be broader than the current clinic and supplier coverage. | If the platform is India-wide, support it with the clinic count and directory. If not, use the chosen launch geography. | Needs coverage confirmation |
+| 31 | **Supplier and lab advertising:** The page says suppliers can advertise directly to verified clinic owners. | This implies an active, working supplier advertising service. | Keep only if supplier advertising and clinic-owner reach are available. Otherwise use: “Explore opportunities to showcase dental products and services to participating clinics.” | Needs marketplace confirmation |
+| 32 | **No ad spend required:** The page says clinics can fill empty slots without ad spend. | This may sound like a guarantee of results without paid promotion. | Use: “Promote available slots through the BookMySlot marketplace,” unless the no-cost promotion policy is confirmed. | Needs business confirmation |
+| 33 | **Supplier deal cards:** The examples include a dental chair, composite kit, and a ₹850 crown. | Product names and prices look like live offers. | Keep the fictitious cards looking like current marketplace listings, as requested. Refresh prices if they are presented as current offers. | Keep as current-looking data |
+| 34 | **Smile Deals page count:** The page repeats “50+ verified clinic owners,” “Reach 50+ verified clinics,” and “Reviewed within 2 days.” | These claims must match the clinic count and review process used elsewhere. | Reuse the same platform clinic count from item 3. Keep “Reviewed within 2 days” only if that review timing is a real service commitment. | Needs operational confirmation |
+| 35 | **Copyright year:** The footer says © 2026. | The footer will become stale after the year changes. | Generate the current year automatically. | Recommended improvement |
+| 36 | **Production-looking domain:** The patient demo shows bookmyslot.in. | The displayed domain can become incorrect if the published domain changes. | Confirm the published domain before release. If the domain is not permanent, display “BookMySlot” without a fixed URL. | Needs deployment confirmation |
+| 37 | **Powered by BookMySlot:** The marketplace label says it is powered by BookMySlot. | This is fine only if the marketplace is an official part of the product. | Keep it if the marketplace is official. Otherwise use “BookMySlot Marketplace.” | Needs brand confirmation |
+| 38 | **Trial name:** The internal catalog calls it Trial while public pages call it Free Trial. | The names are not identical, although the meaning is clear. | Use “Free Trial” as the customer-facing name and keep `trial` as the internal plan key. | Approved direction |
+| 39 | **Trial limits:** The Trial has limits for bookings, doctors, deals, storage, and messaging, but the card mainly highlights 14 days and no card. | Visitors may assume the Trial is unlimited. | Keep the simple public promise, but show the important Trial limits in the comparison table or plan details. | Recommended improvement |
+| 40 | **Annual billing:** The pricing page says “2 months free.” | The message must remain correct if annual prices change. | Keep the message derived from the plan prices and show the actual annual saving beside it. | Keep, verify when prices change |
+| 41 | **Registration payment message:** The pricing page says no payment is required to register. | Visitors may not know when paid billing begins. | Use: “No payment is taken during registration. Paid billing starts after approval.” | Recommended improvement |
 
-- Confirm whether “50+ clinics” is current and supportable.
-- Resolve the Kerala versus Koramangala mismatch.
-- Replace fixed demo dates with neutral labels or dynamic dates.
-- Confirm whether “Instant WhatsApp confirmation” is guaranteed in the target deployment.
-- Confirm whether the “850+ slots booked” example should be presented as real usage or illustrative UI.
+**Step 9 completion checks:**
 
-**Completion checks:**
-
-- Geography is consistent across the page.
-- Claims have a known source or are clearly illustrative.
-- No date appears stale after the calendar moves forward.
-- Messaging claims match deployment configuration.
-- **Note:** This step was intentionally excluded from the implementation request and remains pending.
+- The 50+ baseline, actual clinic count, and existing clinic directory use one consistent source.
+- The homepage shows 500+ bookings this month as the requested baseline and includes the current month’s total when available.
+- The chosen geography is consistent across homepage, booking, login, SEO, and marketplace copy.
+- Dates and month labels remain current-looking rather than becoming stale.
+- The agreed email/WhatsApp/SMS wording is consistent across public surfaces.
+- The requested “Confirmed instantly” and “No account needed” wording remains unchanged.
+- The registration timing consistently says under five minutes.
+- Approval, upgrade, Trial, and payment wording matches the agreed language above.
+- Fictitious people, IDs, dashboard values, and marketplace cards remain available as current-looking product examples.
+- Remaining feature, security, pricing, and marketplace claims have an owner-confirmed source before release.
 
 ### Step 10 — Final visual and behavior verification
 
@@ -466,7 +501,7 @@ The steps are independently scoped, but this order minimizes rework:
 6. Step 6 — Preserve selected plan
 7. Step 7 — Responsive pricing cards
 8. Step 8 — Comparison table
-9. Step 9 — Claims and demo content — deferred by request
+9. Step 9 — Claims and demo content — audit documented; implementation pending
 10. Step 10 — Final verification — completed for Steps 1–8
 
 ## Progress update template
