@@ -25,6 +25,7 @@ This folder contains an evidence-based review of the application and a prioritiz
 | [16-four-plan-subscription-and-entitlement-blueprint.md](./16-four-plan-subscription-and-entitlement-blueprint.md) | Detailed four-tier subscription model and entitlement blueprint for Trial, Starter, Growth, and Pro |
 | [19-frontend-bundle-size-optimisation-plan.md](./19-frontend-bundle-size-optimisation-plan.md) | Root-cause analysis and independently executable frontend bundle optimisation steps |
 | [20-avatar-styling-and-design-direction.md](./20-avatar-styling-and-design-direction.md) | Detailed avatar, empty-state illustration, format, sizing, theme, and design-agent handoff brief |
+| [-22 - Design-inconsistancies- fixes -progress tracker](./-22%20-%20Design-inconsistancies-%20fixes%20-progress%20tracker/design-inconsistancies-fixes-progress-tracker.md) | Plain-language progress tracker for homepage CTA, pricing, plan consistency, and responsive design fixes |
 
 ## Executive summary
 
