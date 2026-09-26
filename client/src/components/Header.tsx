@@ -586,6 +586,9 @@ export function Header() {
             : [];
         })()
       : []),
+    ...(isNoone
+      ? [{ href: "/pricing", label: "Pricing", icon: Sparkles }]
+      : []),
   ];
 
   /* ── Notification deep-link navigation ── */

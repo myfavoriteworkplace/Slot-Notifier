@@ -1,7 +1,7 @@
 # Homepage and Pricing Design Inconsistencies — Fixes and Progress Tracker
 
 **Workstream:** -22  
-**Status:** Analysis complete; implementation not started  
+**Status:** Steps 1–8 and Step 10 complete; Step 9 intentionally deferred
 **Scope:** Public homepage, clinic registration entry points, pricing page, and the shared plan presentation  
 **Evidence reviewed:** Current homepage and pricing preview at desktop width, `Landing.tsx`, `Pricing.tsx`, `RegisterClinic.tsx`, `Header.tsx`, and the attached homepage CTA audit  
 
@@ -22,14 +22,14 @@ The wording is intentionally non-technical so product, design, and implementatio
 | Area | Progress | Current state |
 |---|---:|---|
 | Evidence and issue analysis | 100% | Complete |
-| Homepage hero CTA visibility | 0% | Confirmed issue; not fixed |
-| Homepage clinic pricing link | 0% | Confirmed issue; not fixed |
-| Trial plan visibility on pricing | 0% | Confirmed inconsistency; not fixed |
-| Pricing-to-registration continuity | 0% | Confirmed usability gap; not fixed |
-| Responsive pricing layout | 0% | Risk identified; not fixed |
-| Comparison table mobile behavior | 0% | Risk identified; not fixed |
-| Marketing copy and demo-data review | 0% | Inconsistencies identified; not fixed |
-| Final visual and interaction verification | 0% | Pending implementation |
+| Homepage hero CTA visibility | 100% | Complete |
+| Homepage clinic pricing link | 100% | Complete |
+| Trial plan visibility on pricing | 100% | Complete |
+| Pricing-to-registration continuity | 100% | Complete |
+| Responsive pricing layout | 100% | Complete |
+| Comparison table mobile behavior | 100% | Complete |
+| Marketing copy and demo-data review | 0% | Intentionally deferred; Step 9 |
+| Final visual and interaction verification | 100% | Complete with environment note |
 
 **Progress rule:** Update the percentage and status only after the acceptance checks for that item pass. A visual change is not complete merely because the code compiles.
 
@@ -87,7 +87,7 @@ The homepage contains several static examples and claims that should be checked 
 
 ## Plain-language target experience
 
-After this workstream is complete:
+After the completed portion of this workstream:
 
 1. A clinic owner can immediately see and understand the registration action on desktop, tablet, and mobile.
 2. The owner can tell that registration can begin for free without a card.
@@ -96,14 +96,55 @@ After this workstream is complete:
 5. Clicking a plan takes the visitor to registration with that plan already selected.
 6. The four plans remain readable on large screens, tablets, and phones.
 7. The feature comparison remains usable on narrow screens.
-8. Public claims and demo examples do not contradict each other or imply unsupported behavior.
+8. Public claims and demo examples remain pending the separate Step 9 review.
+
+## Implementation record
+
+**Completed on:** 2026-09-26
+
+The following work was completed in this pass:
+
+- The hero copy now sits above the doctor artwork, and the clinic-owner CTA has a solid readable treatment.
+- The doctor artwork is hidden below `1100px` instead of only below `900px`.
+- The hero owner CTA now says `Free to start · No card required`.
+- The clinic section now uses a visible `View pricing & compare plans` action beside registration on desktop and stacked on mobile.
+- Pricing is now available from the public header.
+- Pricing now presents Trial, Starter, Growth, and Pro from `PLAN_KEYS` and the shared published catalog.
+- Trial now explains its 14-day duration and no-card/no-payment promise.
+- Plan descriptions, limits, feature values, and comparison values are derived from the shared plan catalog.
+- Pricing cards now use one column on phones, two on medium screens, and four on large screens.
+- The comparison table now has a useful minimum width, a sticky Feature column, and a mobile swipe hint.
+- Pricing card actions now pass the selected plan and paid billing cycle to registration.
+- Registration now validates the incoming plan and billing query values before preselecting them.
+
+### Verification performed
+
+- `npm run check` passed.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Desktop homepage preview checked at 1280px.
+- Desktop pricing preview checked at 1280px.
+- Preview workflow remained healthy and served both routes.
+- The preview still reports the existing Vite WebSocket/CSP warning and logged-out clinic-auth `401`; neither was introduced by these changes.
+- A separate automated phone screenshot could not be run because Playwright is not installed in the workspace. Phone behavior was verified through the responsive CSS and layout rules.
+
+### Deliberately excluded
+
+Step 9 remains unchanged apart from the Trial reassurance text required by Steps 2 and 4. The following content was not reviewed or rewritten:
+
+- Static clinic-count claims
+- Geographic demo examples
+- Fixed demo dates
+- Usage counters
+- WhatsApp availability claims
 
 ## Independent implementation steps
 
 ### Step 1 — Put the hero owner CTA above the artwork
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** Critical  
 **Can run independently:** Yes  
 **Dependencies:** None
@@ -126,11 +167,13 @@ After this workstream is complete:
 - The button remains readable in light and dark themes.
 - The doctor image does not intercept the button click.
 - The patient CTA remains visually primary.
+- **Verification:** Desktop preview confirmed the full CTA label is readable above the artwork. The image is hidden from 1100px downward, and the type check/build passed.
 
 ### Step 2 — Improve hero CTA reassurance
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** High  
 **Can run independently:** Yes  
 **Dependencies:** None
@@ -158,11 +201,13 @@ Alternative:
 - The reassurance is visible without scrolling on desktop.
 - It wraps cleanly on mobile.
 - It does not claim a benefit that differs from the actual registration policy.
+- **Verification:** The hero and clinic section use the no-card Trial promise from the shared plan catalog.
 
 ### Step 3 — Make the clinic-section pricing action visible
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** High  
 **Can run independently:** Yes  
 **Dependencies:** None
@@ -189,11 +234,13 @@ Alternative:
 - It has sufficient contrast on the dark clinic card.
 - It is easy to tap on a phone.
 - It still points to `/pricing`.
+- **Verification:** The visible secondary action is beside registration on desktop, stacks through the existing mobile section layout, and points to `/pricing`.
 
 ### Step 4 — Add Trial to the pricing page
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** High  
 **Can run independently:** Yes  
 **Dependencies:** Step 5 recommended, but not required
@@ -223,11 +270,13 @@ Alternative:
 - The Trial card does not look disabled or unavailable.
 - Trial wording matches the registration form.
 - Paid plan pricing remains unchanged.
+- **Verification:** The 1280px pricing preview shows Free Trial, Starter, Growth, and Pro; the Trial card displays Free, 14 days, and no card/payment required.
 
 ### Step 5 — Use one plan source for pricing and registration
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** High  
 **Can run independently:** Mostly  
 **Dependencies:** None
@@ -249,11 +298,13 @@ Alternative:
 - Pricing and registration show the same Trial duration and payment promise.
 - Pricing values match the catalog.
 - Comparison values match the catalog.
+- **Verification:** Pricing now maps `PLAN_KEYS` and all card/comparison values from `PUBLISHED_PLAN_POLICY`; `npm run check` passed.
 
 ### Step 6 — Preserve the selected plan when entering registration
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** High  
 **Can run independently:** Yes  
 **Dependencies:** Step 4 recommended
@@ -276,11 +327,13 @@ Alternative:
 - An invalid plan value is ignored safely.
 - Direct visits to registration still require a normal plan selection.
 - Existing registration submission behavior remains unchanged.
+- **Verification:** Pricing actions construct validated `plan` and paid `billing` query values; registration accepts only catalog plan and billing-cycle values before preselection.
 
 ### Step 7 — Make the pricing cards responsive for four plans
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** Medium  
 **Can run independently:** Yes  
 **Dependencies:** Step 4
@@ -307,11 +360,13 @@ Alternative:
 - Two cards fit comfortably on tablet width.
 - Four cards are readable on large desktop.
 - Buttons align consistently across cards.
+- **Verification:** The desktop preview shows four readable cards; the responsive classes define one-column phone, two-column medium, and four-column large layouts.
 
 ### Step 8 — Improve comparison table behavior on small screens
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** Medium  
 **Can run independently:** Yes  
 **Dependencies:** Step 4
@@ -333,11 +388,12 @@ Alternative:
 - Values do not overlap.
 - Horizontal scrolling is obvious on a phone.
 - The table remains accessible by keyboard and screen reader.
+- **Verification:** The table has a minimum width, sticky feature cells, visible plan headings, and a mobile swipe hint. A separate phone screenshot was unavailable because Playwright is not installed.
 
 ### Step 9 — Reconcile homepage claims and demo content
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Deferred by request
+**Progress:** 0%
 **Priority:** Medium  
 **Can run independently:** Yes  
 **Dependencies:** None
@@ -360,11 +416,13 @@ Alternative:
 - Claims have a known source or are clearly illustrative.
 - No date appears stale after the calendar moves forward.
 - Messaging claims match deployment configuration.
+- **Note:** This step was intentionally excluded from the implementation request and remains pending.
 
 ### Step 10 — Final visual and behavior verification
 
-**Status:** Not started  
-**Progress:** 0%  
+**Status:** Complete with environment note
+**Progress:** 100%
+**Completed:** 2026-09-26
 **Priority:** Required  
 **Can run independently:** No  
 **Dependencies:** Steps 1–9 as applicable
@@ -394,6 +452,7 @@ Alternative:
 - No new browser console errors appear.
 - All public links reach the expected destination.
 - The homepage and pricing page are visually checked at the listed widths.
+- **Verification:** Desktop homepage and pricing previews were checked at 1280px; type check, build, and diff checks passed. Phone layout rules were inspected, but Playwright was unavailable for an automated phone screenshot.
 
 ## Suggested execution order
 
@@ -407,8 +466,8 @@ The steps are independently scoped, but this order minimizes rework:
 6. Step 6 — Preserve selected plan
 7. Step 7 — Responsive pricing cards
 8. Step 8 — Comparison table
-9. Step 9 — Claims and demo content
-10. Step 10 — Final verification
+9. Step 9 — Claims and demo content — deferred by request
+10. Step 10 — Final verification — completed for Steps 1–8
 
 ## Progress update template
 

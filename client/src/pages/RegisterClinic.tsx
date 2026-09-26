@@ -17,7 +17,7 @@ import {
   Upload, X, Star, Zap, ShieldCheck, ExternalLink, Info,
 } from "lucide-react";
 import { z } from "zod";
-import { PUBLISHED_PLAN_POLICY, type BillingCycle, type PlanKey } from "@shared/plan-catalog";
+import { PUBLISHED_PLAN_POLICY, isBillingCycle, isPlanKey, type BillingCycle, type PlanKey } from "@shared/plan-catalog";
 
 // ─── Small reusables ──────────────────────────────────────────────────────────
 
@@ -389,6 +389,19 @@ export default function RegisterClinic() {
   // Plan selection
   const [selectedPlan, setSelectedPlan] = useState<PlanKey | "">("");
   const [selectedBillingCycle, setSelectedBillingCycle] = useState<BillingCycle>("monthly");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedPlan = params.get("plan");
+    const requestedBillingCycle = params.get("billing");
+
+    if (isPlanKey(requestedPlan)) {
+      setSelectedPlan(requestedPlan);
+      if (requestedPlan !== "trial" && isBillingCycle(requestedBillingCycle)) {
+        setSelectedBillingCycle(requestedBillingCycle);
+      }
+    }
+  }, []);
 
   // Optional boost fields (outside RHF — not in InsertClinic)
   const [medicalLicenseUrl, setMedicalLicenseUrl] = useState("");

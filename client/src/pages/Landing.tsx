@@ -6,13 +6,10 @@ import { Link, useLocation } from "wouter";
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
-import { PUBLISHED_PLAN_POLICY } from "@shared/plan-catalog";
 
 const BRAND   = "#0F9B6E";
 const BRAND_D = "#0A7A56";
 const BRAND_M = "#1DB887";
-const STARTER_MONTHLY_PRICE = PUBLISHED_PLAN_POLICY.plans.starter.pricing.monthly!;
-
 const LIGHT = {
   bg:   "#FFFFFF",
   card: "#FFFFFF",
@@ -135,7 +132,7 @@ export default function Landing() {
         @keyframes screenIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes screenInSlow { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1100px) {
           .lnd-hero            { grid-template-columns: 1fr !important; min-height: auto !important; padding: 40px 24px 60px !important; }
           .lnd-doctor-hero     { display: none !important; }
           .lnd-float-badge-1   { right: -8px  !important; top: 12px    !important; }
@@ -223,7 +220,7 @@ export default function Landing() {
           </div>
 
           {/* Left copy */}
-          <div>
+          <div style={{ position: "relative", zIndex: 2, minWidth: 0 }}>
             <motion.div {...fadeUp(0)} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 100, background: c.tL, border: `1px solid ${c.bdr2}`, fontSize: 12, fontWeight: 600, color: c.T, letterSpacing: ".04em", marginBottom: 28 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: c.T, flexShrink: 0, animation: "lndPulse 1.4s ease-in-out infinite", display: "inline-block" }} />
               Live — 50+ dental clinics trust us
@@ -281,21 +278,24 @@ export default function Landing() {
                 </div>
 
                 {/* Owner CTA */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 1 }}>
+                 <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 1 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: c.muted, fontFamily: "'Sora',sans-serif", paddingLeft: 4 }}>
                     For clinic owners
                   </span>
                   <Link href="/register-clinic">
                     <button
-                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 100, background: "transparent", color: c.T, fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: `2px solid ${c.bdr2}`, cursor: "pointer", transition: "all .25s", letterSpacing: ".01em" }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 100, background: c.card, color: c.T, fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: `2px solid ${c.T}`, cursor: "pointer", transition: "all .25s", letterSpacing: ".01em", boxShadow: `0 4px 18px rgba(10,31,22,.12)` }}
                       onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.tL; el.style.borderColor = c.T; el.style.transform = "translateY(-2px)"; }}
-                      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "transparent"; el.style.borderColor = c.bdr2; el.style.transform = "translateY(0)"; }}
+                      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.card; el.style.borderColor = c.T; el.style.transform = "translateY(0)"; }}
                       data-testid="button-register-clinic"
                     >
                       <Building2 style={{ width: 15, height: 15 }} />
                       Register Your Clinic
                     </button>
                   </Link>
+                  <span style={{ fontSize: 11, color: c.txt2, fontFamily: "'Sora',sans-serif", paddingLeft: 4 }}>
+                    Free to start · No card required
+                  </span>
                 </div>
 
               </div>
@@ -529,7 +529,7 @@ export default function Landing() {
                   Register once and get a complete clinic portal — bookings, doctors, slots, and patient records, all in one place.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 11, marginBottom: 32 }}>
-                  {[`Register free — plans from ₹${STARTER_MONTHLY_PRICE.toLocaleString("en-IN")}/month`, "Ready to accept bookings in minutes", "Manage doctors, slots & records easily"].map(item => (
+                   {["14-day free trial · No card required", "Ready to accept bookings in minutes", "Manage doctors, slots & records easily"].map(item => (
                     <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "rgba(255,255,255,.8)" }}>
                       <div style={{ width: 19, height: 19, borderRadius: "50%", background: "rgba(15,155,110,.2)", border: "1.5px solid rgba(15,155,110,.45)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         <Check style={{ width: 9, height: 9, color: "#1DB887", strokeWidth: 3 }} />
@@ -538,7 +538,7 @@ export default function Landing() {
                     </div>
                   ))}
                 </div>
-                <div className="lnd-section-btns" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                 <div className="lnd-section-btns" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
                   <Link href="/register-clinic">
                     <button
                       style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 100, background: "#0F9B6E", color: "#fff", fontSize: 13.5, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: "0 4px 18px rgba(15,155,110,.4)", transition: "all .25s", letterSpacing: ".01em" }}
@@ -550,6 +550,16 @@ export default function Landing() {
                       Register Your Clinic
                     </button>
                   </Link>
+                   <Link
+                     href="/pricing"
+                     className="lnd-pricing-btn"
+                     style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44, padding: "10px 20px", borderRadius: 100, background: "rgba(29,184,135,.10)", color: "#B7F3D9", fontSize: 13.5, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "1px solid rgba(125,235,190,.6)", cursor: "pointer", transition: "all .25s", letterSpacing: ".01em" }}
+                     onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(29,184,135,.22)"; el.style.borderColor = "#B7F3D9"; el.style.transform = "translateY(-2px)"; }}
+                     onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(29,184,135,.10)"; el.style.borderColor = "rgba(125,235,190,.6)"; el.style.transform = "translateY(0)"; }}
+                     data-testid="link-see-pricing"
+                   >
+                     View pricing &amp; compare plans <ArrowRight style={{ width: 14, height: 14 }} />
+                   </Link>
                   <Link href="/clinic-login">
                     <span
                       className="lnd-section-sign-in"
@@ -558,18 +568,6 @@ export default function Landing() {
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,.5)"; }}
                     >
                       Already registered? Sign in →
-                    </span>
-                  </Link>
-                </div>
-                <div style={{ marginTop: 16 }}>
-                  <Link href="/pricing">
-                    <span
-                      style={{ fontSize: 12.5, color: "rgba(29,158,117,.75)", fontWeight: 600, cursor: "pointer", transition: "color .2s", letterSpacing: ".01em", display: "inline-flex", alignItems: "center", gap: 5 }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#1DB887"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(29,158,117,.75)"; }}
-                      data-testid="link-see-pricing"
-                    >
-                      See our pricing plans →
                     </span>
                   </Link>
                 </div>

@@ -2,13 +2,24 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Check, X, Zap, Building2, ShieldCheck, ArrowRight, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PUBLISHED_PLAN_POLICY, getAnnualSavings, type PaidPlanKey } from "@shared/plan-catalog";
+import {
+  PUBLISHED_PLAN_POLICY,
+  PLAN_KEYS,
+  getAnnualSavings,
+  type PlanKey,
+  type PlanPolicy,
+} from "@shared/plan-catalog";
 
-const PAID_PLAN_KEYS = ["starter", "growth", "pro"] as const;
 const PLAN_PRESENTATION = {
+  trial: {
+    icon: Sparkles,
+    color: "border-primary/30",
+    headerBg: "bg-primary/5 dark:bg-primary/10",
+    iconBg: "bg-primary/10 border-primary/20",
+    iconColor: "text-primary",
+  },
   starter: {
     icon: Zap,
-    description: "Perfect for single-chair clinics getting started online.",
     color: "border-border",
     headerBg: "bg-secondary/50 dark:bg-secondary/30",
     iconBg: "bg-primary/10 border-primary/20",
@@ -16,7 +27,6 @@ const PLAN_PRESENTATION = {
   },
   growth: {
     icon: Building2,
-    description: "Ideal for 2–3 chair clinics ready to grow their patient base.",
     color: "border-primary/50",
     headerBg: "bg-gradient-to-r from-primary/90 via-primary to-accent/80",
     iconBg: "bg-white/15 border-white/25",
@@ -24,15 +34,13 @@ const PLAN_PRESENTATION = {
   },
   pro: {
     icon: ShieldCheck,
-    description: "For premium clinics that want maximum visibility and reach.",
     color: "border-border",
     headerBg: "bg-secondary/50 dark:bg-secondary/30",
     iconBg: "bg-primary/10 border-primary/20",
     iconColor: "text-primary",
   },
-} satisfies Record<PaidPlanKey, {
+} satisfies Record<PlanKey, {
   icon: typeof Zap;
-  description: string;
   color: string;
   headerBg: string;
   iconBg: string;
@@ -43,8 +51,12 @@ function formatCount(value: number | null, singular: string, plural: string) {
   return value === null ? `Unlimited ${plural}` : `${value} ${value === 1 ? singular : plural}`;
 }
 
-function formatBookings(value: number | null) {
-  return value === null ? "Unlimited" : `Up to ${value} / mo`;
+function formatBookings(policy: PlanPolicy) {
+  const value = policy.limits.bookings.value;
+  if (value === null) return "Unlimited";
+  return policy.limits.bookings.period === "trial_lifetime"
+    ? `Up to ${value} total`
+    : `Up to ${value} / mo`;
 }
 
 function analyticsLabel(value: "basic_snapshot" | "basic" | "advanced" | "full") {
@@ -61,18 +73,22 @@ function supportLabel(value: "help_center_onboarding" | "standard_email" | "prio
         : "Email + Phone";
 }
 
-const PLANS = PAID_PLAN_KEYS.map((id) => {
+const PLANS = PLAN_KEYS.map((id) => {
   const policy = PUBLISHED_PLAN_POLICY.plans[id];
   const presentation = PLAN_PRESENTATION[id];
+  const isTrial = policy.kind === "trial";
   return {
     id,
     ...presentation,
-    name: policy.displayName,
-    monthly: policy.pricing.monthly!,
-    annual: policy.pricing.annual!,
-    annualMonthly: Math.round(policy.pricing.annual! / 12),
-    annualSavings: getAnnualSavings(policy)!,
-    bookings: formatBookings(policy.limits.bookings.value),
+    name: isTrial ? "Free Trial" : policy.displayName,
+    description: policy.summary,
+    isTrial,
+    monthly: policy.pricing.monthly,
+    annual: policy.pricing.annual,
+    annualMonthly: policy.pricing.annual === null ? null : Math.round(policy.pricing.annual / 12),
+    annualSavings: getAnnualSavings(policy),
+    trialDays: policy.trial.durationDays,
+    bookings: formatBookings(policy),
     doctors: formatCount(policy.limits.activeDoctors.value, "doctor", "doctors"),
     deals: formatCount(policy.limits.smileDeals.value, "deal post", "deal posts"),
     badge: policy.features.verifiedBadge,
@@ -84,17 +100,23 @@ const PLANS = PAID_PLAN_KEYS.map((id) => {
   };
 });
 
-const [starterPolicy, growthPolicy, proPolicy] = PAID_PLAN_KEYS.map((id) => PUBLISHED_PLAN_POLICY.plans[id]);
+const policyFor = (id: PlanKey) => PUBLISHED_PLAN_POLICY.plans[id];
 const COMPARISON_ROWS = [
-  { label: "Monthly bookings", starter: formatBookings(starterPolicy.limits.bookings.value).replace("Up to ", ""), growth: formatBookings(growthPolicy.limits.bookings.value).replace("Up to ", ""), pro: formatBookings(proPolicy.limits.bookings.value) },
-  { label: "Doctors on roster", starter: String(starterPolicy.limits.activeDoctors.value), growth: String(growthPolicy.limits.activeDoctors.value), pro: "Unlimited" },
-  { label: "Smile Deal posts", starter: String(starterPolicy.limits.smileDeals.value), growth: String(growthPolicy.limits.smileDeals.value), pro: "Unlimited" },
-  { label: "WhatsApp booking alerts", starter: starterPolicy.features.essentialWhatsapp, growth: growthPolicy.features.essentialWhatsapp, pro: proPolicy.features.essentialWhatsapp },
-  { label: "Analytics dashboard", starter: analyticsLabel(starterPolicy.features.analytics), growth: analyticsLabel(growthPolicy.features.analytics), pro: analyticsLabel(proPolicy.features.analytics) },
-  { label: "Premium verified badge", starter: starterPolicy.features.verifiedBadge, growth: growthPolicy.features.verifiedBadge, pro: proPolicy.features.verifiedBadge },
-  { label: "Featured placement on deals", starter: starterPolicy.features.featuredDealPlacement, growth: growthPolicy.features.featuredDealPlacement, pro: proPolicy.features.featuredDealPlacement },
-  { label: "Priority support", starter: supportLabel(starterPolicy.features.support), growth: supportLabel(growthPolicy.features.support), pro: supportLabel(proPolicy.features.support) },
+  { label: "Bookings", trial: formatBookings(policyFor("trial")).replace("Up to ", ""), starter: formatBookings(policyFor("starter")).replace("Up to ", ""), growth: formatBookings(policyFor("growth")).replace("Up to ", ""), pro: formatBookings(policyFor("pro")) },
+  { label: "Doctors on roster", trial: formatCount(policyFor("trial").limits.activeDoctors.value, "doctor", "doctors"), starter: formatCount(policyFor("starter").limits.activeDoctors.value, "doctor", "doctors"), growth: formatCount(policyFor("growth").limits.activeDoctors.value, "doctor", "doctors"), pro: formatCount(policyFor("pro").limits.activeDoctors.value, "doctor", "doctors") },
+  { label: "Smile Deal posts", trial: formatCount(policyFor("trial").limits.smileDeals.value, "deal post", "deal posts"), starter: formatCount(policyFor("starter").limits.smileDeals.value, "deal post", "deal posts"), growth: formatCount(policyFor("growth").limits.smileDeals.value, "deal post", "deal posts"), pro: formatCount(policyFor("pro").limits.smileDeals.value, "deal post", "deal posts") },
+  { label: "WhatsApp booking alerts", trial: policyFor("trial").features.essentialWhatsapp, starter: policyFor("starter").features.essentialWhatsapp, growth: policyFor("growth").features.essentialWhatsapp, pro: policyFor("pro").features.essentialWhatsapp },
+  { label: "Analytics dashboard", trial: analyticsLabel(policyFor("trial").features.analytics), starter: analyticsLabel(policyFor("starter").features.analytics), growth: analyticsLabel(policyFor("growth").features.analytics), pro: analyticsLabel(policyFor("pro").features.analytics) },
+  { label: "Premium verified badge", trial: policyFor("trial").features.verifiedBadge, starter: policyFor("starter").features.verifiedBadge, growth: policyFor("growth").features.verifiedBadge, pro: policyFor("pro").features.verifiedBadge },
+  { label: "Featured placement on deals", trial: policyFor("trial").features.featuredDealPlacement, starter: policyFor("starter").features.featuredDealPlacement, growth: policyFor("growth").features.featuredDealPlacement, pro: policyFor("pro").features.featuredDealPlacement },
+  { label: "Priority support", trial: supportLabel(policyFor("trial").features.support), starter: supportLabel(policyFor("starter").features.support), growth: supportLabel(policyFor("growth").features.support), pro: supportLabel(policyFor("pro").features.support) },
 ];
+
+function registrationHref(plan: PlanKey, annual: boolean) {
+  const params = new URLSearchParams({ plan });
+  if (plan !== "trial") params.set("billing", annual ? "annual" : "monthly");
+  return `/register-clinic?${params.toString()}`;
+}
 
 function Cell({ value }: { value: string | boolean }) {
   if (typeof value === "boolean") {
@@ -115,7 +137,7 @@ export default function Pricing() {
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/3 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-3xl pointer-events-none translate-y-1/3 -translate-x-1/3" />
 
-      <div className="relative max-w-5xl mx-auto">
+      <div className="relative max-w-6xl mx-auto">
 
         {/* Back button */}
         <button
@@ -164,7 +186,7 @@ export default function Pricing() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-16">
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             const price = annual ? plan.annualMonthly : plan.monthly;
@@ -203,16 +225,22 @@ export default function Pricing() {
                   {/* Price */}
                   <div className="relative">
                     <div className={`text-4xl font-black tracking-tight ${isGrowth ? "text-white" : "text-foreground"}`}>
-                      ₹{price.toLocaleString("en-IN")}
-                      <span className={`text-sm font-semibold ml-1 ${isGrowth ? "text-white/60" : "text-muted-foreground"}`}>/mo</span>
+                      {plan.isTrial ? "Free" : `₹${price!.toLocaleString("en-IN")}`}
+                      <span className={`text-sm font-semibold ml-1 ${isGrowth ? "text-white/60" : "text-muted-foreground"}`}>
+                        {plan.isTrial ? "/ 14 days" : "/mo"}
+                      </span>
                     </div>
-                    {annual && (
+                    {plan.isTrial ? (
+                      <p className="text-xs mt-1 text-primary font-semibold">
+                        No card or payment required
+                      </p>
+                    ) : annual && (
                       <>
                         <p className={`text-xs mt-1 ${isGrowth ? "text-white/55" : "text-muted-foreground"}`}>
-                          Billed as ₹{plan.annual.toLocaleString("en-IN")}/year
+                          Billed as ₹{plan.annual!.toLocaleString("en-IN")}/year
                         </p>
                         <p className={`text-[11px] mt-1 ${isGrowth ? "text-white/45" : "text-muted-foreground/80"}`}>
-                          Save ₹{plan.annualSavings.toLocaleString("en-IN")} per year
+                          Save ₹{plan.annualSavings!.toLocaleString("en-IN")} per year
                         </p>
                       </>
                     )}
@@ -230,13 +258,15 @@ export default function Pricing() {
                       plan.bookings,
                       plan.doctors,
                       plan.deals,
+                      plan.isTrial && plan.trialDays ? `${plan.trialDays}-day free trial` : null,
+                      plan.isTrial ? "No card required" : null,
                       plan.whatsapp ? "WhatsApp notifications" : null,
                       plan.badge ? "Premium verified badge" : null,
                       plan.featured ? "Featured deal placement" : null,
                       `${plan.analytics} analytics`,
                       plan.support !== "None" ? `Support: ${plan.support}` : null,
                     ].filter(Boolean).map((feature) => (
-                      <li key={feature as string} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <li key={feature as string} className="flex items-start gap-2 text-sm text-foreground/80">
                         <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                         {feature}
                       </li>
@@ -247,10 +277,10 @@ export default function Pricing() {
                     <Button
                       className={`w-full gap-2 group h-11 font-bold rounded-xl ${isGrowth ? "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20" : "border-primary/30 text-primary hover:bg-primary/5 hover:border-primary/50"}`}
                       variant={isGrowth ? "default" : "outline"}
-                      onClick={() => setLocation("/register-clinic")}
+                      onClick={() => setLocation(registrationHref(plan.id, annual))}
                       data-testid={`button-choose-${plan.id}`}
                     >
-                      Get Started
+                      {plan.isTrial ? "Start Free" : "Get Started"}
                       <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </div>
@@ -264,24 +294,27 @@ export default function Pricing() {
         <div className="rounded-2xl border border-border/60 bg-background/80 overflow-hidden mb-10">
           <div className="px-6 py-5 border-b border-border/60 bg-secondary/30 dark:bg-secondary/20">
             <h2 className="text-lg font-bold text-foreground">Full feature comparison</h2>
+            <p className="text-xs text-muted-foreground mt-1 sm:hidden">Swipe sideways to compare plans.</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[780px] text-sm">
               <thead>
                 <tr className="border-b border-border/60">
-                  <th className="text-left px-6 py-3 text-muted-foreground font-semibold w-1/2">Feature</th>
-                  <th className="text-center px-4 py-3 text-foreground font-bold">Starter</th>
-                  <th className="text-center px-4 py-3 text-primary font-bold">Growth</th>
-                  <th className="text-center px-4 py-3 text-foreground font-bold">Pro</th>
+                  <th className="sticky left-0 z-20 bg-background text-left px-6 py-3 text-foreground font-semibold w-[240px]">Feature</th>
+                  {PLANS.map((plan) => (
+                    <th key={plan.id} className={`text-center px-4 py-3 font-bold ${plan.popular ? "text-primary" : "text-foreground"}`}>
+                      {plan.name}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {COMPARISON_ROWS.map((row, i) => (
                   <tr key={row.label} className={`border-b border-border/40 ${i % 2 === 0 ? "bg-secondary/10 dark:bg-secondary/5" : ""}`}>
-                    <td className="px-6 py-3 text-muted-foreground">{row.label}</td>
-                    <td className="px-4 py-3 text-center"><Cell value={row.starter} /></td>
-                    <td className="px-4 py-3 text-center"><Cell value={row.growth} /></td>
-                    <td className="px-4 py-3 text-center"><Cell value={row.pro} /></td>
+                    <td className="sticky left-0 z-10 bg-background px-6 py-3 text-foreground font-medium">{row.label}</td>
+                    {PLANS.map((plan) => (
+                      <td key={plan.id} className="px-4 py-3 text-center"><Cell value={row[plan.id]} /></td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
