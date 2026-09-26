@@ -64,10 +64,10 @@ const PLAN_OPTIONS = (["trial", "starter", "growth", "pro"] as const).map((id) =
   return {
     id,
     icon: PLAN_OPTION_ICONS[id],
-    name: policy.displayName,
+    name: isTrial ? "Free Trial" : policy.displayName,
     isTrial,
     price: isTrial ? "Free" : `₹${policy.pricing.monthly!.toLocaleString("en-IN")}/mo`,
-    annual: isTrial ? "No card required" : `${policy.pricing.annual!.toLocaleString("en-IN")}/yr`,
+    annual: isTrial ? "No card or payment" : `${policy.pricing.annual!.toLocaleString("en-IN")}/yr`,
     desc: isTrial
       ? `${policy.trial.durationDays} days · core clinic workflow`
       : `${bookings} · ${doctors} · ${visibility}`,
@@ -925,13 +925,13 @@ export default function RegisterClinic() {
                 {/* ── Plan selector ── */}
                 {!emailVerified ? (
                   /* Teaser — locked until email is verified */
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex items-center gap-4" data-testid="plan-section-locked">
+                  <div className="rounded-2xl border border-border bg-card/80 shadow-sm p-4 flex items-center gap-4" data-testid="plan-section-locked">
                     <div className="h-9 w-9 rounded-xl border border-border/60 bg-card flex items-center justify-center shrink-0">
                       <Zap className="h-4 w-4 text-muted-foreground/60" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground">Choose your plan <span className="text-destructive">*</span></p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Unlocks after email verification · No payment until admin approval</p>
+                      <p className="text-sm font-bold text-foreground">Start free — choose your plan <span className="text-destructive">*</span></p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Unlocks after email verification · 14 days free, no card or payment · upgrade anytime</p>
                     </div>
                     <div className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 border border-border/50 rounded-lg px-2.5 py-1">
                       Step 5
@@ -939,11 +939,11 @@ export default function RegisterClinic() {
                   </div>
                 ) : (
                   /* Full plan selector — revealed after email verified */
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-400 rounded-2xl border border-primary/20 bg-primary/3 p-4 space-y-3" data-testid="plan-section-unlocked">
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-400 rounded-2xl border border-border bg-card/70 shadow-sm p-4 space-y-3" data-testid="plan-section-unlocked">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
-                        <p className="text-sm font-bold text-foreground">Choose your plan <span className="text-destructive">*</span></p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">Select a subscription plan to continue</p>
+                        <p className="text-sm font-bold text-foreground">Start free — choose your plan <span className="text-destructive">*</span></p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">Begin with 14 days free, or choose a paid plan for later activation</p>
                       </div>
                       <a
                         href="/pricing"
@@ -958,16 +958,16 @@ export default function RegisterClinic() {
                     </div>
 
                     {/* Plan and payment reassurance */}
-                    <div className="flex items-start gap-2.5 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5">
+                    <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-secondary/70 dark:bg-primary/10 px-3 py-2.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      <p className="text-[11px] text-foreground/75 leading-relaxed">
                         {selectedPlan === "trial" ? (
                           <>
-                            <span className="font-semibold text-foreground">Start with a 14-day Trial.</span> No card is required. Trial includes a 7-day grace period; after that, choose a paid plan or request activation review.
+                            <span className="font-semibold text-foreground">Start with 14 days free.</span> No card or payment is required. Upgrade anytime when your clinic is ready. Your Trial includes a 7-day grace period after the initial 14 days.
                           </>
                         ) : (
                           <>
-                            <span className="font-semibold text-foreground">No payment now.</span> Approved clinics start with Trial access first. Your selected paid plan is retained for payment activation after approval.
+                            <span className="font-semibold text-foreground">No payment now.</span> Approved clinics start with Trial access first. Choose a paid plan now to reserve your preferred plan; payment starts only after approval.
                           </>
                         )}
                       </p>
@@ -987,11 +987,11 @@ export default function RegisterClinic() {
                             className={`relative text-left rounded-xl border p-3 transition-all duration-200 ${
                               plan.isTrial
                                 ? active
-                                  ? "border-accent bg-accent/10 ring-2 ring-accent/20"
-                                  : "border-accent/40 bg-accent/5 hover:border-accent/70 hover:bg-accent/10"
+                                  ? "border-accent bg-accent/10 ring-2 ring-accent/20 shadow-sm"
+                                  : "border-accent/50 bg-accent/5 hover:border-accent/70 hover:bg-accent/10"
                                 : active
-                                  ? "border-primary bg-primary/8 ring-2 ring-primary/20"
-                                  : "border-border/60 bg-card hover:border-primary/40 hover:bg-primary/3"
+                                  ? "border-primary bg-primary/8 ring-2 ring-primary/20 shadow-sm"
+                                  : "border-border bg-card shadow-sm hover:border-primary/40 hover:bg-primary/3"
                             }`}
                           >
                             {plan.isTrial && (
@@ -1008,10 +1008,10 @@ export default function RegisterClinic() {
                               <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${active ? plan.isTrial ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                                 <Icon className="h-3.5 w-3.5" />
                               </div>
-                              <span className={`text-sm font-bold ${active ? plan.isTrial ? "text-accent-foreground" : "text-primary" : "text-foreground"}`}>{plan.name}</span>
-                              {active && <CheckCircle2 className={`h-3.5 w-3.5 ml-auto ${plan.isTrial ? "text-accent-foreground" : "text-primary"}`} />}
+                              <span className={`text-sm font-bold ${active ? plan.isTrial ? "text-accent" : "text-primary" : "text-foreground"}`}>{plan.name}</span>
+                              {active && <CheckCircle2 className={`h-3.5 w-3.5 ml-auto ${plan.isTrial ? "text-accent" : "text-primary"}`} />}
                             </div>
-                            <p className={`text-base font-extrabold tracking-tight ${active ? plan.isTrial ? "text-accent-foreground" : "text-primary" : "text-foreground"}`}>{plan.price}</p>
+                            <p className={`text-base font-extrabold tracking-tight ${active ? plan.isTrial ? "text-accent" : "text-primary" : "text-foreground"}`}>{plan.price}</p>
                             <p className="text-[10px] text-muted-foreground mt-0.5">{plan.isTrial ? plan.annual : `${plan.annual} annually`}</p>
                             <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{plan.desc}</p>
                           </button>
@@ -1020,7 +1020,7 @@ export default function RegisterClinic() {
                     </div>
 
                     {selectedPlan && selectedPlan !== "trial" && (
-                      <fieldset className="space-y-2 rounded-xl border border-border/60 bg-card/70 p-3" data-testid="requested-billing-cycle">
+                      <fieldset className="space-y-2 rounded-xl border border-border bg-card/80 p-3" data-testid="requested-billing-cycle">
                         <legend className="px-1 text-xs font-semibold text-foreground">Requested billing cycle</legend>
                         <div className="grid grid-cols-2 gap-2">
                           {(["monthly", "annual"] as const).map((cycle) => {
@@ -1072,12 +1072,12 @@ export default function RegisterClinic() {
                 )}
 
                 {/* Review notice */}
-                <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 px-4 py-3 space-y-1.5">
+                <div className="rounded-xl border border-amber-400/50 bg-amber-500/10 px-4 py-3 space-y-1.5">
                   <p className="text-xs font-semibold text-foreground">Your application is subject to review.</p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <p className="text-[11px] text-foreground/75 leading-relaxed">
                     We'll send our decision to your registered email address. Clinics with a higher Trust Score are typically reviewed and approved faster — the optional fields above make a real difference.
                   </p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <p className="text-[11px] text-foreground/75 leading-relaxed">
                     This process also ensures that every clinic listed on BookMySlot is verified — so patients can book with confidence, and your listing stands among genuinely trusted providers.
                   </p>
                 </div>
@@ -1085,7 +1085,7 @@ export default function RegisterClinic() {
                 {/* Submit */}
                 <div className="flex flex-col gap-3 pt-1">
                   <Button type="submit"
-                    className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl disabled:opacity-50"
+                    className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl disabled:opacity-100 disabled:bg-muted disabled:bg-none disabled:text-muted-foreground disabled:border disabled:border-border disabled:shadow-none disabled:cursor-not-allowed"
                     disabled={isSubmitting || !emailVerified || !selectedPlan}
                     data-testid="button-submit-registration">
                     {isSubmitting
