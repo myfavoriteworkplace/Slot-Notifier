@@ -23,12 +23,26 @@ import { PUBLISHED_PLAN_POLICY, type BillingCycle, type PlanKey } from "@shared/
 
 function FieldRow({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
-      <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/50 bg-muted/40">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+    <div className="flex items-center rounded-xl border border-border bg-card/95 shadow-sm focus-within:border-primary/70 focus-within:ring-2 focus-within:ring-primary/15 transition-all overflow-hidden">
+      <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/70 bg-muted/60">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground/90" />
       </div>
       {children}
     </div>
+  );
+}
+
+function RegistrationFieldLabel({
+  htmlFor,
+  children,
+}: {
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="label-field mb-1.5 block">
+      {children} <span className="text-destructive" aria-hidden="true">*</span>
+    </label>
   );
 }
 
@@ -337,7 +351,11 @@ function LockedField({ locked, nudgeMessage, onLockedClick, children }: {
 
   return (
     <div className="relative">
-      <div className="opacity-40 select-none pointer-events-none" aria-disabled="true">
+      <div
+        className="opacity-60 select-none pointer-events-none"
+        aria-disabled="true"
+        title="Complete the previous step to unlock this field"
+      >
         {children}
       </div>
       <div className="absolute inset-0 cursor-not-allowed z-10" onClick={handleClick} />
@@ -544,7 +562,7 @@ export default function RegisterClinic() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/3 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-[380px] h-[380px] bg-accent/5 rounded-full blur-3xl pointer-events-none translate-y-1/3 -translate-x-1/3" />
 
-      <div className="relative w-full max-w-xl lg:max-w-4xl rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden">
+      <div className="registration-form relative w-full max-w-xl lg:max-w-4xl xl:max-w-5xl rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden">
 
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
@@ -584,7 +602,7 @@ export default function RegisterClinic() {
             <form onSubmit={form.handleSubmit(onSubmit)}>
 
               {/* Two-column grid on lg+, single column on mobile */}
-              <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-start">
+              <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-10 lg:items-start">
 
               {/* ── LEFT COLUMN — required fields ── */}
               <div className="space-y-4">
@@ -611,9 +629,10 @@ export default function RegisterClinic() {
                 <FormField control={form.control} name="name"
                   render={({ field }) => (
                     <FormItem>
+                      <RegistrationFieldLabel htmlFor="registration-clinic-name">Clinic name</RegistrationFieldLabel>
                       <FormControl>
                         <FieldRow icon={Building2}>
-                          <Input placeholder="Clinic name" {...field}
+                          <Input id="registration-clinic-name" placeholder="e.g. Sunrise Dental Clinic" {...field}
                             className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
                             data-testid="input-clinic-name" />
                         </FieldRow>
@@ -625,15 +644,16 @@ export default function RegisterClinic() {
 
                 <LockedField
                   locked={!addressUnlocked}
-                  nudgeMessage=""
+                  nudgeMessage="Enter your clinic name first"
                   onLockedClick={() => form.setFocus("name")}
                 >
                   <FormField control={form.control} name="address"
                     render={({ field }) => (
                       <FormItem>
+                        <RegistrationFieldLabel htmlFor="registration-clinic-address">Area or locality</RegistrationFieldLabel>
                         <FormControl>
                           <FieldRow icon={MapPin}>
-                            <Input placeholder="Area / locality" {...field} value={field.value || ""}
+                            <Input id="registration-clinic-address" placeholder="Area / locality" {...field} value={field.value || ""}
                               className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
                               data-testid="input-clinic-address" />
                           </FieldRow>
@@ -646,16 +666,17 @@ export default function RegisterClinic() {
 
                 <LockedField
                   locked={!cityPinUnlocked}
-                  nudgeMessage=""
+                  nudgeMessage="Add your area or locality first"
                   onLockedClick={() => form.setFocus("address")}
                 >
                   <div className="grid grid-cols-2 gap-2 mt-2.5">
                     <FormField control={form.control} name="city"
                       render={({ field }) => (
                         <FormItem>
+                          <RegistrationFieldLabel htmlFor="registration-clinic-city">City</RegistrationFieldLabel>
                           <FormControl>
                             <FieldRow icon={MapPin}>
-                              <Input placeholder="City" {...field} value={field.value || ""}
+                              <Input id="registration-clinic-city" placeholder="e.g. Kochi" {...field} value={field.value || ""}
                                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
                                 data-testid="input-clinic-city" />
                             </FieldRow>
@@ -667,9 +688,10 @@ export default function RegisterClinic() {
                     <FormField control={form.control} name="pincode"
                       render={({ field }) => (
                         <FormItem>
+                          <RegistrationFieldLabel htmlFor="registration-clinic-pincode">PIN code</RegistrationFieldLabel>
                           <FormControl>
                             <FieldRow icon={Hash}>
-                              <Input placeholder="PIN code" {...field} value={field.value || ""}
+                              <Input id="registration-clinic-pincode" placeholder="6-digit PIN code" {...field} value={field.value || ""}
                                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
                                 data-testid="input-clinic-pincode" />
                             </FieldRow>
@@ -685,15 +707,16 @@ export default function RegisterClinic() {
               {/* Field: Phone */}
               <LockedField
                 locked={!phoneUnlocked}
-                nudgeMessage=""
+                nudgeMessage="Complete your location first"
                 onLockedClick={() => form.setFocus("address")}
               >
                 <FormField control={form.control} name="phone"
                   render={({ field }) => (
                     <FormItem>
+                      <RegistrationFieldLabel htmlFor="registration-clinic-phone">Phone number</RegistrationFieldLabel>
                       <FormControl>
                         <FieldRow icon={Phone}>
-                          <Input placeholder="Phone number  (+91 98765 43210)" {...field} value={field.value || ""}
+                          <Input id="registration-clinic-phone" placeholder="+91 98765 43210" {...field} value={field.value || ""}
                             className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
                             data-testid="input-clinic-phone" />
                         </FieldRow>
@@ -707,16 +730,17 @@ export default function RegisterClinic() {
               {/* Field: Email + OTP */}
               <LockedField
                 locked={!emailUnlocked}
-                nudgeMessage=""
+                nudgeMessage="Enter a valid phone number first"
                 onLockedClick={() => form.setFocus("phone")}
               >
               <div className="space-y-2">
                 <FormField control={form.control} name="email"
                   render={({ field }) => (
                     <FormItem>
+                      <RegistrationFieldLabel htmlFor="registration-clinic-email">Email address</RegistrationFieldLabel>
                       <FormControl>
                         <FieldRow icon={Mail}>
-                          <Input type="email" placeholder="Email address" {...field} value={field.value || ""}
+                          <Input id="registration-clinic-email" type="email" placeholder="name@clinic.com" {...field} value={field.value || ""}
                             disabled={emailVerified}
                             className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm disabled:opacity-60"
                             data-testid="input-clinic-email" />

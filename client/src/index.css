@@ -153,6 +153,17 @@
     @apply text-xs font-semibold uppercase tracking-wide text-muted-foreground;
   }
 
+  /* Registration fields use visible labels, so their examples can be clearer
+     and non-italic without changing the shared application placeholder style. */
+  .registration-form input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.72);
+    font-style: normal;
+  }
+
+  .registration-form input:disabled::placeholder {
+    color: hsl(var(--muted-foreground) / 0.62);
+  }
+
   /* Native <select> with standard border + focus ring.
      Use with w-full on raw <select> elements (AppointmentCard, BookingsPanel).
      Shadcn <Select> does NOT need this — it uses its own trigger styles.      */
